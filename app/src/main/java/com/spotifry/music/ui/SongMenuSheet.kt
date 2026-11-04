@@ -49,7 +49,7 @@ import androidx.compose.ui.semantics.semantics
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
-data class MenuAction(val label: String, val icon: ImageVector? = null, val onClick: () -> Unit)
+data class MenuAction(val label: String, val icon: ImageVector? = null, val lineAbove: Boolean = false, val onClick: () -> Unit)
 
 @Composable
 private fun ActionRow(label: String, icon: ImageVector? = null, color: Color = Color.Unspecified, onClick: () -> Unit) {
@@ -69,8 +69,14 @@ fun SongMenuSheet(song: Song, actions: List<MenuAction>, onDismiss: () -> Unit) 
     ModalBottomSheet(onDismiss, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(song.title, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            Text(song.artist, Modifier.padding(horizontal = 24.dp, vertical = 2.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            actions.forEach { a -> ActionRow(a.label, a.icon) { a.onClick(); onDismiss() } }
+            Row(Modifier.padding(horizontal = 24.dp, vertical = 2.dp), Arrangement.spacedBy(5.dp), Alignment.CenterVertically) {
+                if (song.suggested) Icon(Icons.Sparkle, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.primary)
+                Text(if (song.suggested) "${song.artist} · suggested for you" else song.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            actions.forEach { a ->
+                if (a.lineAbove) HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                ActionRow(a.label, a.icon) { a.onClick(); onDismiss() }
+            }
         }
     }
 }
@@ -89,26 +95,26 @@ fun AddToPlaylistSheet(playlists: List<PlaylistWithCounts>, onPick: (Long) -> Un
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QueueSheet(state: PlayerUiState, saved: Set<String>, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+fun QueueSheet(state: PlayerUiState, saved: Set<String>, onPick: (Int) -> Unit, onDismiss: () -> Unit, onSuggestionMore: (Int) -> Unit = {}) {
     // fully open: half open, the bottom of the list (and its padding) sits off screen, under the gesture bar
     val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
         Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
             Text("Queue", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.headlineSmall)
-            QueueList(state, saved) { onPick(it); onDismiss() }
+            QueueList(state, saved, onSuggestionMore) { onPick(it); onDismiss() }
         }
     }
 }
 
 /** Scrolls, because the queue grows by about 20 similar songs every time it runs out. */
 @Composable
-fun QueueList(state: PlayerUiState, saved: Set<String> = emptySet(), onPick: (Int) -> Unit) {
+fun QueueList(state: PlayerUiState, saved: Set<String> = emptySet(), onSuggestionMore: (Int) -> Unit = {}, onPick: (Int) -> Unit) {
     LazyColumn(Modifier.testTag("queue_list")) {
         items(state.upNextIndices()) { i ->
             val s = state.queue[i]
             val playing = i == state.currentIndex
             SongRow(
-                s, s.id in saved, { onPick(i) }, null, subtitleExtra = if (playing) "Playing" else null,
+                s, s.id in saved, { onPick(i) }, if (s.suggested) { { onSuggestionMore(i) } } else null, subtitleExtra = if (playing) "Playing" else null,
                 titleColor = if (playing) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Unspecified,
             )
         }

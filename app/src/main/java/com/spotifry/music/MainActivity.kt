@@ -15,6 +15,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -138,7 +139,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class MenuTarget(val song: Song, val playlistId: Long? = null, val fromPlayer: Boolean = false)
+/** [queueIndex]: where the song sits in the queue, for a suggestion's "Not this song". */
+private data class MenuTarget(val song: Song, val playlistId: Long? = null, val fromPlayer: Boolean = false, val queueIndex: Int? = null)
 
 @Composable
 fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Unit = {}) {
@@ -206,6 +208,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     LaunchedEffect(player.current == null) { if (player.current == null) showPlayer = false }
 
     val inset = if (player.current != null) 80.dp else 0.dp
+    val suggestionMenu: (Int) -> Unit = { i -> player.queue.getOrNull(i)?.let { menu = MenuTarget(it, queueIndex = i) } }
     val openMenu: (Song) -> Unit = { menu = MenuTarget(it) }
     val goTo: (String) -> Unit = { r ->
         nav.navigate(r) {
@@ -284,14 +287,17 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                 NowPlayingContent(
                     player, save,
                     onClose = { showPlayer = false }, onToggle = c.player::toggle, onNext = c.player::next, onPrev = c.player::previous,
-                    onSeek = c.player::seekTo, onShuffle = { c.player.setShuffle(!player.shuffle) }, onRepeat = c.player::cycleRepeat,
-                    onSave = npVm::onSave, onQueue = { showQueue = true }, onMore = { player.current?.let { menu = MenuTarget(it, fromPlayer = true) } },
+                    onSeek = c.player::seekTo, onShuffle = c.player::cycleShuffle, onRepeat = c.player::cycleRepeat,
+                    onSave = npVm::onSave, onQueue = { showQueue = true }, onMore = { player.current?.let { menu = MenuTarget(it, fromPlayer = true, queueIndex = player.currentIndex) } },
                     saved = saved.map { it.id }.toSet(), onPick = c.player::skipTo,
                     lyrics = lyrics, onRetryLyrics = npVm::retryLyrics, showLyrics = showLyrics, onShowLyrics = { showLyrics = it },
                     position = position,
                     sleep = sleep, sleepLeft = c.sleepTimer::remainingMs, onSleep = { showSleep = true },
                     speedLabel = speedLabel, onSpeed = { showSpeed = true },
+                    onSuggestionMore = suggestionMenu,
                 )
+                // the app's own snackbar sits under Now playing; this one shows the same message on top of it
+                Box(Modifier.fillMaxSize()) { SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) }
             }
             // after Now playing, so a picture made from its menu opens on top of it
             incoming?.let { got ->
@@ -319,6 +325,19 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     add(MenuAction("Sleep timer$left", Icons.Clock) { showSleep = true })
                     add(MenuAction("Speed and pitch" + (speedLabel?.let { " · $it" } ?: ""), Icons.Speed) { showSpeed = true })
                 }
+                val at = target.queueIndex
+                if (target.song.suggested && at != null) add(MenuAction("Not this song", Icons.None, lineAbove = true) {
+                    // out of the queue (the playing one skips to the next) and never suggested again
+                    val s = target.song
+                    c.setNotSuggested(s.id, true)
+                    c.player.remove(at, s.id)
+                    scope.launch {
+                        if (snackbar.showSnackbar("Won't suggest this song again", "Undo", duration = androidx.compose.material3.SnackbarDuration.Short) == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                            c.setNotSuggested(s.id, false)
+                            c.player.insert(at, s)
+                        }
+                    }
+                })
             }
             SongMenuSheet(target.song, actions) { menu = null }
         }
@@ -333,7 +352,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
         if (showSpeed) com.spotifry.music.ui.SpeedPitchSheet(speed, pitch, c.settings::setSpeed, c.settings::setPitch) { showSpeed = false }
         shareSong?.let { s -> ShareSongSheet(s, { picture = ShareTarget.of(s) }) { shareSong = null } }
         sharePlaylist?.let { t -> SharePlaylistSheet(t, { picture = t }) { sharePlaylist = null } }
-        if (showQueue) QueueSheet(player, saved.map { it.id }.toSet(), c.player::skipTo) { showQueue = false }
+        if (showQueue) QueueSheet(player, saved.map { it.id }.toSet(), c.player::skipTo, { showQueue = false }, suggestionMenu)
     }
 }
 

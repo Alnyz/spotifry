@@ -8,6 +8,8 @@ data class Song(
     val thumbnailUrl: String?,
     /** Cover file on the phone, set only for saved songs, so art still shows offline. */
     val localThumbPath: String? = null,
+    /** Put in the queue by Smart shuffle, not by the listener. Lives only in the queue, never stored. */
+    val suggested: Boolean = false,
 ) {
     val url get() = "https://www.youtube.com/watch?v=$id"
 }

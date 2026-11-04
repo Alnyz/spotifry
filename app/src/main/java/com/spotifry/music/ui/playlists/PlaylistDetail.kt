@@ -98,7 +98,7 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
                     if (snackbar.showSnackbar("Order mixed up", "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) vm.saveOrder(id, old)
                 }
             },
-            onPlay = { l, i -> vm.play(l, i, name) }, onMore = { onMore(it, id) }, onMenu = { menu = true }, onBack = onBack,
+            onPlay = { l, i -> vm.play(l, i, name) }, onShuffle = { vm.shuffle(it, name) }, onMore = { onMore(it, id) }, onMenu = { menu = true }, onBack = onBack,
             bottomInset = bottomInset, subtitle = playlist?.let(::countsLabel), loading = list == null,
         ) {
             DropdownMenu(menu, { menu = false }) {
@@ -124,7 +124,8 @@ fun PlaylistDetailContent(
     name: String, songs: List<SongEntity>, query: String, onQuery: (String) -> Unit,
     order: PlaylistOrder, onOrder: (PlaylistOrder) -> Unit, onEditOrder: () -> Unit, onMixUp: () -> Unit,
     onPlay: (List<Song>, Int) -> Unit, onMore: (Song) -> Unit, onMenu: () -> Unit, onBack: () -> Unit,
-    modifier: Modifier = Modifier, bottomInset: Dp = 0.dp, subtitle: String? = null, loading: Boolean = false, menuHost: @Composable () -> Unit = {},
+    modifier: Modifier = Modifier, bottomInset: Dp = 0.dp, subtitle: String? = null, loading: Boolean = false,
+    onShuffle: (List<Song>) -> Unit = {}, menuHost: @Composable () -> Unit = {},
 ) {
     val all = remember(songs) { songs.map { it.toSong() } }
     val searching = query.isNotBlank()
@@ -134,7 +135,7 @@ fun PlaylistDetailContent(
             ScreenHeader(name, subtitle = subtitle, onBack = onBack, trailing = {
                 Box { IconButton(onMenu, Modifier.size(48.dp)) { Icon(Icons.More, "Playlist options") }; menuHost() }
             })
-            if (songs.isNotEmpty() && !searching) PlayButtons({ onPlay(all, 0) }, { onPlay(all.shuffled(), 0) }, Modifier.padding(start = 20.dp, top = 16.dp))
+            if (songs.isNotEmpty() && !searching) PlayButtons({ onPlay(all, 0) }, { onShuffle(all) }, Modifier.padding(start = 20.dp, top = 16.dp))
             if (songs.size > 1 || searching) Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
                 SearchField(query, onQuery, {}, Modifier.weight(1f), hint = "Search in $name")
                 if (!searching) OrderButton(order, onOrder, onEditOrder, onMixUp)

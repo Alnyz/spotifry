@@ -96,6 +96,8 @@ abstract class PlayCountDao {
 
     @Query("DELETE FROM plays") abstract suspend fun clear()
 
+    @Query("SELECT songId FROM plays WHERE lastPlayedAt >= :since") abstract suspend fun playedSince(since: Long): List<String>
+
     /** Ties go to the song played most recently. */
     @Query("SELECT s.* FROM songs s JOIN plays p ON p.songId = s.id ORDER BY p.count DESC, p.lastPlayedAt DESC LIMIT :limit")
     abstract fun observeMostPlayed(limit: Int): Flow<List<SongEntity>>

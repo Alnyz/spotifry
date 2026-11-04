@@ -5,7 +5,9 @@ import android.content.Context
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import android.os.Bundle
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.spotifry.music.data.source.Song
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +27,8 @@ data class PlayerUiState(
     val queue: List<Song> = emptyList(),
     val currentIndex: Int = 0,
     val shuffle: Boolean = false,
+    /** Shuffle with a similar song from YouTube after every three of yours. Only while [shuffle] is on. */
+    val smart: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     /** Queue positions in the order they will play, starting at the current song. Null means plain list order. */
     val order: List<Int>? = null,
@@ -36,9 +40,17 @@ data class PlayerUiState(
 
 /** UI-facing handle on the playback service. Commands sent before the connection is ready are queued. */
 /** What screens need to start playback; lets view models be tested without a service. */
-interface SongPlayer { fun playList(songs: List<Song>, startIndex: Int, from: String? = null) }
+interface SongPlayer {
+    fun playList(songs: List<Song>, startIndex: Int, from: String? = null)
+    /** A list's Shuffle button: the songs spread out by [spreadShuffle], always plain shuffle. */
+    fun shuffleList(songs: List<Song>, from: String? = null) = playList(spreadShuffle(songs, emptySet()), 0, from)
+}
 
-class PlayerController(context: Context, private val lastQueueFile: File = File(context.filesDir, "last_queue.json")) : SongPlayer {
+class PlayerController(
+    context: Context,
+    private val lastQueueFile: File = File(context.filesDir, "last_queue.json"),
+    private val recentlyPlayed: suspend () -> Set<String> = { emptySet() },
+) : SongPlayer {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
@@ -48,6 +60,8 @@ class PlayerController(context: Context, private val lastQueueFile: File = File(
 
     private var controller: MediaController? = null
     private var from: String? = null
+    // the service knows too; kept here so the button shows the step at once
+    private var smart = false
     private val pending = mutableListOf<(MediaController) -> Unit>()
 
     init {
@@ -94,6 +108,7 @@ class PlayerController(context: Context, private val lastQueueFile: File = File(
     }
 
     private fun publish(c: MediaController) {
+        if (!c.shuffleModeEnabled) smart = false
         _position.value = c.currentPosition.coerceAtLeast(0)
         _state.value = PlayerUiState(
             current = c.currentMediaItem?.toSong(),
@@ -103,6 +118,7 @@ class PlayerController(context: Context, private val lastQueueFile: File = File(
             queue = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).toSong() },
             currentIndex = c.currentMediaItemIndex,
             shuffle = c.shuffleModeEnabled,
+            smart = smart,
             repeatMode = c.repeatMode,
             order = playOrder(c),
             from = from,
@@ -126,7 +142,12 @@ class PlayerController(context: Context, private val lastQueueFile: File = File(
 
     override fun playList(songs: List<Song>, startIndex: Int, from: String?) = run { c ->
         this.from = from
+        // shuffle stays on for a new list but starts fresh: plain (never smart), spread out again by the service
+        val shuffled = c.shuffleModeEnabled
+        smart = false
+        if (shuffled) c.shuffleModeEnabled = false
         c.setMediaItems(songs.map { it.toMediaItem() }, startIndex, 0)
+        if (shuffled) c.shuffleModeEnabled = true
         c.prepare()
         c.play()
     }
@@ -137,7 +158,28 @@ class PlayerController(context: Context, private val lastQueueFile: File = File(
     fun next() = run { it.seekToNextMediaItem() }
     fun previous() = run { it.seekToPreviousMediaItem() }
     fun seekTo(ms: Long) = run { it.seekTo(ms) }
-    fun setShuffle(on: Boolean) = run { it.shuffleModeEnabled = on }
+    override fun shuffleList(songs: List<Song>, from: String?) {
+        scope.launch { playList(spreadShuffle(songs, runCatching { recentlyPlayed() }.getOrDefault(emptySet())), 0, from) }
+    }
+
+    /** The Now playing button: off, Shuffle, Smart shuffle, off. The service sets the order and adds the suggestions. */
+    fun cycleShuffle() = run {
+        when {
+            !it.shuffleModeEnabled -> it.shuffleModeEnabled = true
+            !smart -> { smart = true; it.sendCustomCommand(SessionCommand(PlaybackService.SMART_SHUFFLE, Bundle.EMPTY), Bundle.EMPTY); publish(it) }
+            else -> { smart = false; it.shuffleModeEnabled = false }
+        }
+    }
+
+    /** Takes a song out of the queue; [index] is checked against [id] in case the queue moved meanwhile. */
+    fun remove(index: Int, id: String) = run { c ->
+        val at = index.takeIf { it < c.mediaItemCount && c.getMediaItemAt(it).mediaId == id }
+            ?: (0 until c.mediaItemCount).firstOrNull { c.getMediaItemAt(it).mediaId == id } ?: return@run
+        c.removeMediaItem(at)
+    }
+
+    // ponytail: with shuffle on the song comes back at a random spot in the order, not where it was
+    fun insert(index: Int, song: Song) = run { it.addMediaItem(index.coerceIn(0, it.mediaItemCount), song.toMediaItem()) }
     fun cycleRepeat() = run {
         it.repeatMode = when (it.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL

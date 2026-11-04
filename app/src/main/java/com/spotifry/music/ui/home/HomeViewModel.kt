@@ -91,9 +91,9 @@ class HomeViewModel(
     /** The keyboard's search key: keeps the words and searches again. */
     fun submit() { recentSearches.add(query.value); retry() }
 
-    /** Every saved song in random order. */
+    /** Every saved song, shuffled. */
     fun shuffleSaved() {
-        val list = saved.value.map { it.toSong() }.shuffled()
-        if (list.isNotEmpty()) player.playList(list, 0, "Saved")
+        val list = saved.value.map { it.toSong() }
+        if (list.isNotEmpty()) player.shuffleList(list, "Saved")
     }
 }

@@ -21,6 +21,11 @@ import android.content.Context
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import androidx.media3.exoplayer.source.ShuffleOrder
+import android.os.Bundle
+import com.google.common.util.concurrent.ListenableFuture
 import com.spotifry.music.MainActivity
 import com.spotifry.music.MusicApp
 import com.spotifry.music.data.db.toEntity
@@ -45,6 +50,9 @@ class PlaybackService : MediaSessionService() {
     private var equalizer: android.media.audiofx.Equalizer? = null
     /** The song now playing began by running on from the one before, so it fades in. */
     private var fadeIn = false
+    /** Smart shuffle is on: one similar song after every three of yours. Turned on only by the Now playing button. */
+    private var smart = false
+    private var filling = false
 
     override fun onCreate() {
         super.onCreate()
@@ -97,6 +105,10 @@ class PlaybackService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onAudioSessionIdChanged(audioSessionId: Int) = attachEqualizer(audioSessionId)
 
+            override fun onShuffleModeEnabledChanged(on: Boolean) {
+                if (on) spreadOrder(player) else { smart = false; dropSuggestions(player) }
+            }
+
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
                 // a jump within the song or a skip with Next: no fade-in, the sound comes straight in
                 if (reason == Player.DISCONTINUITY_REASON_SEEK) fadeIn = false
@@ -118,6 +130,7 @@ class PlaybackService : MediaSessionService() {
                     scope.launch(Dispatchers.Default) { c.resolver.prefetch(next, c.streamLow()) }
                 }
                 appendSimilarIfNeeded(player)
+                fillSuggestions(player)
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -160,6 +173,19 @@ class PlaybackService : MediaSessionService() {
         )
         session = MediaSession.Builder(this, player).setSessionActivity(open).setBitmapLoader(covers)
             .setCallback(object : MediaSession.Callback {
+                override fun onConnect(s: MediaSession, controller: MediaSession.ControllerInfo) =
+                    MediaSession.ConnectionResult.AcceptedResultBuilder(s).setAvailableSessionCommands(
+                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(SessionCommand(SMART_SHUFFLE, Bundle.EMPTY)).build(),
+                    ).build()
+
+                override fun onCustomCommand(s: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {
+                    if (command.customAction != SMART_SHUFFLE) return super.onCustomCommand(s, controller, command, args)
+                    smart = true
+                    // already shuffled (the button steps through Shuffle first): only the suggestions are new
+                    if (player.shuffleModeEnabled) fillSuggestions(player) else player.shuffleModeEnabled = true
+                    return com.google.common.util.concurrent.Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+
                 // Play from the widget (or a headset) while the app was closed: pick up the last queue where it stopped
                 override fun onPlaybackResumption(s: MediaSession, controller: MediaSession.ControllerInfo) =
                     runCatching { java.io.File(filesDir, "last_queue.json").readText() }.getOrNull()?.let(LastQueue::decode)?.let { last ->
@@ -232,7 +258,82 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    /** Queue positions in the order they will play, from [from] on, or the whole order. */
+    private fun ExoPlayer.order(from: Int? = null): List<Int> {
+        val t = currentTimeline
+        val out = mutableListOf<Int>()
+        if (t.isEmpty) return out
+        var i = from ?: t.getFirstWindowIndex(shuffleModeEnabled)
+        while (i != C.INDEX_UNSET && out.size < t.windowCount) { out += i; i = t.getNextWindowIndex(i, Player.REPEAT_MODE_OFF, shuffleModeEnabled) }
+        return out
+    }
+
+    /** Shuffle just turned on: the song playing stays first, the rest follow in the spread-out order (see [spreadShuffle]). */
+    private fun spreadOrder(player: ExoPlayer) {
+        val c = (application as MusicApp).container
+        scope.launch {
+            val recent = runCatching { c.recentlyPlayed() }.getOrDefault(emptySet())
+            val n = player.mediaItemCount
+            if (!player.shuffleModeEnabled || n < 2) return@launch
+            val cur = player.currentMediaItemIndex
+            val rest = spreadShuffle(
+                (0 until n).filter { it != cur }, { player.getMediaItemAt(it).mediaMetadata.artist?.toString().orEmpty() },
+                { player.getMediaItemAt(it).mediaId in recent }, kotlin.random.Random.Default,
+            )
+            player.setShuffleOrder(ShuffleOrder.DefaultShuffleOrder((listOf(cur) + rest).toIntArray(), kotlin.random.Random.nextLong()))
+            fillSuggestions(player)
+        }
+    }
+
+    /**
+     * Smart shuffle: after the last suggestion still to come, one similar song after every three of yours. Runs when it
+     * is turned on and again when the suggestions ahead run low, so the mix keeps going through a long list.
+     * Offline or nothing found: it just plays on like plain Shuffle.
+     */
+    private fun fillSuggestions(player: ExoPlayer) {
+        if (!smart || filling || !player.shuffleModeEnabled || player.mediaItemCount == 0) return
+        val ahead = player.order(player.currentMediaItemIndex).drop(1)
+        val lastTip = ahead.indexOfLast { player.getMediaItemAt(it).isSuggested }
+        if (lastTip >= 8 || ahead.size - lastTip - 1 < 3) return
+        filling = true
+        val seeds = (listOf(player.currentMediaItemIndex) + ahead.drop(lastTip + 1).take(2)).map { player.getMediaItemAt(it).toSong() }
+        val c = (application as MusicApp).container
+        scope.launch {
+            try {
+                val found = seeds.flatMap { s ->
+                    try { c.source.related(s) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { emptyList() }
+                }
+                if (!smart || !player.shuffleModeEnabled) return@launch
+                // read again after the wait: the queue may have moved on
+                val order = player.order()
+                val next = player.order(player.currentMediaItemIndex).drop(1)
+                val stretch = next.drop(next.indexOfLast { player.getMediaItemAt(it).isSuggested } + 1)
+                val queued = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
+                val no = c.notSuggested()
+                val tips = found.distinctBy { it.id }.filter { it.id !in queued && it.id !in no }.shuffled().take(stretch.size / 3)
+                if (tips.isEmpty()) return@launch
+                val start = player.mediaItemCount
+                player.addMediaItems(tips.map { it.copy(suggested = true).toMediaItem() })
+                val mixed = order.dropLast(stretch.size) + interleave(stretch, tips.indices.map { start + it })
+                player.setShuffleOrder(ShuffleOrder.DefaultShuffleOrder(mixed.toIntArray(), kotlin.random.Random.nextLong()))
+            } finally { filling = false }
+        }
+    }
+
+    /** Shuffle off: suggestions leave the queue, except the one playing now, which finishes. */
+    private fun dropSuggestions(player: ExoPlayer) {
+        // ponytail: also drops suggestions already heard, so Previous can't go back to them; keep a heard set if that matters
+        for (i in player.mediaItemCount - 1 downTo 0) {
+            if (i != player.currentMediaItemIndex && player.getMediaItemAt(i).isSuggested) player.removeMediaItem(i)
+        }
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = session
+
+    companion object {
+        /** Sent by the Now playing button to turn on Smart shuffle. */
+        const val SMART_SHUFFLE = "com.spotifry.music.SMART_SHUFFLE"
+    }
 
     override fun onDestroy() {
         scope.cancel()

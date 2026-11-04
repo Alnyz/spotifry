@@ -67,6 +67,8 @@ fun SongRow(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     if (saved) Icon(Icons.Download, "Saved on this phone", Modifier.size(14.dp).testTag("saved_mark"), tint = savedMarkColor())
                     if (song.isLocal) Icon(Icons.Phone, "File on this phone", Modifier.size(13.dp), tint = savedMarkColor())
+                    // saved, it counts as one of yours
+                    if (song.suggested && !saved) Icon(Icons.Sparkle, "Suggested for you", Modifier.size(13.dp), tint = savedMarkColor())
                     Text(
                         marked(listOfNotNull(song.artist.ifBlank { null }, subtitleExtra).joinToString(" · "), highlight, mark),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

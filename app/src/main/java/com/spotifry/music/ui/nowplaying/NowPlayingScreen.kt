@@ -98,6 +98,8 @@ fun NowPlayingContent(
     sleep: SleepState = SleepState.Off, sleepLeft: () -> Long? = { null }, onSleep: () -> Unit = {},
     /** "1.25× · +2" when speed or pitch isn't normal, else null. */
     speedLabel: String? = null, onSpeed: () -> Unit = {},
+    /** The ⋮ of a suggested song in Coming up, with its queue position. */
+    onSuggestionMore: (Int) -> Unit = {},
 ) {
     val song = state.current ?: return
     // a new song closes the full lyrics of the old one
@@ -159,7 +161,7 @@ fun NowPlayingContent(
                 }
             }
             LyricsCard(lyrics, position, state.isPlaying, lerp(top, Color.White, .14f), { onShowLyrics(true) }, onRetryLyrics)
-            ComingUp(state, saved, lerp(top, Color.Black, .35f), onPick, onQueue)
+            ComingUp(state, saved, lerp(top, Color.Black, .35f), onPick, onQueue, onSuggestionMore)
         }
         val ready = (lyrics as? LyricsUi.Ready)?.lyrics
         // back is handled by the app shell, which closes these lyrics first and Now playing after
@@ -250,7 +252,11 @@ private fun Controls(
         )
     }
     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        ToggleIcon(Icons.Shuffle, "Shuffle", state.shuffle) { say(if (state.shuffle) "Shuffle off" else "Shuffle on"); onShuffle() }
+        // the order the button steps through: off, Shuffle, Smart shuffle, off
+        ToggleIcon(if (state.smart) Icons.SmartShuffle else Icons.Shuffle, if (state.smart) "Smart shuffle" else "Shuffle", state.shuffle) {
+            say(when { !state.shuffle -> "Shuffle on"; !state.smart -> "Smart shuffle on"; else -> "Shuffle off" })
+            onShuffle()
+        }
         IconButton(onPrev, Modifier.size(56.dp)) { Icon(Icons.Prev, "Previous song", Modifier.size(36.dp)) }
         Box(Modifier.size(68.dp).clip(CircleShape).background(Color.White).clickable(onClick = onToggle), Alignment.Center) {
             Icon(if (state.isPlaying) Icons.Pause else Icons.Play, if (state.isPlaying) "Pause" else "Play", Modifier.size(34.dp), tint = Color(0xFF0C0D10))
@@ -271,7 +277,7 @@ private fun Controls(
 
 /** The card under the fold: the next songs, in the order they will play. "Open queue" opens the full list. */
 @Composable
-private fun ComingUp(state: PlayerUiState, saved: Set<String>, color: Color, onPick: (Int) -> Unit, onQueue: () -> Unit) {
+private fun ComingUp(state: PlayerUiState, saved: Set<String>, color: Color, onPick: (Int) -> Unit, onQueue: () -> Unit, onSuggestionMore: (Int) -> Unit) {
     val next = state.upNextIndices().drop(1).take(5)
     Column(
         Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(color)
@@ -289,7 +295,8 @@ private fun ComingUp(state: PlayerUiState, saved: Set<String>, color: Color, onP
         }
         next.forEach { i ->
             val s = state.queue[i]
-            SongRow(s, s.id in saved, { onPick(i) }, null)
+            // only suggestions get a ⋮, to keep one or say no to it
+            SongRow(s, s.id in saved, { onPick(i) }, if (s.suggested) { { onSuggestionMore(i) } } else null)
         }
     }
     Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars).height(16.dp))

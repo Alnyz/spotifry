@@ -31,7 +31,9 @@ class AppContainer(private val context: Context) {
     val db: AppDatabase = AppDatabase.create(context)
     val source: MusicSource = NewPipeSource()
     val resolver = StreamResolver(source)
-    val player by lazy { PlayerController(context.applicationContext) }
+    val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed) }
+    /** Songs listened to in the last 24 hours: Shuffle plays them in the second half. */
+    suspend fun recentlyPlayed(): Set<String> = db.plays().playedSince(System.currentTimeMillis() - 24 * 60 * 60 * 1000L).toSet()
     /** One lyrics lookup for Now playing and Share, so a song's lyrics are fetched once. */
     val lyrics = com.spotifry.music.data.LyricsSource(client)
     val historyRecorder = HistoryRecorder(db.history(), db.songs())
@@ -50,6 +52,10 @@ class AppContainer(private val context: Context) {
 
     /** Data saver is on and the phone is on mobile data (or any connection that counts data). */
     fun streamLow(): Boolean = settings.dataSaver.value && connectivity.isActiveNetworkMetered
+    /** Songs marked "Not this song": Smart shuffle never suggests them again. */
+    fun notSuggested(): Set<String> = prefs.getStringSet("not_suggested", null).orEmpty()
+    fun setNotSuggested(id: String, no: Boolean) =
+        prefs.edit().putStringSet("not_suggested", if (no) notSuggested() + id else notSuggested() - id).apply()
     val recentSearches = RecentSearches(prefs.getString("recent_searches", "").orEmpty().split('\n').filter { it.isNotEmpty() }) {
         prefs.edit().putString("recent_searches", it.joinToString("\n")).apply()
     }

@@ -72,6 +72,7 @@ class PlaylistsViewModel(
     fun addSong(playlistId: Long, song: Song) { viewModelScope.launch { addSongNow(playlistId, song) } }
     fun removeSong(playlistId: Long, songId: String) { viewModelScope.launch { dao.removeSong(playlistId, songId) } }
     fun play(list: List<Song>, index: Int, from: String? = null) = player.playList(list, index, from)
+    fun shuffle(list: List<Song>, from: String) = player.shuffleList(list, from)
 
     private suspend fun addSongNow(playlistId: Long, song: Song) {
         songs.upsert(song.toEntity())

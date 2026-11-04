@@ -29,6 +29,8 @@ class SavedViewModel(songs: SongDao, private val downloads: DownloadRepository, 
     fun refreshPhone() { viewModelScope.launch { local.refresh() } }
     fun play(list: List<Song>, index: Int) = player.playList(list, index, "Saved")
     fun playPhone(list: List<Song>, index: Int) = player.playList(list, index, "On this phone")
+    fun shuffle(list: List<Song>) = player.shuffleList(list, "Saved")
+    fun shufflePhone(list: List<Song>) = player.shuffleList(list, "On this phone")
     fun save(song: Song) { viewModelScope.launch { downloads.save(song) } }
     fun remove(songId: String) { viewModelScope.launch { downloads.remove(songId) } }
 }

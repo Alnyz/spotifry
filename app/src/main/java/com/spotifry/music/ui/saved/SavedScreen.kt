@@ -47,7 +47,7 @@ import com.spotifry.music.ui.components.SongRow
 import com.spotifry.music.ui.settings.Segments
 
 /** The "On this phone" tab: whether music access is allowed, the files found, and what tapping does. */
-class PhoneTab(val allowed: Boolean, val songs: List<Song>, val onAllow: () -> Unit, val onPlay: (List<Song>, Int) -> Unit)
+class PhoneTab(val allowed: Boolean, val songs: List<Song>, val onAllow: () -> Unit, val onPlay: (List<Song>, Int) -> Unit, val onShuffle: (List<Song>) -> Unit = {})
 
 @Composable
 fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier) {
@@ -60,9 +60,9 @@ fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Un
     // opening the tab reads the files again, so new ones (or access given in Android's settings) show up
     LaunchedEffect(onPhone) { if (onPhone) { allowed = vm.allowed(); vm.refreshPhone() } }
     SavedContent(
-        saved, onFindSong, vm::play, onMore, modifier, bottomInset,
+        saved, onFindSong, vm::play, onMore, modifier, bottomInset, onShuffle = vm::shuffle,
         onPhone = onPhone, onTab = { onPhone = it },
-        phone = PhoneTab(allowed, phone, { ask.launch(Manifest.permission.READ_MEDIA_AUDIO) }, vm::playPhone),
+        phone = PhoneTab(allowed, phone, { ask.launch(Manifest.permission.READ_MEDIA_AUDIO) }, vm::playPhone, vm::shufflePhone),
     )
 }
 
@@ -71,6 +71,7 @@ fun SavedContent(
     saved: List<SongEntity>, onFindSong: () -> Unit, onPlay: (List<Song>, Int) -> Unit, onMore: (Song) -> Unit,
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     onPhone: Boolean = false, onTab: (Boolean) -> Unit = {}, phone: PhoneTab? = null,
+    onShuffle: (List<Song>) -> Unit = {},
 ) {
     val subtitle = when {
         onPhone && phone != null -> if (phone.allowed && phone.songs.isNotEmpty()) "${phone.songs.size} ${if (phone.songs.size == 1) "song" else "songs"} on this phone" else "Plays without internet"
@@ -89,7 +90,7 @@ fun SavedContent(
                 phone.songs.isEmpty() -> item { EmptyState("No music files found", "Songs you copy or download to this phone, like MP3s, show up here.") }
                 else -> {
                     item {
-                        PlayButtons({ phone.onPlay(phone.songs, 0) }, { phone.onPlay(phone.songs.shuffled(), 0) }, Modifier.padding(start = 20.dp, top = 16.dp))
+                        PlayButtons({ phone.onPlay(phone.songs, 0) }, { phone.onShuffle(phone.songs) }, Modifier.padding(start = 20.dp, top = 16.dp))
                         Spacer(Modifier.height(10.dp))
                     }
                     itemsIndexed(phone.songs, key = { _, s -> s.id }) { i, s -> SongRow(s, false, { phone.onPlay(phone.songs, i) }, { onMore(s) }, rowPad) }
@@ -106,7 +107,7 @@ fun SavedContent(
         } else {
             val songs = saved.map { it.toSong() }
             item {
-                PlayButtons({ onPlay(songs, 0) }, { onPlay(songs.shuffled(), 0) }, Modifier.padding(start = 20.dp, top = 16.dp))
+                PlayButtons({ onPlay(songs, 0) }, { onShuffle(songs) }, Modifier.padding(start = 20.dp, top = 16.dp))
                 Spacer(Modifier.height(10.dp))
             }
             itemsIndexed(saved, key = { _, s -> s.id }) { i, s ->
