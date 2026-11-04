@@ -158,7 +158,41 @@ class PlaybackService : MediaSessionService() {
         val covers = androidx.media3.session.CacheBitmapLoader(
             androidx.media3.datasource.DataSourceBitmapLoader.Builder(this).setDataSourceFactory(coverSource).setMaximumOutputDimension(720).build(),
         )
-        session = MediaSession.Builder(this, player).setSessionActivity(open).setBitmapLoader(covers).build()
+        session = MediaSession.Builder(this, player).setSessionActivity(open).setBitmapLoader(covers)
+            .setCallback(object : MediaSession.Callback {
+                // Play from the widget (or a headset) while the app was closed: pick up the last queue where it stopped
+                override fun onPlaybackResumption(s: MediaSession, controller: MediaSession.ControllerInfo) =
+                    runCatching { java.io.File(filesDir, "last_queue.json").readText() }.getOrNull()?.let(LastQueue::decode)?.let { last ->
+                        player.shuffleModeEnabled = last.shuffle
+                        player.repeatMode = last.repeatMode
+                        com.google.common.util.concurrent.Futures.immediateFuture(
+                            MediaSession.MediaItemsWithStartPosition(last.songs.map { it.toMediaItem() }, last.index, last.positionMs),
+                        )
+                    } ?: com.google.common.util.concurrent.Futures.immediateFailedFuture(UnsupportedOperationException("nothing played yet"))
+            })
+            .build()
+        // the home screen widget follows the song, play/pause and the chosen colours
+        var coverFor: String? = null
+        player.addListener(object : Player.Listener {
+            override fun onEvents(p: Player, events: Player.Events) {
+                if (!events.containsAny(Player.EVENT_MEDIA_ITEM_TRANSITION, Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_METADATA_CHANGED)) return
+                val item = p.currentMediaItem ?: return
+                val m = p.mediaMetadata
+                Widget.show(this@PlaybackService, item.mediaId, m.title?.toString().orEmpty(), m.artist?.toString().orEmpty(), p.isPlaying)
+                if (coverFor == item.mediaId) return
+                coverFor = item.mediaId
+                covers.loadBitmapFromMetadata(m)?.let { f ->
+                    f.addListener({
+                        val b = runCatching { f.get() }.getOrNull() ?: return@addListener
+                        if (p.currentMediaItem?.mediaId == item.mediaId) Widget.show(this@PlaybackService, item.mediaId, m.title?.toString().orEmpty(), m.artist?.toString().orEmpty(), p.isPlaying, b)
+                    }, mainExecutor)
+                }
+            }
+        })
+        scope.launch {
+            kotlinx.coroutines.flow.combine(c.settings.theme, c.settings.accent, c.settings.accentColor, c.settings.pureBlack) { _, _, _, _ -> }
+                .collect { Widget.draw(this@PlaybackService) }
+        }
         scope.launch {
             while (true) {
                 delay(1_000)

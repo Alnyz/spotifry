@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="widget_root" type="id" /><item name="widget_cover" type="id" /><item name="widget_title" type="id" />
+    <item name="widget_artist" type="id" /><item name="widget_prev" type="id" /><item name="widget_play" type="id" />
+    <item name="widget_next" type="id" />
+    <string name="widget_description">Song playing now, with play, back and next</string>
+</resources>
