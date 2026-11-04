@@ -13,8 +13,8 @@ class ShareTextTest {
     @Test fun playlistRoundTrip() {
         val text = ShareText.playlist("Road trip", listOf(a, file, b))
         assertEquals(
-            "Road trip · 3 songs, shared from Spotifry\n\n1. Paper Lanterns – Mira Vale\nhttps://youtu.be/dQ7xk2LmPa0\n" +
-                "2. beach-mix-final – Unknown artist\n(a file on my phone, no link)\n3. Rock – Live – The Pines\nhttps://youtu.be/Hk2p9QvLm3s",
+            "Road trip · 3 songs, shared from Spotifry\n\nPaper Lanterns – Mira Vale\nyoutu.be/dQ7xk2LmPa0\n" +
+                "beach-mix-final – Unknown artist\n(a file on my phone, no link)\nRock – Live – The Pines\nyoutu.be/Hk2p9QvLm3s",
             text,
         )
         val got = ShareText.read(text)!!
@@ -22,6 +22,11 @@ class ShareTextTest {
         assertEquals(1, got.phoneFiles)
         assertEquals(listOf("dQ7xk2LmPa0" to "Paper Lanterns", "Hk2p9QvLm3s" to "Rock – Live"), got.songs.map { it.id to it.title })
         assertEquals(listOf("Mira Vale", "The Pines"), got.songs.map { it.artist })
+    }
+
+    @Test fun olderNumberedListsStillRead() {
+        val old = "Road trip · 1 song, shared from Spotifry\n\n1. Paper Lanterns – Mira Vale\nhttps://youtu.be/dQ7xk2LmPa0"
+        assertEquals(listOf("Paper Lanterns"), ShareText.read(old)!!.songs.map { it.title })
     }
 
     @Test fun oneSongAndOtherLinkShapes() {
