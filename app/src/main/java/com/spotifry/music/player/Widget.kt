@@ -66,7 +66,12 @@ object Widget {
         val cover = coverFile(c).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) }
         val playing = p.getBoolean("playing", false)
 
-        fun views(layout: Int) = RemoteViews(c.packageName, layout).apply {
+        fun views(layout: Int, coverDp: Float? = null) = RemoteViews(c.packageName, layout).apply {
+            coverDp?.let {
+                setViewLayoutWidth(R.id.widget_cover, it, android.util.TypedValue.COMPLEX_UNIT_DIP)
+                setViewLayoutHeight(R.id.widget_cover, it, android.util.TypedValue.COMPLEX_UNIT_DIP)
+                setViewLayoutHeight(R.id.widget_info, it, android.util.TypedValue.COMPLEX_UNIT_DIP)
+            }
             setColorStateList(R.id.widget_root, "setBackgroundTintList", ColorStateList.valueOf(scheme.surface.toArgb()))
             setTextViewText(R.id.widget_title, p.getString("title", null) ?: "Spotifry")
             setTextViewText(R.id.widget_artist, p.getString("artist", null) ?: "Tap to open")
@@ -88,8 +93,11 @@ object Widget {
             setOnClickPendingIntent(R.id.widget_next, key(c, KeyEvent.KEYCODE_MEDIA_NEXT))
             setOnClickPendingIntent(R.id.widget_prev, key(c, KeyEvent.KEYCODE_MEDIA_PREVIOUS))
         }
-        // the launcher picks the biggest layout that fits: two rows get the big one, one row the small one
-        manager.updateAppWidget(ids, RemoteViews(mapOf(SizeF(200f, 50f) to views(R.layout.widget_small), SizeF(200f, 110f) to views(R.layout.widget_big))))
+        // the launcher picks the biggest that fits: one row gets the small layout; taller ones the big layout with a
+        // square cover as tall as the card allows (height less the 28 dp padding), up to 160 dp
+        val sizes = mapOf(SizeF(200f, 50f) to views(R.layout.widget_small)) +
+            listOf(110f, 140f, 170f, 200f).associate { h -> SizeF(200f, h) to views(R.layout.widget_big, minOf(h - 28f, 160f)) }
+        manager.updateAppWidget(ids, RemoteViews(sizes))
     }
 
     /** A press of a media key, the same as a headset button: it wakes the player even when the app is closed. */
