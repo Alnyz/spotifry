@@ -1,82 +1,64 @@
-<p align="center">
-  <img src=".github/assets/logo.svg" width="120" alt="Spotifry logo: a pan with sound-wave steam and a play button">
-</p>
+<div align="center">
 
-<h1 align="center">Spotifry</h1>
+<img src=".github/assets/banner.jpg" alt="Spotifry: a simple, clean and modern music player for Android" width="100%">
 
-<p align="center">
-  A small Android music player. Search a song, it plays in about a second: no ads, no skip limit, no account.
-</p>
+[![Latest release](https://img.shields.io/github/v/release/Alnyz/spotifry?style=for-the-badge&label=download&color=5B95FF&labelColor=102038)](../../releases/latest)
+[![Android 13 or newer](https://img.shields.io/badge/Android-13%2B-5B95FF?style=for-the-badge&labelColor=102038)](#download)
+[![GPL-3.0 license](https://img.shields.io/badge/license-GPL--3.0-5B95FF?style=for-the-badge&labelColor=102038)](LICENSE)
 
-<p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/Alnyz/spotifry?label=download&color=5B95FF" alt="Latest release"></a>
-  <img src="https://img.shields.io/badge/Android-13%2B-102038" alt="Android 13 or newer">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-102038" alt="GPL-3.0 license"></a>
-</p>
+[**Download**](#download) · [**Features**](#features) · [**Disclaimer**](#disclaimer) · [**Build**](#build)
 
-<p align="center">
-  <img src=".github/assets/screens/home.jpg" width="19%" alt="Home: greeting, last played song, recently played">
-  <img src=".github/assets/screens/search.jpg" width="19%" alt="Search results">
-  <img src=".github/assets/screens/nowplaying.jpg" width="19%" alt="Now playing in the colour of the cover">
-  <img src=".github/assets/screens/lyrics.jpg" width="19%" alt="Timed lyrics that follow the song">
-  <img src=".github/assets/screens/playlists.jpg" width="19%" alt="Playlists with Spotify import">
-</p>
+</div>
 
-Music comes from YouTube through [NewPipe Extractor](https://github.com/TeamNewPipe/NewPipeExtractor). There is no server: the app talks to YouTube directly from your phone.
+> [!IMPORTANT]
+> Spotifry is not affiliated with or endorsed by YouTube, Google or Spotify. Songs come from YouTube through [NewPipe Extractor](https://github.com/TeamNewPipe/NewPipeExtractor), straight from your phone. There is no Spotifry server in between.
 
-## Install
+---
 
-1. Open [Releases](../../releases) on your phone and download the latest `spotifry-x.y.z.apk`.
-2. Open the file. Android asks to allow installing from your browser or file manager: allow it once.
-3. Updates: from 0.2.0 on, the app tells you when a new version is out and installs it for you. Your songs and playlists stay.
+<h2 align="center"><a id="features"></a>Features</h2>
+
+| Feature | Description |
+|---|---|
+| Search and play | Any song from YouTube. The next song loads early, so skipping doesn't wait. |
+| Equalizer | Your phone's ready-made sounds or your own mix, with a live picture of the music. |
+| Fade between songs | The end of a song fades out and the next fades in, from 2 to 12 seconds. |
+| Speed and pitch | Each set on its own, kept for every song. |
+| Same loudness | Quiet songs are turned up and loud ones down. |
+| Skip quiet parts | Jumps over long silent intros and endings. |
+| Sleep timer | Fades the music out and stops after a set time or at the end of the song. |
+| Offline | Save songs to the phone. Recently played songs (up to 500 MB) replay without using data. |
+| Playlists | Search, sort, put in your own order, or shuffle. Bring in a public Spotify playlist from its link. |
+| Lyrics | Follow the song as it plays, from [LRCLIB](https://lrclib.net). |
+| Keeps playing | With the screen off, controlled from the lock screen and the notification. Similar songs play when the queue ends. |
+| Data saver | Lower quality on mobile data. Wi-Fi stays high. |
+| Theme | Light or dark, or follow the phone. |
+| Updates | The app tells you when a new version is out and installs it for you. |
+
+---
+
+<h2 align="center"><a id="download"></a>Download</h2>
+
+1. On your phone, open [Releases](../../releases) and download the newest `spotifry-x.y.z.apk`.
+2. Open the file. Android will ask whether your browser or file manager may install apps. Allow it once.
+3. From version 0.2.0 on, the app tells you when an update is out and installs it for you. Your songs and playlists stay.
 
 Needs Android 13 or newer.
 
-## What it does
+> [!NOTE]
+> YouTube changes its site from time to time. When that breaks search or playback, it stays broken until NewPipe Extractor is fixed and a new Spotifry release comes out.
 
-- Search songs and play them at once; the next song is prepared early so skipping is instant.
-- Plays with the screen off, with lock-screen and notification controls.
-- Save songs to the phone for offline listening. Songs you've played recently are also kept (up to 500 MB) so replays start at once and use no data.
-- Playlists, and import of a public Spotify playlist from its link (first 100 songs, matched on YouTube).
-- Search inside a playlist, sort it by name, artist or date added, drag songs into your own order, or mix it up.
-- When the queue runs out, similar songs keep playing.
-- Recently played, most played, and picks up where you left off after the app was closed.
-- Timed lyrics from [LRCLIB](https://lrclib.net).
-- Sleep timer that fades the music out.
-- Same loudness for every song (can be turned off).
-- Data saver for mobile data, light and dark theme.
+---
 
-## Good to know
+<h2 align="center"><a id="disclaimer"></a>Disclaimer</h2>
 
-When YouTube changes something, search or playback can break until NewPipe Extractor is updated and a new release is out.
+- **Free and non-commercial.** Spotifry is open-source software made for personal use and for learning. It makes no money: no ads, no paid features, no subscriptions, and no requests for donations inside the app.
+- **A client, not a service.** It shows content that YouTube and YouTube Music already make public, much like a web browser does. Everything runs on your phone, and the app collects no account or personal data.
+- **No hosting.** Spotifry does not host, upload or share any music or video. Songs stream from YouTube's servers and belong to their copyright owners. Songs you save, and songs kept for quick replay, stay on your own phone.
+- **Support the artists.** If you can, subscribe to [YouTube Music Premium](https://www.youtube.com/musicpremium) or [Spotify Premium](https://www.spotify.com/premium/), buy their music, or go to their shows. Spotifry is a hobby project, not a replacement for these.
+- **No affiliation.** Not affiliated with, funded, authorized or endorsed by YouTube, Google LLC, Spotify AB, LRCLIB, or any of their affiliates. All trademarks belong to their owners.
+- **As is.** Spotifry comes without warranty of any kind, as the [GPL-3.0 license](LICENSE) says. You are responsible for how you use it and for following the terms of the services it connects to and the laws of your country.
 
-## Disclaimer
-
-### 1. Free, open source and non-commercial
-
-Spotifry is free and open-source software, made for personal use and learning. **It is not sold and earns no money in any way:** no ads, no paid features, no subscriptions, no donations asked inside the app.
-
-### 2. A client, not a service
-
-Spotifry is a third-party client. It reads content that YouTube and YouTube Music already make publicly available and shows it in its own interface, the same way a web browser would. It runs entirely on your phone; there is no Spotifry server, and no account or personal data is collected.
-
-### 3. No hosting of copyrighted material
-
-Spotifry does not host, upload or distribute any audio, video or other copyrighted media. Music is streamed from YouTube's servers and remains the property of its copyright owners. Songs you save, and songs kept for quick replay, are stored only on your own phone for your own listening.
-
-### 4. Support the artists
-
-Artists, musicians and creators depend on their listeners. If you can, support them: subscribe to [YouTube Music Premium](https://www.youtube.com/musicpremium) or [Spotify Premium](https://www.spotify.com/premium/), buy their music, or go to their shows. Spotifry is a hobby project, not meant to replace these or to take income away from creators.
-
-### 5. No affiliation
-
-This project and its contents are not affiliated with, funded, authorized or endorsed by, or in any way associated with YouTube, Google LLC, Spotify AB, LRCLIB, or any of their affiliates and subsidiaries.
-
-All trademarks, service marks, trade names and other intellectual property used in this project belong to their respective owners.
-
-### 6. Use at your own risk
-
-Spotifry is provided "as is", without warranty of any kind, as stated in the [GPL-3.0 license](LICENSE). You are responsible for how you use it and for following the terms of the services it connects to and the laws of your country.
+---
 
 ## Build
 
@@ -84,7 +66,7 @@ Spotifry is provided "as is", without warranty of any kind, as stated in the [GP
 ./gradlew assembleRelease
 ```
 
-Without a release key the build is signed with your debug key. The release key is read from `~/keys/spotifry-keystore.properties` and is never part of this repository.
+Without a release key, the build is signed with your debug key. The release key is read from `~/keys/spotifry-keystore.properties` and never goes into this repository.
 
 ## Credits
 
@@ -96,4 +78,4 @@ Without a release key the build is signed with your debug key. The release key i
 
 ## License
 
-GPL-3.0, see [LICENSE](LICENSE). Spotifry uses NewPipe Extractor, which is GPL-3.0, so the app is too.
+GPL-3.0, see [LICENSE](LICENSE). Spotifry is GPL-3.0 because NewPipe Extractor, which it uses, is GPL-3.0.
