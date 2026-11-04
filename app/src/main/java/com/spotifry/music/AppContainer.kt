@@ -35,6 +35,10 @@ class AppContainer(private val context: Context) {
     val historyRecorder = HistoryRecorder(db.history(), db.songs())
     val events = PlaybackEvents()
     val sleepTimer = com.spotifry.music.player.SleepTimer()
+    /** Live picture of the sound, drawn on the Equalizer page. */
+    val spectrum = com.spotifry.music.player.SpectrumTap()
+    /** The phone's equalizer bars and ready-made sounds, null if it has none. */
+    val eqInfo by lazy { com.spotifry.music.player.EqInfo.probe(context) }
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
     val updates = com.spotifry.music.data.Updates(context.applicationContext, client, prefs, BuildConfig.VERSION_NAME)

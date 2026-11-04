@@ -41,6 +41,10 @@ class SleepTimer(private val now: () -> Long = SystemClock::elapsedRealtime) {
     val state: StateFlow<SleepState> = _state.asStateFlow()
     private var player: ExoPlayer? = null
     private var job: Job? = null
+    private var sleepGain = 1f
+    /** The fade between songs, multiplied with the sleep fade so the two never fight over the volume. */
+    var songGain = 1f
+        set(v) { field = v; player?.volume = sleepGain * v }
 
     private val listener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -59,7 +63,8 @@ class SleepTimer(private val now: () -> Long = SystemClock::elapsedRealtime) {
 
     fun off() {
         job?.cancel(); job = null
-        player?.run { volume = 1f; pauseAtEndOfMediaItems = false }
+        sleepGain = 1f
+        player?.run { volume = songGain; pauseAtEndOfMediaItems = false }
         _state.value = SleepState.Off
     }
 
@@ -76,7 +81,8 @@ class SleepTimer(private val now: () -> Long = SystemClock::elapsedRealtime) {
                     else -> if (p.duration > 0) p.duration - p.currentPosition else Long.MAX_VALUE
                 }
                 if (s is SleepState.Minutes && left <= 0) { p.pause(); off(); return@launch }
-                p.volume = fadeVolume(left)
+                sleepGain = fadeVolume(left)
+                p.volume = sleepGain * songGain
                 delay(250)
             }
         }

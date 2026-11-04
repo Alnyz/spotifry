@@ -41,12 +41,15 @@ import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.data.UpdateState
 
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, updates: com.spotifry.music.data.Updates? = null) {
+fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, updates: com.spotifry.music.data.Updates? = null, onOpenEqualizer: () -> Unit = {}) {
     val dataSaver by vm.settings.dataSaver.collectAsStateWithLifecycle()
     val saveLow by vm.settings.saveLow.collectAsStateWithLifecycle()
     val theme by vm.settings.theme.collectAsStateWithLifecycle()
     val sameLoudness by vm.settings.sameLoudness.collectAsStateWithLifecycle()
     val skipSilence by vm.settings.skipSilence.collectAsStateWithLifecycle()
+    val fade by vm.settings.fadeSeconds.collectAsStateWithLifecycle()
+    val eqOn by vm.settings.eqOn.collectAsStateWithLifecycle()
+    val eqPreset by vm.settings.eqPreset.collectAsStateWithLifecycle()
     val storage by vm.storage.collectAsStateWithLifecycle()
     val searches by vm.recentSearches.list.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
@@ -72,6 +75,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     onClick = { vm.settings.setSkipSilence(!skipSilence) }, role = Role.Switch,
                 ) {
                     Switch(skipSilence, null, colors = switchColors())
+                }
+                Item("Fade between songs", "The end of a song fades out and the next one fades in.", below = true) {
+                    Segments(FADES.map { if (it == 0) "Off" else "$it s" }, FADES.indexOf(fade).coerceAtLeast(0)) { vm.settings.setFadeSeconds(FADES[it]) }
+                }
+                Item("Equalizer", if (!eqOn) "Off" else eqPreset ?: "Custom", onClick = onOpenEqualizer) {
+                    androidx.compose.material3.Icon(com.spotifry.music.ui.Icons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Item("Save quality", "Songs you save to the phone") {
                     Segments(listOf("High", "Low"), if (saveLow) 1 else 0) { vm.settings.setSaveLow(it == 1) }
@@ -145,27 +154,27 @@ private fun Group(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun Item(
     title: String, subtitle: String? = null, danger: Boolean = false, onClick: (() -> Unit)? = null, role: Role? = null,
-    trailing: @Composable () -> Unit = {},
+    below: Boolean = false, trailing: @Composable () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 60.dp)
-            .let { if (onClick != null) it.clickable(role = role, onClick = onClick) else it }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        Arrangement.spacedBy(14.dp), Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
+    val text = @Composable { m: Modifier ->
+        Column(m) {
             Text(title, style = MaterialTheme.typography.bodyLarge, color = if (danger) scheme.error else scheme.onSurface)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
         }
-        trailing()
     }
+    val box = Modifier.fillMaxWidth().heightIn(min = 60.dp)
+        .let { if (onClick != null) it.clickable(role = role, onClick = onClick) else it }
+        .padding(horizontal = 16.dp, vertical = 12.dp)
+    // a wide control (five choices) goes under the text instead of squeezing it
+    if (below) Column(box, Arrangement.spacedBy(10.dp)) { text(Modifier); trailing() }
+    else Row(box, Arrangement.spacedBy(14.dp), Alignment.CenterVertically) { text(Modifier.weight(1f)); trailing() }
     HorizontalDivider(color = scheme.outlineVariant)
 }
 
 /** A small row of choices, one picked. */
 @Composable
-private fun Segments(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
+internal fun Segments(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Row(Modifier.clip(CircleShape).background(scheme.surfaceContainerHigh).padding(3.dp)) {
         options.forEachIndexed { i, label ->
@@ -181,9 +190,11 @@ private fun Segments(options: List<String>, selected: Int, onPick: (Int) -> Unit
     }
 }
 
+private val FADES = listOf(0, 2, 5, 8, 12)
+
 // off must still read as a switch on the dark card: a lighter track, an outline and a pale knob
 @Composable
-private fun switchColors() = SwitchDefaults.colors(
+internal fun switchColors() = SwitchDefaults.colors(
     checkedTrackColor = MaterialTheme.colorScheme.primary,
     uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
     uncheckedBorderColor = MaterialTheme.colorScheme.outline,

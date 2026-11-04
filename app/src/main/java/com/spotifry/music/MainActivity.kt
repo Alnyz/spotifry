@@ -84,6 +84,7 @@ object Routes {
     const val LISTEN = "listen"
     const val SEARCH = "search"
     const val SETTINGS = "settings"
+    const val EQUALIZER = "settings/equalizer"
     const val SAVED = "saved"
     const val PLAYLISTS = "playlists"
     const val PLAYLIST = "playlist/{id}"
@@ -184,7 +185,7 @@ fun AppShell(c: AppContainer) {
                     NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                         dests.forEach { d ->
                             NavigationBarItem(
-                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.LISTEN && route == Routes.SETTINGS),
+                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER)),
                                 onClick = { goTo(d.route) },
                                 icon = { Icon(d.icon, contentDescription = null) },
                                 label = { Text(d.label) },
@@ -215,7 +216,8 @@ fun AppShell(c: AppContainer) {
                                 }
                             })
                         }
-                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates) }
+                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }) }
+                        composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.eqInfo, c.spectrum, player.isPlaying, { nav.popBackStack() }, inset) }
                         composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset) }
                         composable(Routes.SAVED) {
                             SavedScreen(savedVm, { goTo(Routes.SEARCH) }, openMenu, inset)

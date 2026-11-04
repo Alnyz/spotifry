@@ -35,6 +35,25 @@ class Settings(private val prefs: SharedPreferences) {
     val pitch: StateFlow<Int> = _pitch
     fun setPitch(steps: Int) { _pitch.value = steps; prefs.edit().putInt(PITCH, steps).apply() }
 
+    private val _fadeSeconds = MutableStateFlow(prefs.getInt(FADE, 0))
+    /** Seconds the end of a song fades out and the next fades in, when one runs into the next. 0 is off. */
+    val fadeSeconds: StateFlow<Int> = _fadeSeconds
+    fun setFadeSeconds(s: Int) { _fadeSeconds.value = s; prefs.edit().putInt(FADE, s).apply() }
+
+    private val _eqOn = MutableStateFlow(prefs.getBoolean(EQ_ON, false))
+    val eqOn: StateFlow<Boolean> = _eqOn
+    private val _eqPreset = MutableStateFlow(prefs.getString(EQ_PRESET, null))
+    /** Name of the phone's ready-made sound in use, or null for the user's own mix. */
+    val eqPreset: StateFlow<String?> = _eqPreset
+    private val _eqLevels = MutableStateFlow(prefs.getString(EQ_LEVELS, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() })
+    /** Level of each equalizer bar in millibels (100 = 1 dB), low to high. Empty until first set. */
+    val eqLevels: StateFlow<List<Int>> = _eqLevels
+    fun setEqOn(on: Boolean) { _eqOn.value = on; prefs.edit().putBoolean(EQ_ON, on).apply() }
+    fun setEq(preset: String?, levels: List<Int>) {
+        _eqPreset.value = preset; _eqLevels.value = levels
+        prefs.edit().putString(EQ_PRESET, preset).putString(EQ_LEVELS, levels.joinToString(",")).apply()
+    }
+
     fun setSameLoudness(on: Boolean) { _sameLoudness.value = on; prefs.edit().putBoolean(SAME_LOUDNESS, on).apply() }
 
     fun setDataSaver(on: Boolean) { _dataSaver.value = on; prefs.edit().putBoolean(DATA_SAVER, on).apply() }
@@ -49,6 +68,10 @@ class Settings(private val prefs: SharedPreferences) {
         const val SKIP_SILENCE = "skip_silence"
         const val SPEED = "speed"
         const val PITCH = "pitch"
+        const val FADE = "fade_seconds"
+        const val EQ_ON = "eq_on"
+        const val EQ_PRESET = "eq_preset"
+        const val EQ_LEVELS = "eq_levels"
     }
 }
 

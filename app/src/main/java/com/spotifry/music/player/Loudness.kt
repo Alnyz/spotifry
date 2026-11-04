@@ -81,8 +81,11 @@ class Leveler {
 
 /** Puts [Leveler] in the player's sound path. Accepts the two sample formats ExoPlayer hands to processors. */
 @UnstableApi
-class LoudnessProcessor : BaseAudioProcessor() {
+class LoudnessProcessor(private val tap: SpectrumTap? = null) : BaseAudioProcessor() {
     val leveler = Leveler()
+    private val spectrum = Spectrum()
+    private var mix = 0f
+    private var channel = 0
     @Volatile var enabled = true
     @Volatile private var pending: Float? = null
     @Volatile private var pendingSet = false
@@ -94,6 +97,8 @@ class LoudnessProcessor : BaseAudioProcessor() {
     override fun onConfigure(f: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (f.encoding != C.ENCODING_PCM_16BIT && f.encoding != C.ENCODING_PCM_FLOAT) throw AudioProcessor.UnhandledAudioFormatException(f)
         leveler.configure(f.sampleRate, f.channelCount)
+        spectrum.configure(f.sampleRate)
+        channel = 0; mix = 0f
         return f
     }
 
@@ -102,16 +107,30 @@ class LoudnessProcessor : BaseAudioProcessor() {
         leveler.enabled = enabled
         val out = replaceOutputBuffer(input.remaining()).order(ByteOrder.nativeOrder())
         input.order(ByteOrder.nativeOrder())
+        val listening = tap?.listening == true
         if (inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT) {
-            while (input.remaining() >= 4) out.putFloat(leveler.process(input.getFloat()))
+            while (input.remaining() >= 4) {
+                val x = input.getFloat()
+                if (listening) see(x)
+                out.putFloat(leveler.process(x))
+            }
         } else {
             while (input.remaining() >= 2) {
-                val y = leveler.process(input.getShort() / 32768f)
-                out.putShort((y * 32767f).toInt().coerceIn(-32768, 32767).toShort())
+                val x = input.getShort() / 32768f
+                if (listening) see(x)
+                out.putShort((leveler.process(x) * 32767f).toInt().coerceIn(-32768, 32767).toShort())
             }
         }
         out.flip()
         lastMeasuredDb = leveler.measuredDb()
+    }
+
+    /** Feeds the live picture with the song as it is, before the leveler, so its loudness moves don't show. */
+    private fun see(x: Float) {
+        mix += x
+        if (++channel < inputAudioFormat.channelCount) return
+        if (spectrum.feed(mix / channel)) tap!!.bands.value = spectrum.bands.copyOf()
+        channel = 0; mix = 0f
     }
 }
 
