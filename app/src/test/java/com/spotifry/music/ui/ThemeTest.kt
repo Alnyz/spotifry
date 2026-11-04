@@ -13,4 +13,13 @@ class ThemeTest {
         assertEquals(Color(0xFFFF8A3D), darkColors.primary)
         assertEquals(Color(0xFFFFFFFF), lightColors.onPrimary)
     }
+
+    @Test fun pureBlackKeepsCardsVisibleAndTextReadable() {
+        val a = com.spotifry.music.ui.theme.AccentChoice.EMBER.accent!!
+        val black = com.spotifry.music.ui.theme.darkColors(a, black = true)
+        assertEquals(Color.Black, black.background)
+        org.junit.Assert.assertTrue(black.surface != black.background)
+        org.junit.Assert.assertTrue(com.spotifry.music.ui.theme.contrastRatio(black.onSurfaceVariant, black.surfaceContainerHigh) >= 4.5)
+        assertEquals(com.spotifry.music.ui.theme.darkColors(a).primary, black.primary)
+    }
 }

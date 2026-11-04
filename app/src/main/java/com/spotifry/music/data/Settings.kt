@@ -65,6 +65,11 @@ class Settings(private val prefs: SharedPreferences) {
         prefs.edit().putString(ACCENT, choice).putInt(ACCENT_COLOR, color).apply()
     }
 
+    private val _pureBlack = MutableStateFlow(prefs.getBoolean(PURE_BLACK, false))
+    /** The dark theme in true black instead of dark grey. */
+    val pureBlack: StateFlow<Boolean> = _pureBlack
+    fun setPureBlack(on: Boolean) { _pureBlack.value = on; prefs.edit().putBoolean(PURE_BLACK, on).apply() }
+
     fun setSameLoudness(on: Boolean) { _sameLoudness.value = on; prefs.edit().putBoolean(SAME_LOUDNESS, on).apply() }
 
     fun setDataSaver(on: Boolean) { _dataSaver.value = on; prefs.edit().putBoolean(DATA_SAVER, on).apply() }
@@ -84,6 +89,7 @@ class Settings(private val prefs: SharedPreferences) {
         const val EQ_PRESET = "eq_preset"
         const val EQ_LEVELS = "eq_levels"
         const val ACCENT = "accent"
+        const val PURE_BLACK = "pure_black"
         const val ACCENT_COLOR = "accent_color"
     }
 }

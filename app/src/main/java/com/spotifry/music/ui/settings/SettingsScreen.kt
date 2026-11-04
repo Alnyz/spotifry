@@ -56,6 +56,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val searches by vm.recentSearches.list.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
     var pickAccent by remember { mutableStateOf(false) }
+    val pureBlack by vm.settings.pureBlack.collectAsStateWithLifecycle()
     val accent by vm.settings.accent.collectAsStateWithLifecycle()
     val accentColor by vm.settings.accentColor.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -95,6 +96,10 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 Item("Theme") {
                     Segments(listOf("Phone", "Light", "Dark"), theme.ordinal) { vm.settings.setTheme(ThemeMode.entries[it]) }
                 }
+                Item(
+                    "Pure black", "Black instead of dark grey when the app is dark. Saves battery on phones with an OLED screen.",
+                    onClick = { vm.settings.setPureBlack(!pureBlack) }, role = Role.Switch,
+                ) { Switch(pureBlack, null, colors = switchColors()) }
                 Item("Accent colour", com.spotifry.music.ui.theme.AccentChoice.of(accent).label, onClick = { pickAccent = true }) {
                     androidx.compose.foundation.layout.Box(
                         Modifier.border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).padding(3.dp).size(26.dp).clip(CircleShape)

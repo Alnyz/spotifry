@@ -20,7 +20,7 @@ val LocalAccent = staticCompositionLocalOf { AccentChoice.EMBER.accent!! }
 fun isDark(): Boolean = LocalDark.current
 
 @Composable
-fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, accent: Accent = AccentChoice.EMBER.accent!!, content: @Composable () -> Unit) {
+fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, accent: Accent = AccentChoice.EMBER.accent!!, black: Boolean = false, content: @Composable () -> Unit) {
     val dark = when (mode) { ThemeMode.PHONE -> isSystemInDarkTheme(); ThemeMode.LIGHT -> false; ThemeMode.DARK -> true }
     // the status and gesture bar icons follow the app's theme, not the phone's, when Settings forces one
     val view = LocalView.current
@@ -30,6 +30,6 @@ fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, accent: Accent = AccentChoice.
         }
     }
     CompositionLocalProvider(LocalDark provides dark, LocalAccent provides accent) {
-        MaterialTheme(colorScheme = if (dark) darkColors(accent) else lightColors(accent), typography = MusicTypography, content = content)
+        MaterialTheme(colorScheme = if (dark) darkColors(accent, black) else lightColors(accent), typography = MusicTypography, content = content)
     }
 }

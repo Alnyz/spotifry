@@ -33,8 +33,9 @@ fun contrastRatio(fg: Color, bg: Color): Double {
 @Composable
 fun Modifier.glass(state: HazeState, shape: Shape): Modifier {
     val dark = isDark()
-    val tint = if (dark) GlassTint.dark else GlassTint.light
-    val base = if (dark) darkColors.background else lightColors.background
+    // the page's own background, so pure black gets a black glass, not the grey one
+    val base = androidx.compose.material3.MaterialTheme.colorScheme.background
+    val tint = base.copy(alpha = if (dark) GlassTint.dark.alpha else GlassTint.light.alpha)
     val edge = if (dark) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.08f)
     return this.clip(shape)
         .hazeEffect(state) { style = HazeStyle(backgroundColor = base, tint = HazeTint(tint), blurRadius = 22.dp) }

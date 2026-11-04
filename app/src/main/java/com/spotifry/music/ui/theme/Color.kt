@@ -46,8 +46,13 @@ val lightColors = lightColorScheme(
     error = Color(0xFFB3261E),
 )
 
-/** The colour schemes with [a] as the accent. */
-fun darkColors(a: Accent) = darkColors.copy(primary = a.dark, onPrimary = onAccent(a.dark))
+/** The colour schemes with [a] as the accent; [black] swaps the dark greys for true black, cards a step above it. */
+fun darkColors(a: Accent, black: Boolean = false) = darkColors.copy(primary = a.dark, onPrimary = onAccent(a.dark)).let {
+    if (!black) it else it.copy(
+        background = Color.Black, surface = Color(0xFF0E0F12), surfaceContainer = Color(0xFF0E0F12),
+        surfaceContainerHigh = Color(0xFF191B20), outlineVariant = Color(0xFF191B20), secondaryContainer = Color(0xFF191B20),
+    )
+}
 fun lightColors(a: Accent) = lightColors.copy(primary = a.light, onPrimary = onAccent(a.light))
 
 /** The "saved on this phone" mark takes the accent. */

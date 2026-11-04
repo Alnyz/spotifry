@@ -112,7 +112,8 @@ class MainActivity : ComponentActivity() {
             val colors = androidx.compose.runtime.remember(accent, accentColor) {
                 com.spotifry.music.ui.theme.accentFor(com.spotifry.music.ui.theme.AccentChoice.of(accent), accentColor, context)
             }
-            MusicTheme(theme, colors) { AppShell(container) }
+            val black by container.settings.pureBlack.collectAsStateWithLifecycle()
+            MusicTheme(theme, colors, black) { AppShell(container) }
         }
     }
 }
