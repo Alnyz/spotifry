@@ -1,6 +1,26 @@
-# Spotifry
+<p align="center">
+  <img src=".github/assets/logo.svg" width="120" alt="Spotifry logo: a pan with sound-wave steam and a play button">
+</p>
 
-A small Android music player. Search a song, it plays in about a second: no ads, no skip limit, no account.
+<h1 align="center">Spotifry</h1>
+
+<p align="center">
+  A small Android music player. Search a song, it plays in about a second: no ads, no skip limit, no account.
+</p>
+
+<p align="center">
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/Alnyz/spotifry?label=download&color=5B95FF" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Android-13%2B-102038" alt="Android 13 or newer">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-102038" alt="GPL-3.0 license"></a>
+</p>
+
+<p align="center">
+  <img src=".github/assets/screens/home.jpg" width="19%" alt="Home: greeting, last played song, recently played">
+  <img src=".github/assets/screens/search.jpg" width="19%" alt="Search results">
+  <img src=".github/assets/screens/nowplaying.jpg" width="19%" alt="Now playing in the colour of the cover">
+  <img src=".github/assets/screens/lyrics.jpg" width="19%" alt="Timed lyrics that follow the song">
+  <img src=".github/assets/screens/playlists.jpg" width="19%" alt="Playlists with Spotify import">
+</p>
 
 Music comes from YouTube through [NewPipe Extractor](https://github.com/TeamNewPipe/NewPipeExtractor). There is no server: the app talks to YouTube directly from your phone.
 
