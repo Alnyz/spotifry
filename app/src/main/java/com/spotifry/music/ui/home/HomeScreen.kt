@@ -61,6 +61,7 @@ import java.time.LocalTime
 fun HomeScreen(
     vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp,
     onOpenSaved: () -> Unit, onOpenPlaylists: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {},
+    top: @Composable () -> Unit = {},
 ) {
     val recent by vm.recent.collectAsStateWithLifecycle()
     val saved by vm.savedIds.collectAsStateWithLifecycle()
@@ -68,7 +69,7 @@ fun HomeScreen(
     HomeContent(
         recent = recent, savedIds = saved, mostPlayed = most,
         onPlay = vm::play, onMore = onMore, modifier = modifier, bottomInset = bottomInset,
-        onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings,
+        onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, top = top,
     )
 }
 
@@ -79,6 +80,8 @@ fun HomeContent(
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     onOpenSaved: () -> Unit = {}, onOpenPlaylists: () -> Unit = {}, onShuffleSaved: () -> Unit = {},
     mostPlayed: List<SongEntity> = emptyList(), onOpenSettings: () -> Unit = {},
+    /** Shown under the greeting: the update card when there is one. */
+    top: @Composable () -> Unit = {},
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 20.dp)) {
         item {
@@ -90,6 +93,7 @@ fun HomeContent(
                 ) { Icon(Icons.Settings, "Settings", Modifier.size(22.dp)) }
             }
         }
+        item { top() }
         val songs = recent.map { it.toSong() }
         if (recent.isNotEmpty()) item { LastPlayed(recent[0]) { onPlay(songs, 0, "Recently played") } }
         item {

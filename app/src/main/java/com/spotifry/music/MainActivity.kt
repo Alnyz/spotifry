@@ -147,6 +147,8 @@ fun AppShell(c: AppContainer) {
     LaunchedEffect(showPlayer) { if (!showPlayer) showLyrics = false }
     val haze = remember { HazeState() }
     val snackbar = remember { SnackbarHostState() }
+    // at most once a day: is a newer Spotifry out on GitHub?
+    LaunchedEffect(Unit) { c.updates.checkDaily() }
     LaunchedEffect(Unit) {
         c.downloads.failures.collect { snackbar.showSnackbar("Couldn't save ${it.title}. Check your connection, then try again.") }
     }
@@ -196,9 +198,20 @@ fun AppShell(c: AppContainer) {
                 Box(Modifier.padding(pad).fillMaxSize()) {
                     NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().fadeTop().hazeSource(haze)) {
                         composable(Routes.LISTEN) {
-                            HomeScreen(home, openMenu, inset, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) })
+                            HomeScreen(home, openMenu, inset, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, top = {
+                                val update by c.updates.state.collectAsStateWithLifecycle()
+                                val later by c.updates.laterFor.collectAsStateWithLifecycle()
+                                val u = update
+                                // "Later" hides the card for that version only; a download in progress always shows
+                                if (u != com.spotifry.music.data.UpdateState.None && !(u is com.spotifry.music.data.UpdateState.Available && u.release.version == later)) {
+                                    com.spotifry.music.ui.components.UpdateCard(
+                                        u, c.updates::update, { (u as? com.spotifry.music.data.UpdateState.Available)?.let { c.updates.later(it.release) } },
+                                        Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp),
+                                    )
+                                }
+                            })
                         }
-                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset) }
+                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates) }
                         composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset) }
                         composable(Routes.SAVED) {
                             SavedScreen(savedVm, { goTo(Routes.SEARCH) }, openMenu, inset)

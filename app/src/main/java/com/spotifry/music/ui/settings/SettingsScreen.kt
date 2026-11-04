@@ -38,9 +38,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.BuildConfig
 import com.spotifry.music.data.ThemeMode
 import com.spotifry.music.ui.components.ScreenHeader
+import com.spotifry.music.data.UpdateState
 
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier) {
+fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, updates: com.spotifry.music.data.Updates? = null) {
     val dataSaver by vm.settings.dataSaver.collectAsStateWithLifecycle()
     val saveLow by vm.settings.saveLow.collectAsStateWithLifecycle()
     val theme by vm.settings.theme.collectAsStateWithLifecycle()
@@ -84,7 +85,34 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 Item("Clear listening history", "Empties Recently played and Most played", danger = true, onClick = { confirmHistory = true })
             }
             Group("About") {
-                Item("Spotifry", "Version ${BuildConfig.VERSION_NAME}")
+                if (updates != null) {
+                    val update by updates.state.collectAsStateWithLifecycle()
+                    val checking by updates.checking.collectAsStateWithLifecycle()
+                    val checked by updates.lastChecked.collectAsStateWithLifecycle()
+                    val newer = when (val u = update) {
+                        is UpdateState.Available -> u.release; is UpdateState.Failed -> u.release; is UpdateState.Ready -> u.release
+                        is UpdateState.Downloading -> u.release; UpdateState.None -> null
+                    }
+                    Item(
+                        "Spotifry",
+                        "Version ${BuildConfig.VERSION_NAME}" + when (update) {
+                            is UpdateState.Downloading -> " · downloading ${newer!!.version}…"
+                            UpdateState.None -> ""
+                            else -> " · ${newer!!.version} is out"
+                        },
+                        onClick = if (newer != null && update !is UpdateState.Downloading) updates::update else null,
+                    ) { if (newer != null && update !is UpdateState.Downloading) Text("Update", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge) }
+                    Item(
+                        "Check for updates",
+                        when {
+                            checking -> "Checking…"
+                            checked == 0L -> "Not checked yet"
+                            update == UpdateState.None -> "You have the newest version · checked ${checkedText(checked)}"
+                            else -> "Last checked ${checkedText(checked)}"
+                        },
+                        onClick = updates::check,
+                    )
+                } else Item("Spotifry", "Version ${BuildConfig.VERSION_NAME}")
                 Item("Music from YouTube", "Through NewPipe Extractor ${BuildConfig.NEWPIPE_VERSION}. If search breaks, this needs an update.")
                 Item("Lyrics from LRCLIB", "Sends the song's title and artist to lrclib.net")
             }
@@ -154,3 +182,16 @@ private fun switchColors() = SwitchDefaults.colors(
     uncheckedBorderColor = MaterialTheme.colorScheme.outline,
     uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
 )
+
+/** "today, 09.12", "yesterday, 21.40" or "3 Nov, 09.12": the phone's own time format. */
+@Composable
+private fun checkedText(at: Long): String {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val time = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(at))
+    val days = (java.time.LocalDate.now().toEpochDay() - java.time.Instant.ofEpochMilli(at).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay())
+    return when (days) {
+        0L -> "today, $time"
+        1L -> "yesterday, $time"
+        else -> android.text.format.DateUtils.formatDateTime(context, at, android.text.format.DateUtils.FORMAT_SHOW_DATE or android.text.format.DateUtils.FORMAT_ABBREV_MONTH) + ", $time"
+    }
+}
