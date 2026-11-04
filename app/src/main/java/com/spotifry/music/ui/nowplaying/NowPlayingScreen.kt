@@ -65,6 +65,7 @@ import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.LocalImageClient
 import com.spotifry.music.ui.components.SongRow
 import com.spotifry.music.ui.components.coverTint
+import com.spotifry.music.data.source.isLocal
 import com.spotifry.music.ui.theme.darkColors
 
 sealed interface SaveUi {
@@ -100,7 +101,8 @@ fun NowPlayingContent(
     // a new song closes the full lyrics of the old one
     androidx.compose.runtime.LaunchedEffect(song.id) { onShowLyrics(false) }
     val client = LocalImageClient.current
-    val tint by produceState<Color?>(null, song.id, client) { value = coverTint(client, song.thumbnailUrl, song.localThumbPath) }
+    val files = androidx.compose.ui.platform.LocalContext.current.contentResolver
+    val tint by produceState<Color?>(null, song.id, client) { value = coverTint(client, song.thumbnailUrl, song.localThumbPath, files) }
     val top by animateColorAsState(tint ?: Color(0xFF2A2E35), tween(500), label = "cover colour")
     // the background is always dark: white status and gesture bar icons while shown, the theme's own back on leaving
     val view = androidx.compose.ui.platform.LocalView.current
@@ -146,7 +148,8 @@ fun NowPlayingContent(
                         Text(song.title, Modifier.basicMarquee(), style = MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp, lineHeight = 30.sp), maxLines = 1)
                         Text(song.artist, style = MaterialTheme.typography.bodyLarge, color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    SaveButton(save, onSave)
+                    // a file on the phone is already there: nothing to save
+                    if (!song.isLocal) SaveButton(save, onSave)
                 }
                 ProgressBar(state, position, Modifier.padding(horizontal = 24.dp).padding(top = 14.dp), onSeek)
                 Controls(state, onToggle, onNext, onPrev, onShuffle, onRepeat, Modifier.padding(horizontal = 14.dp).padding(top = 6.dp))

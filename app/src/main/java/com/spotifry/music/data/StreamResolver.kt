@@ -3,6 +3,7 @@ package com.spotifry.music.data
 import com.spotifry.music.data.source.MusicSource
 import com.spotifry.music.data.source.ResolvedStream
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.data.source.isLocal
 import java.util.concurrent.ConcurrentHashMap
 
 /** Caches resolved stream URLs. A cached URL is reused only while it has more than a minute left. */
@@ -20,6 +21,7 @@ class StreamResolver(
     }
 
     suspend fun prefetch(song: Song, low: Boolean = false) {
+        if (song.isLocal) return // a file on the phone: nothing to fetch
         try { get(song, low) } catch (_: Exception) { }
     }
 

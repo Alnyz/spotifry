@@ -49,8 +49,9 @@ fun SearchScreen(vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp, mod
     val text by vm.queryText.collectAsStateWithLifecycle()
     val saved by vm.savedIds.collectAsStateWithLifecycle()
     val history by vm.recentSearches.list.collectAsStateWithLifecycle()
+    val local by vm.localResults.collectAsStateWithLifecycle()
     SearchContent(
-        text, vm::onQueryChanged, search, saved, history,
+        text, vm::onQueryChanged, search, saved, history, local = local,
         onPlay = vm::playFromSearch, onRetry = vm::retry, onSubmit = vm::submit, onMore = onMore,
         onRemove = vm.recentSearches::remove, onClearHistory = vm.recentSearches::clear,
         modifier = modifier, bottomInset = bottomInset,
@@ -62,6 +63,8 @@ fun SearchContent(
     text: String, onText: (String) -> Unit, search: SearchState, savedIds: Set<String>, history: List<String>,
     onPlay: (List<Song>, Int) -> Unit, onRetry: () -> Unit, onSubmit: () -> Unit, onMore: (Song) -> Unit,
     onRemove: (String) -> Unit = {}, onClearHistory: () -> Unit = {}, modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
+    /** Music files on the phone that match, listed first. */
+    local: List<Song> = emptyList(),
 ) {
     val scheme = MaterialTheme.colorScheme
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 20.dp)) {
@@ -70,7 +73,16 @@ fun SearchContent(
             SearchField(text, onText, onSubmit, Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp))
         }
         when {
-            search !is SearchState.Idle -> item { SearchResults(search, savedIds, onPlay, onRetry, onMore, Modifier.padding(start = 20.dp, end = 8.dp)) }
+            search !is SearchState.Idle -> item {
+                Column(Modifier.padding(start = 20.dp, end = 8.dp)) {
+                    if (local.isNotEmpty()) {
+                        GroupLabel("On this phone")
+                        local.forEachIndexed { i, s -> SongRow(s, false, { onPlay(local, i) }, { onMore(s) }) }
+                        GroupLabel("Songs", Modifier.padding(top = 12.dp))
+                    }
+                    SearchResults(search, savedIds, onPlay, onRetry, onMore)
+                }
+            }
             history.isEmpty() -> item {
                 Text("Find any songs", Modifier.padding(horizontal = 20.dp, vertical = 20.dp), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
             }
@@ -95,6 +107,10 @@ fun SearchContent(
         }
     }
 }
+
+@Composable
+private fun GroupLabel(text: String, modifier: Modifier = Modifier) =
+    Text(text.uppercase(), modifier.padding(top = 8.dp, bottom = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
 @Composable
 fun SearchResults(search: SearchState, savedIds: Set<String>, onPlay: (List<Song>, Int) -> Unit, onRetry: () -> Unit, onMore: (Song) -> Unit, modifier: Modifier = Modifier) {

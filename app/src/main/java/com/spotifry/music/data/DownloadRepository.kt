@@ -3,6 +3,7 @@ package com.spotifry.music.data
 import com.spotifry.music.data.db.SongDao
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.data.source.isLocal
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -55,6 +56,7 @@ class DownloadRepository(
     private fun flowFor(id: String) = states.getOrPut(id) { MutableStateFlow(DownloadState.Idle) }
 
     suspend fun save(song: Song) {
+        if (song.isLocal) return // already a file on the phone
         if (!active.add(song.id)) return // already downloading: a second tap must not start a second writer
         cancelled.remove(song.id)
         // shown as saved right away; the file arrives in the background

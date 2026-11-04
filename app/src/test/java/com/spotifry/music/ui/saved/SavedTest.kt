@@ -75,7 +75,7 @@ class SavedTest {
         db.songs().upsert(testSong.toEntity())
         db.songs().markSaved("abc", file.absolutePath, null, 1)
         val downloads = DownloadRepository(dir, OkHttpClient(), StreamResolver(FakeMusicSource()), db.songs())
-        val vm = SavedViewModel(db.songs(), downloads, NoopPlayer())
+        val vm = SavedViewModel(db.songs(), downloads, NoopPlayer(), com.spotifry.music.data.LocalMusic(androidx.test.core.app.ApplicationProvider.getApplicationContext()))
         assertEquals(listOf("abc"), vm.saved.await { it.isNotEmpty() }.map { it.id })
         vm.remove("abc")
         vm.saved.await { it.isEmpty() }
@@ -87,7 +87,7 @@ class SavedTest {
         val source = FakeMusicSource().apply { streamUrl = server.url("/a").toString() }
         server.enqueue(okhttp3.mockwebserver.MockResponse().setBody(okio.Buffer().write(ByteArray(300_000))).throttleBody(50_000, 100, java.util.concurrent.TimeUnit.MILLISECONDS))
         val downloads = DownloadRepository(dir, OkHttpClient(), StreamResolver(source), db.songs())
-        val vm = SavedViewModel(db.songs(), downloads, NoopPlayer())
+        val vm = SavedViewModel(db.songs(), downloads, NoopPlayer(), com.spotifry.music.data.LocalMusic(androidx.test.core.app.ApplicationProvider.getApplicationContext()))
         vm.save(testSong)
         // the file is still downloading (about 600 ms), but the list already shows it
         assertEquals(listOf("abc"), vm.saved.await { it.isNotEmpty() }.map { it.id })

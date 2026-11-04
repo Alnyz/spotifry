@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.data.source.isLocal
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.theme.savedMarkColor
 
@@ -53,6 +54,7 @@ fun SongRow(
                 Text(marked(song.title, highlight, mark), color = titleColor, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     if (saved) Icon(Icons.Download, "Saved on this phone", Modifier.size(14.dp).testTag("saved_mark"), tint = savedMarkColor())
+                    if (song.isLocal) Icon(Icons.Phone, "File on this phone", Modifier.size(13.dp), tint = savedMarkColor())
                     Text(
                         marked(listOfNotNull(song.artist.ifBlank { null }, subtitleExtra).joinToString(" · "), highlight, mark),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

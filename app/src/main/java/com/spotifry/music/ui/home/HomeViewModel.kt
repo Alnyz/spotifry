@@ -39,6 +39,7 @@ class HomeViewModel(
     private val player: SongPlayer,
     val recentSearches: RecentSearches = RecentSearches(emptyList()),
     mostPlayed: Flow<List<SongEntity>> = flowOf(emptyList()),
+    localSongs: Flow<List<Song>> = flowOf(emptyList()),
 ) : ViewModel() {
     val mostPlayed: StateFlow<List<SongEntity>> = mostPlayed.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private val query = MutableStateFlow("")
@@ -46,6 +47,9 @@ class HomeViewModel(
     val currentQuery: String get() = query.value
     /** What the search box shows. Lives here, not in the screen, so the Playlists tab can search for a song. */
     val queryText: StateFlow<String> = query
+    /** Up to three music files on the phone that match the search, shown above the YouTube results. */
+    val localResults: StateFlow<List<Song>> = combine(query, localSongs) { q, l -> com.spotifry.music.data.localMatches(l, q) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val search: StateFlow<SearchState> = combine(query.debounce(400), retryTick) { q, _ -> q.trim() }
         .flatMapLatest { q ->

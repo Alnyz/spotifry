@@ -11,10 +11,14 @@ import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.IOException
 
-/** A saved song becomes its file; any other song passes through unchanged, to the song cache. */
+/**
+ * A saved song becomes its file, a song from the phone its content:// file (both skip the song cache);
+ * any other song passes through unchanged, to the song cache.
+ */
 @UnstableApi
 class SavedFileResolver(private val songs: SongDao) : ResolvingDataSource.Resolver {
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
+        dataSpec.key?.let(com.spotifry.music.data.LocalMusic::uriOf)?.let { return dataSpec.withUri(it) }
         val path = dataSpec.key?.let { id -> runBlocking { songs.get(id)?.filePath } } ?: return dataSpec
         return dataSpec.withUri(Uri.fromFile(File(path)))
     }

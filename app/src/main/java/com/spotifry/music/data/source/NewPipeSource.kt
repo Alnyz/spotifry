@@ -31,6 +31,8 @@ class NewPipeSource : MusicSource {
      * also hold talks and podcasts, so they are only the fallback when the mix can't be loaded.
      */
     override suspend fun related(song: Song): List<Song> = withContext(Dispatchers.IO) {
+        // a file on the phone has no YouTube id: find the song on YouTube by name and artist, then its similar songs
+        if (song.isLocal) return@withContext search("${song.title} ${song.artist}").firstOrNull()?.let { related(it) }.orEmpty()
         val mix = runCatching { PlaylistInfo.getInfo(YouTube, "${song.url}&list=RDAMVM${song.id}").relatedItems.toSongs() }.getOrNull()
         (mix?.takeIf { it.size > 1 } ?: StreamInfo.getInfo(YouTube, song.url).relatedItems.toSongs()).filter { it.id != song.id }
     }

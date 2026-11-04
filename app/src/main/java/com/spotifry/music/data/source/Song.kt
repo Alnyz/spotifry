@@ -25,3 +25,6 @@ fun artAt(url: String, large: Boolean): String {
 }
 
 fun largeArt(url: String) = artAt(url, large = true)
+
+/** A song from a music file on the phone (id "local:<MediaStore id>"), not from YouTube. */
+val Song.isLocal get() = id.startsWith("local:")

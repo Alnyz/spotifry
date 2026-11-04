@@ -42,6 +42,7 @@ class AppContainer(private val context: Context) {
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
     val updates = com.spotifry.music.data.Updates(context.applicationContext, client, prefs, BuildConfig.VERSION_NAME)
+    val localMusic = com.spotifry.music.data.LocalMusic(context.applicationContext)
     val downloads = DownloadRepository(context.filesDir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })
     private val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
 

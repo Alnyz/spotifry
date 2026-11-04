@@ -191,17 +191,18 @@ private fun Item(
 
 /** A small row of choices, one picked. */
 @Composable
-internal fun Segments(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
+internal fun Segments(options: List<String>, selected: Int, modifier: Modifier = Modifier, fill: Boolean = false, onPick: (Int) -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    Row(Modifier.clip(CircleShape).background(scheme.surfaceContainerHigh).padding(3.dp)) {
+    Row(modifier.clip(CircleShape).background(scheme.surfaceContainerHigh).padding(3.dp)) {
         options.forEachIndexed { i, label ->
             val on = i == selected
             Text(
                 label,
                 // the picked one is filled with the accent, so it reads at a glance in light and dark
-                Modifier.clip(CircleShape).background(if (on) scheme.primary else scheme.surfaceContainerHigh)
+                (if (fill) Modifier.weight(1f) else Modifier).clip(CircleShape).background(if (on) scheme.primary else scheme.surfaceContainerHigh)
                     .clickable(role = Role.RadioButton, onClickLabel = label) { onPick(i) }.padding(horizontal = 12.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.labelLarge, color = if (on) scheme.onPrimary else scheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
     }

@@ -75,6 +75,7 @@ import com.spotifry.music.ui.playlists.ImportViewModel
 import com.spotifry.music.data.SpotifyImport
 import com.spotifry.music.data.LyricsSource
 import com.spotifry.music.ui.saved.SavedScreen
+import com.spotifry.music.data.source.isLocal
 import com.spotifry.music.ui.saved.SavedViewModel
 import com.spotifry.music.ui.theme.MusicTheme
 import dev.chrisbanes.haze.HazeState
@@ -126,8 +127,8 @@ fun AppShell(c: AppContainer) {
     val backEntry by nav.currentBackStackEntryAsState()
     val route = backEntry?.destination?.route
 
-    val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5)) } })
-    val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player) } })
+    val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs) } })
+    val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic) } })
     val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs)) } })
     val settingsVm: SettingsViewModel = viewModel(factory = viewModelFactory { initializer {
         SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache)
@@ -265,7 +266,7 @@ fun AppShell(c: AppContainer) {
             val isSaved = saved.any { it.id == target.song.id }
             val actions = buildList {
                 add(MenuAction("Add to playlist", Icons.Plus) { addTo = target.song })
-                add(if (isSaved) MenuAction("Remove from saved", Icons.Trash) { savedVm.remove(target.song.id) } else MenuAction("Save on this phone", Icons.Download) { savedVm.save(target.song) })
+                if (!target.song.isLocal) add(if (isSaved) MenuAction("Remove from saved", Icons.Trash) { savedVm.remove(target.song.id) } else MenuAction("Save on this phone", Icons.Download) { savedVm.save(target.song) })
                 target.playlistId?.let { pid -> add(MenuAction("Remove from this playlist", Icons.Trash) { plVm.removeSong(pid, target.song.id) }) }
                 if (target.fromPlayer) {
                     val left = when (sleep) {
