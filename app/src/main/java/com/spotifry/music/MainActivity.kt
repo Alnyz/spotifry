@@ -329,12 +329,13 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                 if (target.song.suggested && at != null) add(MenuAction("Not this song", Icons.None, lineAbove = true) {
                     // out of the queue (the playing one skips to the next) and never suggested again
                     val s = target.song
+                    val upcoming = player.order?.drop(1)
                     c.setNotSuggested(s.id, true)
                     c.player.remove(at, s.id)
                     scope.launch {
                         if (snackbar.showSnackbar("Won't suggest this song again", "Undo", duration = androidx.compose.material3.SnackbarDuration.Short) == androidx.compose.material3.SnackbarResult.ActionPerformed) {
                             c.setNotSuggested(s.id, false)
-                            c.player.insert(at, s)
+                            c.player.insert(at, s, upcoming)
                         }
                     }
                 })
@@ -352,7 +353,10 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
         if (showSpeed) com.spotifry.music.ui.SpeedPitchSheet(speed, pitch, c.settings::setSpeed, c.settings::setPitch) { showSpeed = false }
         shareSong?.let { s -> ShareSongSheet(s, { picture = ShareTarget.of(s) }) { shareSong = null } }
         sharePlaylist?.let { t -> SharePlaylistSheet(t, { picture = t }) { sharePlaylist = null } }
-        if (showQueue) QueueSheet(player, saved.map { it.id }.toSet(), c.player::skipTo, { showQueue = false }, suggestionMenu)
+        if (showQueue) QueueSheet(
+            player, saved.map { it.id }.toSet(), c.player::skipTo, { showQueue = false }, suggestionMenu,
+            onMove = c.player::move, onRemove = c.player::remove, onUndo = c.player::insert,
+        )
     }
 }
 

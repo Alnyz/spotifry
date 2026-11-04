@@ -67,6 +67,20 @@ fun <T> spreadShuffle(items: List<T>, artistOf: (T) -> String, isRecent: (T) -> 
 /** "Juno Reyes - Topic" and "juno reyes" are the same artist. */
 private fun artistKey(artist: String) = artist.lowercase().removeSuffix(" - topic").trim()
 
+/**
+ * The whole shuffle [order] with [upcoming] (queue positions, as Queue shows them) playing right after [current].
+ * Songs [upcoming] leaves out keep their places, the ones still to come after it (e.g. suggestions added meanwhile).
+ * Null when [upcoming] names the playing song, a song twice or one no longer in the queue.
+ */
+fun withUpcoming(order: List<Int>, current: Int, upcoming: List<Int>): List<Int>? {
+    val wanted = upcoming.toSet()
+    if (current in wanted || wanted.size != upcoming.size || !order.containsAll(wanted)) return null
+    val rest = order.filter { it !in wanted }
+    val at = rest.indexOf(current)
+    if (at < 0) return null
+    return rest.take(at + 1) + upcoming + rest.drop(at + 1)
+}
+
 /** [own] with one of [extra] after every [every] of them; extras that don't fit are left out. */
 fun <T> interleave(own: List<T>, extra: List<T>, every: Int = 3): List<T> {
     val out = ArrayList<T>(own.size + extra.size)

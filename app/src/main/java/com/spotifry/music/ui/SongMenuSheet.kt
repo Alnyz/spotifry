@@ -48,6 +48,28 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 data class MenuAction(val label: String, val icon: ImageVector? = null, val lineAbove: Boolean = false, val onClick: () -> Unit)
 
@@ -95,30 +117,100 @@ fun AddToPlaylistSheet(playlists: List<PlaylistWithCounts>, onPick: (Long) -> Un
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QueueSheet(state: PlayerUiState, saved: Set<String>, onPick: (Int) -> Unit, onDismiss: () -> Unit, onSuggestionMore: (Int) -> Unit = {}) {
+fun QueueSheet(
+    state: PlayerUiState, saved: Set<String>, onPick: (Int) -> Unit, onDismiss: () -> Unit, onSuggestionMore: (Int) -> Unit = {},
+    onMove: (Int, Int) -> Unit = { _, _ -> }, onRemove: (Int, String) -> Unit = { _, _ -> }, onUndo: (Int, Song, List<Int>?) -> Unit = { _, _, _ -> },
+) {
     // fully open: half open, the bottom of the list (and its padding) sits off screen, under the gesture bar
     val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // the sheet covers the app's own snackbar, so it has its own
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
-        Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
-            Text("Queue", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.headlineSmall)
-            QueueList(state, saved, onSuggestionMore) { onPick(it); onDismiss() }
+        Box {
+            Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
+                Text("Queue", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.headlineSmall)
+                QueueList(state, saved, onSuggestionMore, onMove, onRemove = { i ->
+                    val s = state.queue[i]
+                    // with shuffle on, Undo also needs what was still to come, to put the song back in its place
+                    val upcoming = state.order?.drop(1)
+                    onRemove(i, s.id)
+                    snackbar.currentSnackbarData?.dismiss()
+                    scope.launch {
+                        if (snackbar.showSnackbar("Removed from queue", "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) onUndo(i, s, upcoming)
+                    }
+                }) { onPick(it); onDismiss() }
+            }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
     }
 }
 
-/** Scrolls, because the queue grows by about 20 similar songs every time it runs out. */
+/**
+ * Scrolls, because the queue grows by about 20 similar songs every time it runs out. With [onMove] and [onRemove] the
+ * songs after the playing one can be dragged by their handle and swiped away; the playing song stays on top.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QueueList(state: PlayerUiState, saved: Set<String> = emptySet(), onSuggestionMore: (Int) -> Unit = {}, onPick: (Int) -> Unit) {
-    LazyColumn(Modifier.testTag("queue_list")) {
-        items(state.upNextIndices()) { i ->
+fun QueueList(
+    state: PlayerUiState, saved: Set<String> = emptySet(), onSuggestionMore: (Int) -> Unit = {},
+    onMove: ((Int, Int) -> Unit)? = null, onRemove: ((Int) -> Unit)? = null, onPick: (Int) -> Unit,
+) {
+    // follows the finger while dragging; the player's next change replaces it with what it will really play
+    var list by remember(state.queue, state.order, state.currentIndex) { mutableStateOf(state.upNextIndices()) }
+    var dragFrom by remember { mutableStateOf(-1) }
+    val listState = rememberLazyListState()
+    val reorder = rememberReorderableLazyListState(listState) { from, to ->
+        if (from.index > 0 && to.index > 0) list = list.toMutableList().apply { add(to.index, removeAt(from.index)) }
+    }
+    LazyColumn(Modifier.testTag("queue_list"), listState) {
+        // the queue position is in the key: the same song can be queued twice
+        items(list, key = { "${state.queue[it].id}/$it" }) { i ->
             val s = state.queue[i]
             val playing = i == state.currentIndex
-            SongRow(
-                s, s.id in saved, { onPick(i) }, if (s.suggested) { { onSuggestionMore(i) } } else null, subtitleExtra = if (playing) "Playing" else null,
-                titleColor = if (playing) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Unspecified,
-            )
+            ReorderableItem(reorder, "${s.id}/$i", enabled = !playing && onMove != null) { dragging ->
+                val swipe = rememberSwipeToDismissBoxState()
+                LaunchedEffect(swipe.currentValue) {
+                    if (swipe.currentValue == SwipeToDismissBoxValue.Settled) return@LaunchedEffect
+                    list = list - i
+                    onRemove?.invoke(i)
+                    // back to rest: the list keeps this state and would show the row swiped away if it comes back with Undo
+                    swipe.snapTo(SwipeToDismissBoxValue.Settled)
+                }
+                SwipeToDismissBox(
+                    swipe, backgroundContent = { RemoveBackground(swipe.dismissDirection) },
+                    gesturesEnabled = !playing && onRemove != null && !dragging,
+                ) {
+                    val lift by animateDpAsState(if (dragging) 8.dp else 0.dp, label = "lift")
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), shadowElevation = lift, color = MaterialTheme.colorScheme.surface) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            SongRow(
+                                s, s.id in saved, { onPick(i) }, if (s.suggested) { { onSuggestionMore(i) } } else null, Modifier.weight(1f),
+                                subtitleExtra = if (playing) "Playing" else null,
+                                titleColor = if (playing) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                            )
+                            if (onMove != null && !playing) IconButton(
+                                {},
+                                Modifier.draggableHandle(
+                                    onDragStarted = { dragFrom = list.indexOf(i) },
+                                    onDragStopped = { list.indexOf(i).let { to -> if (dragFrom > 0 && to > 0 && to != dragFrom) onMove(dragFrom, to) } },
+                                ).size(48.dp),
+                            ) { Icon(Icons.DragHandle, "Drag to move ${s.title}") }
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+/** Shown under a row while it is swiped away. */
+@Composable
+private fun RemoveBackground(direction: SwipeToDismissBoxValue) {
+    Box(
+        Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 20.dp),
+        if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd,
+    ) { Icon(Icons.Trash, "Remove from queue", tint = MaterialTheme.colorScheme.onErrorContainer) }
 }
 
 /** Sleep timer choices, from the Now playing menu or its countdown pill. Each choice starts over from now. */

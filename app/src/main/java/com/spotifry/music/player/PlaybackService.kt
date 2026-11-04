@@ -175,14 +175,25 @@ class PlaybackService : MediaSessionService() {
             .setCallback(object : MediaSession.Callback {
                 override fun onConnect(s: MediaSession, controller: MediaSession.ControllerInfo) =
                     MediaSession.ConnectionResult.AcceptedResultBuilder(s).setAvailableSessionCommands(
-                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(SessionCommand(SMART_SHUFFLE, Bundle.EMPTY)).build(),
+                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(SessionCommand(SMART_SHUFFLE, Bundle.EMPTY)).add(SessionCommand(SET_UPCOMING, Bundle.EMPTY)).build(),
                     ).build()
 
                 override fun onCustomCommand(s: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {
-                    if (command.customAction != SMART_SHUFFLE) return super.onCustomCommand(s, controller, command, args)
-                    smart = true
-                    // already shuffled (the button steps through Shuffle first): only the suggestions are new
-                    if (player.shuffleModeEnabled) fillSuggestions(player) else player.shuffleModeEnabled = true
+                    when (command.customAction) {
+                        SMART_SHUFFLE -> {
+                            smart = true
+                            // already shuffled (the button steps through Shuffle first): only the suggestions are new
+                            if (player.shuffleModeEnabled) fillSuggestions(player) else player.shuffleModeEnabled = true
+                        }
+                        // a drag (or an Undo) in Queue with shuffle on: the list stays as it is, the play order changes
+                        SET_UPCOMING -> if (player.shuffleModeEnabled) {
+                            val up = args.getIntArray(UPCOMING)?.toList().orEmpty()
+                            withUpcoming(player.order(), player.currentMediaItemIndex, up)?.let {
+                                player.setShuffleOrder(ShuffleOrder.DefaultShuffleOrder(it.toIntArray(), kotlin.random.Random.nextLong()))
+                            }
+                        }
+                        else -> return super.onCustomCommand(s, controller, command, args)
+                    }
                     return com.google.common.util.concurrent.Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
 
@@ -333,6 +344,9 @@ class PlaybackService : MediaSessionService() {
     companion object {
         /** Sent by the Now playing button to turn on Smart shuffle. */
         const val SMART_SHUFFLE = "com.spotifry.music.SMART_SHUFFLE"
+        /** Sets what plays after the current song while shuffle is on; [UPCOMING] holds the queue positions in order. */
+        const val SET_UPCOMING = "com.spotifry.music.SET_UPCOMING"
+        const val UPCOMING = "upcoming"
     }
 
     override fun onDestroy() {

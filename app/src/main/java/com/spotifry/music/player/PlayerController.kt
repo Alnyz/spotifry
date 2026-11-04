@@ -178,8 +178,33 @@ class PlayerController(
         c.removeMediaItem(at)
     }
 
-    // ponytail: with shuffle on the song comes back at a random spot in the order, not where it was
-    fun insert(index: Int, song: Song) = run { it.addMediaItem(index.coerceIn(0, it.mediaItemCount), song.toMediaItem()) }
+    /**
+     * Undo of a removal. With shuffle on the player puts the song back at a random spot in the play order, so
+     * [upcoming] (what was still to come before the removal) sets the order back as it was.
+     */
+    // ponytail: [upcoming] holds queue positions; a second removal before this Undo shifts them and mixes the order a little
+    fun insert(index: Int, song: Song, upcoming: List<Int>? = null) = run {
+        it.addMediaItem(index.coerceIn(0, it.mediaItemCount), song.toMediaItem())
+        if (upcoming != null && it.shuffleModeEnabled) setUpcoming(it, upcoming)
+    }
+
+    /** A drag in Queue: the song [from] places after the playing one now plays [to] places after it (1 = next). */
+    fun move(from: Int, to: Int) = run { c ->
+        if (from < 1 || to < 1 || from == to) return@run
+        if (!c.shuffleModeEnabled) {
+            val cur = c.currentMediaItemIndex
+            if (cur + maxOf(from, to) < c.mediaItemCount) c.moveMediaItem(cur + from, cur + to)
+            return@run
+        }
+        // shuffle on: moving in the list wouldn't change what plays next, so the service sets the play order instead
+        val up = playOrder(c)?.drop(1)?.toMutableList() ?: return@run
+        if (maxOf(from, to) > up.size) return@run
+        up.add(to - 1, up.removeAt(from - 1))
+        setUpcoming(c, up)
+    }
+
+    private fun setUpcoming(c: MediaController, upcoming: List<Int>) =
+        c.sendCustomCommand(SessionCommand(PlaybackService.SET_UPCOMING, Bundle.EMPTY), Bundle().apply { putIntArray(PlaybackService.UPCOMING, upcoming.toIntArray()) })
     fun cycleRepeat() = run {
         it.repeatMode = when (it.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL

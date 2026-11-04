@@ -55,4 +55,17 @@ class SmartOrderTest {
         assertEquals(listOf(1, 2, 3, 0, 4, 5, 6, 0, 7), interleave(listOf(1, 2, 3, 4, 5, 6, 7), listOf(0, 0, 0)))
         assertEquals(listOf(1, 2), interleave(listOf(1, 2), listOf(0)))
     }
+
+    @Test fun queueDragSetsWhatPlaysNext() {
+        // played 4 and 0, playing 2, then 3 1 5; the user drags 5 to the front
+        val order = listOf(4, 0, 2, 3, 1, 5)
+        assertEquals(listOf(4, 0, 2, 5, 3, 1), withUpcoming(order, 2, listOf(5, 3, 1)))
+        // a suggestion (6) added meanwhile stays after the songs the user arranged
+        assertEquals(listOf(4, 0, 2, 5, 3, 1, 6), withUpcoming(order + 6, 2, listOf(5, 3, 1)))
+        // Undo put the song back among the played ones (shuffle inserts at random): it comes up again where it was
+        assertEquals(listOf(4, 0, 2, 3, 1, 5), withUpcoming(listOf(4, 3, 0, 2, 1, 5), 2, listOf(3, 1, 5)))
+        assertEquals(null, withUpcoming(order, 2, listOf(2, 3)))
+        assertEquals(null, withUpcoming(order, 2, listOf(3, 9)))
+        assertEquals(null, withUpcoming(order, 2, listOf(3, 3)))
+    }
 }
