@@ -121,9 +121,9 @@ fun NowPlayingContent(
     CompositionLocalProvider(LocalContentColor provides Color.White) {
     BoxWithConstraints(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(top, lerp(top, Color.Black, .6f))))) {
         val screen = maxHeight
-        // a little smaller while a pill shows, so nothing below moves down
+        // the cover keeps its size when a pill shows: the free space on the page takes up the pill instead
         val pills = sleep != SleepState.Off || speedLabel != null
-        val cover = minOf(maxWidth - 48.dp, screen * 0.44f) - if (pills) 40.dp else 0.dp
+        val cover = minOf(maxWidth - 48.dp, screen * 0.44f)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // at least one screen tall (minus the peek of the card below), taller on small screens so nothing is cut off
             Column(
