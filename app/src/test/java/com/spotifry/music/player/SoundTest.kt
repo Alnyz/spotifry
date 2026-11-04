@@ -41,4 +41,21 @@ class SoundTest {
         assertEquals(4.5f, eqDbAt(kotlin.math.sqrt(60f * 230f), centers, levels), .01f)
         assertEquals(0f, eqDbAt(500f, centers, emptyList()))
     }
+
+    @Test fun burstsComeOutEvenly() {
+        // the player hands over 8 pictures every 266 ms; the screen draws 60 times a second
+        val tap = SpectrumTap()
+        var lastShown = -1.0; var worstGap = 0.0; var shown = 0
+        var t = 0.0
+        while (t < 5_000) {
+            if ((t % 266.0) < 1000.0 / 60) repeat(8) { tap.push(FloatArray(1)) }
+            if (tap.next(1000f / 60) != null) {
+                if (t > 1_000 && lastShown >= 0) worstGap = maxOf(worstGap, t - lastShown)
+                lastShown = t; shown++
+            }
+            t += 1000.0 / 60
+        }
+        org.junit.Assert.assertTrue("only $shown pictures in 5 s", shown > 140)
+        org.junit.Assert.assertTrue("a gap of $worstGap ms", worstGap <= 70)
+    }
 }

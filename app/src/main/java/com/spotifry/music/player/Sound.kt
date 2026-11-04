@@ -54,11 +54,36 @@ fun eqDbAt(hz: Float, centersHz: List<Int>, levelsMb: List<Int>): Float {
     return levelsMb[n - 1] / 100f
 }
 
-/** Live picture of the sound for the Equalizer page. Filled by the player only while [listening]. */
+/**
+ * Live picture of the sound for the Equalizer page. Filled by the player only while [listening].
+ * The player works through the song in bursts (a quarter second at a time), so pictures are queued and handed
+ * out at the pace the music plays instead of all at once.
+ */
 class SpectrumTap {
     @Volatile var listening = false
-    /** Level in dB of each [Spectrum] band, low to high. */
-    val bands = MutableStateFlow(FloatArray(Spectrum.BANDS) { Spectrum.FLOOR_DB })
+    private val frames = ArrayDeque<FloatArray>()
+    private var owed = 0f
+
+    /** Audio thread: one picture, levels in dB of each [Spectrum] band, low to high. */
+    fun push(f: FloatArray) = synchronized(frames) { frames.addLast(f); while (frames.size > 60) frames.removeFirst() }
+
+    /** Screen, once per drawn frame: the picture due after [elapsedMs], or null if none is due. */
+    fun next(elapsedMs: Float): FloatArray? = synchronized(frames) {
+        if (frames.isEmpty()) { owed = 0f; return null }
+        // 30 pictures per second of music; quicker when a backlog builds (fast playback), slower when it runs low
+        owed += elapsedMs / FRAME_MS * (frames.size / QUEUED).coerceIn(.5f, 2f)
+        var out: FloatArray? = null
+        while (owed >= 1f && frames.isNotEmpty()) { out = frames.removeFirst(); owed -= 1f }
+        out
+    }
+
+    fun clear() = synchronized(frames) { frames.clear(); owed = 0f }
+
+    private companion object {
+        const val FRAME_MS = 1000f / 30
+        /** About 0.4 s kept waiting, enough to bridge the gaps between bursts. */
+        const val QUEUED = 12f
+    }
 }
 
 /**

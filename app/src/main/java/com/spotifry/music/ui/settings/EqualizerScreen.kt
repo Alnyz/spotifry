@@ -118,21 +118,26 @@ private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 private fun Wave(tap: SpectrumTap, isPlaying: Boolean, info: EqInfo, levels: List<Int>) {
     val scheme = MaterialTheme.colorScheme
-    val raw by tap.bands.collectAsStateWithLifecycle()
-    val target by rememberUpdatedState(if (isPlaying) raw else null)
+    val playing by rememberUpdatedState(isPlaying)
+    val target = remember { FloatArray(Spectrum.BANDS) { Spectrum.FLOOR_DB } }
     val shown = remember { FloatArray(Spectrum.BANDS) { Spectrum.FLOOR_DB } }
     var frame by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     // with animations turned off in the phone's settings the wave drifts slowly instead of jumping to the beat
     val reduced = remember { android.provider.Settings.Global.getFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
-    LifecycleResumeEffect(Unit) { tap.listening = true; onPauseOrDispose { tap.listening = false } }
+    LifecycleResumeEffect(Unit) { tap.clear(); tap.listening = true; onPauseOrDispose { tap.listening = false } }
     LaunchedEffect(Unit) {
+        var last = withFrameNanos { it }
         while (true) {
-            withFrameNanos { }
-            val t = target
+            val now = withFrameNanos { it }
+            tap.next((now - last) / 1e6f)?.let { f ->
+                // neighbours mixed in a little, so one loud band shows as a hill, not a spike
+                for (i in target.indices) target[i] = (f[maxOf(i - 1, 0)] + 2 * f[i] + f[minOf(i + 1, f.size - 1)]) / 4
+            }
+            last = now
             for (i in shown.indices) {
-                val to = t?.get(i) ?: Spectrum.FLOOR_DB
-                shown[i] += (to - shown[i]) * if (reduced) .03f else if (to > shown[i]) .5f else .15f
+                val to = if (playing) target[i] else Spectrum.FLOOR_DB
+                shown[i] += (to - shown[i]) * if (reduced) .03f else if (to > shown[i]) .45f else .2f
             }
             frame++
         }
@@ -144,9 +149,14 @@ private fun Wave(tap: SpectrumTap, isPlaying: Boolean, info: EqInfo, levels: Lis
             frame.let { }
             val w = size.width; val h = size.height
             val x = { i: Int -> i * w / (Spectrum.BANDS - 1) }
-            // -70 dB at the bottom, -10 dB near the top
-            val y = { i: Int -> h - ((shown[i] + eqDb[i] + 70f) / 60f).coerceIn(0f, 1f) * h * .9f }
-            val line = Path().apply { moveTo(0f, y(0)); for (i in 1 until Spectrum.BANDS) lineTo(x(i), y(i)) }
+            // -75 dB at the bottom, 0 dB near the top; loud bass with a boost still fits
+            val y = { i: Int -> h - ((shown[i] + eqDb[i] + 75f) / 75f).coerceIn(0f, 1f) * h * .88f }
+            // rounded: each point bends the line toward it instead of making a corner
+            val line = Path().apply {
+                moveTo(0f, y(0))
+                for (i in 1 until Spectrum.BANDS - 1) quadraticTo(x(i), y(i), (x(i) + x(i + 1)) / 2, (y(i) + y(i + 1)) / 2)
+                lineTo(w, y(Spectrum.BANDS - 1))
+            }
             val fill = Path().apply { addPath(line); lineTo(w, h); lineTo(0f, h); close() }
             drawPath(fill, Brush.verticalGradient(listOf(scheme.primary.copy(alpha = .55f), scheme.primary.copy(alpha = .04f))))
             drawPath(line, scheme.primary, style = Stroke(2.dp.toPx()))

@@ -129,7 +129,7 @@ class LoudnessProcessor(private val tap: SpectrumTap? = null) : BaseAudioProcess
     private fun see(x: Float) {
         mix += x
         if (++channel < inputAudioFormat.channelCount) return
-        if (spectrum.feed(mix / channel)) tap!!.bands.value = spectrum.bands.copyOf()
+        if (spectrum.feed(mix / channel)) tap!!.push(spectrum.bands.copyOf())
         channel = 0; mix = 0f
     }
 }
