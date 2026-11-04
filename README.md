@@ -28,7 +28,7 @@ Music comes from YouTube through [NewPipe Extractor](https://github.com/TeamNewP
 
 1. Open [Releases](../../releases) on your phone and download the latest `spotifry-x.y.z.apk`.
 2. Open the file. Android asks to allow installing from your browser or file manager: allow it once.
-3. Updates: download the new APK and open it. Your songs and playlists stay.
+3. Updates: from 0.2.0 on, the app tells you when a new version is out and installs it for you. Your songs and playlists stay.
 
 Needs Android 13 or newer.
 
@@ -38,6 +38,7 @@ Needs Android 13 or newer.
 - Plays with the screen off, with lock-screen and notification controls.
 - Save songs to the phone for offline listening. Songs you've played recently are also kept (up to 500 MB) so replays start at once and use no data.
 - Playlists, and import of a public Spotify playlist from its link (first 100 songs, matched on YouTube).
+- Search inside a playlist, sort it by name, artist or date added, drag songs into your own order, or mix it up.
 - When the queue runs out, similar songs keep playing.
 - Recently played, most played, and picks up where you left off after the app was closed.
 - Timed lyrics from [LRCLIB](https://lrclib.net).
