@@ -56,7 +56,7 @@ import com.spotifry.music.ui.components.Pill
 import com.spotifry.music.ui.components.SongRow
 
 @Composable
-fun PlaylistsScreen(vm: PlaylistsViewModel, importVm: ImportViewModel, onOpen: (Long) -> Unit, onSearch: (String) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier) {
+fun PlaylistsScreen(vm: PlaylistsViewModel, importVm: ImportViewModel, onOpen: (Long) -> Unit, onSearch: (String) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, onShared: (com.spotifry.music.data.ShareText.Shared) -> Unit = {}) {
     val playlists by vm.playlists.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(false) }
     val covers by vm.covers.collectAsStateWithLifecycle()
@@ -66,6 +66,7 @@ fun PlaylistsScreen(vm: PlaylistsViewModel, importVm: ImportViewModel, onOpen: (
         importing, (importing as? ImportState.Done)?.let { covers[it.playlistId] }.orEmpty(), importVm::start,
         onOpen = { importVm.close(); onOpen(it) }, onSearch = { importVm.close(); onSearch("${it.title} ${it.artist}") },
         onRetry = importVm::retry, onClose = importVm::close, onCancel = importVm::cancel,
+        onShared = { importVm.close(); onShared(it) },
     )
     if (creating) NameDialog("New playlist", "Create", "", { creating = false }) { vm.create(it); creating = false }
 }

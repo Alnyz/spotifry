@@ -32,6 +32,8 @@ class AppContainer(private val context: Context) {
     val source: MusicSource = NewPipeSource()
     val resolver = StreamResolver(source)
     val player by lazy { PlayerController(context.applicationContext) }
+    /** One lyrics lookup for Now playing and Share, so a song's lyrics are fetched once. */
+    val lyrics = com.spotifry.music.data.LyricsSource(client)
     val historyRecorder = HistoryRecorder(db.history(), db.songs())
     val events = PlaybackEvents()
     val sleepTimer = com.spotifry.music.player.SleepTimer()

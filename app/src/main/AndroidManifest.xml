@@ -18,10 +18,17 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
-        <activity android:name=".MainActivity" android:exported="true">
+        <!-- singleTop: a song list shared while the app is open goes to the open window instead of a second copy -->
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- a song or playlist someone shared from Spotifry, passed on from a chat app -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
         <service

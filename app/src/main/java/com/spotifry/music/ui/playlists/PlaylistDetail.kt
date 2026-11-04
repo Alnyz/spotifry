@@ -66,7 +66,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 @Composable
-fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, onMore: (Song, Long) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier) {
+fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, onMore: (Song, Long) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, onShare: (String, List<Song>) -> Unit = { _, _ -> }) {
     val all by vm.playlists.collectAsStateWithLifecycle()
     val playlist = all.firstOrNull { it.id == id }
     var order by remember(id) { mutableStateOf(vm.orderOf(id)) }
@@ -103,6 +103,7 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
         ) {
             DropdownMenu(menu, { menu = false }) {
                 DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; renaming = true })
+                DropdownMenuItem(text = { Text("Share") }, enabled = !list.isNullOrEmpty(), onClick = { menu = false; onShare(name, list.orEmpty().map { it.toSong() }) })
                 DropdownMenuItem(text = { Text("Delete playlist") }, onClick = { menu = false; deleting = true })
             }
         }

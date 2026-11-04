@@ -1,6 +1,7 @@
 package com.spotifry.music
 
 import android.Manifest
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -73,7 +74,13 @@ import com.spotifry.music.ui.playlists.PlaylistsScreen
 import com.spotifry.music.ui.playlists.PlaylistsViewModel
 import com.spotifry.music.ui.playlists.ImportViewModel
 import com.spotifry.music.data.SpotifyImport
-import com.spotifry.music.data.LyricsSource
+import com.spotifry.music.data.ShareText
+import com.spotifry.music.ui.share.ImportSharedPage
+import com.spotifry.music.ui.share.MakePicturePage
+import com.spotifry.music.ui.share.SharePlaylistSheet
+import com.spotifry.music.ui.share.ShareSongSheet
+import com.spotifry.music.ui.share.ShareTarget
+import kotlinx.coroutines.launch
 import com.spotifry.music.ui.saved.SavedScreen
 import com.spotifry.music.data.source.isLocal
 import com.spotifry.music.ui.saved.SavedViewModel
@@ -101,8 +108,20 @@ private val dests = listOf(
 )
 
 class MainActivity : ComponentActivity() {
+    /** Text another app shared with Spotifry, until the app has read it. */
+    private val shared = mutableStateOf<String?>(null)
+
+    private fun sharedText(intent: Intent?) = intent?.takeIf { it.action == Intent.ACTION_SEND }?.getStringExtra(Intent.EXTRA_TEXT)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        sharedText(intent)?.let { shared.value = it }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // only on a fresh start: after turning the phone the same message would be read again
+        if (savedInstanceState == null) shared.value = sharedText(intent)
         enableEdgeToEdge()
         val container = (application as MusicApp).container
         setContent {
@@ -114,7 +133,7 @@ class MainActivity : ComponentActivity() {
                 com.spotifry.music.ui.theme.accentFor(com.spotifry.music.ui.theme.AccentChoice.of(accent), accentColor, context)
             }
             val black by container.settings.pureBlack.collectAsStateWithLifecycle()
-            MusicTheme(theme, colors, black) { AppShell(container) }
+            MusicTheme(theme, colors, black) { AppShell(container, shared.value) { shared.value = null } }
         }
     }
 }
@@ -122,7 +141,7 @@ class MainActivity : ComponentActivity() {
 private data class MenuTarget(val song: Song, val playlistId: Long? = null, val fromPlayer: Boolean = false)
 
 @Composable
-fun AppShell(c: AppContainer) {
+fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Unit = {}) {
     val nav = rememberNavController()
     val backEntry by nav.currentBackStackEntryAsState()
     val route = backEntry?.destination?.route
@@ -134,7 +153,7 @@ fun AppShell(c: AppContainer) {
         SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache)
     } })
     val importVm: ImportViewModel = viewModel(factory = viewModelFactory { initializer { ImportViewModel({ SpotifyImport.fetch(c.client, it) }, c.source, c.db.playlists(), c.db.songs()) } })
-    val npVm: NowPlayingViewModel = viewModel(factory = viewModelFactory { initializer { NowPlayingViewModel(c.player, c.downloads, c.db.songs(), LyricsSource(c.client)) } })
+    val npVm: NowPlayingViewModel = viewModel(factory = viewModelFactory { initializer { NowPlayingViewModel(c.player, c.downloads, c.db.songs(), c.lyrics) } })
 
     val player by c.player.state.collectAsStateWithLifecycle()
     // not read here, only inside the progress bars and lyrics, so its ticks don't redraw the whole app
@@ -157,6 +176,10 @@ fun AppShell(c: AppContainer) {
     var showPlayer by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
+    var shareSong by remember { mutableStateOf<Song?>(null) }
+    var sharePlaylist by remember { mutableStateOf<ShareTarget?>(null) }
+    var picture by remember { mutableStateOf<ShareTarget?>(null) }
+    var incoming by remember { mutableStateOf<ShareText.Shared?>(null) }
     LaunchedEffect(showPlayer) { if (!showPlayer) showLyrics = false }
     val haze = remember { HazeState() }
     val snackbar = remember { SnackbarHostState() }
@@ -164,6 +187,14 @@ fun AppShell(c: AppContainer) {
     LaunchedEffect(Unit) { c.updates.checkDaily() }
     LaunchedEffect(Unit) {
         c.downloads.failures.collect { snackbar.showSnackbar("Couldn't save ${it.title}. Check your connection, then try again.") }
+    }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(sharedText) {
+        val text = sharedText ?: return@LaunchedEffect
+        val got = ShareText.read(text)
+        // its own scope: marking the text read restarts this effect, which would cut the message short
+        if (got == null) scope.launch { snackbar.showSnackbar("Nothing to import in that message.") } else incoming = got
+        onSharedRead()
     }
     LaunchedEffect(Unit) {
         c.events.failed.collect { snackbar.showSnackbar("Couldn't load $it. Check your connection, then try again.") }
@@ -232,10 +263,10 @@ fun AppShell(c: AppContainer) {
                             SavedScreen(savedVm, { goTo(Routes.SEARCH) }, openMenu, inset)
                         }
                         composable(Routes.PLAYLISTS) {
-                            PlaylistsScreen(plVm, importVm, { nav.navigate(Routes.playlist(it)) }, { q -> home.onQueryChanged(q); goTo(Routes.SEARCH) }, inset)
+                            PlaylistsScreen(plVm, importVm, { nav.navigate(Routes.playlist(it)) }, { q -> home.onQueryChanged(q); goTo(Routes.SEARCH) }, inset, onShared = { incoming = it })
                         }
                         composable(Routes.PLAYLIST, listOf(navArgument("id") { type = NavType.LongType })) { e ->
-                            PlaylistDetailScreen(plVm, e.arguments!!.getLong("id"), { nav.popBackStack() }, { s, pid -> menu = MenuTarget(s, pid) }, inset)
+                            PlaylistDetailScreen(plVm, e.arguments!!.getLong("id"), { nav.popBackStack() }, { s, pid -> menu = MenuTarget(s, pid) }, inset, onShare = { name, songs -> sharePlaylist = ShareTarget.of(name, songs) })
                         }
                     }
                     }
@@ -262,6 +293,14 @@ fun AppShell(c: AppContainer) {
                     speedLabel = speedLabel, onSpeed = { showSpeed = true },
                 )
             }
+            // after Now playing, so a picture made from its menu opens on top of it
+            incoming?.let { got ->
+                ImportSharedPage(
+                    got, onPlay = { songs, i, name -> c.player.playList(songs, i, name); incoming = null },
+                    onAdd = { name -> plVm.createWith(name, got.songs) { id -> incoming = null; showPlayer = false; nav.navigate(Routes.playlist(id)) } },
+                ) { incoming = null }
+            }
+            picture?.let { t -> MakePicturePage(t, c.lyrics, player.current?.id == t.songs.firstOrNull()?.id && !t.playlist, position) { picture = null } }
         }
 
         menu?.let { target ->
@@ -269,6 +308,7 @@ fun AppShell(c: AppContainer) {
             val actions = buildList {
                 add(MenuAction("Add to playlist", Icons.Plus) { addTo = target.song })
                 if (!target.song.isLocal) add(if (isSaved) MenuAction("Remove from saved", Icons.Trash) { savedVm.remove(target.song.id) } else MenuAction("Save on this phone", Icons.Download) { savedVm.save(target.song) })
+                add(MenuAction("Share", Icons.Share) { shareSong = target.song })
                 target.playlistId?.let { pid -> add(MenuAction("Remove from this playlist", Icons.Trash) { plVm.removeSong(pid, target.song.id) }) }
                 if (target.fromPlayer) {
                     val left = when (sleep) {
@@ -291,6 +331,8 @@ fun AppShell(c: AppContainer) {
             onOff = c.sleepTimer::off, onDismiss = { showSleep = false },
         )
         if (showSpeed) com.spotifry.music.ui.SpeedPitchSheet(speed, pitch, c.settings::setSpeed, c.settings::setPitch) { showSpeed = false }
+        shareSong?.let { s -> ShareSongSheet(s, { picture = ShareTarget.of(s) }) { shareSong = null } }
+        sharePlaylist?.let { t -> SharePlaylistSheet(t, { picture = t }) { sharePlaylist = null } }
         if (showQueue) QueueSheet(player, saved.map { it.id }.toSet(), c.player::skipTo) { showQueue = false }
     }
 }

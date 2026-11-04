@@ -155,13 +155,20 @@ private fun decode(bytes: ByteArray, large: Boolean): android.graphics.Bitmap? {
  */
 suspend fun coverTint(client: OkHttpClient?, url: String?, localPath: String?, files: ContentResolver? = null): Color? {
     val img = loadRetrying(client, url, localPath, files = files) ?: return null
-    return withContext(Dispatchers.Default) {
-        val one = android.graphics.Bitmap.createScaledBitmap(img.asAndroidBitmap(), 1, 1, true)
-        val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(one.getPixel(0, 0), it) }
-        if (hsv[1] > .12f) hsv[1] = (hsv[1] * 1.3f).coerceIn(.3f, .75f)
-        hsv[2] = .45f
-        var c = Color(android.graphics.Color.HSVToColor(hsv))
-        while (com.spotifry.music.ui.theme.contrastRatio(Color.White, c) < 7.0) c = androidx.compose.ui.graphics.lerp(c, Color.Black, .12f)
-        c
-    }
+    return withContext(Dispatchers.Default) { tintOf(img.asAndroidBitmap()) }
 }
+
+/** The [coverTint] colour of a cover already loaded. */
+fun tintOf(cover: android.graphics.Bitmap): Color {
+    val one = android.graphics.Bitmap.createScaledBitmap(cover, 1, 1, true)
+    val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(one.getPixel(0, 0), it) }
+    if (hsv[1] > .12f) hsv[1] = (hsv[1] * 1.3f).coerceIn(.3f, .75f)
+    hsv[2] = .45f
+    var c = Color(android.graphics.Color.HSVToColor(hsv))
+    while (com.spotifry.music.ui.theme.contrastRatio(Color.White, c) < 7.0) c = androidx.compose.ui.graphics.lerp(c, Color.Black, .12f)
+    return c
+}
+
+/** The large cover as a plain bitmap, for the pictures Share draws. One try, no retries; null when there is none. */
+suspend fun coverBitmap(client: OkHttpClient?, url: String?, localPath: String?, files: ContentResolver?): android.graphics.Bitmap? =
+    load(client, url, localPath, large = true, files = files)?.asAndroidBitmap()

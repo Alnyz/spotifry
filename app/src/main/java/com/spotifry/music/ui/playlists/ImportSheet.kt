@@ -47,6 +47,7 @@ import com.spotifry.music.ui.components.Pill
 fun ImportSheet(
     state: ImportState, covers: List<SongEntity>, onImport: (String) -> Unit, onOpen: (Long) -> Unit,
     onSearch: (SpotifyTrack) -> Unit, onRetry: () -> Unit, onClose: () -> Unit, onCancel: () -> Unit = onClose,
+    onShared: (com.spotifry.music.data.ShareText.Shared) -> Unit = {},
 ) {
     if (state == ImportState.Closed) return
     ModalBottomSheet(
@@ -55,7 +56,7 @@ fun ImportSheet(
     ) {
         Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start = 22.dp, end = 22.dp, bottom = 24.dp)) {
             when (state) {
-                is ImportState.Input -> LinkStep(state.error, onImport)
+                is ImportState.Input -> LinkStep(state.error, onImport, onShared)
                 ImportState.Opening -> { Opening(); CancelButton(onCancel) }
                 is ImportState.Running -> { Running(state); CancelButton(onCancel) }
                 is ImportState.Done -> Done(state, covers, onOpen, onSearch, onClose)
@@ -73,8 +74,10 @@ private fun Title(text: String, sub: String?) {
 }
 
 @Composable
-private fun LinkStep(error: String?, onImport: (String) -> Unit) {
+private fun LinkStep(error: String?, onImport: (String) -> Unit, onShared: (com.spotifry.music.data.ShareText.Shared) -> Unit) {
     val clip = LocalClipboardManager.current
+    // a song list a friend sent from Spotifry, copied from the chat: offered as is, no Spotify needed
+    val shared = remember { clip.getText()?.text?.let(com.spotifry.music.data.ShareText::read) }
     // a Spotify playlist link already copied is filled in, so the usual case is one tap
     var link by remember { mutableStateOf(clip.getText()?.text?.takeIf { SpotifyImport.playlistId(it) != null }.orEmpty()) }
     // the error belongs to the link that caused it; typing clears it
@@ -90,6 +93,10 @@ private fun LinkStep(error: String?, onImport: (String) -> Unit) {
     )
     val scheme = MaterialTheme.colorScheme
     Pill(null, "Import", scheme.primary, scheme.onPrimary, { keyboard?.hide(); onImport(link) }, Modifier.fillMaxWidth().padding(top = 12.dp))
+    if (shared != null) Pill(
+        Icons.List, "Open the copied song list: ${shared.title}", scheme.surfaceContainerHigh, scheme.onSurface,
+        { onShared(shared) }, Modifier.fillMaxWidth().padding(top = 10.dp),
+    )
 }
 
 @Composable
