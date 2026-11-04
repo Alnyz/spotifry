@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotifry: kitchen + music logo ideas</title>
+<style>
+@font-face { font-family: Albert; src: url(../app/src/main/res/font/albertsans.ttf); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; }
+body { background: #1c1e23; color: #F2F3F5; font-family: Albert, sans-serif; padding: 36px; }
+h1 { font-size: 22px; font-weight: 700; }
+p.lead { color: #b5bac2; font-size: 14px; margin: 6px 0 26px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 620px)); gap: 22px; }
+.card { background: #0C0D10; border-radius: 22px; padding: 26px; }
+.card h2 { font-size: 18px; font-weight: 700; }
+.card h2 b { color: #5B95FF; margin-right: 8px; }
+.card .why { color: #b5bac2; font-size: 14px; margin: 6px 0 22px; line-height: 1.45; }
+.row { display: flex; align-items: center; gap: 22px; }
+.tile { width: 128px; height: 128px; border-radius: 30px; display: grid; place-items: center; flex: none; }
+.tile.dark { background: #102038; }
+.tile.blue { background: #5B95FF; }
+.tile svg { width: 112px; height: 112px; }
+.small { display: flex; flex-direction: column; gap: 10px; }
+.small .tile { width: 52px; height: 52px; border-radius: 13px; }
+.small .tile svg { width: 46px; height: 46px; }
+.word { display: flex; align-items: center; gap: 12px; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+.word svg { width: 40px; height: 40px; }
+.word .dot { color: #5B95FF; }
+.light { margin-top: 18px; background: #F4F5F7; color: #15181C; border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700; }
+.light svg { width: 30px; height: 30px; }
+</style>
+</head>
+<body>
+<h1>Spotifry: kitchen + music logo ideas</h1>
+<p class="lead">Each one is shown as the phone icon (dark tile and blue tile), small icon size, and next to the name on dark and light backgrounds. Same blue as the app. F and H are the two you liked, kept as they were. I, J, K and L are new: each joins a kitchen object with a music object.</p>
+<div class="grid" id="grid"></div>
+<script>
+const B = "#5B95FF", D = "#0C0D10";
+// each mark draws in `c` (main colour) on a tile whose colour is `bg`
+const marks = [
+  { id: "F", name: "Record in a pan", why: "A frying pan seen from above, and what is cooking is a vinyl record. Music being fried, literally.",
+    svg: (c, bg, w) => `<svg viewBox="0 0 100 100"><path d="M64 37 L86 15" stroke="${c}" stroke-width="10" stroke-linecap="round"/><circle cx="44" cy="57" r="31" fill="${c}"/><circle cx="44" cy="57" r="24" fill="none" stroke="${bg}" stroke-width="2" opacity=".55"/><circle cx="44" cy="57" r="18" fill="none" stroke="${bg}" stroke-width="2" opacity=".55"/><circle cx="44" cy="57" r="9" fill="${w}"/><circle cx="44" cy="57" r="2.5" fill="${c}"/></svg>` },
+  { id: "H", name: "Sizzling pan", why: "A pan from the side, and the sizzle rising out of it is a sound meter. Keeps the heat idea of the sizzling play button, with a real pan.",
+    svg: (c, bg, w) => `<svg viewBox="0 0 100 100">${[[25, 38], [35, 26], [45, 32], [55, 22], [65, 40]].map(([x, y]) => `<rect x="${x}" y="${y}" width="6" height="${52 - y}" rx="3" fill="${w}" stroke="${c}" stroke-width="${w === bg ? 2.5 : 0}"/>`).join("")}<path d="M16 58 L76 58 L70 76 Q68 80 63 80 L29 80 Q24 80 22 76 Z" fill="${c}"/><path d="M76 62 L92 56" stroke="${c}" stroke-width="7" stroke-linecap="round"/></svg>` },
+  { id: "I", name: "Equalizer spatula", why: "A spatula whose slots are the bars of a sound meter. One kitchen tool, and the music is in the holes.",
+    svg: (c, bg, w) => `<svg viewBox="0 0 100 100"><g transform="rotate(-24 50 50)"><rect x="28" y="10" width="44" height="44" rx="9" fill="${c}"/>${[[35, 32], [43, 22], [51, 27], [59, 36]].map(([x, y]) => `<rect x="${x}" y="${y}" width="5" height="${47 - y}" rx="2.5" fill="${bg}"/>`).join("")}<path d="M42 54 L58 54 L54 62 L46 62 Z" fill="${c}"/><rect x="45.5" y="60" width="9" height="32" rx="4.5" fill="${c}"/></g></svg>` },
+  { id: "J", name: "Play pan", why: "A frying pan seen from above with the play button cut into it. Reads as a play button first, a pan second, so it is the plainest of the new ones.",
+    svg: (c, bg, w) => `<svg viewBox="0 0 100 100"><path d="M64 36 L86 14" stroke="${c}" stroke-width="10" stroke-linecap="round"/><circle cx="43" cy="57" r="31" fill="${c}"/><circle cx="43" cy="57" r="24" fill="none" stroke="${bg}" stroke-width="2" opacity=".45"/><path d="M36 44 L57 57 L36 70 Z" fill="${bg}" stroke="${bg}" stroke-width="5" stroke-linejoin="round"/></svg>` },
+  { id: "K", name: "Pan headphones", why: "Headphones where each ear cup is a small frying pan, handles pointing down. Kitchen and listening in one object.",
+    svg: (c, bg, w) => `<svg viewBox="0 0 100 100"><path d="M20 58 A30 30 0 0 1 80 58" fill="none" stroke="${c}" stroke-width="7" stroke-linecap="round"/>${[[22, 64, -1], [78, 64, 1]].map(([x, y, d]) => `<path d="M${x + d * 6} ${y + 14} L${x + d * 12} ${y + 26}" stroke="${c}" stroke-width="6" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="15" fill="${c}"/><circle cx="${x}" cy="${y}" r="9" fill="none" stroke="${bg}" stroke-width="2.2" opacity=".6"/>`).join("")}</svg>` },
+  { id: "L", name: "Pan note", why: "A music note made from a frying pan: the pan is the round head, its handle is the stem, with a flag on top.",
+    svg: (c, bg, w) => `<svg viewBox="0 0 100 100"><rect x="51" y="16" width="8" height="56" rx="4" fill="${c}"/><path d="M55 16 C70 21 79 31 74 47 C71 38 64 34 55 34 Z" fill="${c}"/><circle cx="37" cy="70" r="21" fill="${c}"/><circle cx="37" cy="70" r="14" fill="none" stroke="${bg}" stroke-width="2.2" opacity=".55"/></svg>` },
+];
+document.getElementById("grid").innerHTML = marks.map(m => `
+  <div class="card">
+    <h2><b>${m.id}</b>${m.name}</h2>
+    <div class="why">${m.why}</div>
+    <div class="row">
+      <div class="tile dark">${m.svg(B, "#102038", "#F2F3F5")}</div>
+      <div class="tile blue">${m.svg(D, B, "#FFFFFF")}</div>
+      <div class="small"><div class="tile dark">${m.svg(B, "#102038", "#F2F3F5")}</div><div class="tile blue">${m.svg(D, B, "#FFFFFF")}</div></div>
+    </div>
+    <div class="row" style="margin-top:22px"><div class="word">${m.svg(B, D, "#F2F3F5")}<span>Spotifry<span class="dot">.</span></span></div></div>
+    <div class="light">${m.svg("#1F5FD6", "#F4F5F7", "#F4F5F7")}Spotifry</div>
+  </div>`).join("");
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotifry: four logo ideas</title>
+<style>
+@font-face { font-family: Albert; src: url(../app/src/main/res/font/albertsans.ttf); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; }
+body { background: #1c1e23; color: #F2F3F5; font-family: Albert, sans-serif; padding: 36px; }
+h1 { font-size: 22px; font-weight: 700; }
+p.lead { color: #b5bac2; font-size: 14px; margin: 6px 0 26px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 620px)); gap: 22px; }
+.card { background: #0C0D10; border-radius: 22px; padding: 26px; }
+.card h2 { font-size: 18px; font-weight: 700; }
+.card h2 b { color: #5B95FF; margin-right: 8px; }
+.card .why { color: #b5bac2; font-size: 14px; margin: 6px 0 22px; line-height: 1.45; }
+.row { display: flex; align-items: center; gap: 22px; }
+.tile { width: 128px; height: 128px; border-radius: 30px; display: grid; place-items: center; flex: none; }
+.tile.dark { background: #102038; }
+.tile.blue { background: #5B95FF; }
+.tile svg { width: 96px; height: 96px; }
+.small { display: flex; flex-direction: column; gap: 10px; }
+.small .tile { width: 52px; height: 52px; border-radius: 13px; }
+.small .tile svg { width: 40px; height: 40px; }
+.word { display: flex; align-items: center; gap: 12px; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+.word svg { width: 40px; height: 40px; }
+.word .dot { color: #5B95FF; }
+.light { margin-top: 18px; background: #F4F5F7; color: #15181C; border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 700; }
+.light svg { width: 30px; height: 30px; }
+</style>
+</head>
+<body>
+<h1>Spotifry: four logo ideas</h1>
+<p class="lead">Each one is shown as the phone icon (dark tile and blue tile), small icon size, and next to the name on dark and light backgrounds. Same blue as the app. None of them uses Spotify's green circle or its three curved lines.</p>
+<div class="grid" id="grid"></div>
+<script>
+const B = "#5B95FF", D = "#0C0D10";
+// each mark draws in `c` (main colour) on a tile whose colour is `bg`
+const marks = [
+  { id: "A", name: "Unbroken ring", why: "A closed ring around a play button: the music goes round and is never cut by an ad. Calm and very simple, reads well tiny.",
+    svg: (c, bg) => `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="31" fill="none" stroke="${c}" stroke-width="9"/><path d="M43 36 L65 50 L43 64 Z" fill="${c}" stroke="${c}" stroke-width="5" stroke-linejoin="round"/></svg>` },
+  { id: "B", name: "S as a sound line", why: "The S of Spotifry drawn as one smooth line, like a sound wave or a headphone cable. A letter mark, so it also works as the first letter of the name.",
+    svg: (c, bg) => `<svg viewBox="0 0 100 100"><path d="M65 35 A15 15 0 1 0 50 50 A15 15 0 1 1 35 65" fill="none" stroke="${c}" stroke-width="11" stroke-linecap="round"/></svg>` },
+  { id: "C", name: "Sizzling play", why: "The 'fry' in the name: a play button with three wavy lines rising from it, like heat off a pan, which also read as sound. The only playful one of the four.",
+    svg: (c, bg) => `<svg viewBox="0 0 100 100"><path d="M34 46 L68 64 L34 82 Z" fill="${c}" stroke="${c}" stroke-width="7" stroke-linejoin="round"/>${[[34, 36], [50, 32], [66, 36]].map(([x, y]) => `<path d="M${x} ${y} c-6 -5 6 -9 0 -14 c-6 -5 6 -9 0 -14" fill="none" stroke="${c}" stroke-width="5.5" stroke-linecap="round"/>`).join("")}</svg>` },
+  { id: "D", name: "The spot", why: "A solid round spot with a play button cut out of it, and a small second dot above, like the dot on the i in the name. Bold and easy to spot on the home screen.",
+    svg: (c, bg) => `<svg viewBox="0 0 100 100"><circle cx="46" cy="54" r="30" fill="${c}"/><path d="M39 41 L61 54 L39 67 Z" fill="${bg}" stroke="${bg}" stroke-width="5" stroke-linejoin="round"/><circle cx="78" cy="22" r="9" fill="${c}"/></svg>` },
+];
+document.getElementById("grid").innerHTML = marks.map(m => `
+  <div class="card">
+    <h2><b>${m.id}</b>${m.name}</h2>
+    <div class="why">${m.why}</div>
+    <div class="row">
+      <div class="tile dark">${m.svg(B, "#102038")}</div>
+      <div class="tile blue">${m.svg(D, B)}</div>
+      <div class="small"><div class="tile dark">${m.svg(B, "#102038")}</div><div class="tile blue">${m.svg(D, B)}</div></div>
+    </div>
+    <div class="row" style="margin-top:22px"><div class="word">${m.svg(B, D)}<span>Spotifry<span class="dot">.</span></span></div></div>
+    <div class="light">${m.svg("#1F5FD6", "#F4F5F7")}Spotifry</div>
+  </div>`).join("");
+</script>
+</body>
+</html>

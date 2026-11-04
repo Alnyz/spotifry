@@ -1,0 +1,57 @@
+package com.spotifry.music.ui.settings
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.spotifry.music.data.RecentSearches
+import com.spotifry.music.data.Settings
+import com.spotifry.music.data.db.HistoryDao
+import com.spotifry.music.data.db.PlayCountDao
+import com.spotifry.music.data.db.SongDao
+import com.spotifry.music.ui.components.clearCoverMemory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import okhttp3.Cache
+import java.io.File
+
+data class Storage(val savedCount: Int, val savedBytes: Long, val coverBytes: Long, val songCacheBytes: Long = 0)
+
+class SettingsViewModel(
+    val settings: Settings,
+    val recentSearches: RecentSearches,
+    private val history: HistoryDao,
+    private val plays: PlayCountDao,
+    private val songs: SongDao,
+    private val songsDir: File,
+    private val covers: Cache?,
+    private val songCache: androidx.media3.datasource.cache.Cache? = null,
+) : ViewModel() {
+    private val _storage = MutableStateFlow<Storage?>(null)
+    /** Null while counting. Counted each time the page opens and after clearing covers. */
+    val storage: StateFlow<Storage?> = _storage
+
+    init { count() }
+
+    fun count() = viewModelScope.launch(Dispatchers.IO) {
+        // the songs folder holds the saved audio and its covers, nothing else
+        val bytes = songsDir.listFiles()?.filter { it.extension != "part" }?.sumOf { it.length() } ?: 0
+        _storage.value = Storage(songs.savedCount(), bytes, runCatching { covers?.size() }.getOrNull() ?: 0, runCatching { songCache?.cacheSpace }.getOrNull() ?: 0)
+    }
+
+    fun clearCovers() = viewModelScope.launch(Dispatchers.IO) {
+        runCatching { covers?.evictAll() }
+        clearCoverMemory()
+        count()
+    }
+
+    /** Songs being played right now may keep a few MB until they finish; the rest goes at once. */
+    fun clearSongCache() = viewModelScope.launch(Dispatchers.IO) {
+        songCache?.let { c -> runCatching { c.keys.toList().forEach(c::removeResource) } }
+        count()
+    }
+
+    fun clearSearches() = recentSearches.clear()
+
+    fun clearHistory() = viewModelScope.launch { history.clear(); plays.clear() }
+}

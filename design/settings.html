@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotifry · Settings</title>
+<style>
+@font-face { font-family:"Albert"; src:url("../app/src/main/res/font/albertsans.ttf"); font-weight:400 700; }
+:root { --bg:#F4F5F7; --surface:#FFFFFF; --high:#E6E8EC; --line:#E1E4E8; --outline:#C9CDD3; --ink:#15181C; --ink2:#525A64; --accent:#1F5FD6; --on:#fff; --glow:rgba(91,149,255,.5); --error:#B3261E; }
+body.dark { --bg:#0C0D10; --surface:#17191E; --high:#1F2228; --line:#1F2228; --outline:#2A2E35; --ink:#F2F3F5; --ink2:#A6ADB6; --accent:#5B95FF; --on:#08152E; --glow:rgba(91,149,255,.30); --error:#F2877A; }
+* { box-sizing:border-box; margin:0; }
+body { font-family:"Albert",sans-serif; background:#D9DCE1; color:var(--ink); padding:28px 32px 48px; }
+body.dark { background:#050608; }
+header.page { display:flex; align-items:baseline; gap:24px; margin-bottom:24px; color:#15181C; }
+body.dark header.page, body.dark figcaption { color:#C9CDD3; }
+header.page h1 { font-size:22px; letter-spacing:-.02em; }
+header.page button { font:600 14px "Albert"; border:1px solid currentColor; background:none; color:inherit; border-radius:99px; padding:6px 14px; cursor:pointer; }
+.row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+figure { width:360px; } figcaption { font-size:14px; line-height:20px; color:#3A4048; margin-top:12px; max-width:340px; }
+.phone { width:360px; height:780px; border-radius:34px; overflow:hidden; position:relative; background:var(--bg); box-shadow:0 18px 40px -12px rgba(0,0,0,.35); }
+.phone::before { content:""; position:absolute; inset:0 0 auto auto; width:300px; height:260px; background:radial-gradient(closest-side,var(--glow),transparent); transform:translate(30%,-30%); }
+.status { height:34px; display:flex; justify-content:space-between; align-items:center; padding:0 22px; font-size:13px; font-weight:600; position:relative; }
+.screen { padding:0 20px; position:relative; }
+.greet { display:flex; justify-content:space-between; align-items:center; margin:16px 0 14px; }
+.greet h2 { font-size:34px; letter-spacing:-.68px; } .greet h2 i { color:var(--accent); font-style:normal; }
+.gear { width:44px; height:44px; border-radius:50%; display:grid; place-items:center; background:var(--surface); }
+.gear svg { width:22px; height:22px; }
+.banner { height:200px; border-radius:22px; background:linear-gradient(160deg,#5d5785,#1b1930); color:#fff; padding:18px; }
+.banner span.tag { font-size:12px; font-weight:600; background:rgba(0,0,0,.35); padding:4px 10px; border-radius:99px; }
+.banner b { display:block; font-size:28px; margin-top:12px; } .banner span { font-size:15px; opacity:.85; }
+.chips { display:flex; gap:8px; margin-top:14px; } .chip { flex:1; height:46px; border-radius:99px; background:var(--surface); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; }
+.top { display:flex; align-items:center; gap:6px; padding:4px 8px 0; } .top svg { width:24px; height:24px; } .top .b { width:48px; height:48px; display:grid; place-items:center; }
+h2.title { font-size:34px; letter-spacing:-.68px; font-weight:700; margin:4px 20px 8px; }
+.group { font-size:13px; font-weight:700; color:var(--ink2); margin:18px 20px 6px; letter-spacing:.02em; }
+.card { margin:0 12px; background:var(--surface); border-radius:18px; overflow:hidden; }
+.item { display:flex; align-items:center; gap:14px; padding:12px 16px; min-height:60px; border-top:1px solid var(--line); }
+.item:first-child { border-top:0; }
+.item .t { flex:1; } .item b { display:block; font-weight:500; font-size:16px; } .item span { font-size:13px; color:var(--ink2); }
+.item .val { font-size:14px; font-weight:600; color:var(--accent); }
+.item.danger b { color:var(--error); }
+.switch { width:46px; height:28px; border-radius:99px; background:var(--accent); position:relative; flex:none; } .switch::after { content:""; position:absolute; right:3px; top:3px; width:22px; height:22px; border-radius:50%; background:var(--on); }
+.seg { display:flex; background:var(--high); border-radius:99px; padding:3px; } .seg i { font-style:normal; font-size:13px; font-weight:600; padding:6px 10px; border-radius:99px; color:var(--ink2); } .seg i.on { background:var(--surface); color:var(--ink); }
+.scroll { position:absolute; top:34px; bottom:0; left:0; right:0; overflow:hidden; }
+</style>
+</head>
+<body>
+<header class="page"><h1>Settings</h1><button onclick="document.body.classList.toggle('dark')">Switch light / dark</button></header>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="gear" viewBox="0 0 24 24" fill="currentColor"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5A3.5 3.5 0 1 1 13 8.5a3.5 3.5 0 0 1 0 7z"/></symbol>
+  <symbol id="back" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></symbol>
+</svg>
+
+<div class="row">
+  <figure>
+    <div class="phone">
+      <div class="status"><span>01.40</span><span>36%</span></div>
+      <div class="screen">
+        <div class="greet"><h2>Good night<i>.</i></h2><span class="gear"><svg><use href="#gear"/></svg></span></div>
+        <div class="banner"><span class="tag">Last played</span><b>Into The Night</b><span>YOASOBI</span></div>
+        <div class="chips"><span class="chip">Saved</span><span class="chip">Playlists</span><span class="chip">Shuffle</span></div>
+      </div>
+    </div>
+    <figcaption><b>1. Way in.</b> A round settings button at the top right of Home, beside the greeting. No profile: the app has no account, and your name isn't shown anywhere.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone">
+      <div class="status"><span>01.40</span><span>36%</span></div>
+      <div class="scroll">
+        <div class="top"><span class="b"><svg><use href="#back"/></svg></span></div>
+        <h2 class="title">Settings</h2>
+        <p class="group">SOUND</p>
+        <div class="card">
+          <div class="item"><div class="t"><b>Data saver</b><span>Lower quality on mobile data, about a third of the data. Wi-Fi stays high.</span></div><span class="switch"></span></div>
+          <div class="item" style="outline:2px dashed var(--accent);outline-offset:-4px;border-radius:12px"><div class="t"><b>Same loudness for every song</b><span>Quiet songs are turned up and loud ones down, so you don't reach for the volume between songs.</span></div><span class="switch"></span></div>
+          <div class="item"><div class="t"><b>Save quality</b><span>Songs you save to the phone</span></div><span class="seg"><i class="on">High</i><i>Low</i></span></div>
+        </div>
+        <p class="group">LOOK</p>
+        <div class="card">
+          <div class="item"><div class="t"><b>Theme</b></div><span class="seg"><i class="on">Phone</i><i>Light</i><i>Dark</i></span></div>
+        </div>
+        <p class="group">STORAGE</p>
+        <div class="card">
+          <div class="item"><div class="t"><b>Saved songs</b><span>42 songs · 187 MB</span></div></div>
+          <div class="item"><div class="t"><b>Clear covers kept for speed</b><span>31 MB · they load again when shown</span></div></div>
+        </div>
+        <p class="group">HISTORY</p>
+        <div class="card">
+          <div class="item"><div class="t"><b>Clear recent searches</b></div></div>
+          <div class="item danger"><div class="t"><b>Clear listening history</b><span>Empties Recently played and Most played</span></div></div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>New (dashed outline): "Same loudness for every song",</b> on by default. Off plays every song exactly as it comes from YouTube.<br><br><b>2. Settings page.</b> Grouped in white cards, the same style as the rest of the app. Changes apply at once; there's no Save button. "Clear listening history" asks "Are you sure?" first.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone">
+      <div class="status"><span>01.40</span><span>36%</span></div>
+      <div class="scroll" style="top:-260px">
+        <div style="height:520px"></div>
+        <p class="group">HISTORY</p>
+        <div class="card">
+          <div class="item"><div class="t"><b>Clear recent searches</b></div></div>
+          <div class="item danger"><div class="t"><b>Clear listening history</b><span>Empties Recently played and Most played</span></div></div>
+        </div>
+        <p class="group">ABOUT</p>
+        <div class="card">
+          <div class="item"><div class="t"><b>Spotifry</b><span>Version 0.1</span></div></div>
+          <div class="item"><div class="t"><b>Music from YouTube</b><span>Through NewPipe Extractor, version shown here. If search breaks, this needs an update.</span></div></div>
+          <div class="item"><div class="t"><b>Lyrics from LRCLIB</b><span>Sends the song's title and artist to lrclib.net</span></div></div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>3. Bottom of the page.</b> "About" says where music and lyrics come from, and which YouTube-reader version the app has, so we can tell when an update is due.</figcaption>
+  </figure>
+</div>
+</body>
+</html>

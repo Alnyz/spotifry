@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Music app, UI draft</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#0D1411; --surface:#16201B; --surface2:#1F2B25; --line:#2A3A32;
+  --text:#EEF3EF; --text2:#A9B7AF; --accent:#F4C430; --on-accent:#14110A;
+  --r1:#FF8A4C; --r2:#38D0B4; --r3:#F0566E;
+  --glass:rgba(13,20,17,.62);
+}
+.light{
+  --ground:#EDF2EE; --surface:#FFFFFF; --surface2:#E0E8E2; --line:#C5D1C9;
+  --text:#0F1A14; --text2:#44554B; --glass:rgba(237,242,238,.72);
+}
+*{box-sizing:border-box;margin:0}
+body{background:#070B09;color:#EEF3EF;font-family:Barlow,'Helvetica Neue',Arial,sans-serif;padding:32px 20px 64px}
+h1{font:700 28px 'Barlow Condensed','Arial Narrow',Arial,sans-serif,'Arial Narrow',Arial,sans-serif;letter-spacing:.02em}
+.note{color:#A9B7AF;max-width:62ch;margin:8px 0 32px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,360px));gap:40px 32px;justify-content:center}
+figure{width:360px}
+figcaption{margin-top:12px;color:#A9B7AF;font-size:14px}
+
+/* phone */
+.phone{width:360px;height:760px;border-radius:36px;overflow:hidden;position:relative;background:var(--ground);color:var(--text);border:1px solid #2A3A32}
+.status{height:28px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font:500 12px Barlow,Arial,sans-serif;color:var(--text)}
+.screen{position:absolute;inset:28px 0 0 0;overflow:hidden}
+.pad{padding:8px 16px 0}
+h2{font:700 30px/1 'Barlow Condensed','Arial Narrow',Arial,sans-serif;letter-spacing:.01em}
+h3{font:600 14px 'Barlow Condensed','Arial Narrow',Arial,sans-serif;letter-spacing:.08em;color:var(--text2);margin:22px 0 8px;text-transform:uppercase}
+svg.i{width:24px;height:24px;fill:currentColor;flex:none}
+
+/* search */
+.search{display:flex;align-items:center;gap:12px;height:52px;padding:0 16px;margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;color:var(--text2);font-size:16px}
+.search b{font-weight:500;color:var(--text)}
+
+/* rows */
+.row{display:flex;align-items:center;gap:12px;min-height:64px;padding:6px 0}
+.cover{width:52px;height:52px;border-radius:8px;flex:none;position:relative;overflow:hidden}
+.c1{background:linear-gradient(115deg,var(--r1) 0 38%,#1b2a23 38% 46%,var(--accent) 46% 60%,#1b2a23 60%)}
+.c2{background:linear-gradient(115deg,#1b2a23 0 30%,var(--r2) 30% 52%,#1b2a23 52% 58%,var(--accent) 58%)}
+.c3{background:linear-gradient(115deg,var(--r3) 0 45%,var(--accent) 45% 55%,#1b2a23 55%)}
+.c4{background:linear-gradient(115deg,var(--accent) 0 28%,#1b2a23 28% 36%,var(--r2) 36% 70%,var(--r1) 70%)}
+.meta{flex:1;min-width:0}
+.title{font-weight:600;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:14px;color:var(--text2);display:flex;gap:6px;align-items:center}
+.off{color:var(--accent)} .off svg{width:16px;height:16px}
+.light .off{color:#6B5400}
+.iconbtn{width:48px;height:48px;display:grid;place-items:center;border:0;background:none;color:var(--text);border-radius:24px}
+
+/* route plates (identity motif) */
+.routes{display:flex;gap:10px;overflow:hidden}
+.route{width:148px;flex:none;background:var(--surface);border-radius:12px;padding:12px 12px 0;position:relative;overflow:hidden;height:132px}
+.plate{display:inline-grid;place-items:center;min-width:34px;height:26px;padding:0 6px;border-radius:5px;font:700 18px 'Barlow Condensed','Arial Narrow',Arial,sans-serif;color:#14110A}
+.route .name{font-weight:600;margin-top:10px}
+.route .sub{margin-top:2px}
+.stripe{position:absolute;left:0;right:0;bottom:0;height:8px}
+.p1{background:var(--r1)} .p2{background:var(--r2)} .p3{background:var(--r3)} .p0{background:var(--accent)}
+
+/* glass: only the mini player and the full-player sheet */
+.glass{background:var(--glass);backdrop-filter:blur(22px) saturate(140%);-webkit-backdrop-filter:blur(22px) saturate(140%);border:1px solid rgba(255,255,255,.14)}
+.light .glass{border-color:rgba(0,0,0,.08)}
+.mini{position:absolute;left:8px;right:8px;bottom:88px;height:64px;border-radius:16px;display:flex;align-items:center;gap:12px;padding:0 4px 0 6px;overflow:hidden}
+.mini .cover{width:48px;height:48px}
+.mini .prog{position:absolute;left:0;bottom:0;height:3px;width:42%;background:var(--accent)}
+
+/* bottom nav (solid) */
+.nav{position:absolute;left:0;right:0;bottom:0;height:80px;background:var(--surface);display:flex;border-top:1px solid var(--line)}
+.nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:12px;font:500 12px Barlow,Arial,sans-serif;color:var(--text2);text-decoration:none}
+.nav a .pill{width:64px;height:32px;border-radius:16px;display:grid;place-items:center}
+.nav a.on{color:var(--text)} .nav a.on .pill{background:var(--accent);color:var(--on-accent)}
+.fab{position:absolute;right:16px;bottom:96px;height:56px;padding:0 20px 0 16px;border-radius:16px;background:var(--accent);color:var(--on-accent);display:flex;align-items:center;gap:10px;font:600 16px Barlow,Arial,sans-serif;border:0}
+
+/* states */
+.skel{background:var(--surface2);border-radius:6px}
+.err{display:flex;gap:12px;align-items:center;min-height:64px;padding:8px 12px;margin-top:6px;border-radius:12px;background:var(--surface);border:1px solid var(--r3)}
+.err .t{flex:1;font-size:14px;line-height:1.35}
+.btn{height:48px;padding:0 20px;border-radius:12px;border:0;font:600 16px Barlow,Arial,sans-serif;background:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line);height:40px;padding:0 14px}
+.empty{padding:96px 32px 0;text-align:center}
+.empty .big{font:700 34px/1 'Barlow Condensed','Arial Narrow',Arial,sans-serif}
+.empty p{color:var(--text2);line-height:1.5;margin:12px 0 24px}
+
+/* now playing */
+.np{background:var(--ground)}
+.np .bgart{position:absolute;inset:0}
+.np .bgart .cover{position:absolute;inset:-40px;width:auto;height:auto;border-radius:0;filter:blur(30px) saturate(1.1);transform:scale(1.2)}
+.np .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(13,20,17,.35),rgba(13,20,17,.85) 70%)}
+.light.np .shade{background:linear-gradient(180deg,rgba(237,242,238,.4),rgba(237,242,238,.9) 70%)}
+.np .top{position:relative;display:flex;align-items:center;justify-content:space-between;padding:4px 8px}
+.np .top .ctx{text-align:center;font-size:13px;color:var(--text2)} .np .top .ctx b{display:block;color:var(--text);font:600 15px Barlow,Arial,sans-serif}
+.np .art{position:relative;width:268px;height:268px;border-radius:16px;margin:16px auto 0;overflow:hidden}
+.np .art .cover{width:100%;height:100%;border-radius:0}
+.np .info{position:relative;padding:18px 20px 0;display:flex;align-items:center;gap:12px}
+.np .info .meta .title{font:700 28px/1.05 'Barlow Condensed','Arial Narrow',Arial,sans-serif} .np .info .sub{font-size:15px;margin-top:2px}
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;border-radius:24px;padding:18px 18px 12px}
+.bar{height:8px;border-radius:4px;background:rgba(255,255,255,.22);position:relative}
+.light .bar{background:rgba(0,0,0,.18)}
+.bar i{position:absolute;left:0;top:0;bottom:0;width:38%;border-radius:4px;background:var(--accent)}
+.bar u{position:absolute;left:calc(38% - 9px);top:-5px;width:18px;height:18px;border-radius:9px;background:var(--accent);border:3px solid var(--ground)}
+.times{display:flex;justify-content:space-between;font-size:13px;color:var(--text2);margin-top:10px}
+.ctrls{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.play{width:72px;height:72px;border-radius:22px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;border:0}
+.play svg{width:34px;height:34px}
+.sheet .row2{display:flex;justify-content:space-between;margin-top:6px;border-top:1px solid rgba(255,255,255,.12);padding-top:6px}
+.light .sheet .row2{border-color:rgba(0,0,0,.1)}
+.row2 button{display:flex;align-items:center;gap:8px;height:48px;padding:0 12px;background:none;border:0;color:var(--text);font:500 14px Barlow,Arial,sans-serif}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="home" viewBox="0 0 24 24"><path d="M12 3 3 10.5V21h6v-6h6v6h6V10.5z"/></symbol>
+  <symbol id="saved" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 4v6.2l2.3-2.3 1.4 1.4L12 16l-3.7-3.7 1.4-1.4 2.3 2.3V7z"/></symbol>
+  <symbol id="list" viewBox="0 0 24 24"><path d="M3 6h14v2H3zm0 5h14v2H3zm0 5h9v2H3zm15-5v5.3a2.7 2.7 0 1 0 2 2.6V8h3V6h-5z"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24"><path d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+  <symbol id="pause" viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></symbol>
+  <symbol id="next" viewBox="0 0 24 24"><path d="M6 6l9 6-9 6zm10 0h2v12h-2z"/></symbol>
+  <symbol id="prev" viewBox="0 0 24 24"><path d="M18 6l-9 6 9 6zM6 6h2v12H6z"/></symbol>
+  <symbol id="shuffle" viewBox="0 0 24 24"><path d="M16 4h5v5l-1.8-1.8L5.4 21 4 19.6 17.8 5.8zM4 4.4 9.5 10 8.1 11.4 2.6 5.8zm10.6 8.2 1.4-1.4 3.2 3.2L21 12.6V18h-5.4l1.8-1.8z"/></symbol>
+  <symbol id="repeat" viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="M7.4 9 12 13.6 16.6 9 18 10.4l-6 6-6-6z"/></symbol>
+  <symbol id="more" viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></symbol>
+  <symbol id="dl" viewBox="0 0 24 24"><path d="M11 4h2v8.2l2.6-2.6L17 11l-5 5-5-5 1.4-1.4L11 12.2zM5 18h14v2H5z"/></symbol>
+  <symbol id="queue" viewBox="0 0 24 24"><path d="M3 6h12v2H3zm0 5h12v2H3zm0 5h8v2H3zm13-1v-3l5 3.5-5 3.5v-3z"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></symbol>
+  <symbol id="retry" viewBox="0 0 24 24"><path d="M12 5a7 7 0 1 0 6.7 9h-2.1A5 5 0 1 1 12 7c1.4 0 2.6.6 3.5 1.5L13 11h7V4l-2.5 2.5A8.9 8.9 0 0 0 12 5z"/></symbol>
+</svg>
+
+<h1>Music app, UI draft</h1>
+<p class="note">Static mockup for review. All song titles, artist names, counts and cover art are placeholders. App name and logo are not decided. Dark is the default; the last frame shows the light option.</p>
+
+<div class="grid">
+
+<!-- 1 HOME -->
+<figure>
+<div class="phone">
+  <div class="status"><span>9:41</span><span>5G ▮▮▮</span></div>
+  <div class="screen">
+    <div class="pad">
+      <h2>Listen</h2>
+      <div class="search"><svg class="i"><use href="#search"/></svg>Search a song or artist</div>
+      <h3>Recently played</h3>
+      <div class="row"><div class="cover c1"></div><div class="meta"><div class="title">Sample song 1</div><div class="sub"><span class="off"><svg class="i"><use href="#dl"/></svg></span>Artist name</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+      <div class="row"><div class="cover c2"></div><div class="meta"><div class="title">Sample song 2</div><div class="sub">Artist name</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+      <div class="row"><div class="cover c3"></div><div class="meta"><div class="title">Sample song 3</div><div class="sub"><span class="off"><svg class="i"><use href="#dl"/></svg></span>Artist name</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+      <h3>Your playlists</h3>
+      <div class="routes">
+        <div class="route"><span class="plate p1">1</span><div class="name">Playlist name</div><div class="sub">12 songs</div><div class="stripe p1"></div></div>
+        <div class="route"><span class="plate p2">2</span><div class="name">Playlist name</div><div class="sub">8 songs</div><div class="stripe p2"></div></div>
+        <div class="route"><span class="plate p3">3</span><div class="name">Playlist name</div><div class="sub">20 songs</div><div class="stripe p3"></div></div>
+      </div>
+    </div>
+    <div class="mini glass"><div class="cover c1"></div><div class="meta"><div class="title">Sample song 1</div><div class="sub">Artist name</div></div><button class="iconbtn" aria-label="Pause"><svg class="i"><use href="#pause"/></svg></button><button class="iconbtn" aria-label="Next song"><svg class="i"><use href="#next"/></svg></button><div class="prog"></div></div>
+    <nav class="nav" aria-label="Main">
+      <a class="on" href="#"><span class="pill"><svg class="i"><use href="#home"/></svg></span>Listen</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#saved"/></svg></span>Saved</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#list"/></svg></span>Playlists</a>
+    </nav>
+  </div>
+</div>
+<figcaption>1. Home with search. Yellow download mark = saved on the phone. Glass only on the mini player.</figcaption>
+</figure>
+
+<!-- 2 SEARCH RESULTS with loading + error -->
+<figure>
+<div class="phone">
+  <div class="status"><span>9:41</span><span>5G ▮▮▮</span></div>
+  <div class="screen">
+    <div class="pad">
+      <h2>Listen</h2>
+      <div class="search"><svg class="i"><use href="#search"/></svg><b>sample query</b></div>
+      <h3>Results</h3>
+      <div class="row"><div class="cover c4"></div><div class="meta"><div class="title">Sample song 4</div><div class="sub">Artist name</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+      <div class="row"><div class="cover c2"></div><div class="meta"><div class="title">Sample song 5</div><div class="sub"><span class="off"><svg class="i"><use href="#dl"/></svg></span>Artist name</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+      <div class="row" aria-busy="true"><div class="cover skel"></div><div class="meta"><div class="skel" style="height:16px;width:60%"></div><div class="skel" style="height:12px;width:35%;margin-top:8px"></div></div></div>
+      <div class="row" aria-busy="true"><div class="cover skel"></div><div class="meta"><div class="skel" style="height:16px;width:50%"></div><div class="skel" style="height:12px;width:30%;margin-top:8px"></div></div></div>
+      <div class="err"><div class="t">Couldn't load Sample song 8. Check your connection, then try again.</div><button class="btn ghost">Retry</button></div>
+    </div>
+    <nav class="nav" aria-label="Main">
+      <a class="on" href="#"><span class="pill"><svg class="i"><use href="#home"/></svg></span>Listen</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#saved"/></svg></span>Saved</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#list"/></svg></span>Playlists</a>
+    </nav>
+  </div>
+</div>
+<figcaption>2. Search results with a loading row and a failed row. No mini player here, nothing is playing.</figcaption>
+</figure>
+
+<!-- 3 NOW PLAYING -->
+<figure>
+<div class="phone np">
+  <div class="status"><span>9:41</span><span>5G ▮▮▮</span></div>
+  <div class="screen">
+    <div class="bgart"><div class="cover c1"></div></div><div class="shade"></div>
+    <div class="top"><button class="iconbtn" aria-label="Close player"><svg class="i"><use href="#down"/></svg></button><div class="ctx">Playing from<b>Playlist 1</b></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+    <div class="art"><div class="cover c1"></div></div>
+    <div class="info"><div class="meta"><div class="title">Sample song 1</div><div class="sub">Artist name</div></div></div>
+    <div class="sheet glass">
+      <div class="bar"><i></i><u></u></div>
+      <div class="times"><span>1:24</span><span>3:41</span></div>
+      <div class="ctrls">
+        <button class="iconbtn" aria-label="Shuffle"><svg class="i"><use href="#shuffle"/></svg></button>
+        <button class="iconbtn" aria-label="Previous song"><svg class="i"><use href="#prev"/></svg></button>
+        <button class="play" aria-label="Pause"><svg class="i"><use href="#pause"/></svg></button>
+        <button class="iconbtn" aria-label="Next song"><svg class="i"><use href="#next"/></svg></button>
+        <button class="iconbtn" aria-label="Repeat"><svg class="i"><use href="#repeat"/></svg></button>
+      </div>
+      <div class="row2"><button><svg class="i" style="color:var(--accent)"><use href="#dl"/></svg>Saved on this phone</button><button><svg class="i"><use href="#queue"/></svg>Up next</button></div>
+    </div>
+  </div>
+</div>
+<figcaption>3. Now playing. Glass sheet over the blurred cover holds every control.</figcaption>
+</figure>
+
+<!-- 4 SAVED -->
+<figure>
+<div class="phone">
+  <div class="status"><span>9:41</span><span>5G ▮▮▮</span></div>
+  <div class="screen">
+    <div class="pad">
+      <h2>Saved</h2>
+      <p class="sub" style="margin-top:6px">12 songs, plays without internet</p>
+      <h3>On this phone</h3>
+      <div class="row"><div class="cover c1"></div><div class="meta"><div class="title">Sample song 1</div><div class="sub"><span class="off"><svg class="i"><use href="#dl"/></svg></span>Artist name · 3:41</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+      <div class="row"><div class="cover c3"></div><div class="meta"><div class="title">Sample song 3</div><div class="sub"><span class="off"><svg class="i"><use href="#dl"/></svg></span>Artist name · 4:02</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+      <div class="row"><div class="cover c4"></div><div class="meta"><div class="title">Sample song 5</div><div class="sub"><span class="off"><svg class="i"><use href="#dl"/></svg></span>Artist name · 2:58</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+      <div class="row"><div class="cover c2"></div><div class="meta"><div class="title">Sample song 6</div><div class="sub"><span class="off"><svg class="i"><use href="#dl"/></svg></span>Artist name · 3:15</div></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+    </div>
+    <div class="mini glass"><div class="cover c1"></div><div class="meta"><div class="title">Sample song 1</div><div class="sub">Artist name</div></div><button class="iconbtn" aria-label="Pause"><svg class="i"><use href="#pause"/></svg></button><button class="iconbtn" aria-label="Next song"><svg class="i"><use href="#next"/></svg></button><div class="prog"></div></div>
+    <nav class="nav" aria-label="Main">
+      <a href="#"><span class="pill"><svg class="i"><use href="#home"/></svg></span>Listen</a>
+      <a class="on" href="#"><span class="pill"><svg class="i"><use href="#saved"/></svg></span>Saved</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#list"/></svg></span>Playlists</a>
+    </nav>
+  </div>
+</div>
+<figcaption>4. Saved songs. Every row here is on the phone, so each has the yellow mark.</figcaption>
+</figure>
+
+<!-- 5 SAVED EMPTY -->
+<figure>
+<div class="phone">
+  <div class="status"><span>9:41</span><span>5G ▮▮▮</span></div>
+  <div class="screen">
+    <div class="pad"><h2>Saved</h2></div>
+    <div class="empty">
+      <div class="big">Nothing saved yet</div>
+      <p>Open any song and tap “Save on this phone”. It will play here without internet.</p>
+      <button class="btn">Find a song to save</button>
+    </div>
+    <nav class="nav" aria-label="Main">
+      <a href="#"><span class="pill"><svg class="i"><use href="#home"/></svg></span>Listen</a>
+      <a class="on" href="#"><span class="pill"><svg class="i"><use href="#saved"/></svg></span>Saved</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#list"/></svg></span>Playlists</a>
+    </nav>
+  </div>
+</div>
+<figcaption>5. Saved, empty state.</figcaption>
+</figure>
+
+<!-- 6 PLAYLISTS -->
+<figure>
+<div class="phone">
+  <div class="status"><span>9:41</span><span>5G ▮▮▮</span></div>
+  <div class="screen">
+    <div class="pad">
+      <h2>Playlists</h2>
+      <div style="margin-top:16px;display:grid;gap:10px">
+        <div class="route" style="width:auto;height:84px;display:flex;align-items:center;gap:14px;padding:0 16px 0 14px"><span class="plate p1" style="min-width:44px;height:44px;font-size:28px;border-radius:8px">1</span><div><div class="name" style="margin:0">Playlist name</div><div class="sub">12 songs · 9 saved</div></div><div class="stripe p1"></div></div>
+        <div class="route" style="width:auto;height:84px;display:flex;align-items:center;gap:14px;padding:0 16px 0 14px"><span class="plate p2" style="min-width:44px;height:44px;font-size:28px;border-radius:8px">2</span><div><div class="name" style="margin:0">Playlist name</div><div class="sub">8 songs · 8 saved</div></div><div class="stripe p2"></div></div>
+        <div class="route" style="width:auto;height:84px;display:flex;align-items:center;gap:14px;padding:0 16px 0 14px"><span class="plate p3" style="min-width:44px;height:44px;font-size:28px;border-radius:8px">3</span><div><div class="name" style="margin:0">Playlist name</div><div class="sub">20 songs · 0 saved</div></div><div class="stripe p3"></div></div>
+      </div>
+    </div>
+    <div class="mini glass" style="bottom:164px"><div class="cover c1"></div><div class="meta"><div class="title">Sample song 1</div><div class="sub">Artist name</div></div><button class="iconbtn" aria-label="Pause"><svg class="i"><use href="#pause"/></svg></button><button class="iconbtn" aria-label="Next song"><svg class="i"><use href="#next"/></svg></button><div class="prog"></div></div>
+    <button class="fab"><svg class="i"><use href="#plus"/></svg>New playlist</button>
+    <nav class="nav" aria-label="Main">
+      <a href="#"><span class="pill"><svg class="i"><use href="#home"/></svg></span>Listen</a>
+      <a href="#"><span class="pill"><svg class="i"><use href="#saved"/></svg></span>Saved</a>
+      <a class="on" href="#"><span class="pill"><svg class="i"><use href="#list"/></svg></span>Playlists</a>
+    </nav>
+  </div>
+</div>
+<figcaption>6. Playlists. Each one gets a number plate and a stripe color.</figcaption>
+</figure>
+
+<!-- 7 NOW PLAYING LIGHT -->
+<figure>
+<div class="phone np light">
+  <div class="status"><span>9:41</span><span>5G ▮▮▮</span></div>
+  <div class="screen">
+    <div class="bgart"><div class="cover c2"></div></div><div class="shade"></div>
+    <div class="top"><button class="iconbtn" aria-label="Close player"><svg class="i"><use href="#down"/></svg></button><div class="ctx">Playing from<b>Playlist 2</b></div><button class="iconbtn" aria-label="More options"><svg class="i"><use href="#more"/></svg></button></div>
+    <div class="art"><div class="cover c2"></div></div>
+    <div class="info"><div class="meta"><div class="title">Sample song 2</div><div class="sub">Artist name</div></div></div>
+    <div class="sheet glass">
+      <div class="bar"><i></i><u></u></div>
+      <div class="times"><span>1:24</span><span>3:41</span></div>
+      <div class="ctrls">
+        <button class="iconbtn" aria-label="Shuffle"><svg class="i"><use href="#shuffle"/></svg></button>
+        <button class="iconbtn" aria-label="Previous song"><svg class="i"><use href="#prev"/></svg></button>
+        <button class="play" aria-label="Pause"><svg class="i"><use href="#pause"/></svg></button>
+        <button class="iconbtn" aria-label="Next song"><svg class="i"><use href="#next"/></svg></button>
+        <button class="iconbtn" aria-label="Repeat"><svg class="i"><use href="#repeat"/></svg></button>
+      </div>
+      <div class="row2"><button><svg class="i"><use href="#dl"/></svg>Save on this phone</button><button><svg class="i"><use href="#queue"/></svg>Up next</button></div>
+    </div>
+  </div>
+</div>
+<figcaption>7. Light option of the player. This song is not saved yet, so the mark is plain.</figcaption>
+</figure>
+
+</div>
+</body>
+</html>

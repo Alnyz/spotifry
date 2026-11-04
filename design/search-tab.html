@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotifry · Search tab</title>
+<style>
+@font-face { font-family: "Albert"; src: url("../app/src/main/res/font/albertsans.ttf"); font-weight: 400 700; }
+:root { --bg:#F4F5F7; --surface:#FFFFFF; --high:#E6E8EC; --outline:#C9CDD3; --ink:#15181C; --ink2:#525A64; --accent:#1F5FD6; --on-accent:#fff; --glow:rgba(91,149,255,.22); }
+body.dark { --bg:#0C0D10; --surface:#17191E; --high:#1F2228; --outline:#2A2E35; --ink:#F2F3F5; --ink2:#A6ADB6; --accent:#5B95FF; --on-accent:#08152E; --glow:rgba(91,149,255,.20); }
+* { box-sizing:border-box; margin:0; }
+body { font-family:"Albert",sans-serif; background:#D9DCE1; color:var(--ink); padding:28px 32px 48px; }
+body.dark { background:#050608; }
+header.page { display:flex; align-items:baseline; gap:24px; margin-bottom:24px; color:#15181C; }
+body.dark header.page, body.dark figcaption { color:#C9CDD3; }
+header.page h1 { font-size:22px; letter-spacing:-.02em; }
+header.page button { font:600 14px "Albert"; border:1px solid currentColor; background:none; color:inherit; border-radius:99px; padding:6px 14px; cursor:pointer; }
+.row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+figure { width:360px; }
+figcaption { font-size:14px; line-height:20px; color:#3A4048; margin-top:12px; max-width:340px; }
+.phone { width:360px; height:780px; border-radius:34px; overflow:hidden; position:relative; background:var(--bg); box-shadow:0 18px 40px -12px rgba(0,0,0,.35); }
+.phone::before { content:""; position:absolute; inset:0 0 auto auto; width:300px; height:260px; background:radial-gradient(closest-side,var(--glow),transparent); transform:translate(30%,-30%); }
+.status { height:34px; display:flex; justify-content:space-between; align-items:center; padding:0 22px; font-size:13px; font-weight:600; position:relative; }
+.screen { padding:0 20px; position:relative; }
+h2.title { font-size:34px; line-height:40px; letter-spacing:-.68px; font-weight:700; margin:20px 0 16px; }
+h2.title .dot { color:var(--accent); }
+.search { height:52px; border-radius:99px; border:1px solid var(--outline); background:color-mix(in srgb,var(--high) 60%,transparent); display:flex; align-items:center; gap:12px; padding:0 18px; font-size:16px; color:var(--ink2); }
+.search.on { border:1.5px solid var(--accent); color:var(--ink); background:var(--surface); }
+.search svg { width:22px; height:22px; flex:none; color:var(--ink2); }
+.search .caret { width:1.5px; height:20px; background:var(--accent); margin-left:-10px; }
+.search .x { margin-left:auto; }
+.banner { margin-top:18px; height:200px; border-radius:22px; background:linear-gradient(160deg,#3b3a2e,#141310); color:#fff; padding:18px; position:relative; }
+.banner .tag { display:inline-block; font-size:12px; font-weight:600; background:rgba(0,0,0,.45); padding:4px 10px; border-radius:99px; }
+.banner b { display:block; font-size:28px; letter-spacing:-.56px; margin-top:12px; } .banner span { font-size:15px; opacity:.85; }
+.banner .play { position:absolute; left:18px; bottom:16px; display:flex; align-items:center; gap:10px; font-weight:600; }
+.banner .play i { width:44px; height:44px; border-radius:50%; background:#fff; display:grid; place-items:center; }
+.banner .play svg { width:18px; height:18px; color:#111; }
+.chips { display:flex; gap:8px; margin-top:14px; }
+.chip { flex:1; height:46px; border-radius:99px; background:var(--surface); display:flex; align-items:center; justify-content:center; gap:6px; font-weight:600; font-size:14px; }
+.chip svg { width:18px; height:18px; color:var(--accent); }
+.sec { font-size:21px; font-weight:700; letter-spacing:-.42px; margin:22px 0 12px; }
+.cards { display:flex; gap:12px; }
+.cards i { width:130px; height:130px; border-radius:16px; flex:none; }
+.sub { font-size:15px; line-height:22px; color:var(--ink2); margin-top:28px; text-align:center; padding:0 20px; }
+.recent-h { display:flex; justify-content:space-between; align-items:baseline; margin:22px 0 6px; }
+.recent-h b { font-size:21px; letter-spacing:-.42px; } .recent-h span { font-size:14px; font-weight:600; color:var(--accent); }
+.q { display:flex; align-items:center; gap:14px; height:50px; font-size:16px; }
+.q svg { width:20px; height:20px; color:var(--ink2); flex:none; } .q .rm { margin-left:auto; }
+.song { display:flex; align-items:center; gap:14px; height:66px; }
+.song .art { width:52px; height:52px; border-radius:10px; flex:none; }
+.song .t { flex:1; min-width:0; } .song b { font-weight:500; font-size:16px; display:block; } .song span { font-size:14px; color:var(--ink2); }
+.song svg { width:22px; height:22px; }
+.mini { position:absolute; left:10px; right:10px; bottom:80px; height:62px; border-radius:18px; border:1px solid var(--outline); background:color-mix(in srgb,var(--bg) 88%,transparent); display:flex; align-items:center; gap:12px; padding:0 12px; }
+.mini .art { width:42px; height:42px; border-radius:8px; background:linear-gradient(#c9b994,#8f7f5c); }
+.mini b { font-size:15px; display:block; } .mini span { font-size:13px; color:var(--ink2); }
+.nav { position:absolute; left:0; right:0; bottom:0; height:76px; display:flex; justify-content:space-around; align-items:center; font-size:12.5px; color:var(--ink2); background:var(--bg); }
+.nav div { display:flex; flex-direction:column; align-items:center; gap:4px; width:25%; }
+.nav svg { width:22px; height:22px; } .nav .on { color:var(--accent); }
+.kb { position:absolute; left:0; right:0; bottom:0; height:250px; background:color-mix(in srgb,var(--high) 90%,#000 4%); display:grid; grid-template-rows:repeat(4,1fr); padding:8px 4px; gap:6px; }
+.kb div { display:flex; gap:5px; justify-content:center; } .kb i { width:30px; border-radius:6px; background:var(--surface); }
+</style>
+</head>
+<body>
+<header class="page"><h1>Search gets its own tab</h1><button onclick="document.body.classList.toggle('dark')">Switch light / dark</button></header>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="home" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 3 10.5V21h6v-6h6v6h6V10.5z"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24" fill="currentColor"><path d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></symbol>
+  <symbol id="saved" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 4v6.2l2.3-2.3 1.4 1.4L12 16l-3.7-3.7 1.4-1.4 2.3 2.3V7z"/></symbol>
+  <symbol id="list" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h14v2H3zm0 5h14v2H3zm0 5h9v2H3zm15-5v5.3a2.7 2.7 0 1 0 2 2.6V8h3V6h-5z"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></symbol>
+  <symbol id="dl" viewBox="0 0 24 24" fill="currentColor"><path d="M11 4h2v8.2l2.6-2.6L17 11l-5 5-5-5 1.4-1.4L11 12.2zM5 18h14v2H5z"/></symbol>
+  <symbol id="shuffle" viewBox="0 0 24 24" fill="currentColor"><path d="M16 4h5v5l-1.8-1.8L5.4 21 4 19.6 17.8 5.8zM4 4.4 9.5 10 8.1 11.4 2.6 5.8zm10.6 8.2 1.4-1.4 3.2 3.2L21 12.6V18h-5.4l1.8-1.8z"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 2a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm-1 2v6l5 3 1-1.7-4-2.4V7z"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+  <symbol id="more" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></symbol>
+</svg>
+
+<template id="mini"><div class="mini"><div class="art"></div><div><b>To Whom It May Concern</b><span>Creed</span></div></div></template>
+<template id="nav0"><div class="nav"><div class="on"><svg><use href="#home"/></svg>Home</div><div><svg><use href="#search"/></svg>Search</div><div><svg><use href="#saved"/></svg>Saved</div><div><svg><use href="#list"/></svg>Playlists</div></div></template>
+<template id="nav1"><div class="nav"><div><svg><use href="#home"/></svg>Home</div><div class="on"><svg><use href="#search"/></svg>Search</div><div><svg><use href="#saved"/></svg>Saved</div><div><svg><use href="#list"/></svg>Playlists</div></div></template>
+
+<div class="row">
+  <figure>
+    <div class="phone">
+      <div class="status"><span>00.30</span><span>39%</span></div>
+      <div class="screen">
+        <h2 class="title">Good evening<span class="dot">.</span></h2>
+        <div class="banner"><span class="tag">Last played</span><b>Suddenly</b><span>Creed</span><div class="play"><i><svg><use href="#play"/></svg></i>Play again</div></div>
+        <div class="chips"><div class="chip"><svg><use href="#dl"/></svg>Saved</div><div class="chip"><svg><use href="#list"/></svg>Playlists</div><div class="chip"><svg><use href="#shuffle"/></svg>Shuffle</div></div>
+        <p class="sec">Recently played</p>
+        <div class="cards"><i style="background:#8a4a5a"></i><i style="background:#4f6d63"></i><i style="background:#6d8fb0"></i></div>
+      </div>
+      <div class="mini-slot" data-t="mini"></div><div data-t="nav0"></div>
+    </div>
+    <figcaption><b>1. Home</b> (was Listen). Same page, minus the search box. Everything moves up, so "Recently played" shows without scrolling.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone">
+      <div class="status"><span>00.30</span><span>39%</span></div>
+      <div class="screen">
+        <h2 class="title">Search</h2>
+        <div class="search"><svg><use href="#search"/></svg>Songs or artists</div>
+        <div class="recent-h"><b>Recent searches</b><span>Clear</span></div>
+        <div class="q"><svg><use href="#clock"/></svg>linkin<svg class="rm"><use href="#x"/></svg></div>
+        <div class="q"><svg><use href="#clock"/></svg>creed<svg class="rm"><use href="#x"/></svg></div>
+        <div class="q"><svg><use href="#clock"/></svg>yoasobi<svg class="rm"><use href="#x"/></svg></div>
+      </div>
+      <div data-t="mini"></div><div data-t="nav1"></div>
+    </div>
+    <figcaption><b>2. Search tab.</b> Search box at the top, and your last 10 searches under it: tap one to search it again, or the cross to remove it. With no history yet it says "Find any song on YouTube."</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone">
+      <div class="status"><span>00.31</span><span>39%</span></div>
+      <div class="screen">
+        <h2 class="title">Search</h2>
+        <div class="search on"><svg><use href="#search"/></svg>yoasobi<span class="caret"></span><svg class="x"><use href="#x"/></svg></div>
+        <div style="height:10px"></div>
+        <div class="song"><div class="art" style="background:#5d5785"></div><div class="t"><b>夜に駆ける</b><span>YOASOBI</span></div><svg><use href="#more"/></svg></div>
+        <div class="song"><div class="art" style="background:#6d8fb0"></div><div class="t"><b>Into The Night</b><span>YOASOBI</span></div><svg><use href="#more"/></svg></div>
+        <div class="song"><div class="art" style="background:#4f6d63"></div><div class="t"><b>群青</b><span>YOASOBI</span></div><svg><use href="#more"/></svg></div>
+      </div>
+      <div class="kb"><div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div><i style="width:200px"></i></div></div>
+    </div>
+    <figcaption><b>3. Typing.</b> Results show as you type, the same way they do now. The cross clears the box. The keyboard doesn't open by itself when you open the tab; tap the box.</figcaption>
+  </figure>
+</div>
+<script>
+const map = { mini: 'mini', nav0: 'nav0', nav1: 'nav1' };
+document.querySelectorAll('[data-t]').forEach(e => e.replaceWith(document.getElementById(map[e.dataset.t]).content.cloneNode(true)));
+</script>
+</body>
+</html>

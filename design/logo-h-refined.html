@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotifry: logo H, refined by the rules</title>
+<style>
+@font-face { font-family: Albert; src: url(../app/src/main/res/font/albertsans.ttf); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; }
+body { background: #1c1e23; color: #F2F3F5; font-family: Albert, sans-serif; padding: 36px; max-width: 1320px; }
+h1 { font-size: 22px; font-weight: 700; }
+h2 { font-size: 18px; font-weight: 700; margin: 34px 0 6px; }
+p { color: #b5bac2; font-size: 14px; line-height: 1.5; max-width: 860px; }
+.lead { margin: 6px 0 22px; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.card { background: #0C0D10; border-radius: 20px; padding: 20px; }
+.card h3 { font-size: 16px; font-weight: 700; }
+.card h3 b { color: #5B95FF; margin-right: 6px; }
+.card p { font-size: 13px; margin: 6px 0 16px; min-height: 58px; }
+.tiles { display: flex; gap: 10px; }
+.tile { width: 120px; height: 120px; border-radius: 28px; overflow: hidden; display: grid; place-items: center; }
+.tile svg { width: 100%; height: 100%; }
+.dark { background: #102038; } .blue { background: #5B95FF; } .white { background: #fff; }
+.rules { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+.box { background: #0C0D10; border-radius: 20px; padding: 20px; }
+.box h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.box p { font-size: 13px; margin-bottom: 14px; }
+.sizes { display: flex; align-items: flex-end; gap: 18px; }
+.sizes div { text-align: center; font-size: 12px; color: #b5bac2; }
+.sizes .t { border-radius: 22%; overflow: hidden; margin-bottom: 6px; }
+ul { margin: 8px 0 0 18px; color: #d3d7dd; font-size: 14px; line-height: 1.6; }
+ul b { color: #F2F3F5; }
+.src { font-size: 12px; color: #8a9099; margin-top: 30px; }
+.src a { color: #8fb3ff; }
+</style>
+</head>
+<body>
+<h1>Logo H, refined by the rules</h1>
+<p class="lead">The original H on the left, then three refined versions built on the Android icon grid. Below them, the checks a good logo should pass, run on version H2.</p>
+<div class="cards" id="cards"></div>
+
+<h2>What I changed and why</h2>
+<ul>
+  <li><b>Built on a grid, not by eye.</b> Every part sits inside Android's safe circle (66 of 108 units), so no phone can cut it off. The bars and the gaps between them follow one rhythm, and the bars, handle and pan corners share one roundness. Shapes that repeat one measure read as calm and deliberate instead of hand-placed.</li>
+  <li><b>Fewer parts.</b> Five bars became four, and they float as a sound wave around one centre line, so the shape cannot be mistaken for fingers. The pan is one solid shape and the handle one line. Fewer parts are easier to remember and survive at small sizes.</li>
+  <li><b>Upward rhythm.</b> The bars swell and fade like one puff of steam, biggest just right of centre, and the handle tilts slightly up. Rising shapes read as energy and lift. The rounded ends keep it friendly instead of sharp.</li>
+  <li><b>A hidden second meaning (H2).</b> A play button is cut out of the pan, in the empty space. You see the pan first and the play button on a second look. This is the same trick as the arrow hidden in the FedEx logo: it makes the logo stick in memory.</li>
+  <li><b>Colour with a job (H3).</b> Blue says calm and trust, which fits a player with no ads. H3 makes the steam warm, the colour of heat, so the fry joke reads even faster. That adds a second colour to the app's one-accent rule, so it is your call.</li>
+</ul>
+
+<h2>Checks on H2</h2>
+<div class="rules">
+  <div class="box"><h3>Simple and memorable: one colour, no detail</h3><p>A good mark still reads as a flat silhouette in one colour. If you can recognise it as a black shape, it will print, stamp and embroider.</p><div class="tiles" id="mono"></div></div>
+  <div class="box"><h3>Versatile: works at every size</h3><p>From the notification bar (about 24 px) up to the home screen. The bars must not merge into a block at the smallest size.</p><div class="sizes" id="sizes"></div></div>
+  <div class="box"><h3>Safe on every phone</h3><p>Android cuts icons into circles, squircles or rounded squares. The dashed circle is the area that is never cut; the whole mark stays inside it.</p><div class="tiles" id="safe"></div></div>
+  <div class="box"><h3>Appropriate and timeless</h3><p>A pan and a sound meter say "fry" and "music" without words. No gradients, glow or 3D effects, which date fast. It stays clear of Spotify: no green, no circle with three curved lines.</p><div class="tiles" id="word"></div></div>
+</div>
+
+<p class="src">Sources: <a href="https://medium.com/@kevin_rakestraw/5-principles-of-effective-logo-design-de337f37a86a">5 principles of effective logo design</a> · <a href="https://www.smashingmagazine.com/2009/08/vital-tips-for-effective-logo-design/">Smashing Magazine, vital tips for logo design</a> · <a href="https://www.creativebloq.com/logo-design/psychology-logo-shapes-8133918">Creative Bloq, psychology of logo shapes</a> · <a href="https://www.wix.com/blog/2021/10/logo-psychology/">Wix, logo psychology</a> · <a href="https://developer.android.com/develop/ui/views/launch/icon_design_adaptive">Android adaptive icons</a> · <a href="https://medium.com/google-design/515af294c783">Google Design, designing adaptive icons</a></p>
+
+<script>
+const BLUE = "#5B95FF", DARK = "#0C0D10", NAVY = "#102038", WARM = "#FFB547";
+// original H, drawn on a 100 grid and padded to sit like the others
+const original = (c, bg, w) => `<svg viewBox="-4 -4 108 108">${[[25, 38], [35, 26], [45, 32], [55, 22], [65, 40]].map(([x, y]) => `<rect x="${x}" y="${y}" width="6" height="${52 - y}" rx="3" fill="${w}"/>`).join("")}<path d="M16 58 L76 58 L70 76 Q68 80 63 80 L29 80 Q24 80 22 76 Z" fill="${c}"/><path d="M76 62 L92 56" stroke="${c}" stroke-width="7" stroke-linecap="round"/></svg>`;
+// refined: 108 grid (Android adaptive icon), all inside the 66-unit safe circle around 54,54
+// a sound wave: bars centred on one line (y 41), so the steam floats and never reads as fingers
+const bars = [[26.5, 12], [38, 22], [49.5, 28], [61, 16]]; // x, height; width 7
+const pan = `M24 61 L69 61 L64.5 75 Q63 79 59 79 L34 79 Q30 79 28.5 75 Z`;
+const refined = ({ play = false, steam = null } = {}) => (c, bg, w) => `<svg viewBox="0 0 108 108">
+  ${bars.map(([x, h]) => `<rect x="${x}" y="${41 - h / 2}" width="7" height="${h}" rx="3.5" fill="${steam || w}"/>`).join("")}
+  <path d="${pan}" fill="${c}"/>
+  <path d="M68 66 L84 60" stroke="${c}" stroke-width="7" stroke-linecap="round"/>
+  ${play ? `<path d="M43 65 L53.5 70 L43 75 Z" fill="${bg}" stroke="${bg}" stroke-width="2.5" stroke-linejoin="round"/>` : ""}
+</svg>`;
+const H1 = refined(), H2 = refined({ play: true }), H3 = refined({ play: true, steam: WARM });
+const cards = [
+  ["H", "Original", "Your pick from last round, unchanged, for comparison.", original],
+  ["H1", "Refined", "Same idea on the icon grid: four bars on one rhythm, one roundness everywhere, handle tilted up.", H1],
+  ["H2", "Hidden play", "H1 plus a play button cut out of the pan. Pan first, play button on the second look.", H2],
+  ["H3", "Warm steam", "H2 with the steam in a warm heat colour. Reads as frying faster; adds a second colour.", H3],
+];
+const tile = (f, cls, c, bg, w) => `<div class="tile ${cls}">${f(c, bg, w)}</div>`;
+document.getElementById("cards").innerHTML = cards.map(([id, name, why, f]) => `
+  <div class="card"><h3><b>${id}</b>${name}</h3><p>${why}</p>
+  <div class="tiles">${tile(f, "dark", BLUE, NAVY, "#F2F3F5")}${tile(f, "blue", DARK, BLUE, "#FFFFFF")}</div></div>`).join("");
+document.getElementById("mono").innerHTML = tile(H2, "white", "#000", "#fff", "#000") + tile(H2, "dark", "#fff", NAVY, "#fff");
+document.getElementById("sizes").innerHTML = [24, 32, 48, 72, 120].map(s => `<div><div class="t dark" style="width:${s}px;height:${s}px">${H2(BLUE, NAVY, "#F2F3F5")}</div>${s} px</div>`).join("");
+document.getElementById("safe").innerHTML = ["50%", "22%", "8%"].map(r => `<div class="tile dark" style="border-radius:${r};position:relative">${H2(BLUE, NAVY, "#F2F3F5").replace("</svg>", `<circle cx="54" cy="54" r="33" fill="none" stroke="#ffffff" stroke-opacity=".45" stroke-dasharray="2 2" stroke-width=".7"/></svg>`)}</div>`).join("");
+document.getElementById("word").innerHTML = `<div style="display:flex;align-items:center;gap:6px;font-size:34px;font-weight:700;letter-spacing:-0.02em"><div style="width:64px;height:64px">${H2(BLUE, DARK, "#F2F3F5")}</div><span>Spotifry<span style="color:${BLUE}">.</span></span></div>`;
+</script>
+</body>
+</html>
