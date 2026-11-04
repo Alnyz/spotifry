@@ -40,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.withStyle
+import com.spotifry.music.data.LyricLine
 import com.spotifry.music.data.Lyrics
 import com.spotifry.music.data.indexAt
 import com.spotifry.music.player.PlayerUiState
@@ -49,10 +51,45 @@ private val Sung = Color.White
 // dimmed, but still readable on the mid-tone cover colours
 private val Past = Color.White.copy(alpha = .55f)
 private val Ahead = Color.White.copy(alpha = .72f)
+// words of the line being sung that aren't reached yet: dimmer than other lines, so the lit words stand out
+private val NotYet = Color.White.copy(alpha = .45f)
+
+/**
+ * The song's position, counted forward every frame between the player's twice-a-second updates, so words light up
+ * on time instead of in pairs. Only runs while shown.
+ */
+@Composable
+private fun smoothPosition(position: () -> Long, playing: Boolean): androidx.compose.runtime.State<Long> {
+    val smooth = remember { androidx.compose.runtime.mutableLongStateOf(position()) }
+    LaunchedEffect(playing) {
+        var raw = position(); var at = System.nanoTime()
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { }
+            val now = System.nanoTime(); val p = position()
+            if (p != raw) { raw = p; at = now }
+            // never more than 0.6 s past the last real update, in case the player stalls
+            smooth.longValue = if (playing) raw + ((now - at) / 1_000_000).coerceAtMost(600) else raw
+        }
+    }
+    return smooth
+}
+
+/** The line with its sung words lit and the rest dim; a line without word times is all one [lit] colour. */
+@Composable
+private fun sungLine(line: LyricLine, position: androidx.compose.runtime.State<Long>, lit: Color): androidx.compose.ui.text.AnnotatedString {
+    if (line.words.isEmpty()) return androidx.compose.ui.text.AnnotatedString(line.text)
+    // redraws when the next word starts, not every frame
+    val reached by remember(line) { derivedStateOf { line.words.count { it.startMs <= position.value } } }
+    return androidx.compose.ui.text.buildAnnotatedString {
+        line.words.forEachIndexed { i, w ->
+            withStyle(androidx.compose.ui.text.SpanStyle(color = if (i < reached) lit else NotYet)) { append(w.text) }
+        }
+    }
+}
 
 /** Under the controls on Now playing: four lines around the one being sung. Hidden when the song has no lyrics. */
 @Composable
-internal fun LyricsCard(ui: LyricsUi, position: () -> Long, color: Color, onShowAll: () -> Unit, onRetry: () -> Unit) {
+internal fun LyricsCard(ui: LyricsUi, position: () -> Long, playing: Boolean, color: Color, onShowAll: () -> Unit, onRetry: () -> Unit) {
     if (ui == LyricsUi.None) return
     val ready = ui as? LyricsUi.Ready
     Column(
@@ -76,9 +113,12 @@ internal fun LyricsCard(ui: LyricsUi, position: () -> Long, color: Color, onShow
                     // redraws when the sung line changes, not on every position tick
                     val now by remember(l) { derivedStateOf { l.lines.indexAt(position()) } }
                     val first = (now - 1).coerceIn(0, (l.lines.size - 4).coerceAtLeast(0))
-                    l.lines.drop(first).take(4).forEachIndexed { k, line -> CardLine(line.text, if (first + k == now) Sung else Ahead) }
+                    val smooth = smoothPosition(position, playing)
+                    l.lines.drop(first).take(4).forEachIndexed { k, line ->
+                        if (first + k == now) CardLine(sungLine(line, smooth, Sung), Sung) else CardLine(androidx.compose.ui.text.AnnotatedString(line.text), Ahead)
+                    }
                 }
-                is Lyrics.Plain -> l.lines.take(4).forEach { CardLine(it, Sung) }
+                is Lyrics.Plain -> l.lines.take(4).forEach { CardLine(androidx.compose.ui.text.AnnotatedString(it), Sung) }
             }
             LyricsUi.None -> Unit
         }
@@ -86,7 +126,7 @@ internal fun LyricsCard(ui: LyricsUi, position: () -> Long, color: Color, onShow
 }
 
 @Composable
-private fun CardLine(text: String, color: Color) {
+private fun CardLine(text: androidx.compose.ui.text.AnnotatedString, color: Color) {
     val c by animateColorAsState(color, label = "lyric line")
     Text(text, Modifier.padding(end = 12.dp), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, lineHeight = 27.sp), color = c, maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
@@ -98,6 +138,7 @@ internal fun LyricsScreen(state: PlayerUiState, position: () -> Long, lyrics: Ly
     val timed = lyrics as? Lyrics.Timed
     val now by remember(timed) { derivedStateOf { timed?.lines?.indexAt(position()) ?: -1 } }
     val list = rememberLazyListState()
+    val smooth = smoothPosition(position, state.isPlaying)
     // keeps the sung line about a third of the way down, where the eye rests
     LaunchedEffect(now) { if (now >= 0) list.animateScrollToItem(now, -list.layoutInfo.viewportSize.height / 3) }
     Column(Modifier.fillMaxSize().background(color).clickable(enabled = false) {}) {
@@ -114,7 +155,10 @@ internal fun LyricsScreen(state: PlayerUiState, position: () -> Long, lyrics: Ly
         LazyColumn(Modifier.weight(1f), state = list, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (timed != null) itemsIndexed(timed.lines) { i, line ->
                 val c by animateColorAsState(when { i == now -> Sung; i < now -> Past; else -> Ahead }, label = "lyric line")
-                Text(line.text, Modifier.fillMaxWidth().clickable(onClickLabel = "Play from here") { onSeek(line.atMs) }, style = BigLine, color = c)
+                Text(
+                    if (i == now) sungLine(line, smooth, Sung) else androidx.compose.ui.text.AnnotatedString(line.text),
+                    Modifier.fillMaxWidth().clickable(onClickLabel = "Play from here") { onSeek(line.atMs) }, style = BigLine, color = c,
+                )
             }
             else itemsIndexed((lyrics as Lyrics.Plain).lines) { _, line -> Text(line, style = BigLine, color = Sung) }
         }
@@ -125,7 +169,7 @@ internal fun LyricsScreen(state: PlayerUiState, position: () -> Long, lyrics: Ly
                     Icon(if (state.isPlaying) Icons.Pause else Icons.Play, if (state.isPlaying) "Pause" else "Play", Modifier.size(26.dp), tint = Color(0xFF0C0D10))
                 }
             }
-            Text(if (timed == null) "Lyrics from LRCLIB · not timed" else "Lyrics from LRCLIB", Modifier.padding(start = 24.dp, top = 4.dp), style = MaterialTheme.typography.labelSmall, color = Faint)
+            Text(if (timed == null) "Lyrics from LRCLIB · not timed" else "Lyrics from ${timed.from}", Modifier.padding(start = 24.dp, top = 4.dp), style = MaterialTheme.typography.labelSmall, color = Faint)
         }
     }
 }

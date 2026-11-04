@@ -35,4 +35,29 @@ class LyricsTest {
         assertNull(LyricsSource.fromEntry(JSONObject().put("syncedLyrics", JSONObject.NULL).put("plainLyrics", JSONObject.NULL)))
         assertTrue(LyricsSource.fromEntry(JSONObject().put("syncedLyrics", JSONObject.NULL).put("plainLyrics", "a\n\nb")) is Lyrics.Plain)
     }
+
+    // trimmed from a real BetterLyrics answer: syllables of one word, a background voice, a line with no word timing
+    private val ttml = """<tt xmlns="http://www.w3.org/ns/ttml" itunes:timing="Word"><head></head><body dur="4:11.668">""" +
+        """<div begin="9.147" end="20.0"><p begin="9.147" end="15.034" ttm:agent="v2"><span begin="9.147" end="10.363">I,</span> """ +
+        """<span begin="11.520" end="11.899">I</span> <span begin="17.603" end="18.155">say</span> <span begin="18.155" end="18.393">good</span>""" +
+        """<span begin="18.393" end="19.844">bye</span><span ttm:role="x-bg"><span begin="19.0" end="19.5">(ooh)</span></span></p>""" +
+        """<p begin="1:02.5" end="1:05.0">Rock &amp; roll</p></div></body></tt>"""
+
+    @Test fun readsWordTimesFromAppleLyrics() {
+        val lines = LyricsSource.parseTtml(ttml)
+        assertEquals(2, lines.size)
+        assertEquals(9_147L, lines[0].atMs)
+        assertEquals("I, I say goodbye", lines[0].text)
+        assertEquals(listOf("I, ", "I ", "say ", "good", "bye"), lines[0].words.map { it.text })
+        assertEquals(18_393L, lines[0].words.last().startMs)
+        assertEquals(62_500L, lines[1].atMs)
+        assertEquals("Rock & roll", lines[1].text)
+        assertTrue(lines[1].words.isEmpty())
+    }
+
+    @Test fun clockReadsEveryForm() {
+        assertEquals(62_345L, LyricsSource.clock("1:02.345"))
+        assertEquals(62_345L, LyricsSource.clock("62.345"))
+        assertEquals(3_662_300L, LyricsSource.clock("1:01:02.3"))
+    }
 }

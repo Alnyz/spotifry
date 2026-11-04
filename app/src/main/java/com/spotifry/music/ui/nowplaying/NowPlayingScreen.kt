@@ -153,7 +153,7 @@ fun NowPlayingContent(
                 Spacer(Modifier.height(20.dp))
                 }
             }
-            LyricsCard(lyrics, position, lerp(top, Color.White, .14f), { onShowLyrics(true) }, onRetryLyrics)
+            LyricsCard(lyrics, position, state.isPlaying, lerp(top, Color.White, .14f), { onShowLyrics(true) }, onRetryLyrics)
             ComingUp(state, saved, lerp(top, Color.Black, .35f), onPick, onQueue)
         }
         val ready = (lyrics as? LyricsUi.Ready)?.lyrics

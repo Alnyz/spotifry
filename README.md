@@ -28,7 +28,7 @@
 | Sleep timer | Fades the music out and stops after a set time or at the end of the song. |
 | Offline | Save songs to the phone. Recently played songs (up to 500 MB) replay without using data. |
 | Playlists | Search, sort, put in your own order, or shuffle. Bring in a public Spotify playlist from its link. |
-| Lyrics | Follow the song as it plays, from [LRCLIB](https://lrclib.net). |
+| Lyrics | Light up word by word as they're sung when [BetterLyrics](https://github.com/better-lyrics/better-lyrics) has the song, else line by line from [LRCLIB](https://lrclib.net). |
 | Keeps playing | With the screen off, controlled from the lock screen and the notification. Similar songs play when the queue ends. |
 | Data saver | Lower quality on mobile data. Wi-Fi stays high. |
 | Theme | Light or dark, or follow the phone. |
@@ -55,7 +55,7 @@ Needs Android 13 or newer.
 - **A client, not a service.** It shows content that YouTube and YouTube Music already make public, much like a web browser does. Everything runs on your phone, and the app collects no account or personal data.
 - **No hosting.** Spotifry does not host, upload or share any music or video. Songs stream from YouTube's servers and belong to their copyright owners. Songs you save, and songs kept for quick replay, stay on your own phone.
 - **Support the artists.** If you can, subscribe to [YouTube Music Premium](https://www.youtube.com/musicpremium) or [Spotify Premium](https://www.spotify.com/premium/), buy their music, or go to their shows. Spotifry is a hobby project, not a replacement for these.
-- **No affiliation.** Not affiliated with, funded, authorized or endorsed by YouTube, Google LLC, Spotify AB, LRCLIB, or any of their affiliates. All trademarks belong to their owners.
+- **No affiliation.** Not affiliated with, funded, authorized or endorsed by YouTube, Google LLC, Spotify AB, Apple, BetterLyrics, LRCLIB, or any of their affiliates. All trademarks belong to their owners.
 - **As is.** Spotifry comes without warranty of any kind, as the [GPL-3.0 license](LICENSE) says. You are responsible for how you use it and for following the terms of the services it connects to and the laws of your country.
 
 ---
@@ -72,6 +72,7 @@ Without a release key, the build is signed with your debug key. The release key 
 
 - [NewPipe Extractor](https://github.com/TeamNewPipe/NewPipeExtractor) (GPL-3.0) for reading YouTube
 - [Media3 / ExoPlayer](https://github.com/androidx/media) for playback
+- [BetterLyrics](https://github.com/better-lyrics/better-lyrics) for word-timed lyrics
 - [LRCLIB](https://lrclib.net) for lyrics
 - [Haze](https://github.com/chrisbanes/haze) for the glass effect
 - [Albert Sans](https://github.com/usted/Albert-Sans) font (SIL Open Font License, see `licenses/`)

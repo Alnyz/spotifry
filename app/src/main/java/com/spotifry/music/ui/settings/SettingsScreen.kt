@@ -146,7 +146,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     )
                 } else Item("Spotifry", "Version ${BuildConfig.VERSION_NAME}")
                 Item("Music from YouTube", "Through NewPipe Extractor ${BuildConfig.NEWPIPE_VERSION}. If search breaks, this needs an update.")
-                Item("Lyrics from LRCLIB", "Sends the song's title and artist to lrclib.net")
+                Item("Lyrics from BetterLyrics and LRCLIB", "Sends the song's title, artist and length to lyrics-api.boidu.dev and lrclib.net")
             }
         }
     }
