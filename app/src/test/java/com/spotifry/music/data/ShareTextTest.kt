@@ -13,8 +13,8 @@ class ShareTextTest {
     @Test fun playlistRoundTrip() {
         val text = ShareText.playlist("Road trip", listOf(a, file, b))
         assertEquals(
-            "Road trip · 3 songs, shared from Spotifry\n\nPaper Lanterns – Mira Vale\nyoutu.be/dQ7xk2LmPa0\n" +
-                "beach-mix-final – Unknown artist\n(a file on my phone, no link)\nRock – Live – The Pines\nyoutu.be/Hk2p9QvLm3s",
+            "Road trip · 3 songs, shared from Spotifry\n\n1. Paper Lanterns – Mira Vale\nyoutu.be/dQ7xk2LmPa0\n" +
+                "2. beach-mix-final – Unknown artist\n(a file on my phone, no link)\n3. Rock – Live – The Pines\nyoutu.be/Hk2p9QvLm3s",
             text,
         )
         val got = ShareText.read(text)!!

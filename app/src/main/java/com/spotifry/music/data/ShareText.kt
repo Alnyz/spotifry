@@ -15,8 +15,8 @@ object ShareText {
 
     fun playlist(name: String, songs: List<Song>) = buildString {
         append("$name · ${songs.size} ${if (songs.size == 1) "song" else "songs"}, shared from Spotifry\n")
-        // no numbers and no "https://": chat apps still make youtu.be/… tappable, and WhatsApp cuts long messages short
-        songs.forEach { s -> append("\n${line(s)}\n${if (s.isLocal) NO_LINK else link(s).removePrefix("https://")}") }
+        // numbered, so a message WhatsApp cuts short shows how far it got; no "https://" to fit more (youtu.be/… stays tappable)
+        songs.forEachIndexed { i, s -> append("\n${i + 1}. ${line(s)}\n${if (s.isLocal) NO_LINK else link(s).removePrefix("https://")}") }
     }
 
     private fun line(s: Song) = if (s.artist.isBlank()) s.title else "${s.title} – ${s.artist}"
