@@ -209,6 +209,7 @@ fun AppShell(c: AppContainer) {
             ) { pad ->
                 TopGlow()
                 Box(Modifier.padding(pad).fillMaxSize()) {
+                    CompositionLocalProvider(com.spotifry.music.ui.components.LocalNowPlaying provides com.spotifry.music.ui.components.NowPlayingMark(player.current?.id, player.isPlaying) { showPlayer = true }) {
                     NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().fadeTop().hazeSource(haze)) {
                         composable(Routes.LISTEN) {
                             HomeScreen(home, openMenu, inset, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, top = {
@@ -236,6 +237,7 @@ fun AppShell(c: AppContainer) {
                         composable(Routes.PLAYLIST, listOf(navArgument("id") { type = NavType.LongType })) { e ->
                             PlaylistDetailScreen(plVm, e.arguments!!.getLong("id"), { nav.popBackStack() }, { s, pid -> menu = MenuTarget(s, pid) }, inset)
                         }
+                    }
                     }
                     MiniPlayer(
                         player, position, haze, c.player::toggle, c.player::next, { showPlayer = true },
