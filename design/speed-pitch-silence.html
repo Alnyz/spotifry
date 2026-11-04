@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Spotifry · Skip quiet parts, speed and pitch</title>
+<style>
+@font-face { font-family:"Albert"; src:url("../app/src/main/res/font/albertsans.ttf"); font-weight:400 700; }
+:root { --bg:#F4F5F7; --surface:#FFFFFF; --high:#E6E8EC; --outline:#C9CDD3; --ink:#15181C; --ink2:#525A64; --accent:#1F5FD6; }
+body.dark { --bg:#0C0D10; --surface:#17191E; --high:#1F2228; --outline:#2A2E35; --ink:#F2F3F5; --ink2:#A6ADB6; --accent:#5B95FF; }
+* { box-sizing:border-box; margin:0; }
+body { font-family:"Albert",sans-serif; background:#D9DCE1; color:var(--ink); padding:28px 32px 48px; }
+body.dark { background:#050608; }
+header.page { display:flex; align-items:baseline; gap:24px; margin-bottom:24px; color:#15181C; }
+body.dark header.page, body.dark figcaption { color:#C9CDD3; }
+header.page h1 { font-size:22px; letter-spacing:-.02em; }
+header.page button { font:600 14px "Albert"; border:1px solid currentColor; background:none; color:inherit; border-radius:99px; padding:6px 14px; cursor:pointer; }
+.row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+figure { width:360px; } figcaption { font-size:14px; line-height:20px; color:#3A4048; margin-top:12px; max-width:340px; }
+.phone { width:360px; height:780px; border-radius:34px; overflow:hidden; position:relative; box-shadow:0 18px 40px -12px rgba(0,0,0,.35); }
+.status { height:34px; display:flex; justify-content:space-between; align-items:center; padding:0 22px; font-size:13px; font-weight:600; position:relative; }
+
+/* now playing: always dark, tinted from the cover */
+.np { background:linear-gradient(#3a3550, #16141f 70%); color:#F2F3F5; }
+.np .status { color:#fff; }
+.topbar { display:flex; align-items:center; padding:0 8px; height:52px; }
+.topbar .ib { width:48px; height:48px; display:grid; place-items:center; } .topbar .ib svg { width:24px; height:24px; }
+.topbar .mid { flex:1; text-align:center; } .topbar .mid span { display:block; font-size:12px; font-weight:500; color:#C9C6D6; } .topbar .mid b { font-size:14px; font-weight:600; }
+.timer { display:flex; justify-content:center; margin-top:2px; }
+.timer span { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 14px 0 10px; border-radius:99px; background:rgba(255,255,255,.12); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
+.timer svg { width:18px; height:18px; }
+.cover { width:300px; height:300px; border-radius:12px; margin:16px auto 0; background:linear-gradient(140deg,#6b5f9e,#2c2740); }
+.cover.small { margin-top:10px; width:284px; height:284px; }
+.meta { padding:20px 24px 0; } .meta .title { font-size:24px; font-weight:700; letter-spacing:-.4px; } .meta .artist { font-size:16px; color:#C9C6D6; margin-top:2px; }
+.bar { height:4px; border-radius:4px; background:rgba(255,255,255,.25); margin:16px 24px 6px; } .bar i { display:block; width:38%; height:100%; background:#fff; border-radius:4px; }
+.times { display:flex; justify-content:space-between; font-size:12px; color:#C9C6D6; margin:0 24px; }
+.ctl { display:flex; justify-content:space-between; align-items:center; margin:12px 28px 0; }
+.ctl svg { width:26px; height:26px; } .ctl .big { width:64px; height:64px; border-radius:50%; background:#fff; color:#111; display:grid; place-items:center; } .ctl .big svg { width:30px; height:30px; }
+
+/* sheet over now playing, in the app theme like the other menus */
+.scrim { position:absolute; inset:0; background:rgba(0,0,0,.45); }
+.sheet { position:absolute; left:0; right:0; bottom:0; background:var(--surface); color:var(--ink); border-radius:20px 20px 0 0; padding:10px 0 30px; }
+.sheet .grab { width:32px; height:4px; border-radius:2px; background:var(--outline); margin:6px auto 14px; }
+.sheet .h1 { font-size:16px; font-weight:600; padding:0 24px; } .sheet .h2 { font-size:14px; color:var(--ink2); padding:2px 24px 8px; }
+.sheet .hs { font-size:24px; font-weight:600; letter-spacing:-.3px; padding:0 24px 4px; }
+.sheet .note { font-size:14px; line-height:20px; color:var(--ink2); padding:0 24px 10px; }
+.act { display:flex; align-items:center; gap:18px; height:56px; padding:0 24px; font-size:16px; }
+.act svg { width:24px; height:24px; color:var(--ink2); flex:none; }
+.act .r { margin-left:auto; font-size:14px; color:var(--ink2); font-variant-numeric:tabular-nums; }
+.act.on { color:var(--accent); font-weight:600; } .act.on svg { color:var(--accent); }
+.act.off { color:#C62828; } body.dark .act.off { color:#FF8A80; } .act.off svg { color:inherit; }
+.rule { height:1px; background:var(--outline); margin:6px 24px; }
+
+.sl { padding:4px 24px 10px; } .sl .lab { display:flex; justify-content:space-between; align-items:baseline; font-size:16px; } .sl .lab b { font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; color:var(--accent); }
+.track { height:6px; border-radius:6px; background:var(--high); margin:16px 0 6px; position:relative; } .track i { position:absolute; left:0; top:0; bottom:0; border-radius:6px; background:var(--accent); } .track s { position:absolute; top:50%; width:22px; height:22px; border-radius:50%; background:var(--accent); transform:translate(-50%,-50%); box-shadow:0 2px 6px rgba(0,0,0,.25); }
+.ends { display:flex; justify-content:space-between; font-size:12px; color:var(--ink2); }
+.chips2 { display:flex; gap:8px; margin-top:12px; } .chips2 span { flex:1; height:36px; border-radius:99px; border:1px solid var(--outline); display:grid; place-items:center; font-size:14px; font-weight:600; } .chips2 span.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+.step { display:flex; align-items:center; gap:14px; margin-top:12px; } .step span { width:44px; height:44px; border-radius:50%; border:1px solid var(--outline); display:grid; place-items:center; font-size:22px; } .step b { flex:1; text-align:center; font-size:15px; font-weight:600; }
+.reset { margin:8px 24px 0; height:44px; border-radius:99px; display:grid; place-items:center; font-weight:600; color:var(--accent); border:1px solid var(--outline); }
+.pills { display:flex; justify-content:center; gap:8px; margin-top:2px; }
+.timer span, .pills span { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 14px 0 10px; border-radius:99px; background:rgba(255,255,255,.12); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; color:#fff; } .pills svg { width:18px; height:18px; }
+.light { background:var(--bg); color:var(--ink); }
+.light::before { content:""; position:absolute; inset:0 0 auto auto; width:300px; height:260px; background:radial-gradient(closest-side,rgba(91,149,255,.4),transparent); transform:translate(30%,-30%); }
+.group { font-size:13px; font-weight:700; color:var(--ink2); margin:18px 20px 6px; letter-spacing:.02em; }
+.card2 { margin:0 12px; background:var(--surface); border-radius:18px; overflow:hidden; }
+.item { display:flex; align-items:center; gap:14px; padding:12px 16px; min-height:60px; border-top:1px solid var(--outline); } .item:first-child { border-top:0; }
+.item .t { flex:1; } .item b { display:block; font-weight:500; font-size:16px; } .item span { font-size:13px; color:var(--ink2); }
+.switch { width:46px; height:28px; border-radius:99px; background:var(--accent); position:relative; flex:none; } .switch::after { content:""; position:absolute; right:3px; top:3px; width:22px; height:22px; border-radius:50%; background:#fff; }
+.switch.off { background:var(--high); border:1px solid var(--outline); } .switch.off::after { left:3px; right:auto; background:var(--ink2); }
+h2.title { font-size:34px; letter-spacing:-.68px; font-weight:700; margin:4px 20px 8px; }
+.topb { padding:4px 8px 0; } .topb svg { width:24px; height:24px; margin:12px; }
+</style></head>
+<body>
+<header class="page"><h1>Skip quiet parts, speed and pitch</h1><button onclick="document.body.classList.toggle('dark')">Switch light / dark</button></header>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="more" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24" fill="currentColor"><path d="M7.4 9 12 13.6 16.6 9 18 10.4l-6 6-6-6z"/></symbol>
+  <symbol id="pause" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></symbol>
+  <symbol id="next" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6l9 6-9 6zm10 0h2v12h-2z"/></symbol>
+  <symbol id="prev" viewBox="0 0 24 24" fill="currentColor"><path d="M18 6l-9 6 9 6zM6 6h2v12H6z"/></symbol>
+  <symbol id="shuffle" viewBox="0 0 24 24" fill="currentColor"><path d="M16 4h5v5l-1.8-1.8L5.4 21 4 19.6 17.8 5.8zM4 4.4 9.5 10 8.1 11.4 2.6 5.8zm10.6 8.2 1.4-1.4 3.2 3.2L21 12.6V18h-5.4l1.8-1.8z"/></symbol>
+  <symbol id="repeat" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2z"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></symbol>
+  <symbol id="dl" viewBox="0 0 24 24" fill="currentColor"><path d="M11 4h2v8.2l3.3-3.3 1.4 1.4L12 16l-5.7-5.7 1.4-1.4 3.3 3.3zM5 18h14v2H5z"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v5.4l3.8 2.3-1 1.7L11 13.6z"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 16.2 5.3 12l-1.4 1.4 5.6 5.6L20.1 8.4 18.7 7z"/></symbol>
+  <symbol id="x" viewBox="0 0 24 24" fill="currentColor"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></symbol>
+
+  <symbol id="speed" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4a9 9 0 0 0-7.8 13.5l1.7-1A7 7 0 1 1 19 12h2a9 9 0 0 0-9-8zm4.6 3.4-5.4 3.9a2 2 0 1 0 2.4 2.4z"/></symbol>
+  <symbol id="back" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></symbol>
+</svg>
+<div class="row">
+  <figure>
+    <div class="phone light">
+      <div class="status"><span>10.02</span><span>74%</span></div>
+      <div class="topb"><svg><use href="#back"/></svg></div>
+      <h2 class="title">Settings</h2>
+      <p class="group">SOUND</p>
+      <div class="card2">
+        <div class="item"><div class="t"><b>Data saver</b><span>Lower quality on mobile data, about a third of the data. Wi-Fi stays high.</span></div><span class="switch off"></span></div>
+        <div class="item"><div class="t"><b>Same loudness for every song</b><span>Quiet songs are turned up and loud ones down.</span></div><span class="switch"></span></div>
+        <div class="item" style="outline:2px dashed var(--accent);outline-offset:-4px;border-radius:12px"><div class="t"><b>Skip quiet parts</b><span>Jumps over silence, like long quiet intros, endings and gaps between tracks on live albums.</span></div><span class="switch off"></span></div>
+        <div class="item"><div class="t"><b>Save quality</b><span>Songs you save to the phone</span></div></div>
+      </div>
+    </div>
+    <figcaption><b>1. Skip quiet parts.</b> A new switch in Settings → Sound (dashed outline), off by default. When on, silence inside songs is skipped: the song just moves on. It never touches quiet music, only real silence.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone np">
+      <div class="status"><span>10.03</span><span>74%</span></div>
+      <div class="topbar"><span class="ib"><svg><use href="#down"/></svg></span><div class="mid"><span>Playing from</span><b>Saved</b></div><span class="ib"><svg><use href="#more"/></svg></span></div>
+      <div class="cover"></div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <p class="h1">Paper Lanterns</p><p class="h2">The Night Owls</p>
+        <div class="act"><svg><use href="#plus"/></svg>Add to playlist</div>
+        <div class="act"><svg><use href="#dl"/></svg>Save on this phone</div>
+        <div class="act"><svg><use href="#clock"/></svg>Sleep timer</div>
+        <div class="act"><svg><use href="#speed"/></svg>Speed and pitch</div>
+      </div>
+    </div>
+    <figcaption><b>2. Where it lives.</b> On Now playing, the ⋮ menu gets "Speed and pitch" under Sleep timer. When something other than normal is set, the line says so: "Speed and pitch · 1.25×".</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone np">
+      <div class="status"><span>10.03</span><span>74%</span></div>
+      <div class="topbar"><span class="ib"><svg><use href="#down"/></svg></span><div class="mid"><span>Playing from</span><b>Saved</b></div><span class="ib"><svg><use href="#more"/></svg></span></div>
+      <div class="cover"></div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <p class="hs">Speed and pitch</p>
+        <div class="sl">
+          <div class="lab"><span>Speed</span><b>1.25×</b></div>
+          <div class="track"><i style="width:50%"></i><s style="left:50%"></s></div>
+          <div class="ends"><span>0.5×</span><span>2×</span></div>
+          <div class="chips2"><span>0.75×</span><span>1×</span><span class="on">1.25×</span><span>1.5×</span></div>
+        </div>
+        <div class="sl">
+          <div class="lab"><span>Pitch</span><b>+2</b></div>
+          <div class="step"><span>−</span><b>2 steps higher</b><span>+</span></div>
+        </div>
+        <div class="reset">Back to normal</div>
+      </div>
+    </div>
+    <figcaption><b>3. The sheet.</b> Speed: a slider from half speed to double, plus quick picks. Pitch: − and + in musical steps (semitones), up to 6 lower or higher. They work separately, so faster doesn't mean squeakier. "Back to normal" resets both. Changes are heard at once.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="phone np">
+      <div class="status"><span>10.04</span><span>74%</span></div>
+      <div class="topbar"><span class="ib"><svg><use href="#down"/></svg></span><div class="mid"><span>Playing from</span><b>Saved</b></div><span class="ib"><svg><use href="#more"/></svg></span></div>
+      <div class="pills"><span><svg><use href="#speed"/></svg>1.25× · +2</span><span><svg><use href="#clock"/></svg>Stops in 28:41</span></div>
+      <div class="cover small"></div>
+      <div class="meta"><p class="title">Paper Lanterns</p><p class="artist">The Night Owls</p></div>
+      <div class="bar"><i></i></div><div class="times"><span>1:38</span><span>4:19</span></div>
+      <div class="ctl"><svg><use href="#shuffle"/></svg><svg><use href="#prev"/></svg><span class="big"><svg><use href="#pause"/></svg></span><svg><use href="#next"/></svg><svg><use href="#repeat"/></svg></div>
+    </div>
+    <figcaption><b>4. While it's on.</b> A pill under the top bar shows it ("1.25× · +2"), next to the sleep timer pill if that runs too, so you never forget it's changed. Tap the pill to open the sheet. The setting stays for every song and after the app closes, until you set it back.</figcaption>
+  </figure>
+</div></body></html>

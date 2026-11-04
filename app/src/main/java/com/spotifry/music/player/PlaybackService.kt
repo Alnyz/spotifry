@@ -31,6 +31,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.pow
 
 @UnstableApi
 class PlaybackService : MediaSessionService() {
@@ -68,6 +69,13 @@ class PlaybackService : MediaSessionService() {
         player.preloadConfiguration = ExoPlayer.PreloadConfiguration(10_000_000L)
         c.sleepTimer.attach(player)
         scope.launch { c.settings.sameLoudness.collect { loudness.enabled = it } }
+        scope.launch { c.settings.skipSilence.collect { player.skipSilenceEnabled = it } }
+        scope.launch {
+            kotlinx.coroutines.flow.combine(c.settings.speed, c.settings.pitch) { s, p -> s to p }.collect { (s, p) ->
+                // pitch in semitones: each one is the twelfth root of 2
+                player.playbackParameters = androidx.media3.common.PlaybackParameters(s, 2.0.pow(p / 12.0).toFloat())
+            }
+        }
 
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {

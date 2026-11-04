@@ -137,6 +137,10 @@ fun AppShell(c: AppContainer) {
     val lyrics by npVm.lyrics.collectAsStateWithLifecycle()
     val sleep by c.sleepTimer.state.collectAsStateWithLifecycle()
     var showSleep by remember { mutableStateOf(false) }
+    var showSpeed by remember { mutableStateOf(false) }
+    val speed by c.settings.speed.collectAsStateWithLifecycle()
+    val pitch by c.settings.pitch.collectAsStateWithLifecycle()
+    val speedLabel = com.spotifry.music.data.speedPitchLabel(speed, pitch)
 
     var menu by remember { mutableStateOf<MenuTarget?>(null) }
     var addTo by remember { mutableStateOf<Song?>(null) }
@@ -243,6 +247,7 @@ fun AppShell(c: AppContainer) {
                     lyrics = lyrics, onRetryLyrics = npVm::retryLyrics, showLyrics = showLyrics, onShowLyrics = { showLyrics = it },
                     position = position,
                     sleep = sleep, sleepLeft = c.sleepTimer::remainingMs, onSleep = { showSleep = true },
+                    speedLabel = speedLabel, onSpeed = { showSpeed = true },
                 )
             }
         }
@@ -260,6 +265,7 @@ fun AppShell(c: AppContainer) {
                         SleepState.Off -> ""
                     }
                     add(MenuAction("Sleep timer$left", Icons.Clock) { showSleep = true })
+                    add(MenuAction("Speed and pitch" + (speedLabel?.let { " · $it" } ?: ""), Icons.Speed) { showSpeed = true })
                 }
             }
             SongMenuSheet(target.song, actions) { menu = null }
@@ -272,6 +278,7 @@ fun AppShell(c: AppContainer) {
             sleep, c.sleepTimer::remainingMs, onMinutes = c.sleepTimer::start, onEndOfSong = c.sleepTimer::startEndOfSong,
             onOff = c.sleepTimer::off, onDismiss = { showSleep = false },
         )
+        if (showSpeed) com.spotifry.music.ui.SpeedPitchSheet(speed, pitch, c.settings::setSpeed, c.settings::setPitch) { showSpeed = false }
         if (showQueue) QueueSheet(player, saved.map { it.id }.toSet(), c.player::skipTo) { showQueue = false }
     }
 }

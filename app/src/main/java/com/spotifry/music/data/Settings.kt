@@ -20,6 +20,21 @@ class Settings(private val prefs: SharedPreferences) {
     private val _sameLoudness = MutableStateFlow(prefs.getBoolean(SAME_LOUDNESS, true))
     /** Quiet songs turned up, loud ones down. On unless turned off. */
     val sameLoudness: StateFlow<Boolean> = _sameLoudness
+    private val _skipSilence = MutableStateFlow(prefs.getBoolean(SKIP_SILENCE, false))
+    /** Silence inside songs is jumped over. */
+    val skipSilence: StateFlow<Boolean> = _skipSilence
+    fun setSkipSilence(on: Boolean) { _skipSilence.value = on; prefs.edit().putBoolean(SKIP_SILENCE, on).apply() }
+
+    private val _speed = MutableStateFlow(prefs.getFloat(SPEED, 1f))
+    /** Playback speed, 0.5 to 2. Kept for every song until set back. */
+    val speed: StateFlow<Float> = _speed
+    fun setSpeed(x: Float) { _speed.value = x; prefs.edit().putFloat(SPEED, x).apply() }
+
+    private val _pitch = MutableStateFlow(prefs.getInt(PITCH, 0))
+    /** Pitch in semitones, -6 to +6, separate from speed. */
+    val pitch: StateFlow<Int> = _pitch
+    fun setPitch(steps: Int) { _pitch.value = steps; prefs.edit().putInt(PITCH, steps).apply() }
+
     fun setSameLoudness(on: Boolean) { _sameLoudness.value = on; prefs.edit().putBoolean(SAME_LOUDNESS, on).apply() }
 
     fun setDataSaver(on: Boolean) { _dataSaver.value = on; prefs.edit().putBoolean(DATA_SAVER, on).apply() }
@@ -31,5 +46,17 @@ class Settings(private val prefs: SharedPreferences) {
         const val SAVE_LOW = "save_low"
         const val THEME = "theme"
         const val SAME_LOUDNESS = "same_loudness"
+        const val SKIP_SILENCE = "skip_silence"
+        const val SPEED = "speed"
+        const val PITCH = "pitch"
     }
+}
+
+/** What the pill and menu show, or null when speed and pitch are both normal: "1.25×", "+2", "0.75× · −1". */
+fun speedPitchLabel(speed: Float, pitch: Int): String? {
+    val parts = buildList {
+        if (kotlin.math.abs(speed - 1f) > .001f) add("%.2f".format(java.util.Locale.US, speed).trimEnd('0').trimEnd('.') + "×")
+        if (pitch != 0) add(if (pitch > 0) "+$pitch" else "−${-pitch}")
+    }
+    return parts.joinToString(" · ").ifEmpty { null }
 }

@@ -46,6 +46,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val saveLow by vm.settings.saveLow.collectAsStateWithLifecycle()
     val theme by vm.settings.theme.collectAsStateWithLifecycle()
     val sameLoudness by vm.settings.sameLoudness.collectAsStateWithLifecycle()
+    val skipSilence by vm.settings.skipSilence.collectAsStateWithLifecycle()
     val storage by vm.storage.collectAsStateWithLifecycle()
     val searches by vm.recentSearches.list.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
@@ -65,6 +66,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     onClick = { vm.settings.setSameLoudness(!sameLoudness) }, role = Role.Switch,
                 ) {
                     Switch(sameLoudness, null, colors = switchColors())
+                }
+                Item(
+                    "Skip quiet parts", "Jumps over silence, like long quiet intros, endings and gaps between tracks on live albums.",
+                    onClick = { vm.settings.setSkipSilence(!skipSilence) }, role = Role.Switch,
+                ) {
+                    Switch(skipSilence, null, colors = switchColors())
                 }
                 Item("Save quality", "Songs you save to the phone") {
                     Segments(listOf("High", "Low"), if (saveLow) 1 else 0) { vm.settings.setSaveLow(it == 1) }

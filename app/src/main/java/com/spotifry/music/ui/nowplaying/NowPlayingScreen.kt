@@ -93,6 +93,8 @@ fun NowPlayingContent(
     showLyrics: Boolean = false, onShowLyrics: (Boolean) -> Unit = {},
     position: () -> Long = { 0L },
     sleep: SleepState = SleepState.Off, sleepLeft: () -> Long? = { null }, onSleep: () -> Unit = {},
+    /** "1.25× · +2" when speed or pitch isn't normal, else null. */
+    speedLabel: String? = null, onSpeed: () -> Unit = {},
 ) {
     val song = state.current ?: return
     // a new song closes the full lyrics of the old one
@@ -119,8 +121,9 @@ fun NowPlayingContent(
     CompositionLocalProvider(LocalContentColor provides Color.White) {
     BoxWithConstraints(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(top, lerp(top, Color.Black, .6f))))) {
         val screen = maxHeight
-        // a little smaller while the sleep timer pill shows, so nothing below moves down
-        val cover = minOf(maxWidth - 48.dp, screen * 0.44f) - if (sleep != SleepState.Off) 40.dp else 0.dp
+        // a little smaller while a pill shows, so nothing below moves down
+        val pills = sleep != SleepState.Off || speedLabel != null
+        val cover = minOf(maxWidth - 48.dp, screen * 0.44f) - if (pills) 40.dp else 0.dp
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // at least one screen tall (minus the peek of the card below), taller on small screens so nothing is cut off
             Column(
@@ -129,7 +132,10 @@ fun NowPlayingContent(
             ) {
                 Column {
                 TopBar(state.from, onClose, onMore)
-                if (sleep != SleepState.Off) SleepPill(sleep, sleepLeft, onSleep)
+                if (pills) Row(Modifier.fillMaxWidth().padding(top = 2.dp), Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+                    if (speedLabel != null) InfoPill(Icons.Speed, speedLabel, "Change speed and pitch", onSpeed)
+                    if (sleep != SleepState.Off) SleepPill(sleep, sleepLeft, onSleep)
+                }
                 Box(Modifier.fillMaxWidth().padding(top = 16.dp), Alignment.Center) {
                     Cover(song.id, song.thumbnailUrl, song.localThumbPath, cover, radius = 12.dp)
                 }
@@ -293,14 +299,17 @@ private fun SleepPill(sleep: SleepState, left: () -> Long?, onClick: () -> Unit)
             kotlinx.coroutines.delay(1_000)
         }
     }
-    Box(Modifier.fillMaxWidth().padding(top = 2.dp), Alignment.Center) {
-        Row(
-            Modifier.clip(CircleShape).background(Color.White.copy(alpha = .12f)).clickable(onClickLabel = "Change sleep timer", onClick = onClick)
-                .height(32.dp).padding(start = 10.dp, end = 14.dp),
-            Arrangement.spacedBy(6.dp), Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Clock, null, Modifier.size(18.dp))
-            Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontFeatureSettings = "tnum"))
-        }
+    InfoPill(Icons.Clock, text, "Change sleep timer", onClick)
+}
+
+@Composable
+private fun InfoPill(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, clickLabel: String, onClick: () -> Unit) {
+    Row(
+        Modifier.clip(CircleShape).background(Color.White.copy(alpha = .12f)).clickable(onClickLabel = clickLabel, onClick = onClick)
+            .height(32.dp).padding(start = 10.dp, end = 14.dp),
+        Arrangement.spacedBy(6.dp), Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, Modifier.size(18.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontFeatureSettings = "tnum"))
     }
 }
