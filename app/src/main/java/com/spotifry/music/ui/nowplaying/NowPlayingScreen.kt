@@ -180,7 +180,7 @@ private fun TopBar(from: String?, onClose: () -> Unit, onMore: () -> Unit) {
     }
 }
 
-/** Download outline when not saved, a filling ring while saving, a blue check once saved, red when it failed. */
+/** Download outline when not saved, a filling ring while saving, an orange check once saved, red when it failed. */
 @Composable
 private fun SaveButton(save: SaveUi, onSave: () -> Unit) {
     val scheme = MaterialTheme.colorScheme

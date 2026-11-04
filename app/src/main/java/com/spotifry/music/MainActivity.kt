@@ -300,8 +300,8 @@ private fun Modifier.fadeTop() = graphicsLayer { compositingStrategy = androidx.
 
 @Composable
 private fun TopGlow() {
-    // light mode uses the brighter blue and more of it, so the glow reads about as strongly as on the dark background
-    val glow = com.spotifry.music.ui.theme.Blue.copy(alpha = if (com.spotifry.music.ui.theme.isDark()) .30f else .50f)
+    // light mode uses the brighter orange and more of it, so the glow reads about as strongly as on the dark background
+    val glow = com.spotifry.music.ui.theme.Ember.copy(alpha = if (com.spotifry.music.ui.theme.isDark()) .30f else .40f)
     androidx.compose.foundation.layout.Box(
         Modifier.fillMaxSize().drawBehind {
             drawRect(

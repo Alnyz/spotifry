@@ -2,9 +2,9 @@
 
 <img src=".github/assets/banner.jpg" alt="Spotifry: a simple, clean and modern music player for Android" width="100%">
 
-[![Latest release](https://img.shields.io/github/v/release/Alnyz/spotifry?style=for-the-badge&label=download&color=5B95FF&labelColor=102038)](../../releases/latest)
-[![Android 13 or newer](https://img.shields.io/badge/Android-13%2B-5B95FF?style=for-the-badge&labelColor=102038)](#download)
-[![GPL-3.0 license](https://img.shields.io/badge/license-GPL--3.0-5B95FF?style=for-the-badge&labelColor=102038)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/Alnyz/spotifry?style=for-the-badge&label=download&color=FF8A3D&labelColor=2B1408)](../../releases/latest)
+[![Android 13 or newer](https://img.shields.io/badge/Android-13%2B-FF8A3D?style=for-the-badge&labelColor=2B1408)](#download)
+[![GPL-3.0 license](https://img.shields.io/badge/license-GPL--3.0-FF8A3D?style=for-the-badge&labelColor=2B1408)](LICENSE)
 
 [**Download**](#download) · [**Features**](#features) · [**Disclaimer**](#disclaimer) · [**Build**](#build)
 

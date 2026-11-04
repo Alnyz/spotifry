@@ -2,7 +2,7 @@ package com.spotifry.music.ui
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
-import com.spotifry.music.ui.theme.Blue
+import com.spotifry.music.ui.theme.Ember
 import com.spotifry.music.ui.theme.GlassTint
 import com.spotifry.music.ui.theme.contrastRatio
 import com.spotifry.music.ui.theme.darkColors
@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GlassContrastTest {
-    private val backdrops = placeholderTones + Blue + Color.Black + Color.White + Color(0xFF22262E)
+    private val backdrops = placeholderTones + Ember + Color.Black + Color.White + Color(0xFF22262E)
 
     @Test fun contrastRatioMatchesWcagReference() {
         assertEquals(21.0, contrastRatio(Color.Black, Color.White), 0.01)

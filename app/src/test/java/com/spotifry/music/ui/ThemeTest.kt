@@ -10,7 +10,7 @@ class ThemeTest {
     @Test fun darkIsDefaultPalette() {
         assertEquals(Color(0xFF0C0D10), darkColors.background)
         assertEquals(Color(0xFFF4F5F7), lightColors.background)
-        assertEquals(Color(0xFF5B95FF), darkColors.primary)
+        assertEquals(Color(0xFFFF8A3D), darkColors.primary)
         assertEquals(Color(0xFFFFFFFF), lightColors.onPrimary)
     }
 }
