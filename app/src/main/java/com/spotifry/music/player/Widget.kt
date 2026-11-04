@@ -100,11 +100,15 @@ object Widget {
         manager.updateAppWidget(ids, RemoteViews(sizes))
     }
 
-    /** A press of a media key, the same as a headset button: it wakes the player even when the app is closed. */
-    private fun key(c: Context, code: Int) = PendingIntent.getBroadcast(
-        c, code,
-        Intent(Intent.ACTION_MEDIA_BUTTON).setComponent(ComponentName(c, MediaButtonReceiver::class.java))
-            .putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, code)),
-        PendingIntent.FLAG_IMMUTABLE,
-    )
+    /**
+     * A press of a media key, the same as a headset button. Play goes through the media button receiver, which can
+     * start the player when the app was closed; it drops every other key, so back and next go straight to the player
+     * (they only mean something while it runs), the way the media notification sends them.
+     */
+    private fun key(c: Context, code: Int): PendingIntent {
+        val intent = Intent(Intent.ACTION_MEDIA_BUTTON).putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, code))
+        return if (code == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+            PendingIntent.getBroadcast(c, code, intent.setComponent(ComponentName(c, MediaButtonReceiver::class.java)), PendingIntent.FLAG_IMMUTABLE)
+        else PendingIntent.getService(c, code, intent.setComponent(ComponentName(c, PlaybackService::class.java)), PendingIntent.FLAG_IMMUTABLE)
+    }
 }
