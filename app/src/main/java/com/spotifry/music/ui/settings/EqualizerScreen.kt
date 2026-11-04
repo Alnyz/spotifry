@@ -143,6 +143,9 @@ private fun Wave(tap: SpectrumTap, isPlaying: Boolean, info: EqInfo, levels: Lis
         }
     }
     val eqDb = remember(levels) { FloatArray(Spectrum.BANDS) { eqDbAt(Spectrum.bandCenterHz(it), info.centersHz, levels) } }
+    // music gets quieter toward the high notes; tilting the picture up 3 dB per octave (level at 1 kHz) keeps the
+    // highs moving instead of lying on the floor, and the bass off the ceiling. Like most music analyzers.
+    val tilt = remember { FloatArray(Spectrum.BANDS) { 3f * kotlin.math.log2(Spectrum.bandCenterHz(it) / 1000f) } }
     val span = maxOf(info.maxMb, -info.minMb, 100) / 100f
     Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 16.dp).fillMaxWidth().height(132.dp).clip(RoundedCornerShape(18.dp)).background(scheme.surface)) {
         Canvas(Modifier.fillMaxSize().padding(top = 6.dp).semantics { contentDescription = "Live picture of the music" }) {
@@ -150,7 +153,7 @@ private fun Wave(tap: SpectrumTap, isPlaying: Boolean, info: EqInfo, levels: Lis
             val w = size.width; val h = size.height
             val x = { i: Int -> i * w / (Spectrum.BANDS - 1) }
             // -75 dB at the bottom, 0 dB near the top; loud bass with a boost still fits
-            val y = { i: Int -> h - ((shown[i] + eqDb[i] + 75f) / 75f).coerceIn(0f, 1f) * h * .88f }
+            val y = { i: Int -> h - ((shown[i] + tilt[i] + eqDb[i] + 75f) / 75f).coerceIn(0f, 1f) * h * .88f }
             // rounded: each point bends the line toward it instead of making a corner
             val line = Path().apply {
                 moveTo(0f, y(0))
