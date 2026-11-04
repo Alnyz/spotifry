@@ -43,6 +43,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -232,18 +234,38 @@ internal fun ProgressBar(state: PlayerUiState, position: () -> Long, modifier: M
 private fun Controls(
     state: PlayerUiState, onToggle: () -> Unit, onNext: () -> Unit, onPrev: () -> Unit, onShuffle: () -> Unit, onRepeat: () -> Unit, modifier: Modifier,
 ) {
-    Row(modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        ToggleIcon(Icons.Shuffle, "Shuffle", state.shuffle, onShuffle)
+    // a short line saying what the press just did; gone after a moment
+    var hint by remember { mutableStateOf<String?>(null) }
+    var hintTick by remember { mutableStateOf(0) }
+    LaunchedEffect(hintTick) { if (hint != null) { kotlinx.coroutines.delay(1_500); hint = null } }
+    fun say(text: String) { hint = text; hintTick++ }
+    Box(modifier.fillMaxWidth()) {
+    androidx.compose.animation.AnimatedVisibility(
+        hint != null, Modifier.align(Alignment.TopCenter).offset(y = (-34).dp),
+        enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut(),
+    ) {
+        Text(
+            hint.orEmpty(), Modifier.clip(CircleShape).background(Color.Black.copy(alpha = .6f)).padding(horizontal = 14.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge, color = Color.White,
+        )
+    }
+    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+        ToggleIcon(Icons.Shuffle, "Shuffle", state.shuffle) { say(if (state.shuffle) "Shuffle off" else "Shuffle on"); onShuffle() }
         IconButton(onPrev, Modifier.size(56.dp)) { Icon(Icons.Prev, "Previous song", Modifier.size(36.dp)) }
         Box(Modifier.size(68.dp).clip(CircleShape).background(Color.White).clickable(onClick = onToggle), Alignment.Center) {
             Icon(if (state.isPlaying) Icons.Pause else Icons.Play, if (state.isPlaying) "Pause" else "Play", Modifier.size(34.dp), tint = Color(0xFF0C0D10))
         }
         IconButton(onNext, Modifier.size(56.dp)) { Icon(Icons.Next, "Next song", Modifier.size(36.dp)) }
         ToggleIcon(
-            Icons.Repeat,
-            when (state.repeatMode) { Player.REPEAT_MODE_ALL -> "Repeat all"; Player.REPEAT_MODE_ONE -> "Repeat one"; else -> "Repeat off" },
-            state.repeatMode != Player.REPEAT_MODE_OFF, onRepeat,
-        )
+            if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.RepeatOne else Icons.Repeat,
+            when (state.repeatMode) { Player.REPEAT_MODE_ALL -> "Repeat all"; Player.REPEAT_MODE_ONE -> "Repeat this song"; else -> "Repeat off" },
+            state.repeatMode != Player.REPEAT_MODE_OFF,
+        ) {
+            // the order the button steps through: off, all, this song, off
+            say(when (state.repeatMode) { Player.REPEAT_MODE_OFF -> "Repeat all songs"; Player.REPEAT_MODE_ALL -> "Repeat this song"; else -> "Repeat off" })
+            onRepeat()
+        }
+    }
     }
 }
 
