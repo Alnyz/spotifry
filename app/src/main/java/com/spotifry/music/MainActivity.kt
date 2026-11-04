@@ -106,7 +106,13 @@ class MainActivity : ComponentActivity() {
         val container = (application as MusicApp).container
         setContent {
             val theme by container.settings.theme.collectAsStateWithLifecycle()
-            MusicTheme(theme) { AppShell(container) }
+            val accent by container.settings.accent.collectAsStateWithLifecycle()
+            val accentColor by container.settings.accentColor.collectAsStateWithLifecycle()
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val colors = androidx.compose.runtime.remember(accent, accentColor) {
+                com.spotifry.music.ui.theme.accentFor(com.spotifry.music.ui.theme.AccentChoice.of(accent), accentColor, context)
+            }
+            MusicTheme(theme, colors) { AppShell(container) }
         }
     }
 }
@@ -301,7 +307,7 @@ private fun Modifier.fadeTop() = graphicsLayer { compositingStrategy = androidx.
 @Composable
 private fun TopGlow() {
     // light mode uses the brighter orange and more of it, so the glow reads about as strongly as on the dark background
-    val glow = com.spotifry.music.ui.theme.Ember.copy(alpha = if (com.spotifry.music.ui.theme.isDark()) .30f else .40f)
+    val glow = com.spotifry.music.ui.theme.LocalAccent.current.dark.copy(alpha = if (com.spotifry.music.ui.theme.isDark()) .30f else .40f)
     androidx.compose.foundation.layout.Box(
         Modifier.fillMaxSize().drawBehind {
             drawRect(

@@ -46,6 +46,10 @@ val lightColors = lightColorScheme(
     error = Color(0xFFB3261E),
 )
 
+/** The colour schemes with [a] as the accent. */
+fun darkColors(a: Accent) = darkColors.copy(primary = a.dark, onPrimary = onAccent(a.dark))
+fun lightColors(a: Accent) = lightColors.copy(primary = a.light, onPrimary = onAccent(a.light))
+
 /** The "saved on this phone" mark takes the accent. */
 @Composable
-fun savedMarkColor(): Color = if (isDark()) Ember else EmberDeep
+fun savedMarkColor(): Color = LocalAccent.current.forTheme(isDark())

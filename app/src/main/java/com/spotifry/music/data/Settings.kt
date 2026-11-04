@@ -54,6 +54,17 @@ class Settings(private val prefs: SharedPreferences) {
         prefs.edit().putString(EQ_PRESET, preset).putString(EQ_LEVELS, levels.joinToString(",")).apply()
     }
 
+    private val _accent = MutableStateFlow(prefs.getString(ACCENT, null) ?: "EMBER")
+    /** Name of the accent choice: a ready colour, PHONE (from the wallpaper) or CUSTOM ([accentColor]). */
+    val accent: StateFlow<String> = _accent
+    private val _accentColor = MutableStateFlow(prefs.getInt(ACCENT_COLOR, 0xFFFF8A3D.toInt()))
+    /** The colour picked by hand (ARGB), used when [accent] is CUSTOM. */
+    val accentColor: StateFlow<Int> = _accentColor
+    fun setAccent(choice: String, color: Int) {
+        _accent.value = choice; _accentColor.value = color
+        prefs.edit().putString(ACCENT, choice).putInt(ACCENT_COLOR, color).apply()
+    }
+
     fun setSameLoudness(on: Boolean) { _sameLoudness.value = on; prefs.edit().putBoolean(SAME_LOUDNESS, on).apply() }
 
     fun setDataSaver(on: Boolean) { _dataSaver.value = on; prefs.edit().putBoolean(DATA_SAVER, on).apply() }
@@ -72,6 +83,8 @@ class Settings(private val prefs: SharedPreferences) {
         const val EQ_ON = "eq_on"
         const val EQ_PRESET = "eq_preset"
         const val EQ_LEVELS = "eq_levels"
+        const val ACCENT = "accent"
+        const val ACCENT_COLOR = "accent_color"
     }
 }
 

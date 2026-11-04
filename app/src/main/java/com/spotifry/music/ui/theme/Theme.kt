@@ -12,13 +12,15 @@ import androidx.core.view.WindowCompat
 import com.spotifry.music.data.ThemeMode
 
 private val LocalDark = staticCompositionLocalOf { false }
+/** The accent picked in Settings, both shades: for places that need the dark-theme one in light mode too. */
+val LocalAccent = staticCompositionLocalOf { AccentChoice.EMBER.accent!! }
 
 /** Dark or light as the app shows it: the phone's setting, unless Settings picks one. Use this, not isSystemInDarkTheme. */
 @Composable
 fun isDark(): Boolean = LocalDark.current
 
 @Composable
-fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, content: @Composable () -> Unit) {
+fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, accent: Accent = AccentChoice.EMBER.accent!!, content: @Composable () -> Unit) {
     val dark = when (mode) { ThemeMode.PHONE -> isSystemInDarkTheme(); ThemeMode.LIGHT -> false; ThemeMode.DARK -> true }
     // the status and gesture bar icons follow the app's theme, not the phone's, when Settings forces one
     val view = LocalView.current
@@ -27,7 +29,7 @@ fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, content: @Composable () -> Uni
             WindowCompat.getInsetsController(w, view).apply { isAppearanceLightStatusBars = !dark; isAppearanceLightNavigationBars = !dark }
         }
     }
-    CompositionLocalProvider(LocalDark provides dark) {
-        MaterialTheme(colorScheme = if (dark) darkColors else lightColors, typography = MusicTypography, content = content)
+    CompositionLocalProvider(LocalDark provides dark, LocalAccent provides accent) {
+        MaterialTheme(colorScheme = if (dark) darkColors(accent) else lightColors(accent), typography = MusicTypography, content = content)
     }
 }

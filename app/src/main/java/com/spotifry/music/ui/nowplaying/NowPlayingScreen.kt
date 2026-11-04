@@ -117,7 +117,7 @@ fun NowPlayingContent(
         }
     }
     // always dark: white text on the cover colour, in light mode too
-    MaterialTheme(colorScheme = darkColors, typography = MaterialTheme.typography) {
+    MaterialTheme(colorScheme = darkColors(com.spotifry.music.ui.theme.LocalAccent.current), typography = MaterialTheme.typography) {
     CompositionLocalProvider(LocalContentColor provides Color.White) {
     BoxWithConstraints(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(top, lerp(top, Color.Black, .6f))))) {
         val screen = maxHeight

@@ -2,6 +2,7 @@ package com.spotifry.music.ui.settings
 
 import android.text.format.Formatter
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,6 +55,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val storage by vm.storage.collectAsStateWithLifecycle()
     val searches by vm.recentSearches.list.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
+    var pickAccent by remember { mutableStateOf(false) }
+    val accent by vm.settings.accent.collectAsStateWithLifecycle()
+    val accentColor by vm.settings.accentColor.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val size = { bytes: Long -> Formatter.formatShortFileSize(context, bytes) }
     androidx.compose.runtime.LaunchedEffect(Unit) { vm.count() }
@@ -89,6 +94,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
             Group("Look") {
                 Item("Theme") {
                     Segments(listOf("Phone", "Light", "Dark"), theme.ordinal) { vm.settings.setTheme(ThemeMode.entries[it]) }
+                }
+                Item("Accent colour", com.spotifry.music.ui.theme.AccentChoice.of(accent).label, onClick = { pickAccent = true }) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier.border(1.dp, MaterialTheme.colorScheme.outline, CircleShape).padding(3.dp).size(26.dp).clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                    )
                 }
             }
             Group("Storage") {
@@ -134,6 +145,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
             }
         }
     }
+    if (pickAccent) AccentPicker(accent, accentColor, { c, color -> vm.settings.setAccent(c, color); pickAccent = false }, { pickAccent = false })
     if (confirmHistory) AlertDialog(
         onDismissRequest = { confirmHistory = false },
         title = { Text("Clear listening history?") },
