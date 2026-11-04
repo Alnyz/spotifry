@@ -58,5 +58,10 @@ object Icons {
         .addPath(addPathNodes(SHUFFLE), fill = SolidColor(Color.Black)).clearGroup()
         .addPath(addPathNodes("M5 .8c.35 2.3 1.4 3.35 3.7 3.7-2.3.35-3.35 1.4-3.7 3.7C4.65 5.9 3.6 4.85 1.3 4.5 3.6 4.15 4.65 3.1 5 .8z"), fill = SolidColor(Color.Black))
         .build()
+    // Trim: a wall with an arrow leaving it (start here), an arrow running into a wall (end here), scissors, the whole song back
+    val StartHere = icon("start_here", "M4 5h2v14H4zm5 6h8.2l-2.6-2.6L16 7l5 5-5 5-1.4-1.4 2.6-2.6H9z")
+    val EndHere = icon("end_here", "M18 5h2v14h-2zM3 11h8.2L8.6 8.4 10 7l5 5-5 5-1.4-1.4 2.6-2.6H3z")
+    val Cut = icon("cut", "M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm0 12c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zM19 3l-6 6 2 2 7-7V3h-3z")
+    val Whole = icon("whole", "M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z")
     val Chevron =icon("chevron", "M9.4 6 8 7.4l4.6 4.6L8 16.6 9.4 18l6-6z")
 }

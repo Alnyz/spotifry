@@ -29,9 +29,12 @@ class AppContainer(private val context: Context) {
         )
     }
     val db: AppDatabase = AppDatabase.create(context)
+    /** Each song's own start and end. Every queue the app or the service builds plays the trimmed part (see toMediaItem). */
+    val trims = com.spotifry.music.player.Trims(context.getSharedPreferences("trims", Context.MODE_PRIVATE))
+        .also { t -> com.spotifry.music.player.trimOf = { t[it] } }
     val source: MusicSource = NewPipeSource()
     val resolver = StreamResolver(source)
-    val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed) }
+    val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, saveTrim = trims::set) }
     /** Songs listened to in the last 24 hours: Shuffle plays them in the second half. */
     suspend fun recentlyPlayed(): Set<String> = db.plays().playedSince(System.currentTimeMillis() - 24 * 60 * 60 * 1000L).toSet()
     /** One lyrics lookup for Now playing and Share, so a song's lyrics are fetched once. */

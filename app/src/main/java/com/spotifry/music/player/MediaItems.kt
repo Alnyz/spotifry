@@ -3,6 +3,7 @@ package com.spotifry.music.player
 import android.net.Uri
 import android.os.Bundle
 import androidx.core.net.toUri
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.spotifry.music.data.source.Song
@@ -12,9 +13,20 @@ private const val KEY_REMOTE_ART = "remoteArt"
 private const val KEY_LOCAL_ART = "localArt"
 private const val KEY_SUGGESTED = "suggested"
 
-/** The URI is a placeholder: SongDataSourceResolver swaps it for a file or stream URL at load time. */
-fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
+/** Each song's own start and end, looked up by id; the app points this at its [Trims] when it starts. */
+var trimOf: (String) -> Trim? = { null }
+
+/**
+ * The URI is a placeholder: SongDataSourceResolver swaps it for a file or stream URL at load time. With a [trim] the
+ * player only sees the part in between, so the bar, the fade and the move to the next song all follow it.
+ */
+fun Song.toMediaItem(trim: Trim? = trimOf(id)): MediaItem = MediaItem.Builder()
     .setMediaId(id)
+    .apply {
+        if (trim != null && !trim.isWhole) setClippingConfiguration(
+            MediaItem.ClippingConfiguration.Builder().setStartPositionMs(trim.startMs).apply { trim.endMs?.let(::setEndPositionMs) }.build(),
+        )
+    }
     .setUri("music://song/$id")
     .setCustomCacheKey(id)
     .setMediaMetadata(
@@ -38,3 +50,7 @@ fun MediaItem.toSong(): Song = Song(
 )
 
 val MediaItem.isSuggested get() = mediaMetadata.extras?.getBoolean(KEY_SUGGESTED) == true
+
+/** The trim this item was built with, or null when it plays the whole song. */
+val MediaItem.trim: Trim?
+    get() = Trim(clippingConfiguration.startPositionMs, clippingConfiguration.endPositionMs.takeIf { it != C.TIME_END_OF_SOURCE }).takeUnless { it.isWhole }

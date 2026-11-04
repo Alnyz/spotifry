@@ -100,6 +100,8 @@ fun NowPlayingContent(
     speedLabel: String? = null, onSpeed: () -> Unit = {},
     /** The ⋮ of a suggested song in Coming up, with its queue position. */
     onSuggestionMore: (Int) -> Unit = {},
+    /** The scissors by the length of a trimmed song: opens the Trim sheet. */
+    onTrim: () -> Unit = {},
 ) {
     val song = state.current ?: return
     // a new song closes the full lyrics of the old one
@@ -155,12 +157,15 @@ fun NowPlayingContent(
                     // a file on the phone is already there: nothing to save
                     if (!song.isLocal) SaveButton(save, onSave)
                 }
-                ProgressBar(state, position, Modifier.padding(horizontal = 24.dp).padding(top = 14.dp), onSeek)
+                ProgressBar(state, position, Modifier.padding(horizontal = 24.dp).padding(top = 14.dp), onSeek, onTrim)
                 Controls(state, onToggle, onNext, onPrev, onShuffle, onRepeat, Modifier.padding(horizontal = 14.dp).padding(top = 6.dp))
                 Spacer(Modifier.height(20.dp))
                 }
             }
-            LyricsCard(lyrics, position, state.isPlaying, lerp(top, Color.White, .14f), { onShowLyrics(true) }, onRetryLyrics)
+            // lyrics are timed to the whole song; the player counts from the trim's start
+            val trimStart = state.trim?.startMs ?: 0L
+            val sung = remember(trimStart) { { position() + trimStart } }
+            LyricsCard(lyrics, sung, state.isPlaying, lerp(top, Color.White, .14f), { onShowLyrics(true) }, onRetryLyrics)
             ComingUp(state, saved, lerp(top, Color.Black, .35f), onPick, onQueue, onSuggestionMore)
         }
         val ready = (lyrics as? LyricsUi.Ready)?.lyrics
@@ -208,7 +213,7 @@ private fun SaveButton(save: SaveUi, onSave: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ProgressBar(state: PlayerUiState, position: () -> Long, modifier: Modifier, onSeek: (Long) -> Unit) {
+internal fun ProgressBar(state: PlayerUiState, position: () -> Long, modifier: Modifier, onSeek: (Long) -> Unit, onTrim: (() -> Unit)? = null) {
     var drag by remember { mutableStateOf<Float?>(null) }
     val duration = state.durationMs.takeIf { it > 0 } ?: ((state.current?.durationSec ?: 0) * 1000)
     val fraction = drag ?: if (duration > 0) (position().toFloat() / duration).coerceIn(0f, 1f) else 0f
@@ -227,7 +232,15 @@ internal fun ProgressBar(state: PlayerUiState, position: () -> Long, modifier: M
         )
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
             Text(formatTime((fraction * duration).toLong()), style = MaterialTheme.typography.bodySmall, color = Faint)
-            Text(formatTime(duration), style = MaterialTheme.typography.bodySmall, color = Faint)
+            if (state.trim == null) Text(formatTime(duration), style = MaterialTheme.typography.bodySmall, color = Faint)
+            else Row(
+                // the only sign a song is trimmed: scissors before the length of the part that plays
+                Modifier.clip(CircleShape).let { if (onTrim != null) it.clickable(onClickLabel = "Change trim", onClick = onTrim) else it },
+                Arrangement.spacedBy(4.dp), Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Cut, "Trimmed", Modifier.size(12.dp), tint = Faint)
+                Text(formatTime(duration), style = MaterialTheme.typography.bodySmall, color = Faint)
+            }
         }
     }
 }

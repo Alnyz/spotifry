@@ -34,6 +34,10 @@ data class PlayerUiState(
     val order: List<Int>? = null,
     /** Where the queue came from, e.g. "Saved" or a playlist name. Null after the app restarts. */
     val from: String? = null,
+    /** The playing song's own start and end, null when it plays whole. [durationMs] and the position count the kept part only. */
+    val trim: Trim? = null,
+    /** Length of the whole song, trimmed parts included. */
+    val wholeMs: Long = 0,
 ) {
     fun upNextIndices(): List<Int> = order ?: (currentIndex until queue.size).toList()
 }
@@ -50,6 +54,7 @@ class PlayerController(
     context: Context,
     private val lastQueueFile: File = File(context.filesDir, "last_queue.json"),
     private val recentlyPlayed: suspend () -> Set<String> = { emptySet() },
+    private val saveTrim: (String, Trim?) -> Unit = { _, _ -> },
 ) : SongPlayer {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
@@ -110,11 +115,16 @@ class PlayerController(
     private fun publish(c: MediaController) {
         if (!c.shuffleModeEnabled) smart = false
         _position.value = c.currentPosition.coerceAtLeast(0)
+        val trim = c.currentMediaItem?.trim
+        val whole = (c.currentMediaItem?.toSong()?.durationSec ?: 0) * 1000
         _state.value = PlayerUiState(
             current = c.currentMediaItem?.toSong(),
             isPlaying = c.isPlaying,
             // before the first play after a restore the player doesn't know the length yet; the song does
-            durationMs = c.duration.takeIf { it > 0 } ?: ((c.currentMediaItem?.toSong()?.durationSec ?: 0) * 1000),
+            durationMs = c.duration.takeIf { it > 0 } ?: trim?.keptMs(whole) ?: whole,
+            trim = trim,
+            // the player's own length is the most exact, but it only covers the whole song when no end is set
+            wholeMs = if (trim?.endMs == null && c.duration > 0) c.duration + (trim?.startMs ?: 0) else whole,
             queue = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).toSong() },
             currentIndex = c.currentMediaItemIndex,
             shuffle = c.shuffleModeEnabled,
@@ -213,4 +223,44 @@ class PlayerController(
         }
     }
     fun skipTo(index: Int) = run { it.seekToDefaultPosition(index) }
+
+    /**
+     * Gives song [id] a new start and end ([trim] null: the whole song), kept on this phone, and rebuilds its places in
+     * the queue. If it is playing it goes on from the same moment of the song, unless that moment is now cut off (or
+     * [skip]): then the next song starts.
+     */
+    // ponytail: the rebuilt item reloads, so the music stops for a moment (instant when cached); a seamless swap needs Media3 to update clipping in place
+    fun setTrim(id: String, trim: Trim?, skip: Boolean = false) = run { c ->
+        saveTrim(id, trim)
+        val cur = c.currentMediaItemIndex
+        val playing = c.currentMediaItem?.mediaId == id
+        val at = c.currentPosition + (c.currentMediaItem?.trim?.startMs ?: 0)
+        // a replaced song gets a random place in the shuffle order; put back what was coming
+        val upcoming = playOrder(c)?.drop(1)
+        for (i in 0 until c.mediaItemCount) {
+            val item = c.getMediaItemAt(i)
+            if (item.mediaId == id) c.replaceMediaItem(i, item.toSong().toMediaItem(trim))
+        }
+        if (upcoming != null) setUpcoming(c, upcoming)
+        if (!playing) return@run
+        val end = trim?.endMs
+        if (skip || (end != null && at >= end)) {
+            if (c.hasNextMediaItem()) c.seekToNextMediaItem() else { c.pause(); c.seekTo(cur, 0) }
+        } else c.seekTo(cur, (at - (trim?.startMs ?: 0)).coerceAtLeast(0))
+    }
+
+    private var listening: kotlinx.coroutines.Job? = null
+
+    /** The Trim sheet's ▶: plays from [atMs] of the whole song; with [forMs], pauses again after that long. */
+    fun listen(atMs: Long, forMs: Long? = null) = run { c ->
+        listening?.cancel()
+        val start = c.currentMediaItem?.trim?.startMs ?: 0
+        // only the part the player has now can play: an earlier start or later end is heard from Save on
+        var pos = (atMs - start).coerceAtLeast(0)
+        if (c.duration > 0) pos = pos.coerceAtMost(maxOf(0, c.duration - (forMs ?: 1_000)))
+        c.seekTo(pos)
+        if (needsPrepare(c.playbackState)) c.prepare()
+        c.play()
+        if (forMs != null) listening = scope.launch { delay((forMs / c.playbackParameters.speed).toLong()); c.pause() }
+    }
 }

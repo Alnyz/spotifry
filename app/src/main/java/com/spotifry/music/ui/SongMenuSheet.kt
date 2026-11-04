@@ -47,6 +47,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import kotlin.math.roundToInt
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.layout.offset
+import com.spotifry.music.player.Trim
+import com.spotifry.music.player.clipText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.animateDpAsState
@@ -84,16 +89,24 @@ private fun ActionRow(label: String, icon: ImageVector? = null, color: Color = C
     }
 }
 
-/** The three-dot menu for any song row. [actions] are the choices that depend on where the row lives. */
+/**
+ * The three-dot menu for any song row. [actions] are the choices that depend on where the row lives. [trimNote] ("plays
+ * 0:15 to 3:40") shows with scissors after the artist, for a trimmed song.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SongMenuSheet(song: Song, actions: List<MenuAction>, onDismiss: () -> Unit) {
+fun SongMenuSheet(song: Song, actions: List<MenuAction>, trimNote: String? = null, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismiss, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(song.title, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Row(Modifier.padding(horizontal = 24.dp, vertical = 2.dp), Arrangement.spacedBy(5.dp), Alignment.CenterVertically) {
                 if (song.suggested) Icon(Icons.Sparkle, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(if (song.suggested) "${song.artist} · suggested for you" else song.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                if (trimNote != null) {
+                    Text("·", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Cut, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(trimNote, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                }
             }
             actions.forEach { a ->
                 if (a.lineAbove) HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -286,5 +299,101 @@ fun SpeedPitchSheet(speed: Float, pitch: Int, onSpeed: (Float) -> Unit, onPitch:
                 { onSpeed(1f); onPitch(0) }, Modifier.fillMaxWidth().padding(top = 20.dp).height(48.dp), enabled = speed != 1f || pitch != 0,
             ) { Text("Back to normal") }
         }
+    }
+}
+
+/**
+ * Trim: the whole song as one bar, the skipped parts striped. Handles for a rough spot, −1 s and +1 s to get it exact,
+ * ▶ to check by ear. [trim] and [wholeMs] are in ms of the whole song, [now] too. Nothing changes until Save.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TrimSheet(
+    song: Song, trim: Trim?, wholeMs: Long, now: () -> Long,
+    onListen: (atMs: Long, forMs: Long?) -> Unit, onSave: (Trim?) -> Unit, onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    // the length can be unknown for a song never loaded; enough room past the end then
+    val length = wholeMs.takeIf { it > 0 } ?: ((trim?.endMs ?: trim?.startMs ?: 0) + 60_000)
+    var t by remember { mutableStateOf(trim ?: Trim()) }
+    val end = t.endMs ?: length
+    ModalBottomSheet(onDismiss, containerColor = scheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
+        Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
+            Text("Trim", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.titleMedium)
+            Text("${song.title} · ${song.artist}", Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            TrimBar(t.startMs, end, length, now, { t = t.withStart(it, length) }, { t = t.withEnd(it, length) }, Modifier.padding(horizontal = 24.dp).padding(top = 18.dp))
+            TrimEdge("Starts at", t.startMs, { t = t.withStart(t.startMs + it, length) }, "Listen from the start") { onListen(t.startMs, null) }
+            TrimEdge("Ends at", end, { t = t.withEnd(end + it, length) }, "Listen to the last seconds") { onListen(end - 5_000, 5_000) }
+            Text("Plays ${clipText(t.keptMs(length))} of ${clipText(length)}", Modifier.padding(horizontal = 24.dp).padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 16.dp, top = 14.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                androidx.compose.material3.TextButton({ onSave(null); onDismiss() }, Modifier.height(48.dp)) { Text("Play the whole song") }
+                androidx.compose.material3.Button({ onSave(t.takeUnless { it.isWhole }); onDismiss() }, Modifier.height(48.dp)) { Text("Save") }
+            }
+        }
+    }
+}
+
+/** One end of the trim: its time, −1 s and +1 s, and ▶. */
+@Composable
+private fun TrimEdge(label: String, ms: Long, onNudge: (Long) -> Unit, listenLabel: String, onListen: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(clipText(ms), style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"))
+        }
+        androidx.compose.material3.OutlinedButton({ onNudge(-1_000) }, Modifier.height(48.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp)) { Text("−1 s") }
+        androidx.compose.material3.OutlinedButton({ onNudge(1_000) }, Modifier.height(48.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp)) { Text("+1 s") }
+        androidx.compose.material3.FilledTonalIconButton(onListen, Modifier.size(48.dp)) { Icon(Icons.Play, listenLabel, Modifier.size(22.dp)) }
+    }
+}
+
+/** The whole song: striped where it is skipped, the kept part in the accent, a thin line where the song is now. */
+@Composable
+private fun TrimBar(startMs: Long, endMs: Long, length: Long, now: () -> Long, onStart: (Long) -> Unit, onEnd: (Long) -> Unit, modifier: Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val high = scheme.surfaceContainerHighest
+    val stripe = scheme.outline
+    val keep = scheme.primary
+    val ink = scheme.onSurface
+    val pos by produceState(now()) { while (true) { value = now(); delay(500) } }
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
+        val widthPx = constraints.maxWidth.toFloat()
+        val msPerPx = length / widthPx.coerceAtLeast(1f)
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(40.dp)) {
+            val y = size.height / 2
+            val h = 8.dp.toPx()
+            val x0 = size.width * startMs / length
+            val x1 = size.width * endMs / length
+            drawRoundRect(high, androidx.compose.ui.geometry.Offset(0f, y - h / 2), androidx.compose.ui.geometry.Size(size.width, h), androidx.compose.ui.geometry.CornerRadius(h / 2))
+            clipRect(top = y - h / 2, bottom = y + h / 2) {
+                var x = -h
+                while (x < size.width) { drawLine(stripe, androidx.compose.ui.geometry.Offset(x, y + h / 2), androidx.compose.ui.geometry.Offset(x + h, y - h / 2), 1.5.dp.toPx()); x += 6.dp.toPx() }
+            }
+            drawRect(keep, androidx.compose.ui.geometry.Offset(x0, y - h / 2), androidx.compose.ui.geometry.Size(x1 - x0, h))
+            val xn = size.width * pos.coerceIn(0, length) / length
+            drawLine(ink, androidx.compose.ui.geometry.Offset(xn, y - 8.dp.toPx()), androidx.compose.ui.geometry.Offset(xn, y + 8.dp.toPx()), 2.dp.toPx())
+        }
+        TrimKnob(startMs, length, widthPx, "Start", keep) { onStart(startMs + (it * msPerPx).toLong()) }
+        TrimKnob(endMs, length, widthPx, "End", keep) { onEnd(endMs + (it * msPerPx).toLong()) }
+        Row(Modifier.fillMaxWidth().padding(top = 40.dp), Arrangement.SpaceBetween) {
+            Text("0:00", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            Text("whole song ${clipText(length)}", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** A handle on the bar, 48 dp wide for the thumb, centred on [ms]. */
+@Composable
+private fun TrimKnob(ms: Long, length: Long, widthPx: Float, label: String, color: Color, onDrag: (Float) -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val half = with(density) { 24.dp.toPx() }
+    val drag by androidx.compose.runtime.rememberUpdatedState(onDrag)
+    Box(
+        Modifier.offset { androidx.compose.ui.unit.IntOffset((widthPx * ms / length - half).roundToInt(), 0) }.size(48.dp, 40.dp)
+            .draggable(androidx.compose.foundation.gestures.rememberDraggableState { drag(it) }, androidx.compose.foundation.gestures.Orientation.Horizontal)
+            .semantics { contentDescription = "$label handle" },
+        Alignment.Center,
+    ) {
+        Box(Modifier.size(14.dp, 32.dp).clip(RoundedCornerShape(7.dp)).background(color))
     }
 }

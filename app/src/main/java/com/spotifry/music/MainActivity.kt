@@ -59,6 +59,10 @@ import com.spotifry.music.ui.SongMenuSheet
 import com.spotifry.music.ui.SleepTimerSheet
 import com.spotifry.music.player.SleepState
 import com.spotifry.music.player.clockText
+import com.spotifry.music.player.Trim
+import com.spotifry.music.player.canEndAt
+import com.spotifry.music.player.canStartAt
+import com.spotifry.music.player.clipText
 import com.spotifry.music.ui.components.LocalImageClient
 import com.spotifry.music.ui.components.MiniPlayer
 import com.spotifry.music.ui.home.HomeScreen
@@ -168,6 +172,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     val sleep by c.sleepTimer.state.collectAsStateWithLifecycle()
     var showSleep by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
+    var showTrim by remember { mutableStateOf(false) }
     val speed by c.settings.speed.collectAsStateWithLifecycle()
     val pitch by c.settings.pitch.collectAsStateWithLifecycle()
     val speedLabel = com.spotifry.music.data.speedPitchLabel(speed, pitch)
@@ -191,6 +196,14 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
         c.downloads.failures.collect { snackbar.showSnackbar("Couldn't save ${it.title}. Check your connection, then try again.") }
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    /** Sets a song's trim at once and offers Undo, which puts [old] back. */
+    fun trimWithUndo(id: String, trim: Trim?, old: Trim?, message: String, skip: Boolean = false) {
+        c.player.setTrim(id, trim, skip)
+        snackbar.currentSnackbarData?.dismiss()
+        scope.launch {
+            if (snackbar.showSnackbar(message, "Undo", duration = androidx.compose.material3.SnackbarDuration.Short) == androidx.compose.material3.SnackbarResult.ActionPerformed) c.player.setTrim(id, old)
+        }
+    }
     LaunchedEffect(sharedText) {
         val text = sharedText ?: return@LaunchedEffect
         val got = ShareText.read(text)
@@ -294,7 +307,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     position = position,
                     sleep = sleep, sleepLeft = c.sleepTimer::remainingMs, onSleep = { showSleep = true },
                     speedLabel = speedLabel, onSpeed = { showSpeed = true },
-                    onSuggestionMore = suggestionMenu,
+                    onSuggestionMore = suggestionMenu, onTrim = { showTrim = true },
                 )
                 // the app's own snackbar sits under Now playing; this one shows the same message on top of it
                 Box(Modifier.fillMaxSize()) { SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) }
@@ -306,7 +319,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     onAdd = { name -> plVm.createWith(name, got.songs) { id -> incoming = null; showPlayer = false; nav.navigate(Routes.playlist(id)) } },
                 ) { incoming = null }
             }
-            picture?.let { t -> MakePicturePage(t, c.lyrics, player.current?.id == t.songs.firstOrNull()?.id && !t.playlist, position) { picture = null } }
+            // lyric times count from the whole song's start, the player from the trim's
+            picture?.let { t -> MakePicturePage(t, c.lyrics, player.current?.id == t.songs.firstOrNull()?.id && !t.playlist, { position() + (player.trim?.startMs ?: 0) }) { picture = null } }
         }
 
         menu?.let { target ->
@@ -324,6 +338,21 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     }
                     add(MenuAction("Sleep timer$left", Icons.Clock) { showSleep = true })
                     add(MenuAction("Speed and pitch" + (speedLabel?.let { " · $it" } ?: ""), Icons.Speed) { showSpeed = true })
+                    // Trim: only here, as setting a point needs the song playing. Once trimmed, the sheet moves the points.
+                    val s = target.song
+                    val old = player.trim
+                    val at = position() + (old?.startMs ?: 0)
+                    if (old == null) {
+                        if (canStartAt(at, player.wholeMs)) add(MenuAction("Start this song here · ${clipText(at)}", Icons.StartHere, lineAbove = true) {
+                            trimWithUndo(s.id, Trim(at), null, "Starts at ${clipText(at)} from now on")
+                        })
+                        if (canEndAt(at)) add(MenuAction("End this song here", Icons.EndHere, lineAbove = !canStartAt(at, player.wholeMs)) {
+                            trimWithUndo(s.id, Trim(endMs = at), null, "Ends at ${clipText(at)} from now on", skip = true)
+                        })
+                    } else {
+                        add(MenuAction("Adjust trim", Icons.Cut, lineAbove = true) { showTrim = true })
+                        add(MenuAction("Play the whole song", Icons.Whole) { trimWithUndo(s.id, null, old, "Plays the whole song again") })
+                    }
                 }
                 val at = target.queueIndex
                 if (target.song.suggested && at != null) add(MenuAction("Not this song", Icons.None, lineAbove = true) {
@@ -340,7 +369,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     }
                 })
             }
-            SongMenuSheet(target.song, actions) { menu = null }
+            SongMenuSheet(target.song, actions, player.trim?.takeIf { target.fromPlayer }?.note(player.wholeMs)) { menu = null }
         }
         addTo?.let { song ->
             AddToPlaylistSheet(playlists, { plVm.addSong(it, song) }, { newFor = song }) { addTo = null }
@@ -350,6 +379,19 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             sleep, c.sleepTimer::remainingMs, onMinutes = c.sleepTimer::start, onEndOfSong = c.sleepTimer::startEndOfSong,
             onOff = c.sleepTimer::off, onDismiss = { showSleep = false },
         )
+        if (showTrim) player.current?.let { s ->
+            val old = player.trim
+            com.spotifry.music.ui.TrimSheet(
+                s, old, player.wholeMs, { position() + (player.trim?.startMs ?: 0) }, c.player::listen,
+                onSave = { t ->
+                    if (t != old) trimWithUndo(s.id, t, old, when {
+                        t == null -> "Plays the whole song again"
+                        t.startMs != (old?.startMs ?: 0) -> "Starts at ${clipText(t.startMs)} from now on"
+                        else -> t.endMs?.let { "Ends at ${clipText(it)} from now on" } ?: "Plays to the end again"
+                    })
+                },
+            ) { showTrim = false }
+        }
         if (showSpeed) com.spotifry.music.ui.SpeedPitchSheet(speed, pitch, c.settings::setSpeed, c.settings::setPitch) { showSpeed = false }
         shareSong?.let { s -> ShareSongSheet(s, { picture = ShareTarget.of(s) }) { shareSong = null } }
         sharePlaylist?.let { t -> SharePlaylistSheet(t, { picture = t }) { sharePlaylist = null } }

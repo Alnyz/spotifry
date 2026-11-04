@@ -61,11 +61,13 @@ private val NotYet = Color.White.copy(alpha = .45f)
 @Composable
 private fun smoothPosition(position: () -> Long, playing: Boolean): androidx.compose.runtime.State<Long> {
     val smooth = remember { androidx.compose.runtime.mutableLongStateOf(position()) }
+    // the newest lambda: a trim change shifts where lyrics count from
+    val pos = androidx.compose.runtime.rememberUpdatedState(position)
     LaunchedEffect(playing) {
-        var raw = position(); var at = System.nanoTime()
+        var raw = pos.value(); var at = System.nanoTime()
         while (true) {
             androidx.compose.runtime.withFrameNanos { }
-            val now = System.nanoTime(); val p = position()
+            val now = System.nanoTime(); val p = pos.value()
             if (p != raw) { raw = p; at = now }
             // never more than 0.6 s past the last real update, in case the player stalls
             smooth.longValue = if (playing) raw + ((now - at) / 1_000_000).coerceAtMost(600) else raw
@@ -111,7 +113,7 @@ internal fun LyricsCard(ui: LyricsUi, position: () -> Long, playing: Boolean, co
             is LyricsUi.Ready -> when (val l = ui.lyrics) {
                 is Lyrics.Timed -> {
                     // redraws when the sung line changes, not on every position tick
-                    val now by remember(l) { derivedStateOf { l.lines.indexAt(position()) } }
+                    val now by remember(l, position) { derivedStateOf { l.lines.indexAt(position()) } }
                     val first = (now - 1).coerceIn(0, (l.lines.size - 4).coerceAtLeast(0))
                     val smooth = smoothPosition(position, playing)
                     l.lines.drop(first).take(4).forEachIndexed { k, line ->
@@ -136,9 +138,12 @@ private fun CardLine(text: androidx.compose.ui.text.AnnotatedString, color: Colo
 internal fun LyricsScreen(state: PlayerUiState, position: () -> Long, lyrics: Lyrics, color: Color, onClose: () -> Unit, onSeek: (Long) -> Unit, onToggle: () -> Unit) {
     val song = state.current ?: return
     val timed = lyrics as? Lyrics.Timed
-    val now by remember(timed) { derivedStateOf { timed?.lines?.indexAt(position()) ?: -1 } }
+    // lyric times count from the whole song's start, the player from the trim's
+    val trimStart = state.trim?.startMs ?: 0L
+    val sung = remember(trimStart) { { position() + trimStart } }
+    val now by remember(timed, trimStart) { derivedStateOf { timed?.lines?.indexAt(sung()) ?: -1 } }
     val list = rememberLazyListState()
-    val smooth = smoothPosition(position, state.isPlaying)
+    val smooth = smoothPosition(sung, state.isPlaying)
     // keeps the sung line about a third of the way down, where the eye rests
     LaunchedEffect(now) { if (now >= 0) list.animateScrollToItem(now, -list.layoutInfo.viewportSize.height / 3) }
     Column(Modifier.fillMaxSize().background(color).clickable(enabled = false) {}) {
@@ -157,7 +162,7 @@ internal fun LyricsScreen(state: PlayerUiState, position: () -> Long, lyrics: Ly
                 val c by animateColorAsState(when { i == now -> Sung; i < now -> Past; else -> Ahead }, label = "lyric line")
                 Text(
                     if (i == now) sungLine(line, smooth, Sung) else androidx.compose.ui.text.AnnotatedString(line.text),
-                    Modifier.fillMaxWidth().clickable(onClickLabel = "Play from here") { onSeek(line.atMs) }, style = BigLine, color = c,
+                    Modifier.fillMaxWidth().clickable(onClickLabel = "Play from here") { onSeek((line.atMs - trimStart).coerceAtLeast(0)) }, style = BigLine, color = c,
                 )
             }
             else itemsIndexed((lyrics as Lyrics.Plain).lines) { _, line -> Text(line, style = BigLine, color = Sung) }
