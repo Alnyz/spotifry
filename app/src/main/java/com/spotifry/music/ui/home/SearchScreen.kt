@@ -112,7 +112,7 @@ fun SearchResults(search: SearchState, savedIds: Set<String>, onPlay: (List<Song
 }
 
 @Composable
-private fun SearchField(text: String, onText: (String) -> Unit, onSubmit: () -> Unit, modifier: Modifier = Modifier) {
+fun SearchField(text: String, onText: (String) -> Unit, onSubmit: () -> Unit, modifier: Modifier = Modifier, hint: String = "Songs or artists") {
     val scheme = MaterialTheme.colorScheme
     Row(
         modifier.fillMaxWidth().height(52.dp).clip(CircleShape).background(scheme.onSurface.copy(alpha = .06f))
@@ -121,7 +121,7 @@ private fun SearchField(text: String, onText: (String) -> Unit, onSubmit: () -> 
     ) {
         Icon(Icons.Search, null, Modifier.size(22.dp), tint = scheme.onSurfaceVariant)
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            if (text.isEmpty()) Text("Songs or artists", color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
+            if (text.isEmpty()) Text(hint, color = scheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
             BasicTextField(
                 text, onText, singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface),

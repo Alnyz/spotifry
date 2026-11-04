@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongEntity::class, HistoryEntity::class, PlayCountEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,11 +20,19 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "music.db").addMigrations(ADD_PLAYS).build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "music.db").addMigrations(ADD_PLAYS, ADD_ADDED_AT).build()
 
         val ADD_PLAYS = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `plays` (`songId` TEXT NOT NULL, `count` INTEGER NOT NULL, `lastPlayedAt` INTEGER NOT NULL, PRIMARY KEY(`songId`))")
+            }
+        }
+
+        /** Songs already in playlists get their position as the added time, which keeps their order for "Recently added". */
+        val ADD_ADDED_AT = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `playlist_songs` ADD COLUMN `addedAt` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE `playlist_songs` SET `addedAt` = `position`")
             }
         }
     }

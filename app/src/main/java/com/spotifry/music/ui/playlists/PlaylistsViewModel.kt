@@ -13,10 +13,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import com.spotifry.music.data.PlaylistOrder
+import com.spotifry.music.data.PlaylistOrders
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class PlaylistsViewModel(private val dao: PlaylistDao, private val songs: SongDao, private val player: SongPlayer) : ViewModel() {
+class PlaylistsViewModel(
+    private val dao: PlaylistDao, private val songs: SongDao, private val player: SongPlayer,
+    private val orders: PlaylistOrders = PlaylistOrders(null),
+) : ViewModel() {
     val playlists: StateFlow<List<PlaylistWithCounts>> = dao.observePlaylists().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** First four songs of each playlist, keyed by playlist id. */
@@ -24,7 +30,26 @@ class PlaylistsViewModel(private val dao: PlaylistDao, private val songs: SongDa
         .map { rows -> rows.groupBy({ it.playlistId }, { it.song }).mapValues { it.value.take(4) } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
-    fun songsOf(playlistId: Long): Flow<List<SongEntity>> = dao.observeSongs(playlistId)
+    fun orderOf(playlistId: Long): PlaylistOrder = orders.get(playlistId)
+    fun setOrder(playlistId: Long, order: PlaylistOrder) = orders.set(playlistId, order)
+
+    /** The playlist's songs in [order]: the one Play follows and the list shows. */
+    fun songsOf(playlistId: Long, order: PlaylistOrder = PlaylistOrder.CUSTOM): Flow<List<SongEntity>> =
+        (if (order == PlaylistOrder.RECENT) dao.observeSongsNewestFirst(playlistId) else dao.observeSongs(playlistId)).map(order::arrange)
+
+    /** Saves a hand-made order and switches the playlist to it. */
+    fun saveOrder(playlistId: Long, songIds: List<String>) {
+        orders.set(playlistId, PlaylistOrder.CUSTOM)
+        viewModelScope.launch { dao.setOrder(playlistId, songIds) }
+    }
+
+    /** Puts your order in a new random order and saves it. Returns the old order, for Undo. */
+    suspend fun mixUp(playlistId: Long): List<String> {
+        val old = dao.observeSongs(playlistId).first().map { it.id }
+        dao.setOrder(playlistId, old.shuffled())
+        orders.set(playlistId, PlaylistOrder.CUSTOM)
+        return old
+    }
 
     fun create(name: String, thenAdd: Song? = null) {
         val clean = name.trim()

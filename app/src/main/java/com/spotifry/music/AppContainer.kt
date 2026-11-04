@@ -35,7 +35,7 @@ class AppContainer(private val context: Context) {
     val historyRecorder = HistoryRecorder(db.history(), db.songs())
     val events = PlaybackEvents()
     val sleepTimer = com.spotifry.music.player.SleepTimer()
-    private val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
     val downloads = DownloadRepository(context.filesDir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })
     private val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)

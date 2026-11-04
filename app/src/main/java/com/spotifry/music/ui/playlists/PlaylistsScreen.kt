@@ -99,54 +99,6 @@ fun PlaylistsContent(playlists: List<PlaylistWithCounts>, onOpen: (Long) -> Unit
 }
 
 @Composable
-fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, onMore: (Song, Long) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier) {
-    val all by vm.playlists.collectAsStateWithLifecycle()
-    val songs by vm.songsOf(id).collectAsStateWithLifecycle(emptyList())
-    val playlist = all.firstOrNull { it.id == id }
-    var menu by remember { mutableStateOf(false) }
-    var renaming by remember { mutableStateOf(false) }
-    var deleting by remember { mutableStateOf(false) }
-    PlaylistDetailContent(playlist?.name.orEmpty(), songs, { l, i -> vm.play(l, i, playlist?.name) }, { onMore(it, id) }, { menu = true }, onBack, modifier, bottomInset, playlist?.let(::countsLabel)) {
-        DropdownMenu(menu, { menu = false }) {
-            DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; renaming = true })
-            DropdownMenuItem(text = { Text("Delete playlist") }, onClick = { menu = false; deleting = true })
-        }
-    }
-    if (renaming) NameDialog("Rename playlist", "Save", playlist?.name.orEmpty(), { renaming = false }) { vm.rename(id, it); renaming = false }
-    if (deleting) AlertDialog(
-        onDismissRequest = { deleting = false },
-        title = { Text("Delete this playlist?") },
-        text = { Text("The songs stay on the phone. Only the playlist goes.") },
-        confirmButton = { TextButton({ vm.delete(id); deleting = false; onBack() }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete") } },
-        dismissButton = { TextButton({ deleting = false }) { Text("Keep it") } },
-    )
-}
-
-@Composable
-fun PlaylistDetailContent(
-    name: String, songs: List<SongEntity>, onPlay: (List<Song>, Int) -> Unit, onMore: (Song) -> Unit,
-    onMenu: () -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier, bottomInset: Dp = 0.dp, subtitle: String? = null, menuHost: @Composable () -> Unit = {},
-) {
-    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 16.dp)) {
-        item {
-            ScreenHeader(name, subtitle = subtitle, onBack = onBack, trailing = {
-                Box { IconButton(onMenu, Modifier.size(48.dp)) { Icon(Icons.More, "Playlist options") }; menuHost() }
-            })
-            if (songs.isNotEmpty()) {
-                val all = songs.map { it.toSong() }
-                PlayButtons({ onPlay(all, 0) }, { onPlay(all.shuffled(), 0) }, Modifier.padding(start = 20.dp, top = 16.dp))
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-        if (songs.isEmpty()) item { EmptyState("Nothing here yet", "Use the three dots next to any song to add one.") }
-        val list = songs.map { it.toSong() }
-        itemsIndexed(songs, key = { _, s -> s.id }) { i, s ->
-            SongRow(list[i], s.isSaved, { onPlay(list, i) }, { onMore(list[i]) }, Modifier.padding(start = 20.dp, end = 8.dp), localCover = s.thumbPath)
-        }
-    }
-}
-
-@Composable
 fun NameDialog(title: String, confirm: String, initial: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var text by remember { mutableStateOf(initial) }
     AlertDialog(

@@ -39,7 +39,10 @@ fun SongRow(
     localCover: String? = null,
     subtitleExtra: String? = null,
     titleColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
+    /** Words being searched for: lightly marked in the name and artist. */
+    highlight: String? = null,
 ) {
+    val mark = MaterialTheme.colorScheme.primary.copy(alpha = .22f)
     Column(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(
             Modifier.fillMaxWidth().defaultMinSize(minHeight = 70.dp).padding(vertical = 9.dp),
@@ -47,11 +50,11 @@ fun SongRow(
         ) {
             Cover(song.id, song.thumbnailUrl, localCover ?: song.localThumbPath, 52.dp, radius = 10.dp)
             Column(Modifier.weight(1f)) {
-                Text(song.title, color = titleColor, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(marked(song.title, highlight, mark), color = titleColor, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     if (saved) Icon(Icons.Download, "Saved on this phone", Modifier.size(14.dp).testTag("saved_mark"), tint = savedMarkColor())
                     Text(
-                        listOfNotNull(song.artist.ifBlank { null }, subtitleExtra).joinToString(" · "),
+                        marked(listOfNotNull(song.artist.ifBlank { null }, subtitleExtra).joinToString(" · "), highlight, mark),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
@@ -73,3 +76,16 @@ fun LoadingRow(modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** [text] with every word of [query] given a soft background, wherever it appears. */
+internal fun marked(text: String, query: String?, color: androidx.compose.ui.graphics.Color): androidx.compose.ui.text.AnnotatedString =
+    androidx.compose.ui.text.buildAnnotatedString {
+        append(text)
+        query?.split(Regex("\\s+"))?.filter { it.isNotEmpty() }?.forEach { word ->
+            var i = text.indexOf(word, ignoreCase = true)
+            while (i >= 0) {
+                addStyle(androidx.compose.ui.text.SpanStyle(background = color), i, i + word.length)
+                i = text.indexOf(word, i + word.length, ignoreCase = true)
+            }
+        }
+    }

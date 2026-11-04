@@ -35,7 +35,11 @@ data class PlaylistEntity(
     primaryKeys = ["playlistId", "songId"],
     foreignKeys = [ForeignKey(PlaylistEntity::class, ["id"], ["playlistId"], onDelete = ForeignKey.CASCADE)],
 )
-data class PlaylistSongEntity(val playlistId: Long, val songId: String, val position: Int)
+data class PlaylistSongEntity(
+    val playlistId: Long, val songId: String, val position: Int,
+    /** When it was added, for "Recently added"; [position] can change by hand, this never does. */
+    @androidx.room.ColumnInfo(defaultValue = "0") val addedAt: Long = 0,
+)
 
 @Entity(tableName = "history")
 data class HistoryEntity(@PrimaryKey val songId: String, val playedAt: Long)

@@ -68,6 +68,8 @@ dependencies {
     implementation(libs.newpipe)
     implementation(libs.coroutines.android)
     implementation(libs.haze)
+    // drag to change a playlist's order, with the list scrolling near the edges
+    implementation(libs.reorderable)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

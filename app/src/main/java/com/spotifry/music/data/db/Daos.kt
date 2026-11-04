@@ -37,10 +37,17 @@ abstract class PlaylistDao {
     @Query("DELETE FROM playlists WHERE id = :id") abstract suspend fun delete(id: Long)
 
     @Query(
-        "INSERT OR IGNORE INTO playlist_songs (playlistId, songId, position) " +
-            "SELECT :playlistId, :songId, COALESCE(MAX(position), -1) + 1 FROM playlist_songs WHERE playlistId = :playlistId"
+        "INSERT OR IGNORE INTO playlist_songs (playlistId, songId, position, addedAt) " +
+            "SELECT :playlistId, :songId, COALESCE(MAX(position), -1) + 1, :addedAt FROM playlist_songs WHERE playlistId = :playlistId"
     )
-    abstract suspend fun addSong(playlistId: Long, songId: String)
+    protected abstract suspend fun insertSong(playlistId: Long, songId: String, addedAt: Long)
+    suspend fun addSong(playlistId: Long, songId: String) = insertSong(playlistId, songId, System.currentTimeMillis())
+
+    @Query("UPDATE playlist_songs SET position = :position WHERE playlistId = :playlistId AND songId = :songId")
+    protected abstract suspend fun setPosition(playlistId: Long, songId: String, position: Int)
+    /** Saves a new hand-made order: [songIds] top to bottom. */
+    @androidx.room.Transaction
+    open suspend fun setOrder(playlistId: Long, songIds: List<String>) { songIds.forEachIndexed { i, id -> setPosition(playlistId, id, i) } }
     @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId AND songId = :songId")
     abstract suspend fun removeSong(playlistId: Long, songId: String)
 
@@ -55,6 +62,9 @@ abstract class PlaylistDao {
 
     @Query("SELECT s.* FROM songs s JOIN playlist_songs ps ON ps.songId = s.id WHERE ps.playlistId = :playlistId ORDER BY ps.position")
     abstract fun observeSongs(playlistId: Long): Flow<List<SongEntity>>
+
+    @Query("SELECT s.* FROM songs s JOIN playlist_songs ps ON ps.songId = s.id WHERE ps.playlistId = :playlistId ORDER BY ps.addedAt DESC, ps.position DESC")
+    abstract fun observeSongsNewestFirst(playlistId: Long): Flow<List<SongEntity>>
 
     /** Every playlist's songs in order, for the cover squares on the Playlists screen. */
     @Query("SELECT ps.playlistId AS playlistId, s.* FROM playlist_songs ps JOIN songs s ON s.id = ps.songId ORDER BY ps.playlistId, ps.position")

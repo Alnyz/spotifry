@@ -13,6 +13,7 @@ okhttp = "4.12.0"
 newpipe = "v0.26.5"
 coroutines = "1.11.0"
 haze = "1.7.1"
+reorderable = "3.1.0"
 junit = "4.13.2"
 robolectric = "4.17"
 
@@ -40,6 +41,7 @@ newpipe = { module = "com.github.teamnewpipe:NewPipeExtractor", version.ref = "n
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 androidx-test-core = { module = "androidx.test:core", version = "1.7.0" }
