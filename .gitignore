@@ -13,3 +13,4 @@ spike/
 *.keystore
 keystore.properties
 /docs/
+/design/
