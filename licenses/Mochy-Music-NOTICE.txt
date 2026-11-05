@@ -7,8 +7,10 @@ Spotifry's equalizer page and filters are adapted from Mochy Music
 - app/src/main/java/com/spotifry/music/ui/settings/EqualizerScreen.kt adapts the page,
   graph and sweep-to-draw bands from ui/screens/equalizer/EqualizerScreen.kt,
   ui/screens/equalizer/EqGraphEditor.kt and ui/screens/equalizer/EqBandsEditor.kt.
-- app/src/main/java/com/spotifry/music/player/AutoEq.kt adapts the list reading, search and
-  percent decoding from eq/autoeq/AutoEqRepository.kt.
+- app/src/main/java/com/spotifry/music/player/AutoEq.kt adapts the list reading, search, percent
+  decoding, measurement file reader and result label from eq/autoeq/AutoEqRepository.kt.
+- app/src/main/java/com/spotifry/music/data/AutoEqSource.kt adapts the week-long saved list,
+  the fetch flow and the address form from eq/autoeq/AutoEqRepository.kt.
 - app/src/main/java/com/spotifry/music/ui/settings/AutoEqTab.kt follows the idea of
   ui/screens/equalizer/AutoEqTab.kt: pick a headphone from the AutoEq list, fit a correction.
 

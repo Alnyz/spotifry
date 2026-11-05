@@ -1,4 +1,5 @@
-// Index reading, search and percent decoding adapted from Mochy Music (GPL-3.0), see licenses/Mochy-Music-NOTICE.txt.
+// Index reading, search, percent decoding, the measurement file reader and the result label are adapted from Mochy Music
+// (GPL-3.0), see licenses/Mochy-Music-NOTICE.txt.
 // The measurements are from the AutoEq project (MIT, https://github.com/jaakkopasanen/AutoEq).
 
 package com.spotifry.music.player
@@ -9,9 +10,18 @@ import kotlin.math.ln
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
+/** The name starts the saved equalizer name of a headphone correction, so the page can tell it from a preset or the user's own curve. */
+const val AUTOEQ_PREFIX = "AutoEq: "
+
+/** A download or file that can't give a measurement: not there, too big, or not readable. Not a connection problem. */
+class AutoEqBadFile(message: String) : java.io.IOException(message)
+
 /** One measured result: a headphone as one reviewer measured it, [path] being its folder in AutoEq's results. */
 data class AutoEqEntry(val name: String, val source: String, val rig: String?, val path: String) {
     val sourceLabel get() = if (rig != null) "$source · $rig" else source
+    /** The name as typed for a search, worked out once so searching a long list stays quick. */
+    internal val key = normalizeName(name)
+    internal val compactKey = key.replace(" ", "")
 }
 
 /** A headphone's measured response ([raw]) and the curve it should have ([target]), in dB at [hz]. */
@@ -29,6 +39,9 @@ private const val FIT_FROM_HZ = 20.0
 private const val FIT_TO_HZ = 16_000.0
 /** Past this the measuring rig is as much of the reading as the headphone, so it counts half. */
 private const val RELIABLE_TO_HZ = 10_000.0
+/** More boost than this turns the whole song down too much, so the fit stops here; cuts can go further. */
+private const val MAX_BOOST_DB = 8.0
+private const val MAX_CUT_DB = EQ_MAX_MB / 100.0
 private const val FIT_ROUNDS = 40
 private const val FIT_STEP = .5
 
@@ -66,14 +79,14 @@ fun fitAutoEq(curve: AutoEqCurve): AutoEqFit {
     }
     fun rounded(x: DoubleArray) = x.map { ((it * 100) / 50).roundToInt() * 50 }
 
-    val x = DoubleArray(EQ_BANDS) { around(wanted, it).coerceIn(-EQ_MAX_MB / 100.0, EQ_MAX_MB / 100.0) }
+    val x = DoubleArray(EQ_BANDS) { around(wanted, it).coerceIn(-MAX_CUT_DB, MAX_BOOST_DB) }
     var best = rounded(x)
     var bestGap = gap(best)
     var bestRms = rms(bestGap)
     val before = rms(wanted)
     var g = bestGap
     repeat(FIT_ROUNDS) {
-        for (b in 0 until EQ_BANDS) x[b] = (x[b] + FIT_STEP * around(g, b)).coerceIn(-EQ_MAX_MB / 100.0, EQ_MAX_MB / 100.0)
+        for (b in 0 until EQ_BANDS) x[b] = (x[b] + FIT_STEP * around(g, b)).coerceIn(-MAX_CUT_DB, MAX_BOOST_DB)
         val levels = rounded(x)
         g = gap(levels)
         val r = rms(g)
@@ -85,7 +98,10 @@ fun fitAutoEq(curve: AutoEqCurve): AutoEqFit {
 private fun DoubleArray.mean(at: List<Int>) = if (at.isEmpty()) 0.0 else at.sumOf { this[it] } / at.size
 private fun log2(x: Double) = ln(x) / ln(2.0)
 
-/** Every result in AutoEq's INDEX.md: one line each, `- [name](./source/rig/name) by source on rig`. The name can hold brackets. */
+/**
+ * Every result in AutoEq's INDEX.md: one line each, `- [name](./source/rig/name) by source on rig`. The name can hold
+ * brackets. Results by crinacle are left out: their folders have no `<name>.csv`, only the filter files.
+ */
 fun parseAutoEqIndex(text: String): List<AutoEqEntry> = text.lineSequence().mapNotNull { line ->
     if (!line.startsWith("- [")) return@mapNotNull null
     val nameEnd = line.indexOf("](./").takeIf { it >= 0 } ?: return@mapNotNull null
@@ -96,14 +112,14 @@ fun parseAutoEqIndex(text: String): List<AutoEqEntry> = text.lineSequence().mapN
         line.substring(3, nameEnd), if (on >= 0) by.substring(0, on) else by, if (on >= 0) by.substring(on + 4) else null,
         percentDecode(line.substring(nameEnd + 4, pathEnd)),
     )
-}.toList()
+}.filter { it.source != "crinacle" }.toList()
 
 /** A measurement file: a header naming `frequency`, `raw` and `target` columns, then one row per frequency. */
 fun parseAutoEqCsv(csv: String): AutoEqCurve {
     val lines = csv.lineSequence().filter { it.isNotBlank() }.toList()
     val head = lines.firstOrNull()?.split(',')?.map { it.trim().lowercase() } ?: emptyList()
     val f = head.indexOf("frequency"); val r = head.indexOf("raw"); val t = head.indexOf("target")
-    if (f < 0 || r < 0 || t < 0) throw java.io.IOException("This measurement can't be read")
+    if (f < 0 || r < 0 || t < 0) throw AutoEqBadFile("This measurement can't be read")
     val rows = lines.drop(1).mapNotNull { line ->
         val c = line.split(',')
         listOf(f, r, t).map { c.getOrNull(it)?.toDoubleOrNull() ?: return@mapNotNull null }
@@ -118,15 +134,32 @@ fun searchAutoEq(all: List<AutoEqEntry>, query: String): List<AutoEqEntry> {
     val words = q.split(' ')
     val compact = q.replace(" ", "")
     // a name where one of the words begins what was typed ("hd600" in "Sennheiser HD 600") comes before one that only contains it
-    fun startsAtWord(n: String) = n.indices.any { (it == 0 || n[it - 1] == ' ') && n.substring(it).replace(" ", "").startsWith(compact) }
-    return all.filter { e ->
-        val n = normalizeName(e.name)
-        words.all { n.contains(it) } || n.replace(" ", "").contains(compact)
-    }.sortedBy { if (startsAtWord(normalizeName(it.name))) 0 else 1 }
+    fun startsAtWord(n: String) = n.indices.any { (it == 0 || n[it - 1] == ' ') && n.regionMatchesCompact(it, compact) }
+    return all.filter { e -> words.all { e.key.contains(it) } || e.compactKey.contains(compact) }
+        .sortedBy { if (startsAtWord(it.key)) 0 else 1 }
+}
+
+/** Whether [compact] is what the letters and digits of this text read from [from], spaces left out. */
+private fun String.regionMatchesCompact(from: Int, compact: String): Boolean {
+    var k = 0
+    var i = from
+    while (k < compact.length && i < length) {
+        if (this[i] != ' ') { if (this[i] != compact[k]) return false; k++ }
+        i++
+    }
+    return k == compact.length
 }
 
 /** Lowercase letters and digits; any run of anything else becomes one space. */
-internal fun normalizeName(text: String) = text.lowercase().replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+internal fun normalizeName(text: String): String {
+    val out = StringBuilder(text.length)
+    var space = true
+    for (ch in text) {
+        if (ch.isLetterOrDigit()) { out.append(ch.lowercaseChar()); space = false }
+        else if (!space) { out.append(' '); space = true }
+    }
+    return out.trimEnd().toString()
+}
 
 /** Percent escapes back to text. A plus stays a plus, unlike `URLDecoder`. */
 internal fun percentDecode(text: String): String {

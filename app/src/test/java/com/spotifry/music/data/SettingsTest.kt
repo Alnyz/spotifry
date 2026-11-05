@@ -7,6 +7,8 @@ import com.spotifry.music.data.source.ResolvedStream
 import com.spotifry.music.data.source.Song
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -41,6 +43,42 @@ class SettingsTest {
         s.restoreEqBefore()
         assertEquals(List(10) { 0 }, s.eqLevels.value)
         assertEquals("Flat", s.eqPreset.value)
+    }
+
+    @Test fun aCorrectionThatArrivesAfterAChangeIsDropped() {
+        val s = Settings(ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-stale", 0))
+        val own = listOf(100, 0, 0, 0, 0, 0, 0, 0, 0, -50)
+        val fixed = List(10) { 200 }
+        s.setEq(null, own); s.setEqOn(true)
+        // a first correction goes on and keeps the own curve
+        assertTrue(s.applyEqCorrection("AutoEq: A", fixed, null, own, true))
+        // the user is back to their own curve while B downloads: B must not land, and nothing is lost
+        val seen = s.eqPreset.value; val seenLevels = s.eqLevels.value
+        s.restoreEqBefore()
+        assertFalse(s.applyEqCorrection("AutoEq: B", fixed, seen, seenLevels, true))
+        assertEquals(own, s.eqLevels.value)
+        assertEquals(null, s.eqPreset.value)
+        // a preset, a drag or the switch during the download count the same
+        assertFalse(s.applyEqCorrection("AutoEq: B", fixed, null, own, false))
+        assertFalse(s.applyEqCorrection("AutoEq: B", fixed, "Rock", own, true))
+        assertFalse(s.applyEqCorrection("AutoEq: B", fixed, null, List(10) { 0 }, true))
+        assertEquals(own, s.eqLevels.value)
+        // trying a second headphone after the first keeps the first own curve, not the first correction
+        assertTrue(s.applyEqCorrection("AutoEq: A", fixed, null, own, true))
+        assertTrue(s.applyEqCorrection("AutoEq: B", List(10) { -100 }, "AutoEq: A", fixed, true))
+        s.restoreEqBefore()
+        assertEquals(own, s.eqLevels.value)
+    }
+
+    @Test fun backToMyCurveKeepsTheEqualizerOffIfItWasOff() {
+        val s = Settings(ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-off", 0))
+        val own = listOf(100, 0, 0, 0, 0, 0, 0, 0, 0, -50)
+        s.setEq(null, own); s.setEqOn(false)
+        assertTrue(s.applyEqCorrection("AutoEq: A", List(10) { 200 }, null, own, false))
+        assertEquals(true, s.eqOn.value)
+        s.restoreEqBefore()
+        assertEquals(false, s.eqOn.value)
+        assertEquals(own, s.eqLevels.value)
     }
 
     @Test fun theOldEqualizerCarriesOver() {

@@ -4,6 +4,8 @@
 package com.spotifry.music.ui.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +25,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -31,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.data.AutoEqSource
 import com.spotifry.music.data.Settings
+import com.spotifry.music.player.AUTOEQ_PREFIX
+import com.spotifry.music.player.AutoEqBadFile
 import com.spotifry.music.player.AutoEqEntry
 import com.spotifry.music.player.AutoEqFit
 import com.spotifry.music.player.fitAutoEq
@@ -40,8 +47,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Starts the name of a saved headphone correction, so the page can tell it from a preset or the user's own curve. */
-internal const val AUTOEQ_PREFIX = "AutoEq: "
 private const val MAX_RESULTS = 30
 
 private sealed interface Step {
@@ -62,6 +67,8 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
     var listError by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
     var step by remember { mutableStateOf<Step>(Step.Idle) }
+    // what was found for which text, so "nothing found" isn't shown for a search still running
+    var found by remember { mutableStateOf<Pair<String, List<AutoEqEntry>>?>(null) }
     val before by settings.eqBeforeSaved.collectAsStateWithLifecycle()
     val active = preset?.takeIf { it.startsWith(AUTOEQ_PREFIX) }?.removePrefix(AUTOEQ_PREFIX)
 
@@ -73,19 +80,33 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
         }
     }
 
+    val requester = remember { BringIntoViewRequester() }
+    // the field and the first few results, not the whole list: a list taller than the space above the keyboard would push the field off
+    val topPx = with(LocalDensity.current) { 280.dp.toPx() }
+    LaunchedEffect(found) {
+        if (found?.second?.isNotEmpty() == true) { withFrameNanos { }; requester.bringIntoView(Rect(0f, 0f, 1f, topPx)) }
+    }
+    LaunchedEffect(query, list) {
+        val all = list ?: return@LaunchedEffect
+        found = query to withContext(Dispatchers.Default) { searchAutoEq(all, query) }
+    }
+
     fun pick(entry: AutoEqEntry) {
+        // the download takes a while; if the equalizer is changed meanwhile, the result is dropped, not laid over the change
+        val seenPreset = settings.eqPreset.value
+        val seenLevels = settings.eqLevels.value
+        val seenOn = settings.eqOn.value
         step = Step.Fitting(entry)
         scope.launch {
             step = try {
                 val fit = withContext(Dispatchers.Default) { fitAutoEq(source.curve(entry)) }
-                // the user's own curve is kept once, so going back works even after trying several headphones
-                if (active == null) settings.saveEqBefore()
-                settings.setEq(AUTOEQ_PREFIX + entry.name, fit.levelsMb)
-                settings.setEqOn(true)
-                Step.Done(entry, fit)
+                if (settings.applyEqCorrection(AUTOEQ_PREFIX + entry.name, fit.levelsMb, seenPreset, seenLevels, seenOn)) Step.Done(entry, fit) else Step.Idle
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                Step.Failed("Couldn't get the measurement for ${entry.name}. Check your connection and try again.")
+                Step.Failed(
+                    if (e is AutoEqBadFile || e is IllegalArgumentException) "The measurement for ${entry.name} isn't available or can't be read. Try another result."
+                    else "Couldn't get the measurement for ${entry.name}. Check your connection and try again.",
+                )
             }
         }
     }
@@ -95,14 +116,16 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
             if (active != null) {
                 Text("Correcting for", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
                 Text(active, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
-                Chip(if (before) "Back to my curve" else "Turn off correction", false) { settings.restoreEqBefore() }
+                Chip(if (before) "Back to my curve" else "Turn off correction", false, Role.Button) { settings.restoreEqBefore() }
             }
             when (val s = step) {
                 Step.Idle -> {}
                 is Step.Fitting -> Text("Fitting ${s.entry.name}…", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
                 is Step.Failed -> Text(s.text, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
-                is Step.Done -> Text(resultText(s.fit), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                is Step.Done -> if (active == s.entry.name) Text(resultText(s.fit), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
             }
+            // with the keyboard up, the field and the first results are scrolled into the space above it
+            Column(Modifier.bringIntoViewRequester(requester), Arrangement.spacedBy(10.dp)) {
             OutlinedTextField(
                 query, { query = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Headphone model") },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
@@ -111,14 +134,15 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
             when {
                 listError != null -> {
                     Text(listError!!, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
-                    Chip("Try again", false) { attempt++ }
+                    Chip("Try again", false, Role.Button) { attempt++ }
                 }
                 all == null -> Text("Loading the headphone list…", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
                 query.isBlank() -> Text("Type part of the model name, like \"HD 600\" or \"WH-1000XM5\".", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                found?.first != query -> {}
                 else -> {
-                    val found = searchAutoEq(all, query)
-                    if (found.isEmpty()) Text("No headphone with that name in the list.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
-                    found.take(MAX_RESULTS).forEach { e ->
+                    val results = found!!.second
+                    if (results.isEmpty()) Text("No headphone with that name in the list.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+                    results.take(MAX_RESULTS).forEach { e ->
                         Column(
                             Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, enabled = step !is Step.Fitting) { pick(e) }.padding(vertical = 8.dp),
                             verticalArrangement = Arrangement.Center,
@@ -127,11 +151,12 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
                             Text(e.sourceLabel, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                         }
                     }
-                    if (found.size > MAX_RESULTS) Text("${found.size - MAX_RESULTS} more. Type more of the name to narrow it down.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    if (results.size > MAX_RESULTS) Text("${results.size - MAX_RESULTS} more. Type more of the name to narrow it down.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 }
             }
+            }
             Text(
-                "Measurements by the AutoEq project, fitted to the ten bands here. Needs a connection to load the list and each headphone once.",
+                "Measurements by the AutoEq project, fitted to the ten bands here. Needs a connection to load the list and to pick a headphone.",
                 style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
             )
         }

@@ -3,6 +3,7 @@ package com.spotifry.music.data
 import android.content.SharedPreferences
 import com.spotifry.music.player.EQ_BANDS
 import com.spotifry.music.player.EQ_PRESETS
+import com.spotifry.music.player.AUTOEQ_PREFIX
 import com.spotifry.music.player.eqFromOldBands
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,20 +76,33 @@ class Settings(private val prefs: SharedPreferences) {
         prefs.edit().putString(EQ_PRESET, _eqPreset.value).putString(EQ_BANDS_KEY, _eqLevels.value.joinToString(",")).apply()
     }
     private val _eqBefore = MutableStateFlow(prefs.contains(EQ_BEFORE))
-    /** Whether a curve is kept to [restoreEqBefore] to: the user's own, set aside when a headphone correction replaced it. */
+    /** Whether a setting is kept to [restoreEqBefore] to: the user's own, set aside when a headphone correction replaced it. */
     val eqBeforeSaved: StateFlow<Boolean> = _eqBefore
+    /** Keeps the name, the levels and whether the equalizer is on. */
     fun saveEqBefore() {
-        prefs.edit().putString(EQ_BEFORE, "${_eqPreset.value.orEmpty()}\n${_eqLevels.value.joinToString(",")}").apply()
+        prefs.edit().putString(EQ_BEFORE, "${_eqPreset.value.orEmpty()}\n${_eqLevels.value.joinToString(",")}\n${_eqOn.value}").apply()
         _eqBefore.value = true
     }
-    /** Puts the curve kept by [saveEqBefore] back, or a flat one when none is kept. */
+    /** Puts back what [saveEqBefore] kept, or a flat curve (on or off as it is) when nothing is kept. */
     fun restoreEqBefore() {
-        val (name, levels) = prefs.getString(EQ_BEFORE, null)?.split('\n', limit = 2)?.takeIf { it.size == 2 }
-            ?.let { (n, l) -> n.ifEmpty { null } to l.split(',').mapNotNull { it.toIntOrNull() } }
-            ?.takeIf { it.second.size == EQ_BANDS } ?: ("Flat" to List(EQ_BANDS) { 0 })
-        setEq(name, levels)
+        val kept = prefs.getString(EQ_BEFORE, null)?.split('\n')?.takeIf { it.size == 3 }
+            ?.let { (n, l, on) -> Triple(n.ifEmpty { null }, l.split(',').mapNotNull { it.toIntOrNull() }, on.toBooleanStrictOrNull()) }
+            ?.takeIf { it.second.size == EQ_BANDS && it.third != null }
+        if (kept == null) setEq("Flat", List(EQ_BANDS) { 0 }) else { setEq(kept.first, kept.second); setEqOn(kept.third == true) }
         prefs.edit().remove(EQ_BEFORE).apply()
         _eqBefore.value = false
+    }
+    /**
+     * A headphone correction found while the equalizer looked like [seenPreset], [seenLevels] and [seenOn]. If anything
+     * changed meanwhile (a preset, Reset, a drag, Back to my curve, the switch) the result is stale and nothing is applied.
+     * The first correction keeps the user's own setting, so [restoreEqBefore] can bring it back after several tries.
+     */
+    fun applyEqCorrection(name: String, levels: List<Int>, seenPreset: String?, seenLevels: List<Int>, seenOn: Boolean): Boolean {
+        if (_eqPreset.value != seenPreset || _eqLevels.value != seenLevels || _eqOn.value != seenOn) return false
+        if (seenPreset?.startsWith(AUTOEQ_PREFIX) != true) saveEqBefore()
+        setEq(name, levels)
+        setEqOn(true)
+        return true
     }
     private fun eqNumbers(key: String) = prefs.getString(key, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() }
 

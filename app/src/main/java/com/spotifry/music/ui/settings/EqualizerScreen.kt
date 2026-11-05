@@ -207,12 +207,13 @@ private fun Label(text: String, actions: @Composable () -> Unit = {}) {
 }
 
 @Composable
-internal fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun Chip(label: String, selected: Boolean, role: Role = Role.RadioButton, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Box(
         Modifier.heightIn(min = 40.dp).clip(CircleShape)
             .then(if (selected) Modifier.background(scheme.primary) else Modifier.background(scheme.surfaceContainerHigh))
-            .selectable(selected, role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp),
+            .then(if (role == Role.RadioButton) Modifier.selectable(selected, role = role, onClick = onClick) else Modifier.clickable(role = role, onClick = onClick))
+            .padding(horizontal = 16.dp),
         Alignment.Center,
     ) { Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) scheme.onPrimary else scheme.onSurface, maxLines = 1) }
 }
@@ -265,8 +266,11 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
     // music gets quieter toward the high notes; tilting the picture up 3 dB per octave (level at 1 kHz) keeps the
     // highs moving instead of lying on the floor, and the bass off the ceiling. Like most music analyzers.
     val tilt = remember { FloatArray(Spectrum.BANDS) { 3f * log2(Spectrum.bandCenterHz(it) / 1000f) } }
-    // the music as it comes out: shaped by the curve, which only counts while the equalizer is on
-    val shaped = remember(design, on) { FloatArray(Spectrum.BANDS) { if (on) design.responseDb(Spectrum.bandCenterHz(it).toDouble()).toFloat() else 0f } }
+    // the music as it comes out: shaped by the curve and turned down by its preamp, which only counts while the equalizer is on
+    val shaped = remember(design, on) {
+        val preampDb = 20 * log10(design.preamp).toFloat()
+        FloatArray(Spectrum.BANDS) { if (on) design.responseDb(Spectrum.bandCenterHz(it).toDouble()).toFloat() + preampDb else 0f }
+    }
     val labels = MaterialTheme.typography.labelSmall.copy(color = scheme.onSurfaceVariant, fontSize = 10.sp)
 
     Card {

@@ -47,6 +47,14 @@ class AutoEqTest {
         assertTrue("held at the edge, so 30 dB is not fixed: ${fit.errorAfterDb}", fit.errorAfterDb > 1.0)
     }
 
+    @Test fun boostStopsAtEightDecibelsAndCutsGoFurther() {
+        val up = fitAutoEq(curve { if (it < 200) -20.0 else 0.0 })
+        assertEquals(800, up.levelsMb.max())
+        // the gap still comes from what the capped filters really do
+        assertTrue("capped boost leaves a gap: ${up.errorAfterDb}", up.errorAfterDb > 1.0)
+        assertEquals(-EQ_MAX_MB, fitAutoEq(curve { if (it < 200) 20.0 else 0.0 }).levelsMb.min())
+    }
+
     @Test fun tooFewPointsIsRejected() {
         val c = AutoEqCurve(doubleArrayOf(100.0, 200.0), doubleArrayOf(0.0, 0.0), doubleArrayOf(0.0, 0.0))
         assertTrue(runCatching { fitAutoEq(c) }.exceptionOrNull() is IllegalArgumentException)
@@ -63,16 +71,23 @@ class AutoEqTest {
 
     @Test fun indexReadsNameSourceRigAndPath() {
         val all = parseAutoEqIndex(index)
-        assertEquals(4, all.size)
+        assertEquals(3, all.size)
         assertEquals(AutoEqEntry("Sennheiser HD 600", "oratory1990", null, "oratory1990/over-ear/Sennheiser HD 600"), all[0])
-        assertEquals("crinacle · GRAS 43AG-7", all[1].sourceLabel)
-        assertEquals("Rtings/Bruel & Kjaer 5128 over-ear/Sony WH-1000XM5", all[2].path)
-        assertEquals("HypetheSonics/GRAS RA0045 in-ear/1MORE Aero (ANC Off)", all[3].path)
+        assertEquals("Rtings · Bruel & Kjaer 5128", all[1].sourceLabel)
+        assertEquals("Rtings/Bruel & Kjaer 5128 over-ear/Sony WH-1000XM5", all[1].path)
+        assertEquals("HypetheSonics/GRAS RA0045 in-ear/1MORE Aero (ANC Off)", all[2].path)
+    }
+
+    @Test fun resultsByCrinacleAreLeftOutBecauseTheyHaveNoMeasurementFile() {
+        // a line in the real format: crinacle's folders only hold filter files upstream
+        val all = parseAutoEqIndex("- [Sennheiser HD 600](./crinacle/GRAS%2043AG-7%20over-ear/Sennheiser%20HD%20600) by crinacle on GRAS 43AG-7\n$index")
+        assertTrue(all.none { it.source == "crinacle" })
+        assertEquals(3, all.size)
     }
 
     @Test fun searchIgnoresPunctuationAndNeedsEveryWord() {
         val all = parseAutoEqIndex(index)
-        assertEquals(2, searchAutoEq(all, "hd600").size)
+        assertEquals(1, searchAutoEq(all, "hd600").size)
         assertEquals(listOf("Sony WH-1000XM5"), searchAutoEq(all, "wh1000").map { it.name })
         assertEquals(listOf("Sony WH-1000XM5"), searchAutoEq(all, "sony xm5").map { it.name })
         // "hd600" is inside "AH-D600" too, but it begins a word in "HD 600", so those lead
@@ -93,6 +108,6 @@ class AutoEqTest {
         assertEquals(listOf(20.0, 22.0), c.hz.toList())
         assertEquals(listOf(1.5, 2.5), c.raw.toList())
         assertEquals(listOf(.5, 1.5), c.target.toList())
-        assertTrue(runCatching { parseAutoEqCsv("frequency,raw\n20,1") }.exceptionOrNull() is java.io.IOException)
+        assertTrue(runCatching { parseAutoEqCsv("frequency,raw\n20,1") }.exceptionOrNull() is AutoEqBadFile)
     }
 }
