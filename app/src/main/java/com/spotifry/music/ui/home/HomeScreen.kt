@@ -148,13 +148,15 @@ private fun Greeting(modifier: Modifier = Modifier) {
     Text(buildAnnotatedString { append("Good $part"); withStyle(SpanStyle(color = accent)) { append(".") } }, modifier, style = MaterialTheme.typography.displaySmall)
 }
 
-/** The last song, large, with its own cover as the picture. */
+/** The last song, large, with its own cover as the picture. While it is the song playing, a tap opens Now playing. */
 @Composable
 private fun LastPlayed(s: SongEntity, onPlay: () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
+    val now = com.spotifry.music.ui.components.LocalNowPlaying.current
+    val current = now != null && now.id == s.id
     Box(
         Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().height(212.dp).clip(shape)
-            .clickable(onClickLabel = "Play again", onClick = onPlay),
+            .clickable(onClickLabel = if (current) "Open Now playing" else "Play again", onClick = if (current) now!!.open else onPlay),
     ) {
         CoverArt(s.id, s.thumbnailUrl, s.thumbPath, Modifier.fillMaxSize())
         // darkens the left side so the white text stays readable on any cover
@@ -169,9 +171,9 @@ private fun LastPlayed(s: SongEntity, onPlay: () -> Unit) {
             Spacer(Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(48.dp).clip(CircleShape).background(Color.White), Alignment.Center) {
-                    Icon(Icons.Play, null, Modifier.size(26.dp), tint = Color(0xFF0C0D10))
+                    if (current) com.spotifry.music.ui.components.PlayingBars(now!!.playing) else Icon(Icons.Play, null, Modifier.size(26.dp), tint = Color(0xFF0C0D10))
                 }
-                Text("Play again", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                Text(if (current) "Now playing" else "Play again", style = MaterialTheme.typography.labelLarge, color = Color.White)
             }
         }
     }
