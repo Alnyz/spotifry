@@ -6,7 +6,7 @@
 [![Android 13 or newer](https://img.shields.io/badge/Android-13%2B-FF8A3D?style=for-the-badge&labelColor=2B1408)](#download)
 [![GPL-3.0 license](https://img.shields.io/badge/license-GPL--3.0-FF8A3D?style=for-the-badge&labelColor=2B1408)](LICENSE)
 
-[**Download**](#download) · [**Features**](#features) · [**Disclaimer**](#disclaimer) · [**Build**](#build)
+[**Website**](https://alnyz.github.io/spotifry/) · [**Download**](#download) · [**Features**](#features) · [**Disclaimer**](#disclaimer) · [**Build**](#build)
 
 </div>
 
