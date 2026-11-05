@@ -64,6 +64,10 @@ abstract class PlaylistDao {
         insertRow(row)
     }
 
+    /** Every song that is in at least one playlist, for the mark on song rows. */
+    @Query("SELECT DISTINCT songId FROM playlist_songs")
+    abstract fun observeSongIdsInPlaylists(): Flow<List<String>>
+
     /** Ids of the playlists that hold [songId]. */
     @Query("SELECT playlistId FROM playlist_songs WHERE songId = :songId")
     abstract fun observePlaylistIdsWith(songId: String): Flow<List<Long>>

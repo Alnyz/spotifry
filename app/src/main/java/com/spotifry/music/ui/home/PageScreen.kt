@@ -54,6 +54,9 @@ import com.spotifry.music.ui.components.SongRow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
+/** An artist page lists this many songs until "Show all" is tapped. */
+private const val ARTIST_SONGS = 5
+
 /** What an album, artist or playlist can do; [save]'s songs are null when the page isn't loaded yet. */
 class PageActions(
     val open: (PageLink) -> Unit = {},
@@ -94,6 +97,7 @@ fun PageScreen(
     val artist = link.type == SearchType.ARTISTS
     val album = link.type == SearchType.ALBUMS
     var menu by remember { mutableStateOf(false) }
+    var allSongs by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 16.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
@@ -117,12 +121,20 @@ fun PageScreen(
             p == null -> item { ErrorRow(link.name, vm::load, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
             else -> {
                 if (artist && p.songs.isNotEmpty()) item { SectionTitle("Songs") }
-                itemsIndexed(p.songs) { i, s ->
+                val shown = if (artist && !allSongs) p.songs.take(ARTIST_SONGS) else p.songs
+                itemsIndexed(shown) { i, s ->
                     SongRow(
                         s, s.id in savedIds, { onPlay(p.songs, i, p.name) }, { onMore(s) }, Modifier.padding(start = 20.dp, end = 8.dp),
                         subtitleExtra = if (album) clockText(s.durationSec * 1000) else null,
                         // one album shares one cover: the track number takes its place
                         leading = if (album) { { Text("${i + 1}", Modifier.width(28.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) } } else null,
+                    )
+                }
+                if (shown.size < p.songs.size) item {
+                    Text(
+                        "Show all ${p.songs.size} songs",
+                        Modifier.fillMaxWidth().clickable { allSongs = true }.padding(horizontal = 20.dp, vertical = 14.dp),
+                        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
                     )
                 }
                 if (p.albums.isNotEmpty()) item {

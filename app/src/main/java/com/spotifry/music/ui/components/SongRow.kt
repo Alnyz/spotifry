@@ -39,7 +39,10 @@ class NowPlayingMark(val id: String?, val playing: Boolean, val open: () -> Unit
 /** Set around the app's pages only, so the queue and menus keep their own taps. */
 val LocalNowPlaying = androidx.compose.runtime.compositionLocalOf<NowPlayingMark?> { null }
 
-/** One song: cover, title, artist (with the saved mark), and the three-dot menu. */
+/** Ids of the songs in any playlist; empty inside a playlist, where every row would carry the mark. */
+val LocalInPlaylist = androidx.compose.runtime.compositionLocalOf<Set<String>> { emptySet() }
+
+/** One song: cover, title, artist (with the saved and in-a-playlist marks), and the three-dot menu. */
 @Composable
 fun SongRow(
     song: Song,
@@ -68,6 +71,7 @@ fun SongRow(
                 Text(marked(song.title, highlight, mark), color = if (current && titleColor == androidx.compose.ui.graphics.Color.Unspecified) MaterialTheme.colorScheme.primary else titleColor, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     if (saved) Icon(Icons.Download, "Saved on this phone", Modifier.size(14.dp).testTag("saved_mark"), tint = savedMarkColor())
+                    if (song.id in LocalInPlaylist.current) Icon(Icons.List, "In a playlist", Modifier.size(14.dp), tint = savedMarkColor())
                     if (song.isLocal) Icon(Icons.Phone, "File on this phone", Modifier.size(13.dp), tint = savedMarkColor())
                     // saved, it counts as one of yours
                     if (song.suggested && !saved) Icon(Icons.Sparkle, "Suggested for you", Modifier.size(13.dp), tint = savedMarkColor())
