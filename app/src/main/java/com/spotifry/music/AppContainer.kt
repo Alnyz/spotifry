@@ -16,7 +16,11 @@ import okhttp3.OkHttpClient
 /** The one place the app's long-lived pieces are created. */
 class AppContainer(private val context: Context) {
     val filesDir: java.io.File get() = context.filesDir
-    val client = OkHttpClient()
+    /**
+     * Drops a connection after 10 s unused: the phone's network silently cuts idle ones (measured: well under a
+     * minute), and reusing a dead one costs a 10 s timeout per try, so a song took 20 s to start after a pause.
+     */
+    val client: OkHttpClient = OkHttpClient.Builder().connectionPool(okhttp3.ConnectionPool(5, 10, java.util.concurrent.TimeUnit.SECONDS)).build()
     /** Covers only: keeps up to 50 MB on disk, so a cover seen once loads instantly next time, even offline. */
     val imageClient: OkHttpClient = client.newBuilder().cache(okhttp3.Cache(java.io.File(context.cacheDir, "covers"), 50L * 1024 * 1024)).build()
     /** Songs played but not saved: up to 1 GB, least recently played go first. Replays start at once and use no data. */
