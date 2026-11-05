@@ -19,12 +19,12 @@ class AppContainer(private val context: Context) {
     val client = OkHttpClient()
     /** Covers only: keeps up to 50 MB on disk, so a cover seen once loads instantly next time, even offline. */
     val imageClient: OkHttpClient = client.newBuilder().cache(okhttp3.Cache(java.io.File(context.cacheDir, "covers"), 50L * 1024 * 1024)).build()
-    /** Songs played but not saved: up to 500 MB, least recently played go first. Replays start at once and use no data. */
+    /** Songs played but not saved: up to 1 GB, least recently played go first. Replays start at once and use no data. */
     @get:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     val songCache by lazy {
         androidx.media3.datasource.cache.SimpleCache(
             java.io.File(context.cacheDir, "songs"),
-            androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(500L * 1024 * 1024),
+            androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(1024L * 1024 * 1024),
             androidx.media3.database.StandaloneDatabaseProvider(context),
         )
     }

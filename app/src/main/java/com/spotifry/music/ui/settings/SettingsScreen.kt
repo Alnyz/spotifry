@@ -116,7 +116,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
             }
             Group("Storage") {
                 Item("Saved songs", storage?.let { "${it.savedCount} ${if (it.savedCount == 1) "song" else "songs"} · ${size(it.savedBytes)}" } ?: "Counting…")
-                Item("Clear played songs kept for replay", storage?.let { "${size(it.songCacheBytes)} of 500 MB · they download again when played" } ?: "Counting…", onClick = vm::clearSongCache)
+                Item("Clear played songs kept for replay", storage?.let { "${size(it.songCacheBytes)} of 1 GB · they download again when played" } ?: "Counting…", onClick = vm::clearSongCache)
                 Item("Clear covers kept for speed", storage?.let { "${size(it.coverBytes)} · they load again when shown" } ?: "Counting…", onClick = vm::clearCovers)
             }
             Group("History") {
