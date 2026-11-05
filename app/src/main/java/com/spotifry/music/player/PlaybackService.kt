@@ -128,7 +128,9 @@ class PlaybackService : MediaSessionService() {
                 if (player.hasNextMediaItem()) {
                     val next = player.getMediaItemAt(player.nextMediaItemIndex).toSong()
                     scope.launch(Dispatchers.Default) { c.resolver.prefetch(next, c.streamLow()) }
+                    smartTrim(player, next.id)
                 }
+                mediaItem?.mediaId?.let { smartTrim(player, it) }
                 appendSimilarIfNeeded(player)
                 fillSuggestions(player)
             }
@@ -266,6 +268,35 @@ class PlaybackService : MediaSessionService() {
             val queued = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
             similar.filter { it.id !in queued }.take(20).forEach { c.db.songs().upsert(it.toEntity()) }
             player.addMediaItems(similar.filter { it.id !in queued }.take(20).map { it.toMediaItem() })
+        }
+    }
+
+    /**
+     * Smart trim: asks the shared list about song [id] (once, then kept on the phone) and gives each of its places in the
+     * queue the trim it should play with now. The song isn't held back while asking; if the answer comes after it
+     * started, it goes on from the same moment, or from the new start if that moment is in the skipped talking.
+     */
+    private fun smartTrim(player: ExoPlayer, id: String) {
+        val c = (application as MusicApp).container
+        val song = (0 until player.mediaItemCount).map(player::getMediaItemAt).firstOrNull { it.mediaId == id }?.toSong() ?: return
+        scope.launch {
+            if (c.settings.smartTrim.value) c.smartTrims.lookUp(song)
+            val trim = trimOf(id)
+            // replacing moves a song to a random place in the shuffle order; put the order back after
+            val order = if (player.shuffleModeEnabled) player.order() else null
+            var changed = false
+            for (i in 0 until player.mediaItemCount) {
+                val item = player.getMediaItemAt(i)
+                if (item.mediaId != id || item.trim == trim) continue
+                changed = true
+                val current = i == player.currentMediaItemIndex
+                val at = player.currentPosition + (item.trim?.startMs ?: 0)
+                player.replaceMediaItem(i, item.toSong().toMediaItem(trim))
+                if (current) player.seekTo(i, (at - (trim?.startMs ?: 0)).coerceAtLeast(0))
+            }
+            if (changed && order != null && order.size == player.mediaItemCount) {
+                player.setShuffleOrder(ShuffleOrder.DefaultShuffleOrder(order.toIntArray(), kotlin.random.Random.nextLong()))
+            }
         }
     }
 

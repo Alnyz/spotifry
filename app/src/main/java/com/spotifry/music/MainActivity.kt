@@ -369,7 +369,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     }
                 })
             }
-            SongMenuSheet(target.song, actions, player.trim?.takeIf { target.fromPlayer }?.note(player.wholeMs)) { menu = null }
+            SongMenuSheet(target.song, actions, player.trim?.takeIf { target.fromPlayer }?.note(player.wholeMs)?.let { if (c.trims[target.song.id] == null) "smart trim · $it" else it }) { menu = null }
         }
         addTo?.let { song ->
             AddToPlaylistSheet(playlists, { plVm.addSong(it, song) }, { newFor = song }) { addTo = null }

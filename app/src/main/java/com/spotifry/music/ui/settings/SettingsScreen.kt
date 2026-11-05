@@ -49,6 +49,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val theme by vm.settings.theme.collectAsStateWithLifecycle()
     val sameLoudness by vm.settings.sameLoudness.collectAsStateWithLifecycle()
     val skipSilence by vm.settings.skipSilence.collectAsStateWithLifecycle()
+    val smartTrim by vm.settings.smartTrim.collectAsStateWithLifecycle()
     val fade by vm.settings.fadeSeconds.collectAsStateWithLifecycle()
     val eqOn by vm.settings.eqOn.collectAsStateWithLifecycle()
     val eqPreset by vm.settings.eqPreset.collectAsStateWithLifecycle()
@@ -81,6 +82,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     onClick = { vm.settings.setSkipSilence(!skipSilence) }, role = Role.Switch,
                 ) {
                     Switch(skipSilence, null, colors = switchColors())
+                }
+                Item(
+                    "Smart trim", "Skips talking at the start and end of music videos, using a shared public list. Your own trims always win.",
+                    onClick = { vm.settings.setSmartTrim(!smartTrim) }, role = Role.Switch,
+                ) {
+                    Switch(smartTrim, null, colors = switchColors())
                 }
                 Item("Fade between songs", "The end of a song fades out and the next one fades in.", below = true) {
                     Segments(FADES.map { if (it == 0) "Off" else "$it s" }, FADES.indexOf(fade).coerceAtLeast(0)) { vm.settings.setFadeSeconds(FADES[it]) }

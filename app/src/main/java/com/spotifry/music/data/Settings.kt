@@ -25,6 +25,11 @@ class Settings(private val prefs: SharedPreferences) {
     val skipSilence: StateFlow<Boolean> = _skipSilence
     fun setSkipSilence(on: Boolean) { _skipSilence.value = on; prefs.edit().putBoolean(SKIP_SILENCE, on).apply() }
 
+    private val _smartTrim = MutableStateFlow(prefs.getBoolean(SMART_TRIM, true))
+    /** Talking at the start and end of music videos is skipped, from SponsorBlock's shared list. On unless turned off. */
+    val smartTrim: StateFlow<Boolean> = _smartTrim
+    fun setSmartTrim(on: Boolean) { _smartTrim.value = on; prefs.edit().putBoolean(SMART_TRIM, on).apply() }
+
     private val _speed = MutableStateFlow(prefs.getFloat(SPEED, 1f))
     /** Playback speed, 0.5 to 2. Kept for every song until set back. */
     val speed: StateFlow<Float> = _speed
@@ -82,6 +87,7 @@ class Settings(private val prefs: SharedPreferences) {
         const val THEME = "theme"
         const val SAME_LOUDNESS = "same_loudness"
         const val SKIP_SILENCE = "skip_silence"
+        const val SMART_TRIM = "smart_trim"
         const val SPEED = "speed"
         const val PITCH = "pitch"
         const val FADE = "fade_seconds"

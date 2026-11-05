@@ -31,10 +31,12 @@ class AppContainer(private val context: Context) {
     val db: AppDatabase = AppDatabase.create(context)
     /** Each song's own start and end. Every queue the app or the service builds plays the trimmed part (see toMediaItem). */
     val trims = com.spotifry.music.player.Trims(context.getSharedPreferences("trims", Context.MODE_PRIVATE))
-        .also { t -> com.spotifry.music.player.trimOf = { t[it] } }
+    /** Talking skipped at the start and end of music videos, when the user's own trim doesn't say otherwise. */
+    val smartTrims = com.spotifry.music.player.SmartTrims(context.getSharedPreferences("smart_trims", Context.MODE_PRIVATE), client)
     val source: MusicSource = NewPipeSource()
     val resolver = StreamResolver(source)
-    val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, saveTrim = trims::set) }
+    // "Play the whole song" means whole: the smart trim is turned off for that song too
+    val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, saveTrim = { id, t -> trims[id] = t; if (t == null) smartTrims.turnOff(id) }) }
     /** Songs listened to in the last 24 hours: Shuffle plays them in the second half. */
     suspend fun recentlyPlayed(): Set<String> = db.plays().playedSince(System.currentTimeMillis() - 24 * 60 * 60 * 1000L).toSet()
     /** One lyrics lookup for Now playing and Share, so a song's lyrics are fetched once. */
@@ -48,6 +50,7 @@ class AppContainer(private val context: Context) {
     val eqInfo by lazy { com.spotifry.music.player.EqInfo.probe(context) }
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
+        .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
     val updates = com.spotifry.music.data.Updates(context.applicationContext, client, prefs, BuildConfig.VERSION_NAME)
     val localMusic = com.spotifry.music.data.LocalMusic(context.applicationContext)
     val downloads = DownloadRepository(context.filesDir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })
