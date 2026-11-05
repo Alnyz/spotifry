@@ -41,7 +41,21 @@ class AppContainer(private val context: Context) {
     val source: MusicSource = NewPipeSource()
     val resolver = StreamResolver(source)
     // "Play the whole song" means whole: the smart trim is turned off for that song too
-    val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, saveTrim = { id, t -> trims[id] = t; if (t == null) smartTrims.turnOff(id) }) }
+    val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, knownKbps = ::streamKbps, saveTrim = { id, t -> trims[id] = t; if (t == null) smartTrims.turnOff(id) }) }
+    /**
+     * The playing song's bitrate for the quality label: YouTube's figure when it was looked up this run, otherwise
+     * worked out from the saved file's or the cached song's size over its whole length ([wholeMs]).
+     */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    fun streamKbps(id: String, wholeMs: Long): Int? {
+        resolver.knownKbps(id)?.let { return it }
+        if (wholeMs <= 0) return null
+        val songs = java.io.File(context.filesDir, "songs")
+        val bytes = listOf("webm", "m4a").map { java.io.File(songs, "$id.$it") }.firstOrNull { it.exists() }?.length()
+            ?: androidx.media3.datasource.cache.ContentMetadata.getContentLength(songCache.getContentMetadata(id)).takeIf { it > 0 }
+        return bytes?.let { (it * 8 / wholeMs).toInt() } // bits per millisecond is kbps
+    }
+
     /** Songs listened to in the last 24 hours: Shuffle plays them in the second half. */
     suspend fun recentlyPlayed(): Set<String> = db.plays().playedSince(System.currentTimeMillis() - 24 * 60 * 60 * 1000L).toSet()
     /** One lyrics lookup for Now playing and Share, so a song's lyrics are fetched once. */

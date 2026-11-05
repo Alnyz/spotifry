@@ -1,0 +1,20 @@
+package com.spotifry.music.player
+
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+class QualityTest {
+    private fun fmt(mime: String, b: Format.Builder.() -> Unit = {}) = Format.Builder().setSampleMimeType(mime).apply(b).build()
+
+    @Test fun youtubeOpusTakesYoutubesBitrate() = assertEquals("Opus 160 kbps", qualityLabel(fmt(MimeTypes.AUDIO_OPUS) { setSampleRate(48000) }, 160))
+    @Test fun opusWithNoBitrateAnywhereIsJustOpus() = assertEquals("Opus", qualityLabel(fmt(MimeTypes.AUDIO_OPUS), null))
+    @Test fun fileBitrateWins() = assertEquals("AAC 129 kbps", qualityLabel(fmt(MimeTypes.AUDIO_AAC) { setAverageBitrate(129_400) }, 160))
+    @Test fun hiResFlac() = assertEquals("FLAC 24-bit · 96 kHz", qualityLabel(fmt(MimeTypes.AUDIO_FLAC) { setPcmEncoding(C.ENCODING_PCM_24BIT); setSampleRate(96000) }))
+    @Test fun cdFlac() = assertEquals("FLAC 16-bit · 44.1 kHz", qualityLabel(fmt(MimeTypes.AUDIO_FLAC) { setPcmEncoding(C.ENCODING_PCM_16BIT); setSampleRate(44100) }))
+    @Test fun losslessNeverGetsBitrate() = assertEquals("FLAC", qualityLabel(fmt(MimeTypes.AUDIO_FLAC) { setAverageBitrate(900_000) }, 160))
+    @Test fun unknownFormat() { assertNull(qualityLabel(fmt("audio/x-unknown"))); assertNull(qualityLabel(null)) }
+}

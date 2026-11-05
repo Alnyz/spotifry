@@ -45,6 +45,9 @@ class StreamResolver(
     /** Looks [songs] up in the background, so a tap on one of them starts without waiting for YouTube. */
     fun warm(songs: List<Song>, low: Boolean = false) = songs.forEach { scope.launch { prefetch(it, low) } }
 
+    /** YouTube's bitrate for a song looked up in this run, for the quality label. Null when it played from the cache or a file. */
+    fun knownKbps(songId: String): Int? = (cache[songId] ?: cache["$songId|low"])?.bitrateKbps?.takeIf { it > 0 }
+
     fun invalidate(songId: String) { cache.remove(songId); cache.remove("$songId|low") }
 
     private companion object { const val FRESH_MARGIN_MS = 60_000L }

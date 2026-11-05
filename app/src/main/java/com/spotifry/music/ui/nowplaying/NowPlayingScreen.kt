@@ -147,6 +147,16 @@ fun NowPlayingContent(
                 Box(Modifier.fillMaxWidth().padding(top = 16.dp), Alignment.Center) {
                     Cover(song.id, song.thumbnailUrl, song.localThumbPath, cover, radius = 12.dp)
                 }
+                // the song's real sound, small and quiet under the cover (its own line, so a long artist name never crowds it)
+                // the space is kept while it's unknown, so the controls don't jump when it appears
+                Box(Modifier.fillMaxWidth().padding(top = 12.dp).height(20.dp), Alignment.Center) {
+                    state.quality?.let {
+                        Text(
+                            it, Modifier.border(1.dp, Faint.copy(alpha = .4f), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall, color = Faint, maxLines = 1,
+                        )
+                    }
+                }
                 }
                 Column(Modifier.padding(top = 20.dp)) {
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {

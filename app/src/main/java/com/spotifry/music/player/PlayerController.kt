@@ -38,6 +38,8 @@ data class PlayerUiState(
     val trim: Trim? = null,
     /** Length of the whole song, trimmed parts included. */
     val wholeMs: Long = 0,
+    /** The playing song's real sound, e.g. "Opus 160 kbps" or "FLAC 24-bit · 96 kHz". Null until the player knows. */
+    val quality: String? = null,
 ) {
     fun upNextIndices(): List<Int> = order ?: (currentIndex until queue.size).toList()
 }
@@ -55,6 +57,7 @@ class PlayerController(
     private val lastQueueFile: File = File(context.filesDir, "last_queue.json"),
     private val recentlyPlayed: suspend () -> Set<String> = { emptySet() },
     private val saveTrim: (String, Trim?) -> Unit = { _, _ -> },
+    private val knownKbps: (String, Long) -> Int? = { _, _ -> null },
 ) : SongPlayer {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
@@ -117,6 +120,7 @@ class PlayerController(
         _position.value = c.currentPosition.coerceAtLeast(0)
         val trim = c.currentMediaItem?.trim
         val whole = (c.currentMediaItem?.toSong()?.durationSec ?: 0) * 1000
+        val wholeMs = if (trim?.endMs == null && c.duration > 0) c.duration + (trim?.startMs ?: 0) else whole
         _state.value = PlayerUiState(
             current = c.currentMediaItem?.toSong(),
             isPlaying = c.isPlaying,
@@ -124,7 +128,7 @@ class PlayerController(
             durationMs = c.duration.takeIf { it > 0 } ?: trim?.keptMs(whole) ?: whole,
             trim = trim,
             // the player's own length is the most exact, but it only covers the whole song when no end is set
-            wholeMs = if (trim?.endMs == null && c.duration > 0) c.duration + (trim?.startMs ?: 0) else whole,
+            wholeMs = wholeMs,
             queue = (0 until c.mediaItemCount).map { c.getMediaItemAt(it).toSong() },
             currentIndex = c.currentMediaItemIndex,
             shuffle = c.shuffleModeEnabled,
@@ -132,8 +136,14 @@ class PlayerController(
             repeatMode = c.repeatMode,
             order = playOrder(c),
             from = from,
+            quality = c.currentMediaItem?.let { qualityLabel(audioFormat(c), knownKbps(it.mediaId, wholeMs)) },
         )
     }
+
+    /** The format of the audio track the player picked for the current song. */
+    private fun audioFormat(c: MediaController): androidx.media3.common.Format? =
+        c.currentTracks.groups.firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }
+            ?.let { g -> (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let(g::getTrackFormat) }
 
     /** From the current song on, in the order the player will really use (follows shuffle). */
     private fun playOrder(c: MediaController): List<Int>? {
