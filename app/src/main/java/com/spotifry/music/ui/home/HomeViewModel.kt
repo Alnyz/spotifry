@@ -1,5 +1,8 @@
 package com.spotifry.music.ui.home
 
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.RecentSearches
@@ -43,6 +46,8 @@ class HomeViewModel(
     val recentSearches: RecentSearches = RecentSearches(emptyList()),
     mostPlayed: Flow<List<SongEntity>> = flowOf(emptyList()),
     localSongs: Flow<List<Song>> = flowOf(emptyList()),
+    /** Fetches the links of songs likely to be tapped next. */
+    private val warm: (List<Song>) -> Unit = {},
 ) : ViewModel() {
     val mostPlayed: StateFlow<List<SongEntity>> = mostPlayed.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private val query = MutableStateFlow("")
@@ -77,6 +82,13 @@ class HomeViewModel(
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, SearchState.Idle)
 
+    init {
+        // the top songs once the results have settled (not on every pause while typing)
+        viewModelScope.launch {
+            search.collectLatest { s -> if (s is SearchState.Results && s.songs.isNotEmpty()) { delay(WARM_AFTER_MS); warm(s.songs.take(WARM_COUNT)) } }
+        }
+    }
+
     val recent: StateFlow<List<SongEntity>> = history.observeRecent()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -106,3 +118,7 @@ class HomeViewModel(
         if (list.isNotEmpty()) player.shuffleList(list, "Saved")
     }
 }
+
+/** How many of the top search results get their links fetched ahead, and how long the results must stay first. */
+private const val WARM_COUNT = 3
+private const val WARM_AFTER_MS = 500L

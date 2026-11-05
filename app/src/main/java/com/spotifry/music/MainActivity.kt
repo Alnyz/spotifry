@@ -161,7 +161,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     val backEntry by nav.currentBackStackEntryAsState()
     val route = backEntry?.destination?.route
 
-    val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs) } })
+    val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs, c::warm) } })
     val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic) } })
     val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs)) } })
     val settingsVm: SettingsViewModel = viewModel(factory = viewModelFactory { initializer {
@@ -309,7 +309,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         composable(Routes.PAGE, listOf("type", "url", "name", "by", "art").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } }) { e ->
                             val a = e.arguments!!
                             val link = PageLink(SearchType.valueOf(a.getString("type")!!), a.getString("url")!!, a.getString("name")!!, a.getString("by")!!, a.getString("art")!!.ifEmpty { null })
-                            val vm: PageViewModel = viewModel(factory = viewModelFactory { initializer { PageViewModel(c.source, link) } })
+                            val vm: PageViewModel = viewModel(factory = viewModelFactory { initializer { PageViewModel(c.source, link, c::warm) } })
                             val savedIds by home.savedIds.collectAsStateWithLifecycle()
                             PageScreen(vm, savedIds, { nav.popBackStack() }, plVm::play, plVm::shuffle, openMenu, pageActions, inset)
                         }

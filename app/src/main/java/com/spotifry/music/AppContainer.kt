@@ -9,6 +9,7 @@ import com.spotifry.music.data.StreamResolver
 import com.spotifry.music.data.db.AppDatabase
 import com.spotifry.music.data.source.MusicSource
 import com.spotifry.music.data.source.NewPipeSource
+import com.spotifry.music.data.source.Song
 import com.spotifry.music.player.PlaybackEvents
 import com.spotifry.music.player.PlayerController
 import okhttp3.OkHttpClient
@@ -62,6 +63,8 @@ class AppContainer(private val context: Context) {
 
     /** Data saver is on and the phone is on mobile data (or any connection that counts data). */
     fun streamLow(): Boolean = settings.dataSaver.value && connectivity.isActiveNetworkMetered
+    /** Fetches the links of songs likely to be tapped next; not with data saver on mobile data. */
+    fun warm(songs: List<Song>) { if (!streamLow()) resolver.warm(songs) }
     /** Songs marked "Not this song": Smart shuffle never suggests them again. */
     fun notSuggested(): Set<String> = prefs.getStringSet("not_suggested", null).orEmpty()
     fun setNotSuggested(id: String, no: Boolean) =
