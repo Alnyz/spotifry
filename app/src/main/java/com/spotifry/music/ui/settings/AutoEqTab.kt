@@ -92,6 +92,7 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
     }
 
     fun pick(entry: AutoEqEntry) {
+        if (step is Step.Fitting) return
         // the download takes a while; if the equalizer is changed meanwhile, the result is dropped, not laid over the change
         val seenPreset = settings.eqPreset.value
         val seenLevels = settings.eqLevels.value
@@ -138,10 +139,10 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
                 }
                 all == null -> Text("Loading the headphone list…", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
                 query.isBlank() -> Text("Type part of the model name, like \"HD 600\" or \"WH-1000XM5\".", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-                found?.first != query -> {}
                 else -> {
-                    val results = found!!.second
-                    if (results.isEmpty()) Text("No headphone with that name in the list.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+                    // the old rows stay until the new ones arrive, so the page keeps its scroll position
+                    val results = found?.second.orEmpty()
+                    if (results.isEmpty() && found?.first == query) Text("No headphone with that name in the list.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
                     results.take(MAX_RESULTS).forEach { e ->
                         Column(
                             Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, enabled = step !is Step.Fitting) { pick(e) }.padding(vertical = 8.dp),

@@ -32,6 +32,14 @@ class AutoEqSourceTest {
         assertEquals("Sony WH-1000XM5", source().index().single().name)
     }
 
+    @Test fun aGoodDownloadIsStillUsedWhenSavingItFails() = runBlocking {
+        server.enqueue(MockResponse().setBody(line))
+        // a plain file where the folder should be: nothing can be written there, like a full disk
+        val notAFolder = tmp.newFile("not-a-folder")
+        val s = AutoEqSource(OkHttpClient(), notAFolder, server.url("/results").toString().trimEnd('/'), 1)
+        assertEquals("Sony WH-1000XM5", s.index().single().name)
+    }
+
     @Test fun noConnectionAndNoSavedListIsAnIOException() = runBlocking {
         server.shutdown()
         assertTrue(runCatching { source().index() }.exceptionOrNull() is IOException)

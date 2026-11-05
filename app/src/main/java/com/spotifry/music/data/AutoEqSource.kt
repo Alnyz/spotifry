@@ -30,8 +30,11 @@ class AutoEqSource(private val client: OkHttpClient, private val dir: File, priv
             val text = get(base.toHttpUrl().newBuilder().addPathSegment("INDEX.md").build())
             val fresh = parseAutoEqIndex(text).takeIf { it.size >= minEntries } ?: throw IOException("The headphone list came back damaged")
             // written beside the file and moved over it, so a failure half way can't leave a broken list in its place
-            dir.mkdirs()
-            File(dir, "INDEX.md.part").apply { writeText(text); renameTo(file) }
+            // a failed save (full disk) only costs the offline copy, not the list just fetched
+            runCatching {
+                dir.mkdirs()
+                File(dir, "INDEX.md.part").apply { writeText(text); renameTo(file) }
+            }
             fresh
         } catch (e: IOException) { saved ?: throw e }
     }
