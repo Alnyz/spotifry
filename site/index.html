@@ -65,6 +65,15 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
     .tour__frame { height: auto; }
   }
   @media (max-width: 639px) { .hero__art > .device { --dw: 240px; top: var(--s-4); } .tour__frame > .device { --dw: 250px; top: var(--s-5); } }
+  /* phones: a section grows with what it holds (the questions ran into the closing line), and the tour's phone shows whole */
+  @media (max-width: 639px) {
+    main > section.section:not(.hero) { height: auto; min-height: 100lvh; }
+    main > section.section:not(.hero) > .wrap { height: auto; }
+    #tour .fill, #tour .tour__frame { flex: none; min-height: 0; }
+    #tour .tour__frame { --ratio: 0px; padding: var(--s-5) 0; }
+    .tour__frame > .device:not([hidden]) { position: relative; left: auto; top: auto; }
+    #compare.pin { --pin-h: 220vh !important; }
+  }
 
   /* the hero's small card: what happens between search and sound */
   .sp-note { position: absolute; z-index: 2; left: var(--s-6); bottom: var(--s-6); width: 300px; padding: 16px 18px; border-radius: var(--r-md);
@@ -345,6 +354,23 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .nav__actions .btn { height: 40px; }
   @media (max-width: 1023px) { .nav__bar { padding-inline: 16px 6px; } .nav.is-open .nav__links { top: calc(var(--nav) + 12px); } }
   @media (prefers-reduced-motion: reduce) { .nav { transition: none; } }
+  /* the frosted blur sits on a layer behind the bar: a blur on the bar itself traps the phone menu inside the bar */
+  .nav__bar { position: relative; }
+  .nav__bar::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; }
+  .nav.is-glass .nav__bar { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .nav.is-glass .nav__bar::before { -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6); }
+  /* the open menu is a light sheet: dark words on it, whatever section is under the bar */
+  @media (max-width: 1023px) {
+    .nav.nav.is-open { color: var(--ink); background: var(--bg); }
+    .nav.nav.is-open .nav__bar { background: var(--bg); border-color: var(--line); box-shadow: none; }
+    .nav.nav.is-open :is(.nav__logo, .nav__link, .nav__toggle) { color: var(--ink); }
+    .nav.nav.is-open .nav__toggle { border-color: var(--line-strong); }
+  }
+  /* phones: a short "Download" in the bar; the menu sheet keeps the full words */
+  @media (max-width: 639px) {
+    .nav.nav:not(.is-open) .nav__actions .btn { height: 38px; padding-inline: 14px; font-size: 14px; }
+    .nav:not(.is-open) .nav__long { display: none; }
+  }
 
   /* round 4: fewer cream screens. Ember for the drum, peach for compare/playlists/questions, deep brown for offline */
   .band-peach { --bg: #f7cfae; --surface: #fbe1cb; --card: #fbe1cb; --ink: #1c1410; --muted: #5d4232;
@@ -423,9 +449,9 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .closer .pin__stage { background: color-mix(in srgb, var(--dark) calc(var(--night) * 100%), #f7f1e8) !important; }
   .closer .pin__stage::after { display: none !important; }
   .closer__glow { position: absolute; left: 50% !important; right: auto !important; bottom: auto !important; width: 260vmax; height: 260vmax !important; border-radius: 50%;
-    top: calc(100svh + (135 - var(--rise) * 175 + var(--sink) * 148 + var(--set) * 30) * 1vmax); transform: translate(-50%, -50%);
+    top: 100svh; transform: translate(-50%, calc(-50% + (135 - var(--rise) * 175 + var(--sink) * 148 + var(--set) * 30) * 1vmax));
     background: radial-gradient(closest-side, #f0601a 0%, #f2661e 70%, rgba(242,102,30,.55) 84%, rgba(242,102,30,0) 100%) !important;
-    -webkit-mask: none !important; mask: none !important; filter: blur(8px); will-change: top; z-index: 0; }
+    -webkit-mask: none !important; mask: none !important; will-change: transform; z-index: 0; }
   .closer__wrap { justify-content: center; position: relative; z-index: 1; }
   .closer__h { text-align: center; font-size: clamp(46px, 7.6vw, 124px) !important; color: #1c1410 !important; }
   .closer__l1 { opacity: calc(1 - clamp(0, calc((var(--c) - .55) / .12), 1)); }
@@ -433,7 +459,7 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
     filter: blur(calc((1 - clamp(0, calc(var(--c) / .34), 1)) * 16px)) !important; transform: none !important; }
   footer.closing.foot-glow { background: radial-gradient(70% 55% at 50% 100%, rgba(242,102,30,.75), rgba(242,102,30,.18) 55%, transparent 75%), var(--dark) !important; --bg: var(--dark); }
   @media (prefers-reduced-motion: reduce) {
-    .closer .pin__stage { background: var(--dark) !important; } .closer__glow { top: calc(100svh + 108vmax); }
+    .closer .pin__stage { background: var(--dark) !important; } .closer__glow { transform: translate(-50%, calc(-50% + 108vmax)); }
     .closer__h { color: #fff8f2 !important; } .closer__l1 { opacity: 1; } .closer__l2 { opacity: 1 !important; filter: none !important; }
   }
   @media (min-width: 640px) and (max-width: 1023px) {
@@ -444,7 +470,7 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   /* round 7: the opening sunrise, a bookend to the closing one */
   .hero.hero--sun { --dark: #1a110b; background: var(--dark); color: #f8ebdf; position: relative; overflow: hidden; height: auto !important; min-height: 100svh; padding: 0 !important; display: block; }
   .hsun__glow { position: absolute; left: 50%; bottom: -78vmax; width: 150vmax; height: 110vmax; transform: translateX(-50%); border-radius: 50%; pointer-events: none;
-    background: radial-gradient(closest-side, rgba(255,120,40,.95), rgba(242,102,30,.55) 45%, rgba(194,65,12,.18) 70%, transparent 100%); filter: blur(10px); }
+    background: radial-gradient(closest-side, rgba(255,120,40,.95), rgba(242,102,30,.55) 45%, rgba(194,65,12,.18) 70%, transparent 100%); }
   .hsun__wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: calc(var(--nav) + 12px + clamp(40px, 7vh, 88px)); height: auto !important; }
   .hsun__kicker { font-size: 14px; letter-spacing: .02em; color: #d9bfab; border: 1px solid rgba(255,235,220,.16); padding: 6px 14px; border-radius: 99px; margin: 0 0 var(--s-6); }
   .hsun__h { font-size: clamp(46px, 7.4vw, 116px) !important; line-height: .98 !important; letter-spacing: -0.045em; color: #fff4ea; margin: 0; max-width: none; }
@@ -788,7 +814,7 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
       <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
     </nav>
     <div class="nav__actions">
-      <a class="btn btn--primary" href="https://github.com/Alnyz/spotifry/releases/latest">Download the APK</a>
+      <a class="btn btn--primary" href="https://github.com/Alnyz/spotifry/releases/latest"><span>Download<span class="nav__long"> the APK</span></span></a>
     </div>
     <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -1246,14 +1272,16 @@ fetch('https://api.github.com/repos/Alnyz/spotifry/releases/latest').then(r => r
   const path = document.getElementById('offpath'), plane = document.querySelector('.off__plane'), sec = document.getElementById('offline');
   if (!path || !plane) return;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { plane.style.display = 'none'; return; }
-  const len = path.getTotalLength(), DUR = 16000, N = 72, SEG = 2.5, tg = document.querySelector('.off__trailg'), NS = 'http://www.w3.org/2000/svg';
+  const len = path.getTotalLength(), pts = Array.from({ length: Math.ceil(len) + 1 }, (_, i) => path.getPointAtLength(Math.min(len, i))); // sampled once: reading the path 73 times a frame stalled phones
+  const at = d => { d = Math.max(0, Math.min(len, d)); const k = Math.floor(d), f = d - k, a = pts[k], b = pts[Math.min(k + 1, pts.length - 1)]; return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f }; };
+  const DUR = 16000, N = 72, SEG = 2.5, tg = document.querySelector('.off__trailg'), NS = 'http://www.w3.org/2000/svg';
   const segs = Array.from({ length: N }, (_, i) => { const ln = document.createElementNS(NS, 'line'); const f = 1 - i / N;
     ln.setAttribute('stroke', '#ffe2cc'); ln.setAttribute('stroke-linecap', i ? 'butt' : 'round'); ln.setAttribute('stroke-width', (0.8 + 2.6 * f).toFixed(2)); ln.setAttribute('stroke-opacity', (Math.pow(f, 1.6) * .95).toFixed(3)); tg.appendChild(ln); return ln; }); let start = performance.now(), on = false, raf = 0;
   const step = now => {
-    const d = ((now - start) % DUR) / DUR * len, a = path.getPointAtLength(d), b = path.getPointAtLength(Math.min(len, d + 1));
+    const d = ((now - start) % DUR) / DUR * len, a = at(d), b = at(d + 1);
     plane.setAttribute('transform', `translate(${a.x.toFixed(2)} ${a.y.toFixed(2)}) rotate(${(Math.atan2(b.y - a.y, b.x - a.x) * 57.2958).toFixed(2)})`);
-    let q = path.getPointAtLength(Math.max(0, d - 12));
-    segs.forEach((ln, i) => { const r = path.getPointAtLength(Math.max(0, d - 12 - (i + 1) * SEG)); ln.setAttribute('x1', q.x.toFixed(1)); ln.setAttribute('y1', q.y.toFixed(1)); ln.setAttribute('x2', r.x.toFixed(1)); ln.setAttribute('y2', r.y.toFixed(1)); q = r; });
+    let q = at(d - 12);
+    segs.forEach((ln, i) => { const r = at(d - 12 - (i + 1) * SEG); ln.setAttribute('x1', q.x.toFixed(1)); ln.setAttribute('y1', q.y.toFixed(1)); ln.setAttribute('x2', r.x.toFixed(1)); ln.setAttribute('y2', r.y.toFixed(1)); q = r; });
     raf = requestAnimationFrame(step);
   };
   new IntersectionObserver(([e]) => { if (e.isIntersecting && !on) { on = true; raf = requestAnimationFrame(step); } else if (!e.isIntersecting && on) { on = false; cancelAnimationFrame(raf); } }).observe(sec);
