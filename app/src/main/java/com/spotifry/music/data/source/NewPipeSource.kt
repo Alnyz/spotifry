@@ -29,7 +29,7 @@ class NewPipeSource : MusicSource {
      */
     override suspend fun page(link: PageLink): PageContent = withContext(Dispatchers.IO) {
         if (link.type == SearchType.ARTISTS) {
-            val songs = find(link.name, SearchType.SONGS).from(link.url).toSongs().take(ARTIST_SONGS)
+            val songs = find(link.name, SearchType.SONGS).from(link.url).toSongs()
             val albums = find(link.name, SearchType.ALBUMS).from(link.url).mapNotNull { linkOf(it, SearchType.ALBUMS) }
             return@withContext PageContent(link.name, "", "Artist", link.thumbnailUrl, songs, albums)
         }
@@ -89,7 +89,6 @@ class NewPipeSource : MusicSource {
 
     private companion object {
         const val MAX_SECONDS = 1200L
-        const val ARTIST_SONGS = 5
         const val FALLBACK_TTL_MS = 5 * 60 * 60 * 1000L
     }
 }

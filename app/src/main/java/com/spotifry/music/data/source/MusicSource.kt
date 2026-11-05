@@ -14,7 +14,8 @@ data class PageLink(val type: SearchType, val url: String, val name: String, val
 
 /**
  * An opened album, playlist or artist. [kind] is "Album", "Single", "EP", "Playlist" or "Artist". An artist's [songs]
- * are its top few, with its [albums] alongside.
+ * are what one search page finds from its channel (the page shows the first few until asked for all), with its [albums]
+ * alongside.
  */
 data class PageContent(val name: String, val by: String, val kind: String, val thumbnailUrl: String?, val songs: List<Song>, val albums: List<PageLink> = emptyList())
 
