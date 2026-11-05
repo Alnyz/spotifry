@@ -1,0 +1,1372 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="round" data-ground="sand" data-buttons="pill" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spotifry: ad-free music player for Android</title>
+<meta name="description" content="Spotifry is a free, open-source music player for Android 13 and newer. Songs from YouTube with no ad breaks, no skip limit and no account.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://alnyz.github.io/spotifry/">
+<meta property="og:title" content="Spotifry: ad-free music player for Android">
+<meta property="og:description" content="A free, open-source music player for Android 13 and newer. Songs from YouTube with no ad breaks, no skip limit and no account.">
+<meta property="og:image" content="https://alnyz.github.io/spotifry/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400..600&display=swap" rel="stylesheet">
+<link rel="preload" href="fonts/albertsans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+@font-face { font-family: "Albert Sans"; src: url("fonts/albertsans.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+:root {
+  --p-bg: #f7f1e8; --p-surface: #eee5d8; --p-ink: #1c1410; --p-muted: #6b5d52;
+  --p-accent: #c2410c; --p-accent-ink: #fffaf4; --p-action: #c2410c; --p-action-ink: #fffaf4;
+  --p-inv-bg: #0c0d10; --p-inv-surface: #17181c; --p-inv-ink: #f7f1e8; --p-inv-muted: #a59c94;
+  --p-inv-accent: #ff8a3d; --p-inv-accent-ink: #1c1008; --p-inv-action: #ff8a3d; --p-inv-action-ink: #1c1008;
+  --font-display: "Albert Sans", system-ui, sans-serif;
+  --font-text: "Figtree", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 500;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+  --ly-scale: 0.98;
+}
+/* the lit ground, warmed to the app's Ember orange (the client's colour) */
+html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --ground-ink: #2a160b; --ground-muted: #66412b; --ground-accent: #e2611f; }
+</style>
+<link rel="stylesheet" href="assets/ui/base.css">
+<script src="assets/backgrounds/backgrounds.js"></script>
+<style>
+  .skip { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .skip:focus { width: auto; height: auto; clip-path: none; z-index: 20; background: var(--bg); padding: 8px 12px; border-radius: 8px; }
+  .nav__logo img { width: 28px; height: 28px; border-radius: 7px; }
+  #sound .panel, #playlists .panel { --p-h: 336px; }
+  #install .panel { --p-h: 360px; }
+
+  /* the phone: the real app screenshots in a plain black body */
+  .device { position: absolute; width: var(--dw, 320px); padding: 9px; border-radius: 46px; background: #0c0d10;
+            box-shadow: 0 0 0 1px rgba(28,20,16,.5), 0 40px 80px -36px rgba(80,30,5,.55); }
+  .device > img, .device > .scr { display: block; width: 100%; aspect-ratio: 540 / 1134; border-radius: 37px; object-fit: cover; }
+  .hero__art > .device { left: calc(50% - 96px); top: var(--s-8); --dw: 330px; }
+  .tour__frame { height: 100%; padding: 0; background: radial-gradient(70% 60% at 50% 18%, #fbe3cc, #f2bf94 70%, #eaa877); }
+  .tour__frame > .device { position: absolute; }
+  .tour__frame > .device { left: calc(50% - var(--dw) / 2); top: var(--s-7); --dw: 318px; }
+  .tour__frame > .device[hidden] { display: none; }
+  @media (max-width: 1023px) {
+    .hero__art > .device { left: calc(50% - var(--dw) / 2); top: var(--s-6); --dw: 280px; }
+    .tour__frame { height: auto; }
+  }
+  @media (max-width: 639px) { .hero__art > .device { --dw: 240px; top: var(--s-4); } .tour__frame > .device { --dw: 250px; top: var(--s-5); } }
+
+  /* the hero's small card: what happens between search and sound */
+  .sp-note { position: absolute; z-index: 2; left: var(--s-6); bottom: var(--s-6); width: 300px; padding: 16px 18px; border-radius: var(--r-md);
+             background: #fffaf4; color: #1c1410; border: 1px solid rgba(28,20,16,.1); font: 400 14px/1.4 var(--font-text); display: grid; gap: 8px;
+             box-shadow: 0 18px 40px -22px rgba(80,30,5,.45); }
+  .sp-note__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sp-note h5 { margin: 0; font: 500 14px/1.3 var(--font-display); }
+  .sp-note__line { display: flex; gap: 8px; align-items: center; color: #4a3b31; font-size: 13px; }
+  .sp-note__line i { flex: none; width: 18px; height: 18px; border-radius: 50%; background: #fde6d3; color: #c2410c; display: grid; place-items: center; font: 500 11px/1 var(--font-text); font-style: normal; }
+  .sp-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 99px; font: 500 12px/1 var(--font-text); background: #fde6d3; color: #9a3412; white-space: nowrap; }
+  .sp-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* the app's own UI, drawn in HTML: dark like the app (#0C0D10), Ember orange once per piece */
+  .sp { --fx-bg: #15161a; --fx-surface: #1e1f24; --fx-ink: #f3eee8; --fx-muted: #9d968f; --fx-accent: #ff8a3d;
+        background: #15161a; color: #f3eee8; border: 1px solid rgba(255,255,255,.08); border-radius: 20px; padding: 16px;
+        font: 400 13px/1.35 var(--font-display); box-shadow: 0 24px 48px -28px rgba(40,15,0,.6); }
+  .sp b { font-weight: 500; }
+  .sp small { display: block; color: #9d968f; font-size: 12px; }
+  .sp__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; font: 500 15px/1.2 var(--font-display); }
+  .sp__row { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
+  .sp__row + .sp__row { border-top: 1px solid rgba(255,255,255,.06); }
+  .sp__row > div { flex: 1; min-width: 0; }
+  .sp__row > div > b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sp-tog { flex: none; width: 38px; height: 22px; border-radius: 99px; background: #3a3b42; position: relative; }
+  .sp-tog::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #c9c3bd; }
+  .sp-tog.on { background: #ff8a3d; } .sp-tog.on::after { left: 19px; background: #fff; }
+  .sp-tog.on.ink { background: #f3eee8; } .sp-tog.on.ink::after { background: #15161a; }
+  .sp-range { position: relative; height: 4px; border-radius: 4px; background: #34353b; margin: 12px 0 6px; }
+  .sp-range > i { position: absolute; inset: 0 auto 0 0; width: var(--v, 50%); border-radius: 4px; background: #f3eee8; }
+  .sp-range > i::after { content: ""; position: absolute; right: -8px; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  .sp-range.acc > i { background: #ff8a3d; }
+  .sp-range__ends { display: flex; justify-content: space-between; color: #9d968f; font-size: 12px; }
+  .sp-pill { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 99px; background: #24252b; font-size: 13px; white-space: nowrap; }
+  .sp-pill.on { background: rgba(255,138,61,.16); color: #ffb27a; font-weight: 500; box-shadow: inset 0 0 0 1px rgba(255,138,61,.4); }
+  .sp-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sp-btn { display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 16px; border-radius: 99px; background: #ff8a3d; color: #1c1008; font-weight: 500; white-space: nowrap; }
+  .sp-btn.ghost { background: #24252b; color: #f3eee8; }
+  .sp-ic { flex: none; width: 20px; height: 20px; color: #9d968f; }
+  .sp-ic.acc { color: #ff8a3d; }
+  /* album covers, cut from the real search screenshot (74px tiles at x 29) */
+  .cov { flex: none; --sz: 40; width: calc(var(--sz) * 1px); height: calc(var(--sz) * 1px); border-radius: 8px;
+         --x: 29; --t: 74;
+         background: var(--img) center / cover no-repeat; }
+
+  .card > .panel { overflow: hidden; }
+  .stage > .sp-low { top: auto; bottom: -32px; }
+  @media (max-width: 639px) { .stage > .sp-low { top: 24px; bottom: auto; } }
+  .card h3 { font-family: var(--font-display); font-weight: 500; }
+  /* tablet and phone: the bento keeps its screens (one small card steps out under 1024) */
+  @media (min-width: 1024px) and (max-width: 1279px) {
+    #sound .grid > .card.span-6 { grid-column: auto / span 6; }
+    #sound .grid > .card.span-4, #install .grid > .card.span-4 { grid-column: auto / span 4; }
+    #sound .panel { --p-h: 250px; } #playlists .panel { --p-h: 290px; } #install .panel { --p-h: 240px; }
+  }
+  @media (max-width: 1023px) {
+    #sound .grid > .card { grid-column: auto / span 6; }
+    #sound .card--speed { display: none; }
+    #playlists .grid > .card { grid-column: auto / span 6; }
+    #sound .panel, #playlists .panel { --p-h: max(400px, calc(100svh - 580px)); }
+    #install .grid > .card { grid-column: auto / span 4; }
+    #install .panel { --p-h: max(220px, calc(100svh - 720px)); }
+  }
+  @media (max-width: 639px) {
+    #sound .grid > .card { grid-column: 1 / -1; }
+    #sound .panel, #playlists .panel { --p-h: 196px; }
+    #install { --hm: 2; }
+    #install .grid > .card { grid-column: 1 / -1; }
+    #install .panel { --p-h: 190px; }
+    #faq .faq__item:nth-child(4), #faq .faq__lede { display: none; }
+  }
+  /* equalizer: the live picture of the music */
+  .sp-viz { display: flex; align-items: flex-end; gap: 3px; height: 92px; margin: 4px 0 16px; }
+  .sp-viz > i { flex: 1; border-radius: 3px 3px 1px 1px; background: linear-gradient(#ffb27a, #ff8a3d 55%, #c2410c); height: var(--h); transform-origin: bottom;
+                animation: sp-bar var(--m-cycle, 3.2s) linear infinite; animation-delay: var(--d); }
+  @keyframes sp-bar { 0%,100% { transform: scaleY(1); } 22% { transform: scaleY(.55); } 48% { transform: scaleY(.85); } 70% { transform: scaleY(.4); } 88% { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) { .sp-viz > i { animation: none; } }
+  .sp-eq { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center; color: #9d968f; font-size: 12px; }
+  .sp-eq > div { display: grid; justify-items: center; gap: 8px; }
+  .sp-eq span.track { position: relative; width: 4px; height: 96px; border-radius: 4px; background: #34353b; }
+  .sp-eq span.track::after { content: ""; position: absolute; left: -6px; top: var(--t); width: 16px; height: 16px; border-radius: 50%; background: #f3eee8; }
+  .sp-eq b { color: #f3eee8; font-weight: 500; }
+
+  /* fade between songs: two songs overlapping */
+  .sp-xf { height: 56px; margin: 6px 0 4px; }
+  .sp-xf path { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+
+  /* trim: the song's timeline with its cut ends */
+  .sp-trim { position: relative; height: 36px; border-radius: 8px; margin: 14px 0 8px; overflow: hidden;
+             background: repeating-linear-gradient(90deg, #4b4c53 0 2px, transparent 2px 5px); }
+  .sp-trim > i { position: absolute; top: 0; bottom: 0; background: rgba(12,13,16,.78); border: 1px dashed #6a6b72; }
+  .sp-trim > i.a { left: 0; width: 15%; border-left: 0; } .sp-trim > i.b { right: 0; width: 11%; border-right: 0; }
+  .sp-trim > em { position: absolute; top: 0; bottom: 0; left: 15%; right: 11%; border: 2px solid #ff8a3d; border-radius: 6px; }
+
+  /* the free ad-supported app: a plain grey player, not any real brand's look */
+  .scr { position: relative; overflow: hidden; background: #2a2a2c; color: #ededed; font: 400 13px/1.35 var(--font-text); display: flex; flex-direction: column; padding: 34px 20px 20px; }
+  .scr__top { text-align: center; color: #b9b9b9; font-size: 11px; } .scr__top b { display: block; color: #ededed; font-size: 13px; font-weight: 500; }
+  .scr__ad { margin: 22px 0 18px; aspect-ratio: 1; border-radius: 10px; background: #3b3b3e; display: grid; place-content: center; text-align: center; gap: 10px; padding: 18px; }
+  .scr__ad span { justify-self: center; display: inline-flex; height: 22px; align-items: center; padding: 0 9px; border-radius: 4px; background: #f0c419; color: #1d1d1d; font-weight: 600; font-size: 11px; }
+  .scr__ad p { margin: 0; font-size: 15px; line-height: 1.3; color: #f2f2f2; }
+  .scr__title { font-size: 17px; font-weight: 600; color: #8c8c8c; } .scr__title small { display: block; font-size: 13px; font-weight: 400; }
+  .scr__bar { height: 4px; border-radius: 4px; background: #555; margin: 14px 0 6px; position: relative; }
+  .scr__bar i { position: absolute; inset: 0 auto 0 0; width: 34%; background: #f0c419; border-radius: 4px; }
+  .scr__times { display: flex; justify-content: space-between; font-size: 11px; color: #9a9a9a; }
+  .scr__ctrl { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; color: #6f6f6f; }
+  .scr__ctrl .play { width: 54px; height: 54px; border-radius: 50%; background: #6f6f6f; }
+  .scr__toast { margin-top: 18px; padding: 12px 14px; border-radius: 10px; background: #f2f2f2; color: #1d1d1d; font-size: 13px; line-height: 1.35; }
+  .scr__toast b { font-weight: 600; }
+
+  /* the before and after frame on the dark band */
+  .cmp__frame { height: 100%; padding: 0; background: #17181c; border-color: rgba(255,255,255,.08); }
+  .cmp__frame > .cmp__panel { position: absolute; inset: 0; }
+  .cmp__panel[hidden], .cmp__list[hidden] { display: none; }
+  .cmp__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-4); }
+  .cmp__list li { position: relative; padding-left: 26px; font-size: var(--t-lead); line-height: 1.4; color: var(--ink); }
+  .cmp__list li::before { content: ""; position: absolute; left: 0; top: .5em; width: 10px; height: 10px; border-radius: 50%; background: #ff8a3d; }
+  .cmp__list--before li::before { background: #77706a; }
+  .cmp__panel > .device { position: absolute; left: calc(50% - var(--dw) / 2); top: var(--s-7); --dw: 318px; }
+  .cmp__glow { position: absolute; inset: 0; background: radial-gradient(60% 55% at 50% 35%, rgba(255,138,61,.26), transparent 70%); pointer-events: none; }
+  .cmp__panel--before .cmp__glow { background: radial-gradient(60% 55% at 50% 35%, rgba(200,200,200,.08), transparent 70%); }
+  @media (max-width: 1023px) { .cmp__frame { height: auto; } .cmp__panel > .device { --dw: 280px; top: var(--s-6); } }
+  @media (max-width: 639px) { .cmp__panel > .device { --dw: 230px; top: var(--s-5); } .cmp__list li { font-size: 16px; } .cmp__list { gap: var(--s-2); } }
+
+  /* how it works: the diagram across the wrap */
+  .how__dg { margin-top: var(--s-7); position: relative; min-height: 300px; }
+  .how__dg > .dg { position: absolute; inset: 0; }
+
+  /* offline: the saved list and the replay store */
+  .sp-store { height: 6px; border-radius: 6px; background: #34353b; margin: 10px 0 6px; overflow: hidden; }
+  .sp-store > i { display: block; height: 100%; width: 64%; background: #ff8a3d; }
+  .dl { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #f3eee8; color: #15161a; display: grid; place-items: center; }
+
+  /* the share card: a song as a picture */
+  .sp-shot { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: linear-gradient(135deg, #3a1d0b, #c2410c); margin-bottom: 14px; }
+  .sp-swatches { display: flex; gap: 10px; margin: 6px 0 14px; }
+  .sp-swatches > i { width: 34px; height: 34px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); }
+  .sp-swatches > i.on { box-shadow: 0 0 0 2px #15161a, 0 0 0 4px #f3eee8; }
+  .sp-mini { display: flex; gap: 8px; }
+  .sp-mini > div { flex: 1; height: 86px; border-radius: 12px; padding: 10px; font-size: 12px; }
+  .sp-queue .sp__row.lift { background: #24252b; border-radius: 12px; padding-inline: 10px; margin-inline: -10px; box-shadow: 0 14px 28px -12px rgba(0,0,0,.7); transform: translateY(-2px); border-top-color: transparent; }
+  .sp-queue .sp__row.lift + .sp__row { border-top-color: transparent; }
+  .grip { flex: none; width: 14px; height: 14px; color: #6f6b67; }
+  .sp-field { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 12px; background: #24252b; color: #cfc9c3; font-size: 13px; margin-bottom: 12px; overflow: hidden; white-space: nowrap; }
+  .sp-dialog { background: #f3eee8; color: #1c1410; }
+  .sp-dialog small { color: #6b5d52; }
+  .sp-dialog .sp__row + .sp__row { border-top-color: rgba(28,20,16,.08); }
+
+  /* questions: the split with the answers open */
+  #faq .faq__item h3 { font-size: var(--t-card); font-family: var(--font-display); font-weight: 500; }
+  .built { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+  .built li { display: flex; align-items: center; gap: var(--s-3); height: 56px; padding: 0 var(--s-4); border-radius: var(--r-md); background: var(--surface); font-weight: 500; }
+  .built img { width: 28px; height: 28px; object-fit: contain; }
+  @media (max-width: 639px) { .built { display: none; } }
+
+  /* the closing name across the wrap */
+  .close--word .close__word { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.06em; color: #d9541a; }
+
+  /* round 2: grounds, the photographs, bigger panels */
+  .band-ember { --bg: #ff8a3d; --surface: #ffa463; --ink: #1c1008; --muted: #4a2a14; --accent: #1c1008; --accent-ink: #ffe9d9;
+                --action: #1c1008; --action-ink: #ffe9d9; --card: #ffa463; --line: rgba(28,16,8,.16); --line-strong: rgba(28,16,8,.3);
+                background: var(--bg); color: var(--ink); }
+  .how { color: #f7f1e8; --ink: #f7f1e8; --muted: #d8cfc6; background: #0c0d10; }
+  .how > .layer { object-fit: cover; object-position: 50% 70%; }
+  .how__veil { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(12,13,16,.92) 0%, rgba(12,13,16,.7) 45%, rgba(12,13,16,.55) 100%); }
+  .how__dg { margin-top: var(--s-7); position: relative; min-height: 360px; --ink: #1c1410; --muted: #6b5d52; color: #1c1410; }
+  .how__dg > .dg { position: absolute; inset: 0; }
+  @media (min-width: 1024px) { .how__dg > .dg { zoom: 1.45; } }
+  .sound__eq .panel { --p-h: 400px; }
+  #sound .grid > .card.span-4 .panel { --p-h: 400px; }
+  .sound__eq .at-corner { width: min(760px, calc(100% - 80px)) !important; }
+  .sound__eq .sp-viz { height: 120px; }
+  .off__frame { min-height: 0; }
+  .off__card { left: auto !important; right: var(--s-6); top: auto !important; bottom: -32px; width: min(360px, calc(100% - 48px)); }
+  .faq__photo { aspect-ratio: 16 / 9; margin: 0; padding: 0; }
+  .card.card--open > .panel { overflow: clip; }
+  .cmp__list li { padding-left: 0; } .cmp__list li::before { left: -24px; }
+  @media (max-width: 1023px) {
+    #sound .grid > .card.span-4 { grid-column: auto / span 4; }
+    #sound .grid > .card.sound__eq { grid-column: 1 / -1; }
+    .faq__photo { display: none; }
+  }
+  @media (max-width: 639px) {
+    #sound .grid > .card, #sound .grid > .card.span-4 { grid-column: 1 / -1; }
+    .sound__eq .panel, #sound .grid > .card.span-4 .panel { --p-h: 200px; }
+    #playlists .card--look { display: none; }
+    .off__card { right: var(--s-4); }
+    .how__dg { min-height: 380px; }
+    .cmp__list li::before { left: -16px; } .cmp__list li { margin-left: 16px; }
+  }
+
+  /* scroll moments (Ali's tasteskill.dev recording): plain CSS, driven by one small script */
+  .pin { position: relative; height: var(--pin-h, 300vh); padding: 0; }
+  main > section.pin.pin { height: var(--pin-h, 300vh); min-height: 0; padding: 0; display: block; }
+  .pin__stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; padding: var(--padt) 0 var(--padb); }
+  .pin__wrap { height: 100%; }
+  /* hero: the phone rises as the page moves */
+  .hero__art { transform: translateY(calc((1 - var(--hp, 1)) * 30%)) scale(calc(.94 + .06 * var(--hp, 1))); transform-origin: 50% 0; will-change: transform; }
+  /* drum */
+  .drum { display: grid; grid-template-rows: auto 1fr auto; }
+  .drum__h { font-size: var(--t-h3); color: var(--muted); }
+  .drum__list { list-style: none; margin: 0; padding: 0; position: relative; perspective: 900px; }
+  .drum__list li { position: absolute; left: 0; right: 0; top: 50%; text-align: center; font: 500 clamp(30px, 5.2vw, 76px)/1.05 var(--font-display); letter-spacing: -0.035em;
+                   color: color-mix(in oklab, var(--ink) 34%, var(--bg)); transform-origin: 50% 50%; will-change: transform, opacity; }
+  .drum__list li.is-on { color: #e2611f; }
+  .drum__foot { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--t-small); color: var(--muted); }
+  .drum__count b, .drum__label { color: var(--ink); font-weight: 500; }
+  .drum__end { display: flex; align-items: center; justify-content: space-between; gap: var(--s-6); padding-block: 0 var(--s-9); }
+  /* before / after */
+  .ba { height: 100%; }
+  .ba__steps { list-style: none; margin: var(--s-7) 0 0; padding: 0; display: grid; gap: var(--s-3); counter-reset: s; }
+  .ba__steps li { padding: var(--s-4) 0 var(--s-4) var(--s-6); border-left: 2px solid var(--line); color: var(--muted); transition: color .3s, border-color .3s; }
+  .ba__steps li b { display: block; font: 500 var(--t-card)/1.3 var(--font-display); }
+  .ba__steps li span { display: block; opacity: 0; transition: opacity .35s; margin-top: 4px; }
+  .ba__steps li.is-on { color: var(--ink); border-color: #ff8a3d; }
+  .ba__steps li.is-on span { opacity: 1; }
+  .ba__frame { position: relative; height: 100%; border-radius: var(--r-lg); background: radial-gradient(60% 55% at 50% 35%, rgba(255,138,61,.22), transparent 70%), #17181c; border: 1px solid rgba(255,255,255,.08); overflow: hidden; }
+  .ba__phone { left: calc(50% - var(--dw) / 2); top: var(--s-7); --dw: 318px; }
+  .ba__before > .scr { aspect-ratio: 540 / 1134; border-radius: 37px; }
+  .ba__after { position: absolute; inset: 9px; width: calc(100% - 18px); height: calc(100% - 18px); object-fit: cover; border-radius: 37px; clip-path: circle(var(--r, 0%) at 50% 62%); will-change: clip-path; }
+  .ba__s2, .ba__s3 { opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; }
+  .ba[data-step="2"] .ba__s2, .ba[data-step="3"] .ba__s2, .ba[data-step="3"] .ba__s3 { opacity: 1; transform: none; }
+  .scr__sheet { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 18px 26px; border-radius: 18px 18px 0 0; background: #f2f2f2; color: #1d1d1d; display: grid; gap: 10px; font-size: 14px; }
+  .scr__field { height: 34px; border-radius: 8px; background: #dcdcdc; }
+  .scr__go { height: 38px; border-radius: 99px; background: #6f6f6f; color: #fff; display: grid; place-items: center; font-weight: 600; }
+  .ba__pill { position: absolute; left: var(--s-5); bottom: var(--s-5); padding: 6px 14px; border-radius: 99px; background: #ff8a3d; color: #1c1008; font: 500 14px/1.4 var(--font-text); }
+  /* closing line */
+  .closer { --c: var(--cp, 0); }
+  .closer .pin__stage { background: color-mix(in oklab, #0c0d10 calc(clamp(0, (var(--c) - .6) * 10, 1) * 100%), #f7f1e8); }
+  .closer__wrap { display: flex; align-items: center; }
+  .closer__h { font-size: clamp(44px, 7.4vw, 112px); line-height: 1; letter-spacing: -0.045em; color: color-mix(in oklab, #f7f1e8 calc(clamp(0, (var(--c) - .6) * 10, 1) * 100%), #1c1410); }
+  .closer__h span { display: block; }
+  .closer__l2 { color: #e2611f; opacity: clamp(0, var(--c) * 2.2, 1); filter: blur(calc((1 - clamp(0, var(--c) * 2.2, 1)) * 14px)); transform: translateY(calc((1 - clamp(0, var(--c) * 2.2, 1)) * 60px)); }
+  .closer__glow { position: absolute; left: -10%; right: -10%; bottom: 0; height: calc(var(--c) * 90%); background: radial-gradient(50% 100% at 50% 100%, rgba(255,138,61,.75), rgba(226,97,31,.25) 55%, transparent 75%); pointer-events: none; }
+  .foot-glow { background: radial-gradient(70% 55% at 50% 100%, rgba(255,138,61,.45), transparent 70%), var(--bg); }
+  .foot-glow .close__word { color: transparent; background: linear-gradient(180deg, #fff1e6 0%, #ff8a3d 55%, #c2410c 100%); -webkit-background-clip: text; background-clip: text; }
+  /* panels fill in row by row when they reach the screen */
+  html.js-fill .sp .sp__row, html.js-fill .sp .sp-viz > i { opacity: 0; transform: translateY(10px); transition: opacity .45s var(--ease), transform .45s var(--ease); transition-delay: calc(var(--i, 0) * 90ms); }
+  html.js-fill .sp.is-in .sp__row, html.js-fill .sp.is-in .sp-viz > i { opacity: 1; transform: none; }
+  @media (max-width: 1023px) {
+    .ba__text { margin-bottom: var(--s-5); } .ba { display: flex; flex-direction: column; }
+    .ba__steps { margin-top: var(--s-5); } .ba__steps li { padding-block: var(--s-2); }
+    .ba__frame { flex: 1 1 0; min-height: 0; } .ba__phone { --dw: 260px; top: var(--s-5); }
+  }
+  @media (max-width: 639px) {
+    .ba__steps li:not(.is-on) { display: none; }
+    .ba__phone { --dw: 220px; }
+    .drum__end { flex-direction: column; align-items: stretch; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pin, main > section.pin.pin { height: auto; } .pin__stage { position: relative; height: auto; min-height: 100svh; }
+    .hero__art { transform: none; }
+    .closer .pin__stage { background: #0c0d10; } .closer__h { color: #f7f1e8; } .closer__l2 { opacity: 1; filter: none; transform: none; }
+    .ba__after { clip-path: none; }
+  }
+  /* round 3: the app pieces fill their boxes in sound and playlists */
+  :is(#sound, #playlists) .card:not(.sound__eq) .stage > .sp-low { top: 28px; bottom: -24px; left: 28px; right: 28px; width: auto; max-width: none; }
+  :is(#sound, #playlists) .card:not(.sound__eq) .stage > .sp-low > .sp { height: 100%; font-size: 14px; padding: 20px; }
+  .sound__eq .stage > .sp-low { top: 28px; bottom: -24px; }
+  .sound__eq .stage > .sp-low > .sp { height: 100%; }
+  :is(#sound, #playlists) .sp .sp__head { font-size: 16px; }
+  @media (max-width: 639px) { #playlists .grid > .card { grid-column: 1 / -1; } :is(#sound, #playlists) .card:not(.sound__eq) .stage > .sp-low { top: 20px; left: 16px; right: 16px; } .sound__eq .stage > .sp-low { top: 20px; left: 16px !important; } }
+
+  /* glass nav (Ali: tasteskill.dev pill + notchy): see-through at the top, frosted glass once scrolled,
+     tinted to the section under it, hides while scrolling down and returns on the way up */
+  .nav { height: calc(var(--nav) + 12px); background: none; border: 0; color: var(--ink); pointer-events: none;
+         transition: transform .45s cubic-bezier(.2,.7,.2,1), color .3s; }
+  .nav__bar { pointer-events: auto; margin-top: 12px; height: var(--nav); padding-inline: 18px 8px; border-radius: 20px;
+              border: 1px solid transparent; background: transparent;
+              transition: background-color .35s, border-color .35s, box-shadow .35s, backdrop-filter .35s; }
+  .nav.is-glass .nav__bar { background: rgba(255, 250, 244, .62); border-color: rgba(28, 20, 16, .08);
+              -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6);
+              box-shadow: 0 8px 30px rgba(28, 20, 16, .10); }
+  .nav.is-dark { color: #f7f1e8; }
+  .nav.is-dark .nav__link, .nav.is-dark .nav__logo { color: #f7f1e8; }
+  .nav.is-dark.is-glass .nav__bar { background: rgba(30, 24, 20, .55); border-color: rgba(255, 255, 255, .09); box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+  .nav.is-dark .nav__toggle { color: #f7f1e8; border-color: rgba(255,255,255,.25); }
+  .nav.is-hidden:not(.is-open) { transform: translateY(calc(-100% - 8px)); }
+  .nav.is-open .nav__bar { background: var(--bg); }
+  .nav__actions .btn { height: 40px; }
+  @media (max-width: 1023px) { .nav__bar { padding-inline: 16px 6px; } .nav.is-open .nav__links { top: calc(var(--nav) + 12px); } }
+  @media (prefers-reduced-motion: reduce) { .nav { transition: none; } }
+
+  /* round 4: fewer cream screens. Ember for the drum, peach for compare/playlists/questions, deep brown for offline */
+  .band-peach { --bg: #f7cfae; --surface: #fbe1cb; --card: #fbe1cb; --ink: #1c1410; --muted: #5d4232;
+                --line: rgba(28,20,16,.14); --line-strong: rgba(28,20,16,.26);
+                background: linear-gradient(180deg, #f9d9bd 0%, #f4bf95 100%); color: var(--ink); }
+  .band-brown { --bg: #2b1408; --surface: #3d1f10; --card: #3d1f10; --ink: #f8ebdf; --muted: #d9bfab; --accent: #ff8a3d; --accent-ink: #1c1008;
+                --action: #ff8a3d; --action-ink: #1c1008; --line: rgba(255,235,220,.14); --line-strong: rgba(255,235,220,.26);
+                background: radial-gradient(70% 80% at 85% 40%, #5a2a10 0%, transparent 70%), var(--bg); color: var(--ink); }
+  .band-ember .drum__list li { color: rgba(28, 16, 8, .38); }
+  .band-ember .drum__list li.is-on { color: #fff8f2; }
+  .band-ember .drum__h, .band-ember .drum__foot { color: #4a2a14; }
+  .band-ember .drum__count b, .band-ember .drum__label { color: #1c1008; }
+  .band-peach .ba__steps li { border-color: rgba(28,20,16,.16); }
+  .band-peach .ba__steps li.is-on { border-color: #c2410c; }
+  .band-peach .card > .panel, .band-peach .built li { box-shadow: 0 0 0 1px rgba(28,20,16,.08), 0 18px 40px rgba(120,50,10,.12); }
+  @media (max-width: 639px) {
+    footer.closing, footer.closing > .wrap { height: auto !important; min-height: 0 !important; }
+    footer.closing > .wrap { display: block; } footer.closing .close__word { margin: var(--s-6) 0 var(--s-7); padding-bottom: .08em; }
+  }
+  /* the closing name spans the whole wrap, like the reference */
+  @media (min-width: 640px) { .foot-glow .close__word { font-size: calc(min(100vw - 2 * var(--gut), var(--container)) * .312); line-height: .9; margin-bottom: var(--s-7); padding-bottom: .06em; } footer.closing, footer.closing > .wrap { height: auto !important; min-height: 100svh; } }
+
+  /* round 5: every app stage is a dark ember stage (no peach boxes, no muddy vignette) */
+  .panel:not(.panel--device), :root .panel:not([data-fx], .panel--device), .frame--lit.tour__frame {
+    background-color: #120e0b !important;
+    background-image:
+      radial-gradient(80% 62% at 50% 118%, rgba(255,138,61,.95) 0%, rgba(226,97,31,.45) 38%, rgba(194,65,12,0) 72%),
+      radial-gradient(55% 45% at 12% -5%, rgba(255,214,186,.10), transparent 70%),
+      linear-gradient(180deg, #1e1713 0%, #110d0a 100%) !important;
+  }
+  .panel::before { display: none; }
+  .panel::after { box-shadow: inset 0 0 0 1px rgba(255,236,222,.09), inset 0 1px 0 rgba(255,236,222,.08); }
+  .tour__frame { border: 1px solid rgba(255,236,222,.09); }
+  .tour__frame::before, .tour__frame::after { display: none !important; }
+  /* the app pieces float on the stage: a lit edge and a deep shadow */
+  .panel .sp { box-shadow: 0 0 0 1px rgba(255,236,222,.10), 0 24px 60px rgba(0,0,0,.55), 0 2px 0 rgba(255,236,222,.06) inset; }
+  .tour__frame > .device { filter: drop-shadow(0 30px 50px rgba(0,0,0,.55)); }
+  /* install: the dialogs sit near the top of their stage, not at the bottom */
+  #install .stage > .sp-low { top: 32px; bottom: -24px; left: 28px; right: 28px; width: auto !important; max-width: none; }
+  #install .stage > .sp-low > .sp { height: 100%; }
+  /* equalizer fills its stage edge to edge */
+  .sound__eq .at-corner { width: auto !important; left: 28px !important; right: 28px; max-width: none !important; }
+  .sound__eq .sp-viz { height: 150px; }
+  @media (max-width: 639px) { #install .stage > .sp-low { top: 20px; left: 16px; right: 16px; } .sound__eq .at-corner { left: 16px !important; right: 16px; } }
+
+  /* app pieces keep their own height, centred on the stage, the glow shows below them */
+  :is(#sound, #playlists, #install) .card:not(.sound__eq) .stage > .sp-low { top: 36px !important; bottom: auto !important; left: 50% !important; right: auto !important;
+     width: min(340px, calc(100% - 48px)) !important; transform: translateX(-50%); }
+  :is(#sound, #playlists, #install) .card:not(.sound__eq) .stage > .sp-low > .sp { height: auto !important; }
+  .sound__eq .stage > .sp-low { bottom: auto !important; } .sound__eq .stage > .sp-low > .sp { height: auto !important; }
+  .panel .stage--fade-b { -webkit-mask: none; mask: none; }
+
+  @media (min-width: 1024px) {
+    #sound .grid > .card.span-4 .panel, #playlists .panel { --p-h: 290px !important; min-height: 290px; }
+    #install .panel { --p-h: 230px !important; min-height: 230px; }
+  }
+  .panel:not(.panel--device), :root .panel:not([data-fx], .panel--device), .frame--lit.tour__frame {
+    background-image:
+      radial-gradient(70% 48% at 50% 108%, rgba(255,170,110,1) 0%, rgba(255,120,40,.75) 30%, rgba(194,65,12,0) 70%),
+      radial-gradient(120% 70% at 50% 120%, rgba(226,97,31,.35), transparent 70%),
+      radial-gradient(55% 45% at 12% -5%, rgba(255,214,186,.10), transparent 70%),
+      linear-gradient(180deg, #1e1713 0%, #110d0a 100%) !important;
+  }
+
+  /* no seam into the footer: the glow peaks above the edge and fades to the shared dark */
+  .closer__glow { bottom: 0; background: radial-gradient(48% 70% at 50% 78%, rgba(255,138,61,.72), rgba(226,97,31,.22) 55%, transparent 78%) !important;
+                  -webkit-mask: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%); mask: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%); }
+  .closer .pin__stage::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 18%; pointer-events: none;
+                  background: linear-gradient(to bottom, rgba(12,13,16,0), #0c0d10); opacity: clamp(0, (var(--c) - .55) * 3, 1); }
+
+  /* round 6: the closing sunrise (Ali's second tasteskill.dev recording).
+     cream -> an orange sun rises until the screen is orange -> dark arrives, line one leaves,
+     the sun sinks back to an arc that carries on into the footer */
+  .closer, footer.closing { --dark: #1a110b; }
+  .closer { --rise: clamp(0, calc(var(--c) / .42), 1); --sink: clamp(0, calc((var(--c) - .52) / .3), 1); --night: clamp(0, calc((var(--c) - .47) * 1000), 1); --set: clamp(0, calc((var(--c) - .86) / .14), 1); }
+  .closer .pin__stage { background: color-mix(in srgb, var(--dark) calc(var(--night) * 100%), #f7f1e8) !important; }
+  .closer .pin__stage::after { display: none !important; }
+  .closer__glow { position: absolute; left: 50% !important; right: auto !important; bottom: auto !important; width: 260vmax; height: 260vmax !important; border-radius: 50%;
+    top: calc(100svh + (135 - var(--rise) * 175 + var(--sink) * 148 + var(--set) * 30) * 1vmax); transform: translate(-50%, -50%);
+    background: radial-gradient(closest-side, #f0601a 0%, #f2661e 70%, rgba(242,102,30,.55) 84%, rgba(242,102,30,0) 100%) !important;
+    -webkit-mask: none !important; mask: none !important; filter: blur(8px); will-change: top; z-index: 0; }
+  .closer__wrap { justify-content: center; position: relative; z-index: 1; }
+  .closer__h { text-align: center; font-size: clamp(46px, 7.6vw, 124px) !important; color: #1c1410 !important; }
+  .closer__l1 { opacity: calc(1 - clamp(0, calc((var(--c) - .55) / .12), 1)); }
+  .closer__l2 { color: #fff8f2 !important; opacity: calc(.5 + .5 * clamp(0, calc(var(--c) / .34), 1)) !important;
+    filter: blur(calc((1 - clamp(0, calc(var(--c) / .34), 1)) * 16px)) !important; transform: none !important; }
+  footer.closing.foot-glow { background: radial-gradient(70% 55% at 50% 100%, rgba(242,102,30,.75), rgba(242,102,30,.18) 55%, transparent 75%), var(--dark) !important; --bg: var(--dark); }
+  @media (prefers-reduced-motion: reduce) {
+    .closer .pin__stage { background: var(--dark) !important; } .closer__glow { top: calc(100svh + 108vmax); }
+    .closer__h { color: #fff8f2 !important; } .closer__l1 { opacity: 1; } .closer__l2 { opacity: 1 !important; filter: none !important; }
+  }
+  @media (min-width: 640px) and (max-width: 1023px) {
+    #sound .grid > .card.span-4 { grid-column: span 6 !important; }
+    #sound .grid > .card.span-4:last-child { grid-column: 1 / -1 !important; }
+  }
+
+  /* round 7: the opening sunrise, a bookend to the closing one */
+  .hero.hero--sun { --dark: #1a110b; background: var(--dark); color: #f8ebdf; position: relative; overflow: hidden; height: auto !important; min-height: 100svh; padding: 0 !important; display: block; }
+  .hsun__glow { position: absolute; left: 50%; bottom: -78vmax; width: 150vmax; height: 110vmax; transform: translateX(-50%); border-radius: 50%; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(255,120,40,.95), rgba(242,102,30,.55) 45%, rgba(194,65,12,.18) 70%, transparent 100%); filter: blur(10px); }
+  .hsun__wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: calc(var(--nav) + 12px + clamp(40px, 7vh, 88px)); height: auto !important; }
+  .hsun__kicker { font-size: 14px; letter-spacing: .02em; color: #d9bfab; border: 1px solid rgba(255,235,220,.16); padding: 6px 14px; border-radius: 99px; margin: 0 0 var(--s-6); }
+  .hsun__h { font-size: clamp(46px, 7.4vw, 116px) !important; line-height: .98 !important; letter-spacing: -0.045em; color: #fff4ea; margin: 0; max-width: none; }
+  .hsun__h span { color: transparent; background: linear-gradient(180deg, #ffd2b0 0%, #ff8a3d 70%, #e2611f 100%); -webkit-background-clip: text; background-clip: text; }
+  .hsun__lead { max-width: 640px; margin: var(--s-6) auto 0; font-size: clamp(17px, 1.35vw, 20px); line-height: 1.5; color: #e7d3c3; }
+  .hsun__btns { justify-content: center; margin-top: var(--s-7); }
+  .hero--sun .btn--secondary { background: rgba(255,240,228,.10); color: #fff4ea; border-color: rgba(255,240,228,.18); }
+  .hsun__proof { margin-top: var(--s-4); font-size: 14px; color: #b89c88; }
+  .hsun__stage { position: relative; width: 100%; height: clamp(360px, 48vh, 560px); margin-top: clamp(32px, 6vh, 72px); }
+  .hsun__phone { position: absolute; left: 50%; top: 0; width: clamp(250px, 24vw, 340px); transform: translateX(-50%); border-radius: clamp(36px, 3.4vw, 48px); padding: 9px;
+    background: linear-gradient(160deg, #3a2a20, #0d0a08 40%); box-shadow: 0 0 0 1px rgba(255,235,220,.14), 0 40px 90px rgba(0,0,0,.6), 0 0 120px rgba(255,120,40,.25); }
+  .hsun__phone img { display: block; width: 100%; height: auto; border-radius: calc(clamp(36px, 3.4vw, 48px) - 9px); }
+  .hsun__card { position: absolute; width: 300px; text-align: left; padding: 16px 18px; border-radius: 18px; color: #f8ebdf; font-size: 14px;
+    background: rgba(40,28,20,.62); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+    box-shadow: 0 0 0 1px rgba(255,235,220,.12), 0 24px 60px rgba(0,0,0,.45); }
+  .hsun__card--l { right: calc(50% + clamp(150px, 13vw, 200px)); top: 18%; }
+  .hsun__card--r { left: calc(50% + clamp(150px, 13vw, 200px)); top: 40%; }
+  .hsun__row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .hsun__chip { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: rgba(255,138,61,.18); color: #ffb27a; }
+  .hsun__card ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: n; color: #e7d3c3; }
+  .hsun__card ol li { counter-increment: n; display: flex; gap: 10px; align-items: center; }
+  .hsun__card ol li::before { content: counter(n); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: rgba(255,138,61,.2); color: #ffb27a; flex: none; }
+  .hsun__card small { display: block; color: #b89c88; font-size: 12px; margin-bottom: 8px; }
+  .hsun__lyric { margin: 0; font: 600 22px/1.3 var(--font-display); letter-spacing: -0.01em; }
+  .hsun__lyric span { color: rgba(248,235,223,.32); transition: color .25s; }
+  .hsun__lyric span.on { color: #fff4ea; text-shadow: 0 0 18px rgba(255,138,61,.55); }
+  .hero__art.hsun__stage { transform: none !important; }
+  .hsun__phone { transition: none; transform: translateX(-50%) translateY(calc((1 - var(--hp, 1)) * 18%)); }
+  @media (max-width: 1023px) { .hsun__card { display: none; } }
+  @media (max-width: 639px) { .hsun__h { font-size: clamp(40px, 11.5vw, 56px) !important; } .hsun__btns .btn { width: 100%; } .hsun__stage { height: 380px; } }
+  @media (prefers-reduced-motion: reduce) { .hsun__phone { transform: translateX(-50%); } }
+
+  .hero--sun .hsun__wrap > * { margin-block: 0 !important; }
+  .hero--sun .hsun__kicker { margin-bottom: 22px !important; }
+  .hero--sun .hsun__lead { margin-top: 22px !important; }
+  .hero--sun .hsun__btns { margin-top: 30px !important; }
+  .hero--sun .hsun__proof { margin-top: 14px !important; }
+  .hero--sun .hsun__stage { margin-top: clamp(28px, 5vh, 56px) !important; }
+  .hero--sun .hsun__wrap { padding-top: calc(var(--nav) + 12px + clamp(24px, 5vh, 64px)); }
+  .hero--sun .hero__art { background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; overflow: visible !important; aspect-ratio: auto !important; }
+  .hero--sun .hero__art::before, .hero--sun .hero__art::after { display: none !important; }
+  .hero--sun .btn--secondary { background: rgba(255,240,228,.10) !important; color: #fff4ea !important; border: 1px solid rgba(255,240,228,.2) !important; }
+  .hero--sun .btn--secondary:hover { background: rgba(255,240,228,.18) !important; }
+  @media (min-width: 1024px) { .hero--sun .hsun__h { font-size: clamp(46px, 6.4vw, 104px) !important; } }
+
+  .hero.hero--sun > .wrap.hsun__wrap { display: flex !important; flex-direction: column; gap: 0 !important; row-gap: 0 !important; grid-template-rows: none !important; }
+  .hero--sun .hsun__glow { bottom: -66vmax; }
+
+  /* round 7: the lyrics moment. Words light up as the page scrolls, like the app's word-by-word lyrics */
+  .lyr .pin__stage { background: radial-gradient(90% 70% at 80% 10%, #5a1d10 0%, transparent 60%), radial-gradient(80% 70% at 10% 100%, #3d1209 0%, transparent 60%), #160806; color: #fff4ea; }
+  .lyr__glow { position: absolute; inset: auto -10% -30% -10%; height: 70%; background: radial-gradient(50% 60% at 50% 100%, rgba(255,120,40,.35), transparent 70%); pointer-events: none; }
+  .lyr__wrap { position: relative; z-index: 1; display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+  .lyr__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-6); flex-wrap: wrap; }
+  .lyr__head h2 { font-size: var(--t-h3); color: #fff4ea; margin: 0; }
+  .lyr__head p { margin: 0; color: #d9b8a5; max-width: 460px; font-size: 15px; }
+  .lyr__sheet { align-self: center; display: grid; gap: clamp(6px, 1.4vh, 16px); }
+  .lyr__line { margin: 0; font: 600 clamp(34px, 5.4vw, 84px)/1.08 var(--font-display); letter-spacing: -0.035em; color: rgba(255,244,234,.22);
+               transition: opacity .4s, transform .5s cubic-bezier(.2,.7,.2,1), filter .4s; transform-origin: 0 50%; }
+  .lyr__line span { transition: color .18s, text-shadow .3s; }
+  .lyr__line.is-past { color: rgba(255,244,234,.38); }
+  .lyr__line.is-past span, .lyr__line span.on { color: #fff4ea; }
+  .lyr__line span.on { text-shadow: 0 0 28px rgba(255,138,61,.55); }
+  .lyr__line.is-past span { text-shadow: none; color: rgba(255,244,234,.42); }
+  .lyr__line:not(.is-now):not(.is-past) { filter: blur(1.5px); }
+  .lyr__line.is-now { transform: scale(1.02); }
+  .lyr__now { display: inline-flex; align-items: center; gap: 12px; justify-self: start; padding: 10px 16px 10px 12px; border-radius: 16px; background: rgba(255,240,228,.08); box-shadow: 0 0 0 1px rgba(255,240,228,.12); margin-bottom: var(--s-4); }
+  .lyr__now b { display: block; font-weight: 500; } .lyr__now small { display: block; color: #d9b8a5; font-size: 12px; }
+  .lyr__bars { display: inline-flex; gap: 3px; align-items: flex-end; height: 18px; }
+  .lyr__bars i { width: 4px; background: #ff8a3d; border-radius: 2px; animation: lyrb 1s ease-in-out infinite; }
+  .lyr__bars i:nth-child(2) { animation-delay: -.3s; } .lyr__bars i:nth-child(3) { animation-delay: -.6s; }
+  @keyframes lyrb { 0%, 100% { height: 5px; } 50% { height: 18px; } }
+  @media (prefers-reduced-motion: reduce) { .lyr__line, .lyr__line span { color: #fff4ea !important; filter: none !important; } .lyr__bars i { animation: none; height: 12px; } }
+
+  /* round 7: a believable free-with-ads player (no real brand) */
+  .scr.scr2 { padding: 12px 18px 18px; background: linear-gradient(180deg, #45464d 0%, #26272c 46%, #18181c 100%); font-size: 12px; gap: 0; }
+  .scr2__status { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 600; color: #f2f2f2; padding: 0 6px 10px; }
+  .scr2__icons { display: inline-flex; gap: 4px; } .scr2__icons i { width: 12px; height: 8px; border-radius: 2px; background: #f2f2f2; opacity: .9; } .scr2__icons i:nth-child(3) { width: 18px; }
+  .scr2__top { display: grid; grid-template-columns: 20px 1fr 20px; align-items: center; text-align: center; color: #c7c7cc; font-size: 10.5px; }
+  .scr2__top b { display: block; color: #fff; font-size: 12.5px; font-weight: 600; }
+  .scr2__top svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2; } .scr2__top svg:last-child { fill: #fff; stroke: none; }
+  .scr2__ad { position: relative; margin: 16px 0 14px; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #f7d64a, #f39c32 55%, #e2552b); box-shadow: 0 18px 40px rgba(0,0,0,.45); }
+  .scr2__blob { position: absolute; width: 70%; aspect-ratio: 1; border-radius: 50%; background: rgba(255,255,255,.28); left: -18%; top: -14%; }
+  .scr2__blob--b { width: 46%; left: auto; right: -10%; top: auto; bottom: -8%; background: rgba(0,0,0,.12); }
+  .scr2__tag { position: absolute; left: 10px; top: 10px; z-index: 2; height: 20px; padding: 0 8px; border-radius: 4px; background: #111; color: #fff; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; }
+  .scr2__adtext { position: absolute; left: 14px; right: 14px; bottom: 14px; color: #1b1206; }
+  .scr2__adtext b { display: block; font: 700 19px/1.1 var(--font-display); letter-spacing: -0.02em; } .scr2__adtext small { font-size: 11.5px; opacity: .8; }
+  .scr2__count { position: absolute; right: 10px; top: 10px; height: 26px; min-width: 46px; padding: 0 8px; border-radius: 99px; background: rgba(17,17,17,.82); color: #fff; display: grid; place-items: center; font: 600 12px/1 var(--font-text); font-variant-numeric: tabular-nums; }
+  .scr2__meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .scr2__meta b { display: block; color: #fff; font-size: 15px; font-weight: 600; } .scr2__meta small { color: #a9a9b0; font-size: 11px; }
+  .scr2__learn { flex: none; height: 26px; padding: 0 10px; border-radius: 99px; border: 1px solid rgba(255,255,255,.4); color: #fff; font-size: 10.5px; display: grid; place-items: center; }
+  .scr2__bar { height: 4px; border-radius: 4px; background: rgba(255,255,255,.18); margin: 14px 0 5px; overflow: hidden; }
+  .scr2__fill { display: block; height: 100%; width: 7%; background: #f7d64a; border-radius: 4px; transition: width .9s linear; }
+  .scr2__times { display: flex; justify-content: space-between; font-size: 10px; color: #a9a9b0; font-variant-numeric: tabular-nums; }
+  .scr2__ctrl { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+  .scr2__ctrl svg { width: 24px; height: 24px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; } .scr2__ctrl svg.dim { opacity: .28; }
+  .scr2__ctrl svg path[d^="M18 6v12L9"], .scr2__ctrl svg path[d^="M6 6v12l9"] { fill: #fff; }
+  .scr2__play { width: 54px; height: 54px; border-radius: 50%; background: #fff; display: grid; place-items: center; } .scr2__play svg { stroke: none; fill: #18181c; width: 22px; height: 22px; }
+  .scr2 .scr__toast { position: absolute; left: 14px; right: 14px; bottom: 22px; margin: 0; background: #f4f4f6; box-shadow: 0 14px 30px rgba(0,0,0,.4); }
+  .scr2 .scr__field { display: flex; align-items: center; padding: 0 12px; color: #8a8a90; font-size: 12px; background: #e6e6ea; }
+  .scr2 .scr__go { background: #1d1d22; }
+  .ba__after { z-index: 6; }
+
+  /* round 7: a phone beside the rolling list shows the screen for the line in the middle */
+  .drum { position: relative; }
+  .drum__phone { position: absolute; right: 0; top: 50%; width: clamp(220px, 19vw, 290px); aspect-ratio: 540 / 1134; transform: translateY(-50%) rotate(4deg); border-radius: 40px; padding: 8px;
+    background: linear-gradient(160deg, #3a2a20, #0d0a08 40%); box-shadow: 0 0 0 1px rgba(0,0,0,.25), 0 40px 80px rgba(90,30,0,.45); }
+  .drum__phone img { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); object-fit: cover; border-radius: 32px; opacity: 0; transition: opacity .35s; }
+  .drum__phone img.on { opacity: 1; }
+  @media (min-width: 1024px) { .drum__list { margin-right: clamp(260px, 24vw, 360px); } .drum__h { max-width: 60%; } }
+  @media (max-width: 1023px) { .drum__phone { display: none; } }
+
+  /* round 7: the flow, big and moving: pulses run from YouTube to your phone to Spotifry */
+  .flow { position: relative; margin-top: clamp(40px, 8vh, 96px); display: grid; justify-items: center; gap: clamp(28px, 5vh, 56px); }
+  .flow__row { display: grid; grid-template-columns: 1fr minmax(40px, 1fr) 1fr minmax(40px, 1fr) 1fr; align-items: center; width: 100%; }
+  .flow__node { display: grid; justify-items: center; text-align: center; gap: 6px; padding: 22px 18px 20px; border-radius: 22px; color: #fff4ea;
+    background: rgba(24,16,11,.62); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: 0 0 0 1px rgba(255,235,220,.14), 0 24px 60px rgba(0,0,0,.45); }
+  .flow__node b { font: 500 clamp(17px, 1.5vw, 22px)/1.2 var(--font-display); letter-spacing: -0.01em; }
+  .flow__node small { color: #d8c3b2; font-size: 13.5px; }
+  .flow__ic { width: 72px; height: 72px; border-radius: 20px; display: grid; place-items: center; background: #fff; box-shadow: 0 10px 24px rgba(0,0,0,.3); margin-bottom: 8px; }
+  .flow__ic img { width: 46px; height: auto; } .flow__node--app .flow__ic { background: none; box-shadow: 0 10px 30px rgba(255,120,40,.45); } .flow__node--app .flow__ic img { width: 72px; border-radius: 18px; }
+  .flow__node--app { box-shadow: 0 0 0 1px rgba(255,138,61,.55), 0 0 60px rgba(255,120,40,.3), 0 24px 60px rgba(0,0,0,.45); }
+  .flow__line { position: relative; height: 2px; margin: 0 -2px; background: linear-gradient(90deg, rgba(255,170,110,.25), rgba(255,138,61,.7), rgba(255,170,110,.25)); }
+  .flow__line i { position: absolute; top: 50%; left: 0; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #ffb27a; box-shadow: 0 0 12px 3px rgba(255,138,61,.8); animation: flowp 2.4s linear infinite; opacity: 0; }
+  .flow__line i:nth-child(2) { animation-delay: .8s; } .flow__line i:nth-child(3) { animation-delay: 1.6s; }
+  .flow__line + .flow__node + .flow__line i { animation-delay: 1.2s; } .flow__line + .flow__node + .flow__line i:nth-child(2) { animation-delay: 2s; } .flow__line + .flow__node + .flow__line i:nth-child(3) { animation-delay: 2.8s; }
+  @keyframes flowp { 0% { left: 0; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+  .flow__srv { display: inline-flex; align-items: center; gap: 12px; padding: 10px 18px 10px 10px; border-radius: 16px; color: rgba(255,244,234,.55);
+    border: 1.5px dashed rgba(255,235,220,.3); background: rgba(24,16,11,.35); }
+  .flow__srv b { display: block; font-weight: 500; text-decoration: line-through; text-decoration-color: #ff8a3d; text-decoration-thickness: 2px; }
+  .flow__srv small { display: block; font-size: 12.5px; color: #ffb27a; }
+  .flow__ic--sm { width: 40px; height: 40px; border-radius: 12px; margin: 0; background: rgba(255,255,255,.12); box-shadow: none; } .flow__ic--sm img { width: 22px; filter: invert(1); opacity: .6; }
+  @media (max-width: 767px) {
+    .flow__row { grid-template-columns: 1fr; justify-items: center; }
+    .flow__node { width: min(320px, 100%); padding: 16px; grid-template-columns: 56px 1fr; justify-items: start; text-align: left; column-gap: 14px; }
+    .flow__node .flow__ic { grid-row: span 2; width: 56px; height: 56px; margin: 0; } .flow__node--app .flow__ic img { width: 56px; }
+    .flow__line { width: 2px; height: 40px; margin: -2px 0; background: linear-gradient(180deg, rgba(255,170,110,.25), rgba(255,138,61,.7), rgba(255,170,110,.25)); }
+    .flow__line i { left: 50%; top: 0; margin: -4px 0 0 -4px; animation-name: flowv; }
+    @keyframes flowv { 0% { top: 0; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+  }
+  @media (prefers-reduced-motion: reduce) { .flow__line i { animation: none; } }
+
+  /* round 7: questions open on a tap; the projects Spotifry stands on */
+  .stands { list-style: none; margin: var(--s-6) 0 var(--s-5); padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .stands li { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; background: rgba(255,250,244,.55); box-shadow: 0 0 0 1px rgba(28,20,16,.08); }
+  .stands img { width: 28px; height: 28px; object-fit: contain; flex: none; }
+  .stands b { display: block; font-weight: 500; font-size: 15px; } .stands small { display: block; color: var(--muted); font-size: 13px; }
+  .qas { display: grid; gap: 10px; align-content: start; }
+  .qa { border-radius: 18px; background: rgba(255,250,244,.55); box-shadow: 0 0 0 1px rgba(28,20,16,.08); transition: background .25s, box-shadow .25s; }
+  .qa[open] { background: #fffaf4; box-shadow: 0 0 0 1px rgba(28,20,16,.1), 0 18px 40px rgba(120,50,10,.12); }
+  .qa summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; font: 500 var(--t-card)/1.3 var(--font-display); }
+  .qa summary::-webkit-details-marker { display: none; }
+  .qa summary:focus-visible { outline: 2px solid #c2410c; outline-offset: 2px; border-radius: 18px; }
+  .qa__pm { position: relative; flex: none; width: 28px; height: 28px; border-radius: 50%; background: rgba(28,20,16,.07); transition: transform .3s, background .25s; }
+  .qa__pm::before, .qa__pm::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 2px; margin: -1px 0 0 -6px; background: #1c1410; border-radius: 2px; }
+  .qa__pm::after { transform: rotate(90deg); transition: transform .3s; }
+  .qa[open] .qa__pm { background: #ff8a3d; } .qa[open] .qa__pm::after { transform: rotate(0); }
+  .qa p { margin: 0; padding: 0 20px 20px; color: var(--muted); line-height: 1.55; }
+  #faq .grid { align-items: start; }
+  @media (max-width: 639px) { .stands { grid-template-columns: 1fr; } }
+
+  /* round 8: the list's caption sits with the count, the button never moves */
+  .drum__foot { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-6); }
+  .drum__cap { margin: 0; display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+  .drum__cap .drum__count { flex: none; font-variant-numeric: tabular-nums; min-width: 5.2em; }
+  .drum__cap .drum__label { font-size: 17px; color: #1c1008; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  @media (min-width: 1024px) { .drum__foot { margin-right: clamp(260px, 24vw, 360px); } }
+  @media (max-width: 639px) { .drum__foot { grid-template-columns: 1fr; } .drum__cap { flex-direction: column; gap: 4px; } .drum__cap .drum__label { white-space: normal; } }
+  .drum__list li { font-style: normal !important; }
+
+  /* round 8: three sections, three layouts */
+  /* sound: one stage, the four controls laid out like a desk, the list beside it */
+  .mixsec.section { height: auto !important; min-height: 100svh; }
+  .mix { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 5vw, 80px); align-items: center; min-height: calc(100svh - var(--padt) - var(--padb)); }
+  .mix__list { list-style: none; margin: var(--s-7) 0 0; padding: 0; display: grid; }
+  .mix__list li { display: grid; grid-template-columns: 44px 1fr; gap: 8px; padding: 18px 0; border-top: 1px solid rgba(255,235,220,.1); }
+  .mix__list li:last-child { border-bottom: 1px solid rgba(255,235,220,.1); }
+  .mix__n { font: 500 13px/1.6 var(--font-mono, monospace); color: #ff8a3d; }
+  .mix__list h3 { font: 500 var(--t-card)/1.3 var(--font-display); margin: 0 0 4px; color: #fff4ea; } .mix__list p { margin: 0; color: #c9b6a7; font-size: 15px; }
+  .mix__stage { position: relative; height: clamp(520px, 74vh, 700px); border-radius: 32px; overflow: hidden;
+    background: radial-gradient(70% 55% at 50% 110%, rgba(255,150,80,.9), rgba(242,102,30,.45) 35%, transparent 70%), radial-gradient(60% 50% at 0% 0%, rgba(255,214,186,.08), transparent 70%), linear-gradient(180deg, #1e1713, #0f0b09);
+    box-shadow: inset 0 0 0 1px rgba(255,236,222,.08); }
+  .mix__p { position: absolute; } .mix__p > .sp { box-shadow: 0 0 0 1px rgba(255,236,222,.12), 0 30px 70px rgba(0,0,0,.6) !important; height: auto !important; }
+  .mix__p--eq { left: 6%; right: 6%; top: 6%; } .mix__p--eq .sp-viz { height: 110px !important; }
+  .mix__p--fade { left: 4%; width: 46%; top: 50%; } .mix__p--loud { right: 4%; width: 44%; top: 47%; } .mix__p--trim { left: 27%; width: 46%; top: 72%; }
+  .mix__p > .sp { font-size: 14px; }
+  @media (max-width: 1023px) { .mix { grid-template-columns: 1fr; } .mix__stage { height: auto; padding: 20px; display: grid; gap: 16px; } .mix__p { position: static; width: auto !important; } }
+  /* playlists: each feature on the peach, no boxes, sides alternate */
+  .zzsec.section { height: auto !important; }
+  .zz { display: grid; gap: clamp(40px, 7vh, 88px); margin-top: clamp(40px, 7vh, 80px); }
+  .zz__row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(32px, 6vw, 96px); align-items: center; }
+  .zz__row--flip .zz__text { order: 2; }
+  .zz__n { display: inline-block; font: 600 clamp(56px, 6vw, 88px)/1 var(--font-display); letter-spacing: -0.05em; color: transparent; -webkit-text-stroke: 1.5px rgba(194,65,12,.55); margin-bottom: 10px; }
+  .zz__text h3 { font: 500 clamp(26px, 2.4vw, 36px)/1.15 var(--font-display); letter-spacing: -0.02em; margin: 0 0 10px; }
+  .zz__text p { margin: 0; font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 440px; }
+  .zz__ui { position: relative; display: grid; justify-items: center; }
+  .zz__ui::before { content: ""; position: absolute; inset: 8% 10%; border-radius: 50%; background: radial-gradient(closest-side, rgba(242,102,30,.45), transparent); filter: blur(30px); z-index: 0; }
+  .zz__ui > .sp { position: relative; z-index: 1; width: min(440px, 100%); height: auto !important; font-size: 14px; box-shadow: 0 0 0 1px rgba(28,20,16,.1), 0 40px 80px rgba(90,30,0,.35) !important; }
+  @media (max-width: 767px) { .zz__row { grid-template-columns: 1fr; } .zz__row--flip .zz__text { order: 0; } }
+  /* install: three steps on one line */
+  .tlsec.section { height: auto !important; min-height: 100svh; }
+  .tl__head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s-6); flex-wrap: wrap; }
+  .tl { list-style: none; margin: clamp(48px, 9vh, 96px) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(24px, 3vw, 48px); position: relative; }
+  .tl::before { content: ""; position: absolute; left: 0; right: 0; top: calc(var(--tl-ui, 210px) + 22px); height: 2px; background: linear-gradient(90deg, rgba(255,138,61,.1), #ff8a3d 50%, rgba(255,138,61,.1)); }
+  .tl__ui { height: var(--tl-ui, 210px); display: flex; align-items: flex-end; }
+  .tl__ui > .sp { width: 100%; height: auto !important; font-size: 14px; box-shadow: 0 0 0 1px rgba(255,236,222,.12), 0 24px 60px rgba(0,0,0,.5) !important; }
+  .tl__dot { position: relative; z-index: 1; display: grid; place-items: center; width: 44px; height: 44px; margin: 0 0 18px; border-radius: 50%; background: #ff8a3d; color: #1c1008; font-weight: 600; box-shadow: 0 0 0 6px rgba(255,138,61,.18), 0 0 30px rgba(255,138,61,.6); }
+  .tl__step h3 { font: 500 var(--t-card)/1.3 var(--font-display); margin: 0 0 6px; } .tl__step p { margin: 0; color: #c9b6a7; }
+  .tl__step:first-child .tl__dot { margin-top: 0; }
+  @media (max-width: 767px) { .tl { grid-template-columns: 1fr; } .tl::before { display: none; } .tl__ui { height: auto; } }
+
+  @media (min-width: 1024px) {
+    .mix__stage { height: clamp(600px, 80vh, 720px); }
+    .mix__p--eq { left: 5%; right: 5%; top: 5%; }
+    .mix__p--fade { left: 5%; width: 43%; top: 47%; right: auto; }
+    .mix__p--loud { right: 5%; width: 43%; top: 47%; left: auto; }
+    .mix__p--trim { left: 28.5%; width: 43%; top: 73%; }
+    .mix__p > .sp { font-size: 13px; padding: 14px 16px !important; }
+    .mix__p--eq .sp-viz { height: 80px !important; }
+  }
+
+  @media (min-width: 1024px) {
+    .mix__stage { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: min-content; gap: 16px; padding: 28px; height: clamp(600px, 80vh, 720px);
+      -webkit-mask: linear-gradient(to bottom, #000 82%, transparent 100%); mask: linear-gradient(to bottom, #000 82%, transparent 100%); }
+    .mix__p { position: static !important; width: auto !important; }
+    .mix__p--eq, .mix__p--trim { grid-column: 1 / -1; }
+  }
+
+  /* round 9: track on top, words, then the pieces at one height */
+  .tl::before { top: 22px !important; left: 22px !important; right: auto !important; width: calc((100% - 2 * clamp(24px, 3vw, 48px)) / 3 * 2 + 2 * clamp(24px, 3vw, 48px)); }
+  .tl__step { display: flex; flex-direction: column; }
+  .tl__dot { margin: 0 0 28px !important; }
+  .tl__step p { min-height: 3.2em; }
+  .tl__ui { height: auto !important; margin-top: 28px; flex: 1; display: flex; align-items: stretch; }
+  .tl__ui > .sp { display: flex; flex-direction: column; justify-content: center; min-height: 190px; }
+  .tlsec .tl { margin-top: clamp(56px, 10vh, 104px); }
+  @media (max-width: 767px) { .tl__step { padding-left: 60px; position: relative; } .tl__dot { position: absolute; left: 0; top: 0; }
+    .tl::before { display: block !important; left: 21px !important; top: 22px !important; bottom: 60px; width: 2px !important; height: auto; background: linear-gradient(180deg, #ff8a3d, rgba(255,138,61,.15)) !important; }
+    .tl__step p { min-height: 0; } .tl__ui { margin-top: 18px; } }
+  @media (min-width: 1024px) { .tlsec > .wrap { display: flex !important; flex-direction: column; justify-content: center; min-height: calc(100svh - var(--padt) - var(--padb)); } }
+
+  /* round 9: one line each, sized to the space the list has */
+  .drum__list { container-type: inline-size; }
+  .drum__list li { white-space: nowrap; font-size: clamp(24px, 6.4cqi, 76px) !important; }
+
+  /* round 10: offline, told as a flight */
+  .offsec.section { position: relative; overflow: hidden; height: auto !important; min-height: 100svh; }
+  .off__sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+  .off__wrap { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(32px, 6vw, 96px); align-items: center; min-height: calc(100svh - var(--padt) - var(--padb)); }
+  .off__text h2 { font-size: clamp(40px, 4.6vw, 72px); line-height: 1.02; letter-spacing: -0.035em; margin: 0 0 18px; }
+  .off__text .t-lead { color: #e7d0bf; max-width: 520px; }
+  .off__facts { list-style: none; margin: var(--s-7) 0 0; padding: 0; display: grid; gap: 0; max-width: 560px; }
+  .off__facts li { display: grid; grid-template-columns: 170px 1fr; gap: 16px; padding: 18px 0; border-top: 1px solid rgba(255,235,220,.12); }
+  .off__facts li:last-child { border-bottom: 1px solid rgba(255,235,220,.12); }
+  .off__facts b { font: 500 18px/1.35 var(--font-display); color: #ffb27a; } .off__facts span { color: #e7d0bf; }
+  .off__phone { position: relative; justify-self: center; width: clamp(240px, 22vw, 320px); }
+  .off__dev { border-radius: 44px; padding: 9px; background: linear-gradient(160deg, #4a3020, #120b07 40%); box-shadow: 0 0 0 1px rgba(255,235,220,.14), 0 50px 100px rgba(0,0,0,.55), 0 0 120px rgba(255,120,40,.22); }
+  .off__dev img { display: block; width: 100%; height: auto; border-radius: 36px; }
+  .off__pill { position: absolute; z-index: 2; top: 13%; left: -18%; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 99px; font-weight: 500; font-size: 15px; color: #1c1008;
+    background: #ffb27a; box-shadow: 0 16px 40px rgba(0,0,0,.4); }
+  .off__pill svg { width: 18px; height: 18px; fill: #1c1008; transform: rotate(45deg); }
+  @media (max-width: 1023px) { .off__wrap { grid-template-columns: 1fr; } .off__pill { left: -8%; } }
+  @media (max-width: 639px) { .off__facts li { grid-template-columns: 1fr; gap: 4px; } .off__phone { width: 230px; } }
+  @media (prefers-reduced-motion: reduce) { .off__plane { display: none; } }
+  /* tour: screens crossfade */
+  .tour__frame > .device { transition: opacity .35s ease, transform .45s cubic-bezier(.2,.7,.2,1); }
+  .tour__frame > .device[hidden] { display: block !important; opacity: 0; transform: translateY(10px) scale(.985); pointer-events: none; }
+  .tour__frame > .device:not([hidden]) { opacity: 1; }
+
+  /* readable: white on this deeper ember is 3.3:1 for the big line, the dark caption 5.4:1 */
+  #drum.band-ember, #drum.band-ember .pin__stage { --bg: #e8601a; background: #e8601a !important; }
+  #drum .drum__list li { color: rgba(28, 12, 4, .34); }
+  #drum .drum__h, #drum .drum__foot, #drum .drum__count { color: #2a1206 !important; }
+  #drum .btn--secondary { background: rgba(28,12,4,.14) !important; color: #1c0c04 !important; border-color: transparent !important; }
+  /* sound: equalizer tall on the left, the other three stacked on the right, all four whole */
+  @media (min-width: 1024px) {
+    .mix__stage { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) !important; grid-template-rows: repeat(3, min-content); align-content: center; height: auto !important; min-height: 0;
+      -webkit-mask: none !important; mask: none !important; }
+    .mix__p--eq { grid-column: 1 !important; grid-row: 1 / span 3; align-self: stretch; }
+    .mix__p--eq > .sp { height: 100% !important; display: flex; flex-direction: column; justify-content: space-between; }
+    .mix__p--fade, .mix__p--loud, .mix__p--trim { grid-column: 2 !important; }
+    .mix__p--eq .sp-viz { height: 120px !important; }
+  }
+
+  #drum .drum__list li.is-on { color: #fff8f2 !important; }
+  .offsec > .wrap.off__wrap { display: grid !important; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr) !important; grid-template-rows: none !important; row-gap: 0 !important; height: auto !important; }
+  @media (max-width: 1023px) { .offsec > .wrap.off__wrap { grid-template-columns: 1fr !important; row-gap: 48px !important; } }
+  .off__sky path { stroke: rgba(255,190,140,.18); }
+  @media (min-width: 1024px) { .mix__p--eq > .sp { justify-content: flex-start !important; gap: 18px; } .mix__p--eq .sp-viz { height: 210px !important; } }
+  @media (max-width: 767px) { .off__sky { height: 140px; } .off__plane > g { transform: rotate(90deg) scale(3) translate(-12px, -12px); } }
+
+  /* round 11: once scrolled, the bar tightens into a centred pill */
+  .nav__bar { transition: width .5s cubic-bezier(.2,.7,.2,1), height .4s, padding .4s, background-color .35s, border-color .35s, box-shadow .35s; }
+  @media (min-width: 1024px) {
+    .nav.is-glass .nav__bar { width: min(100% - 32px, 780px) !important; height: 54px; padding-inline: 14px 6px; gap: var(--s-5); border-radius: 18px; }
+    .nav.is-glass .nav__logo { font-size: 18px; } .nav.is-glass .nav__logo img { width: 24px; height: 24px; }
+    .nav.is-glass .nav__link { font-size: 14px; padding: 0 10px; }
+    .nav.is-glass .nav__actions .btn { height: 40px; padding-inline: 16px; font-size: 14px; }
+    .nav.is-glass .nav__links { justify-content: center; }
+  }
+
+  @media (max-width: 1023px) {
+    .drum__phone { display: block !important; width: 92px; top: 12px; right: 0; transform: rotate(5deg); border-radius: 18px; padding: 4px; }
+    .drum__phone img { inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); border-radius: 14px; }
+    .drum__h { padding-right: 108px; }
+  }
+  @media (max-width: 1023px) { .drum__phone { width: 66px !important; top: 6px !important; border-radius: 14px !important; padding: 3px !important; } .drum__phone img { inset: 3px !important; width: calc(100% - 6px) !important; height: calc(100% - 6px) !important; border-radius: 11px !important; }
+    .drum__h { padding-right: 84px !important; min-height: 140px; } }
+
+  /* sound: fluid equalizer + fade */
+  .eqx { position: relative; flex: 1; min-height: 190px; margin: 2px -4px 10px; }
+  .eqx__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .eqx__zero { stroke: rgba(255,236,222,.14); stroke-dasharray: 3 5; } .eqx__grid line { stroke: rgba(255,236,222,.06); } .eqx__bars rect { fill: #fff4ea; opacity: .09; }
+  .eqx__edge { fill: none; stroke: #ffc79e; stroke-width: 1.4; opacity: .8; }
+  .eqx__curve { fill: none; stroke: #fff4ea; stroke-width: 2.2; stroke-linecap: round; }
+  .eqx__cglow { fill: none; stroke: #ff8a3d; stroke-width: 6; opacity: .45; }
+  .eqx__nodes circle { fill: #1c1d22; stroke: #fff4ea; stroke-width: 2; }
+  .eqx__nodes circle.on { fill: #ff8a3d; stroke: #fff4ea; }
+  .eqx__nodes circle.ring { fill: none; stroke: #ff8a3d; stroke-width: 1.5; opacity: .5; }
+  .eqx__bands { display: grid; grid-template-columns: repeat(5, 1fr); text-align: center; color: #9d968f; font-size: 12px; }
+  .eqx__bands b { display: block; color: #f3eee8; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .eqx__bands .on b { color: #ff8a3d; }
+  .xf { margin: 8px 0 12px; }
+  .xf__svg { display: block; width: 100%; height: 64px; overflow: visible; }
+  .xf__bars rect { rx: 1.5; }
+  .xf__head { stroke: #fff4ea; stroke-width: 1.5; opacity: .9; }
+  .xf__lab { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: #c9c2bb; }
+  .xf__lab > span { display: inline-flex; align-items: center; gap: 8px; transition: opacity .2s linear; }
+  .xf__lab .cov { flex: none; }
+</style>
+</head>
+<body class="bg-topglow">
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip" href="#tour">Skip to the tour</a>
+    <a class="nav__logo" href="#top"><img src="img/logo.svg" alt="" width="28" height="28">Spotifry</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item"><a class="nav__link" href="#tour">Tour</a></div>
+      <div class="nav__item"><a class="nav__link" href="#sound">Features</a></div>
+      <div class="nav__item"><a class="nav__link" href="#install">Install</a></div>
+      <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="https://github.com/Alnyz/spotifry/releases/latest">Download the APK</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--sun" aria-labelledby="hero-h">
+    <div class="hsun__glow" aria-hidden="true"></div>
+    <div class="wrap hsun__wrap">
+      <p class="hsun__kicker">Free and open source · Android 13+</p>
+      <h1 id="hero-h" class="hsun__h">Music on Android,<br><span>minus the ads.</span></h1>
+      <p class="hsun__lead">An ad-free music player for Android. Search any song on YouTube and play it with no ad breaks, no skip limit and no account.</p>
+      <div class="btn-row hsun__btns">
+        <a class="btn btn--primary" href="https://github.com/Alnyz/spotifry/releases/latest">Download the APK<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+        <a class="btn btn--secondary" href="https://github.com/Alnyz/spotifry">View on GitHub</a>
+      </div>
+      <p class="hsun__proof">Version <span data-ver>0.9.1</span>. After the first install, the app updates itself.</p>
+      <div class="hero__art hsun__stage" role="img" aria-label="Spotifry's home screen with a song playing, a search result made ready before the tap, and lyrics lighting up word by word">
+        <div class="hsun__phone"><img src="img/home.webp" alt="" fetchpriority="high" width="540" height="1134"></div>
+        <div class="hsun__card hsun__card--l" aria-hidden="true">
+          <div class="hsun__row"><b>Search: “I’m Yours”</b><span class="hsun__chip">Ready</span></div>
+          <ol><li>Top results load while you read</li><li>You tap the song</li><li>It plays in under a second</li></ol>
+        </div>
+        <div class="hsun__card hsun__card--r" aria-hidden="true">
+          <small>Lyrics, word by word</small>
+          <p class="hsun__lyric"><span>Twinkle,</span> <span>twinkle,</span> <span>little</span> <span>star,</span> <span>how</span> <span>I</span> <span>wonder</span> <span>what</span> <span>you</span> <span>are</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ground-inverse" id="tour" aria-labelledby="tour-h">
+    <div class="wrap">
+      <div class="grid grid--top fill">
+        <div class="span-6 stack-6">
+          <div class="section-head">
+            <h2 id="tour-h">Spotifry on a phone. <span class="muted">Pick a screen to see it.</span></h2>
+          </div>
+          <div class="tabs" role="tablist" aria-label="App screens">
+            <button class="tab" role="tab" id="t-home" aria-selected="true" aria-controls="tp-home ts-home">Open home</button>
+            <button class="tab" role="tab" id="t-search" aria-selected="false" aria-controls="tp-search ts-search" tabindex="-1">Search songs</button>
+            <button class="tab" role="tab" id="t-play" aria-selected="false" aria-controls="tp-play ts-play" tabindex="-1">Play a song</button>
+            <button class="tab" role="tab" id="t-lyrics" aria-selected="false" aria-controls="tp-lyrics ts-lyrics" tabindex="-1">Read lyrics</button>
+            <button class="tab" role="tab" id="t-lists" aria-selected="false" aria-controls="tp-lists ts-lists" tabindex="-1">Keep playlists</button>
+          </div>
+          <div class="tour__panels">
+            <div role="tabpanel" id="tp-home" aria-labelledby="t-home"><p class="t-lead">Your last song waits at the top, one tap to play it again, or to open it while it plays. Saved songs, playlists and what you played lately sit one tap below.</p></div>
+            <div role="tabpanel" id="tp-search" aria-labelledby="t-search" hidden><p class="t-lead">Search songs, music videos, albums, artists or playlists. The top results get ready while you read, so a tap plays in under a second.</p></div>
+            <div role="tabpanel" id="tp-play" aria-labelledby="t-play" hidden><p class="t-lead">A big cover, plain controls and a button to save the song to your phone. The lyrics sit right under the controls.</p></div>
+            <div role="tabpanel" id="tp-lyrics" aria-labelledby="t-lyrics" hidden><p class="t-lead">Lyrics light up word by word as they are sung when BetterLyrics has the song, and line by line from LRCLIB when it doesn’t.</p></div>
+            <div role="tabpanel" id="tp-lists" aria-labelledby="t-lists" hidden><p class="t-lead">Search, sort or put a playlist in your own order. A public Spotify playlist comes in from its link.</p></div>
+          </div>
+        </div>
+        <div class="frame frame--lit frame--fill tour__frame span-6 start-7" data-visual>
+          <div class="device" id="ts-home"><img src="img/home.webp" alt="Spotifry home screen: Wake Me Up by Avicii playing at the top, Saved, Playlists and Shuffle buttons, recently played songs" loading="lazy"></div>
+          <div class="device" id="ts-search" hidden><img src="img/search.webp" alt="Search results for Bruno Mars" loading="lazy"></div>
+          <div class="device" id="ts-play" hidden><img src="img/nowplaying.webp" alt="Now playing: Wake Me Up by Avicii" loading="lazy"></div>
+          <div class="device" id="ts-lyrics" hidden><img src="img/lyrics.webp" alt="Lyrics lighting up as the song plays" loading="lazy"></div>
+          <div class="device" id="ts-lists" hidden><img src="img/playlists.webp" alt="Playlists screen with an Import from Spotify button" loading="lazy"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pin band-ember" id="drum" aria-labelledby="drum-h" data-pin="drum" style="--pin-h: 300vh">
+    <div class="pin__stage">
+      <div class="wrap pin__wrap drum">
+        <h2 id="drum-h" class="drum__h">From the first song to the last one at night</h2>
+        <ol class="drum__list"><li data-screen="home" data-label="No sign-up, no account, nothing to fill in.">Open it, press play</li><li data-screen="search" data-label="The top results get ready while you look.">Tap, and it’s playing</li><li data-screen="nowplaying" data-label="Every song plays to its last second.">No ad breaks in</li><li data-screen="queue" data-label="Ten skips in a row is fine.">Skip all you want</li><li data-screen="settings" data-label="Quiet songs come up, loud ones come down.">No volume jumps</li><li data-screen="settings" data-label="A fade of 2 to 12 seconds, your pick.">Songs melt together</li><li data-screen="nowplaying" data-label="Smart trim skips the chat in music videos.">The talking gets cut</li><li data-screen="settings" data-label="Long quiet intros and endings go.">Silences get skipped</li><li data-screen="lyrics" data-label="Lyrics light up as they’re sung.">Sing along, word by word</li><li data-screen="equalizer" data-label="Ready-made sounds or your own mix.">More bass, if you like</li><li data-screen="nowplaying" data-label="Speed and pitch, each on its own.">Slower, faster, higher</li><li data-screen="saved" data-label="Music already on your phone plays here.">Your own files too</li><li data-screen="playlists" data-label="Paste a public playlist link.">Bring your Spotify lists</li><li data-screen="queue" data-label="Smart shuffle mixes in similar songs.">The queue never runs dry</li><li data-screen="nowplaying" data-label="Lock screen controls and a home screen widget.">Screen off, still playing</li><li data-screen="saved" data-label="Saved songs play without internet.">Works on a plane</li><li data-screen="settings" data-label="The last 1 GB you played stays on the phone.">Replays cost no data</li><li data-screen="settings" data-label="Light, dark, pure black and any accent.">Your colours</li><li data-screen="home" data-label="New versions install from inside the app.">It updates itself</li><li data-screen="sleep" data-label="The music fades out, then stops.">It sleeps when you do</li></ol>
+        <div class="drum__phone" aria-hidden="true"><img src="img/nowplaying.webp" alt="" loading="lazy" data-screen="nowplaying" class="on"><img src="img/queue.webp" alt="" loading="lazy" data-screen="queue"><img src="img/home.webp" alt="" loading="lazy" data-screen="home"><img src="img/search.webp" alt="" loading="lazy" data-screen="search"><img src="img/lyrics.webp" alt="" loading="lazy" data-screen="lyrics"><img src="img/saved.webp" alt="" loading="lazy" data-screen="saved"><img src="img/settings.webp" alt="" loading="lazy" data-screen="settings"><img src="img/equalizer.webp" alt="" loading="lazy" data-screen="equalizer"><img src="img/sleep.webp" alt="" loading="lazy" data-screen="sleep"><img src="img/playlists.webp" alt="" loading="lazy" data-screen="playlists"></div>
+        <div class="drum__foot"><p class="drum__cap"><span class="drum__count"><b>1</b> of 20</span><span class="drum__label">No sign-up, no account, nothing to fill in.</span></p><a class="btn btn--secondary" href="#install">See the 3 install steps</a></div>
+      </div>
+    </div>
+
+  </section>
+
+  <section class="section how" id="how" aria-labelledby="how-h">
+    <img class="layer" src="img/photos/crowd.webp" alt="" aria-hidden="true" loading="lazy">
+    <div class="how__veil" aria-hidden="true"></div>
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-6"><h2 id="how-h">How Spotifry gets the music</h2></div>
+        <p class="t-lead span-6 start-7">Spotifry reads songs from YouTube right on your phone, through NewPipe Extractor. There is no Spotifry server in between, nothing to sign up for and nothing to pay.</p>
+      </div>
+      <div class="flow" data-visual role="img" aria-label="Songs go from YouTube to NewPipe Extractor on your phone and play in Spotifry. There is no Spotifry server in between.">
+        <div class="flow__srv"><span class="flow__ic flow__ic--sm"><img src="assets/icons/ui-server.svg" alt="" width="22" height="22"></span><span><b>Spotifry server</b><small>none, nothing in between</small></span></div>
+        <div class="flow__row">
+          <div class="flow__node"><span class="flow__ic"><img src="assets/icons/logos-youtube.svg" alt="" width="40" height="28"></span><b>YouTube</b><small>where the songs are</small></div>
+          <div class="flow__line" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="flow__node"><span class="flow__ic"><img src="assets/icons/newpipe.svg" alt="" width="36" height="36"></span><b>NewPipe Extractor</b><small>reads them, on your phone</small></div>
+          <div class="flow__line" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="flow__node flow__node--app"><span class="flow__ic"><img src="img/logo.svg" alt="" width="44" height="44"></span><b>Spotifry</b><small>plays them</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pin band-peach" id="compare" aria-labelledby="compare-h" data-pin="compare" style="--pin-h: 320vh">
+    <div class="pin__stage">
+      <div class="wrap pin__wrap">
+        <div class="grid grid--top ba">
+          <div class="span-6 ba__text">
+            <h2 id="compare-h">One song in two music apps</h2>
+            <ol class="ba__steps">
+              <li class="is-on"><b>The ad break</b><span>A free app with ads stops the song for an advert.</span></li>
+              <li><b>The skip limit</b><span>Skips run out, then a paid plan is offered.</span></li>
+              <li><b>The sign-in wall</b><span>No song before you make an account.</span></li>
+              <li><b>Spotifry plays straight through</b><span>No ads, no skip limit, no account.</span></li>
+            </ol>
+          </div>
+          <div class="span-6 start-7 ba__frame" data-visual role="img" aria-label="A grey free app with an ad break turns, step by step, into Spotifry playing the same song">
+            <div class="device ba__phone" aria-hidden="true">
+              <div class="ba__before"><div class="scr scr2">
+                <div class="scr2__status"><span>9:41</span><span class="scr2__icons"><i></i><i></i><i></i></span></div>
+                <div class="scr2__top"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><div>Playing from<b>Your mix</b></div><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg></div>
+                <div class="scr2__ad">
+                  <span class="scr2__tag">Ad</span>
+                  <div class="scr2__blob"></div><div class="scr2__blob scr2__blob--b"></div>
+                  <div class="scr2__adtext"><b>Your music will be right back</b><small>after this short break</small></div>
+                  <div class="scr2__count"><b class="scr2__secs">0:28</b></div>
+                </div>
+                <div class="scr2__meta"><div><b>Advertisement</b><small>Then: I’m Yours · Jason Mraz</small></div><span class="scr2__learn">Learn more</span></div>
+                <div class="scr2__bar"><i class="scr2__fill"></i></div>
+                <div class="scr2__times"><span class="scr2__el">0:02</span><span>0:30</span></div>
+                <div class="scr2__ctrl">
+                  <svg viewBox="0 0 24 24" class="dim"><path d="M4 7h3l10 10h3M4 17h3l3-3M14 10l3-3h3"/></svg>
+                  <svg viewBox="0 0 24 24" class="dim"><path d="M18 6v12L9 12zM6 6v12"/></svg>
+                  <span class="scr2__play"><svg viewBox="0 0 24 24"><path d="M8 6h3v12H8zM13 6h3v12h-3z"/></svg></span>
+                  <svg viewBox="0 0 24 24" class="dim"><path d="M6 6v12l9-6zM18 6v12"/></svg>
+                  <svg viewBox="0 0 24 24" class="dim"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"/></svg>
+                </div>
+                <div class="scr__toast ba__s2"><b>You’re out of skips.</b> Upgrade to skip again.</div>
+                <div class="scr__sheet ba__s3"><b>Sign in to keep listening</b><span class="scr__field">Email</span><span class="scr__field">Password</span><span class="scr__go">Sign in</span></div>
+              </div></div>
+              <img class="ba__after" src="img/nowplaying.webp" alt="" loading="lazy">
+            </div>
+            <span class="ba__pill" aria-hidden="true">Step <b class="ba__n">1</b> of 4</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  
+
+  
+
+  <section class="pin lyr" id="lyrics" aria-labelledby="lyrics-h" data-pin="lyrics" style="--pin-h: 280vh">
+    <div class="pin__stage">
+      <div class="lyr__glow" aria-hidden="true"></div>
+      <div class="wrap pin__wrap lyr__wrap">
+        <div class="lyr__head">
+          <h2 id="lyrics-h">Lyrics that light up as they’re sung</h2>
+          <p>Word by word when BetterLyrics has the song, line by line from LRCLIB when it doesn’t.</p>
+        </div>
+        <div class="lyr__sheet" aria-label="Lyrics of Amazing Grace lighting up word by word"><p class="lyr__line"><span>Amazing</span> <span>grace,</span> <span>how</span> <span>sweet</span> <span>the</span> <span>sound</span></p><p class="lyr__line"><span>That</span> <span>saved</span> <span>a</span> <span>wretch</span> <span>like</span> <span>me</span></p><p class="lyr__line"><span>I</span> <span>once</span> <span>was</span> <span>lost,</span> <span>but</span> <span>now</span> <span>am</span> <span>found</span></p><p class="lyr__line"><span>Was</span> <span>blind,</span> <span>but</span> <span>now</span> <span>I</span> <span>see</span></p></div>
+        <div class="lyr__now" aria-hidden="true"><span class="lyr__bars"><i></i><i></i><i></i></span><span><b>Amazing Grace</b><small>Traditional · public domain</small></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ground-inverse mixsec" id="sound" aria-labelledby="sound-h">
+    <div class="wrap">
+      <div class="mix">
+        <div class="mix__text">
+          <h2 id="sound-h">Tune how the music sounds. <span class="muted">Set it once and it holds for every song.</span></h2>
+          <ol class="mix__list"><li><span class="mix__n">01</span><div><h3>Shows the music while you tune it</h3><p>Your phone’s ready-made sounds or your own mix, with a live picture of the song as you slide.</p></div></li><li><span class="mix__n">02</span><div><h3>Fades one song into the next</h3><p>The end of a song fades to quiet, then the next one fades in, over 2 to 12 seconds.</p></div></li><li><span class="mix__n">03</span><div><h3>Plays every song as loud</h3><p>Quiet songs come up, loud ones come down, long silences get skipped.</p></div></li><li><span class="mix__n">04</span><div><h3>Cuts the talking from videos</h3><p>Trim a song yourself, or let smart trim drop the talk in music videos.</p></div></li></ol>
+        </div>
+        <div class="mix__stage" aria-hidden="true">
+          <div class="mix__p mix__p--eq"><div class="ui sp">
+                  <div class="sp__head"><span>Equalizer</span><span class="sp-tog on"></span></div>
+                  <div class="sp-pills" style="margin-bottom:14px"><span class="sp-pill">Normal</span><span class="sp-pill">Pop</span><span class="sp-pill">Rock</span><span class="sp-pill on">Your mix</span></div>
+                  <div class="eqx"><svg class="eqx__svg" aria-hidden="true"><defs><linearGradient id="eqxg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d" stop-opacity=".38"/><stop offset=".5" stop-color="#ff8a3d" stop-opacity=".12"/><stop offset="1" stop-color="#ff8a3d" stop-opacity="0"/></linearGradient><linearGradient id="eqxg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5a1f" stop-opacity=".45"/><stop offset=".7" stop-color="#ff5a1f" stop-opacity="0"/></linearGradient><filter id="eqxglow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="4"/></filter></defs><line class="eqx__zero"/><g class="eqx__grid"></g><g class="eqx__bars"></g><path class="eqx__s1" fill="url(#eqxg)"/><path class="eqx__cglow" filter="url(#eqxglow)"/><path class="eqx__curve"/><g class="eqx__nodes"></g></svg></div>
+                  <div class="eqx__bands"><div><b>+4</b>60 Hz</div><div><b>+2</b>230 Hz</div><div><b>0</b>910 Hz</div><div><b>+1</b>3.6 kHz</div><div><b>+3</b>14 kHz</div></div>
+                </div></div>
+          <div class="mix__p mix__p--fade"><div class="ui sp">
+                  <div class="sp__head"><span>Fade between songs</span><span class="sp-tog on ink"></span></div>
+                  <div class="xf"><svg class="xf__svg" aria-hidden="true"><g class="xf__bars"></g><line class="xf__head"/></svg><div class="xf__lab"><span class="xf__a"><span class="cov" style="--img:url(img/covers/goldenhour.webp);--sz:28"></span>Fading out</span><span class="xf__b">Fading in<span class="cov" style="--img:url(img/covers/heatwaves.webp);--sz:28"></span></span></div></div>
+                  <div class="sp-range xf__range" style="--v:40%"><i></i></div>
+                  <div class="sp-range__ends"><span>2 s</span><b class="xf__val">6 s</b><span>12 s</span></div>
+                </div></div>
+          <div class="mix__p mix__p--loud"><div class="ui sp">
+                <div class="sp__head"><span>Playback</span></div>
+                <div class="sp__row"><div><b>Same loudness</b><small>Every song at one level</small></div><span class="sp-tog on ink"></span></div>
+                <div class="sp__row"><div><b>Skip quiet parts</b><small>Jumps long silences</small></div><span class="sp-tog on ink"></span></div>
+                <div class="sp__row"><div><b>Sleep timer</b><small>Fades out, then stops</small></div><span class="sp-pill">30 min</span></div>
+              </div></div>
+          <div class="mix__p mix__p--trim"><div class="ui sp">
+                <div class="sp__row" style="padding-top:0"><span class="cov" style="--img:url(img/covers/vivalavida.webp);--sz:40"></span><div><b>Viva La Vida</b><small>Coldplay · music video</small></div></div>
+                <div class="sp-trim"><i class="a"></i><i class="b"></i><em></em></div>
+                <div class="sp-range__ends"><span>Intro cut</span><span>Outro cut</span></div>
+                <div class="sp__row" style="margin-top:6px"><div><b>Smart trim</b><small>From SponsorBlock’s shared list</small></div><span class="sp-tog on ink"></span></div>
+              </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section band-brown offsec" id="offline" aria-labelledby="offline-h">
+    <svg class="off__sky" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMin slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="offtrail" gradientUnits="userSpaceOnUse" x1="-150" y1="0" x2="-14" y2="0"><stop offset="0" stop-color="#ffb27a" stop-opacity="0"/><stop offset="1" stop-color="#ffd2b0" stop-opacity=".7"/></linearGradient>
+        <filter id="offglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" result="b"/><feFlood flood-color="#ff8a3d" flood-opacity=".7"/><feComposite in2="b" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <path id="offpath" d="M-80 190 C 300 40, 620 150, 900 95 S 1300 20, 1520 120" fill="none" stroke="rgba(255,190,140,.28)" stroke-width="2" stroke-dasharray="2 12" stroke-linecap="round"/>
+      
+      <g class="off__trailg"></g>
+      <g class="off__plane">
+        <g transform="rotate(90) scale(1.7) translate(-12 -12)" filter="url(#offglow)"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="#fff1e6"/></g></g>
+    </svg>
+    <div class="wrap off__wrap">
+      <div class="off__text">
+        <h2 id="offline-h">Music that plays without data</h2>
+        <p class="t-lead">Airplane mode on, music still playing. Save the songs you love, and the ones you played lately replay for free.</p>
+        <ul class="off__facts">
+          <li><b>Saved songs</b><span>Stay on your phone and play anywhere, no internet needed.</span></li>
+          <li><b>1&nbsp;GB of replays</b><span>Songs you played lately start at once and use no data.</span></li>
+          <li><b>Data saver</b><span>Lower quality on mobile data, full quality on Wi-Fi.</span></li>
+        </ul>
+      </div>
+      <div class="off__phone" role="img" aria-label="Spotifry's Saved list, playing with airplane mode on">
+        <span class="off__pill" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>Airplane mode</span>
+        <div class="off__dev"><img src="img/saved.webp" alt="" loading="lazy" width="540" height="1134"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section band-peach zzsec" id="playlists" aria-labelledby="playlists-h">
+    <div class="wrap">
+      <h2 id="playlists-h">Playlists and the queue. <span class="muted">The parts you touch every day.</span></h2>
+      <div class="zz"><div class="zz__row"><div class="zz__text"><span class="zz__n">01</span><h3>Brings in a Spotify playlist</h3><p>Paste the link of a public Spotify playlist and its songs arrive as a new playlist in the app.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
+                  <div class="sp__head"><span>Import from Spotify</span></div>
+                  <div class="sp-field"><svg class="sp-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5l-1 1M11.5 8.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1-1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>open.spotify.com/playlist/…</div>
+                  <div class="sp__row"><div><b>chill</b><small>Finding each song on YouTube</small></div><span class="sp-btn">Import</span></div>
+                  <div class="sp__row"><span class="cov" style="--img:url(img/covers/espresso.webp);"></span><div><b>Espresso</b><small>Sabrina Carpenter · found</small></div></div>
+                  <div class="sp__row"><span class="cov" style="--img:url(img/covers/sunflower.webp);"></span><div><b>Sunflower</b><small>Post Malone · found</small></div></div>
+                </div></div></div><div class="zz__row zz__row--flip"><div class="zz__text"><span class="zz__n">02</span><h3>Reorders the queue by drag</h3><p>Drag a song to move it, swipe it away to remove it. Smart shuffle mixes in songs like the ones you have.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
+                  <div class="sp__head"><span>Up next</span><span class="sp-pill on">Smart shuffle</span></div>
+                  <div class="sp__row"><span class="cov" style="--img:url(img/covers/locked.webp);"></span><div><b>Locked out of Heaven</b><small>Bruno Mars</small></div><svg class="grip" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+                  <div class="sp__row lift"><span class="cov" style="--img:url(img/covers/apt.webp);"></span><div><b>APT.</b><small>ROSÉ · moving</small></div><svg class="grip" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+                  <div class="sp__row"><span class="cov" style="--img:url(img/covers/goldenhour.webp);"></span><div><b>golden hour</b><small>JVKE</small></div><svg class="grip" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+                  <div class="sp__row"><span class="cov" style="--img:url(img/covers/heatwaves.webp);"></span><div><b>Heat Waves</b><small>Glass Animals</small></div><svg class="grip" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+                </div></div></div><div class="zz__row"><div class="zz__text"><span class="zz__n">03</span><h3>Shares a song as a picture</h3><p>Send a song or a whole playlist to a friend as a link, a plain list or a picture.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
+                <div class="sp-shot"><span class="cov" style="--img:url(img/covers/levitating.webp);--sz:56"></span><div><b style="font-size:15px">Levitating</b><small style="color:#ffd9bf">Dua Lipa · on Spotifry</small></div></div>
+                <div class="sp-pills"><span class="sp-pill">Link</span><span class="sp-pill">List</span><span class="sp-pill on">Picture</span></div>
+                <div class="sp__row" style="margin-top:8px"><div><b>Send to</b><small>Pick an app on your phone</small></div><span class="sp-btn">Share</span></div>
+              </div></div></div><div class="zz__row zz__row--flip"><div class="zz__text"><span class="zz__n">04</span><h3>Takes your wallpaper’s colour</h3><p>Light, dark or the phone’s setting, pure black, and any accent colour, your wallpaper’s included.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
+                <div class="sp__head"><span>Look</span></div>
+                <div class="sp-pills"><span class="sp-pill">Light</span><span class="sp-pill on">Dark</span><span class="sp-pill">Follow phone</span></div>
+                <div class="sp-swatches" aria-hidden="true"><i class="on" style="--c:#ff8a3d"></i><i style="--c:#5b8def"></i><i style="--c:#e05d8c"></i><i style="--c:#45b07c"></i><i style="--c:#e8c547"></i></div>
+                <div class="sp__row"><div><b>Pure black</b><small>For OLED screens</small></div><span class="sp-tog on ink"></span></div>
+                <div class="sp__row"><div><b>Wallpaper colour</b><small>Matches your home screen</small></div><span class="sp-tog"></span></div>
+              </div></div></div></div>
+    </div>
+  </section>
+
+  <section class="section ground-inverse tlsec" id="install" aria-labelledby="install-h">
+    <div class="wrap">
+      <div class="tl__head"><h2 id="install-h">Install it in 3 steps. <span class="muted">No Play Store, no account.</span></h2><a class="btn btn--primary" href="https://github.com/Alnyz/spotifry/releases/latest">Download the APK<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a></div>
+      <ol class="tl"><li class="tl__step"><span class="tl__dot">1</span><h3>Get the newest file</h3><p>On your phone, open GitHub Releases and download the newest Spotifry APK.</p><div class="tl__ui" aria-hidden="true"><div class="ui sp sp-dialog">
+                <div class="sp__head"><span>Releases</span><span class="sp-chip">Latest</span></div>
+                <div class="sp__row"><img src="img/logo.svg" alt="" width="36" height="36" loading="lazy" style="border-radius:9px"><div><b>spotifry-<span data-ver>0.9.1</span>.apk</b><small>Android 13 or newer</small></div></div>
+                <div class="sp__row"><div><b>Source code</b><small>GPL-3.0</small></div></div>
+              </div></div></li><li class="tl__step"><span class="tl__dot">2</span><h3>Allow the install once</h3><p>Open the file. Android asks whether your browser may install apps. Say yes once.</p><div class="tl__ui" aria-hidden="true"><div class="ui sp sp-dialog">
+                <div class="sp__head"><span>Install unknown apps</span></div>
+                <div class="sp__row"><div><b>Allow from this source</b><small>Your browser</small></div><span class="sp-tog on"></span></div>
+                <div class="sp__row"><div><b>Spotifry</b><small>Do you want to install this app?</small></div></div>
+              </div></div></li><li class="tl__step"><span class="tl__dot">3</span><h3>Let it update itself</h3><p>The app tells you when a new version is out and installs it. Your songs and playlists stay.</p><div class="tl__ui" aria-hidden="true"><div class="ui sp">
+                <div class="sp__row" style="padding-top:0"><img src="img/logo.svg" alt="" width="36" height="36" loading="lazy" style="border-radius:9px"><div><b>A new version is out</b><small>Your songs and playlists stay</small></div></div>
+                <div class="sp__row" style="justify-content:flex-end;gap:8px"><span class="sp-btn ghost">Later</span><span class="sp-btn">Update</span></div>
+              </div></div></li></ol>
+    </div>
+  </section>
+
+  <section class="section band-peach" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-6 stack-5">
+          <h2 id="faq-h">Questions and the fine print</h2>
+          <p class="t-lead faq__lede">Spotifry is a hobby project, made for personal use and for learning. Here is what it is and what it isn’t.</p>
+          <ul class="stands" aria-label="Open projects Spotifry stands on">
+            <li><img src="assets/icons/newpipe.svg" alt="" width="28" height="28"><span><b>NewPipe Extractor</b><small>reads YouTube</small></span></li>
+            <li><img src="assets/icons/android.svg" alt="" width="28" height="28"><span><b>Media3 / ExoPlayer</b><small>plays the songs</small></span></li>
+            <li><img src="img/sponsorblock.webp" alt="" width="28" height="28"><span><b>SponsorBlock</b><small>finds the talking</small></span></li>
+            <li><img src="assets/icons/github.svg" alt="" width="28" height="28"><span><b>BetterLyrics, LRCLIB</b><small>bring the lyrics</small></span></li>
+          </ul>
+          <a class="link" href="https://github.com/Alnyz/spotifry#disclaimer">Read the full disclaimer</a>
+        </div>
+        <div class="qas span-6 start-7">
+          <details class="qa" open><summary>Does Spotifry cost anything?<span class="qa__pm" aria-hidden="true"></span></summary><p>No. No ads, no paid features, no subscription, no account, and it collects no personal data.</p></details>
+          <details class="qa"><summary>Is it safe to install an APK from GitHub?<span class="qa__pm" aria-hidden="true"></span></summary><p>Every release is signed with the same key, and Android only installs an update when the key matches. The source code is public, so anyone can read what the app does.</p></details>
+          <details class="qa"><summary>Will it work on my phone?<span class="qa__pm" aria-hidden="true"></span></summary><p>Spotifry needs Android 13 or newer. It isn’t on the Play Store; you install the file from GitHub Releases once, and the app updates itself after that.</p></details>
+          <details class="qa"><summary>Does Spotifry host any music?<span class="qa__pm" aria-hidden="true"></span></summary><p>No. Songs stream from YouTube and belong to their owners. Saved songs stay on your phone.</p></details>
+          <details class="qa"><summary>Is Spotifry made by YouTube or Spotify?<span class="qa__pm" aria-hidden="true"></span></summary><p>No. It isn’t affiliated with or endorsed by YouTube, Google or Spotify.</p></details>
+          <details class="qa"><summary>What if YouTube search breaks?<span class="qa__pm" aria-hidden="true"></span></summary><p>YouTube changes its site now and then. Search stays broken until NewPipe Extractor is fixed and a new release comes out.</p></details>
+          <details class="qa"><summary>How do I support the artists behind the music?<span class="qa__pm" aria-hidden="true"></span></summary><p>Pay for YouTube Music Premium or Spotify Premium if you can, buy their music, go to their shows.</p></details>
+        </div>
+      </div>
+    </div>
+  </section>
+<section class="pin closer" id="closer" aria-labelledby="closer-h" data-pin="closer" style="--pin-h: 320vh">
+    <div class="pin__stage">
+      <div class="closer__glow" aria-hidden="true"></div>
+      <div class="wrap pin__wrap closer__wrap">
+        <h2 id="closer-h" class="closer__h"><span class="closer__l1">Every song, start to finish.</span><span class="closer__l2">No ads in between.</span></h2>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing ground-inverse foot-glow" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--word">
+      <div class="section-head--split">
+        <div><h2 id="close-h">Put Spotifry on your phone</h2><p class="t-lead">Free, version <span data-ver>0.9.1</span>, for Android 13 and newer.</p></div>
+        <a class="btn btn--primary" href="https://github.com/Alnyz/spotifry/releases/latest">Download the APK<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+      </div>
+      <p class="close__word" aria-hidden="true">Spotifry</p>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><img src="img/logo.svg" alt="" width="28" height="28" loading="lazy">Spotifry</a>
+          <p class="footer__lede">Music on Android, minus the ads.</p>
+        </div>
+        <div class="span-2 footer__col"><h4>Tour</h4><ul><li><a href="#tour">Screens</a></li><li><a href="#compare">Before and after</a></li></ul></div>
+        <div class="span-2 footer__col"><h4>Features</h4><ul><li><a href="#sound">Sound</a></li><li><a href="#offline">Offline</a></li><li><a href="#playlists">Playlists</a></li></ul></div>
+        <div class="span-2 footer__col"><h4>Install</h4><ul><li><a href="#install">Steps</a></li><li><a href="https://github.com/Alnyz/spotifry/releases">All releases</a></li></ul></div>
+        <div class="span-2 footer__col"><h4>Questions</h4><ul><li><a href="#faq">Fine print</a></li><li><a href="https://github.com/Alnyz/spotifry">Source code</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 Spotifry &nbsp; <a href="https://github.com/Alnyz/spotifry/blob/main/LICENSE">GPL-3.0 license</a></span>
+        <div class="socials"></div>
+        <span>Not affiliated with YouTube, Google or Spotify.</span>
+        <span class="credits">Concert photo by <a href="https://commons.wikimedia.org/wiki/File:A_large_crowd_enjoys_a_music_concert_illuminated_by_colorful_lights_and_a_stunning_stage_display.jpg">Shixart1985</a>, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>, cropped</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* scroll moments: one rAF loop writes progress to CSS; reduced motion leaves the resting states */
+(() => {
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const root = document.documentElement;
+  if (!still) root.classList.add('js-fill');
+  const prog = el => { const r = el.getBoundingClientRect(), h = r.height - innerHeight; return h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 0; };
+  const art = document.querySelector('.hero__art');
+  const drum = document.querySelector('[data-pin="drum"]');
+  const items = drum ? [...drum.querySelectorAll('.drum__list li')] : [];
+  const count = drum && drum.querySelector('.drum__count b'), label = drum && drum.querySelector('.drum__label');
+  const ba = document.querySelector('[data-pin="compare"]'), baGrid = ba && ba.querySelector('.ba');
+  const steps = ba ? [...ba.querySelectorAll('.ba__steps li')] : [], baN = ba && ba.querySelector('.ba__n'), after = ba && ba.querySelector('.ba__after');
+  const closer = document.querySelector('[data-pin="closer"]');
+  let last = -1;
+  function frame() {
+    if (art) art.style.setProperty('--hp', Math.min(1, scrollY / (innerHeight * .35)).toFixed(3));
+    if (drum && items.length) {
+      const p = prog(drum), pos = p * (items.length - 1), R = Math.min(260, innerHeight * .3), on = Math.round(pos);
+      items.forEach((li, i) => {
+        const d = i - pos, a = Math.max(-1.45, Math.min(1.45, d * .32));
+        li.style.transform = `translateY(calc(-50% + ${(Math.sin(a) * R).toFixed(1)}px)) rotateX(${(-a * 57.3).toFixed(1)}deg) scale(${(.55 + .45 * Math.cos(a)).toFixed(3)})`;
+        li.style.opacity = Math.abs(d) > 4.5 ? 0 : Math.pow(Math.cos(a), 3).toFixed(3);
+        li.classList.toggle('is-on', i === on);
+      });
+      if (on !== last) { last = on; count.textContent = on + 1; label.textContent = items[on].dataset.label; const sc = items[on].dataset.screen; drum.querySelectorAll('.drum__phone img').forEach(im => im.classList.toggle('on', im.dataset.screen === sc)); }
+    }
+    if (ba) {
+      const p = prog(ba), step = Math.min(3, Math.floor(p * 4));
+      baGrid.dataset.step = step + 1; baN.textContent = step + 1;
+      steps.forEach((li, i) => li.classList.toggle('is-on', i === step));
+      const w = Math.min(1, Math.max(0, (p - .72) / .22)), e = w * w * (3 - 2 * w); // smooth, continuous wipe over the last step
+      after.style.setProperty('--r', (e * 125).toFixed(2) + '%');
+    }
+    if (closer) closer.style.setProperty('--cp', prog(closer).toFixed(3));
+  }
+  if (!still) { let t = 0; const go = () => { t = 0; frame(); }; addEventListener('scroll', () => { if (!t) t = requestAnimationFrame(go); }, { passive: true }); addEventListener('resize', go); frame(); }
+  else { if (ba) { baGrid.dataset.step = 4; steps.forEach((li, i) => li.classList.toggle('is-on', i === 3)); if (baN) baN.textContent = 4; } items.forEach((li, i) => { li.style.position = 'static'; li.style.transform = 'none'; }); }
+  /* panels fill in when they reach the screen */
+  if (!still && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }), { threshold: .25 });
+    document.querySelectorAll('.sp').forEach(sp => { sp.querySelectorAll('.sp__row, .sp-viz > i').forEach((r, i) => r.style.setProperty('--i', i)); io.observe(sp); });
+  }
+})();
+</script>
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script>
+/* glass nav: tint from the section under it, hide on the way down, return on the way up */
+(() => {
+  const nav = document.querySelector('.nav'); if (!nav) return;
+  const dark = el => {
+    const sec = el && el.closest('section, footer'); if (!sec) return false;
+    if (sec.matches('.closer')) return parseFloat(getComputedStyle(sec).getPropertyValue('--cp')) > .47;
+    const m = getComputedStyle(sec.querySelector(':scope > .pin__stage') || sec).backgroundColor.match(/[\d.]+/g);
+    if (!m || (m[3] !== undefined && +m[3] < .3)) return sec.matches('.ground-inverse, .how, .hero--sun, .lyr');
+    return (.2126 * m[0] + .7152 * m[1] + .0722 * m[2]) < 110;
+  };
+  let lastY = scrollY, t = 0;
+  const run = () => {
+    t = 0;
+    const y = scrollY, bar = nav.querySelector('.nav__bar'), mid = 12 + bar.offsetHeight / 2; // fixed spot, even while the bar slides away
+    nav.classList.toggle('is-glass', y > 8);
+    nav.style.visibility = 'hidden'; // look under the bar, not at it
+    const under = document.elementFromPoint(innerWidth / 2, mid);
+    nav.style.visibility = '';
+    nav.classList.toggle('is-dark', dark(under));
+    if (Math.abs(y - lastY) > 6) { nav.classList.toggle('is-hidden', y > lastY && y > innerHeight * .5); lastY = y; }
+  };
+  addEventListener('scroll', () => { if (!t) t = requestAnimationFrame(run); }, { passive: true });
+  addEventListener('resize', run); run();
+  nav.addEventListener('focusin', () => nav.classList.remove('is-hidden'));
+})();
+/* hero lyric: words light up one by one, then start again */
+(() => {
+  const w = [...document.querySelectorAll('.hsun__lyric span')]; if (!w.length || matchMedia('(prefers-reduced-motion: reduce)').matches) { w.forEach(x => x.classList.add('on')); return; }
+  let i = 0; setInterval(() => { if (i === 0) w.forEach(x => x.classList.remove('on')); if (i < w.length) w[i].classList.add('on'); i = (i + 1) % (w.length + 3); }, 380);
+})();
+/* the before phone's ad counts down, then starts again */
+(() => {
+  const secs = document.querySelector('.scr2__secs'), el = document.querySelector('.scr2__el'), fill = document.querySelector('.scr2__fill'); if (!secs) return;
+  let t = 2; const tick = () => { t = t >= 30 ? 0 : t + 1; const left = 30 - t; secs.textContent = '0:' + String(left).padStart(2, '0'); el.textContent = '0:' + String(t).padStart(2, '0'); fill.style.width = (t / 30 * 100).toFixed(1) + '%'; };
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(tick, 1000);
+})();
+/* lyrics: one word per scroll step, the current line in focus */
+(() => {
+  const sec = document.querySelector('[data-pin="lyrics"]'); if (!sec || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const lines = [...sec.querySelectorAll('.lyr__line')], words = lines.flatMap((l, li) => [...l.children].map(w => [w, li]));
+  let t = 0;
+  const run = () => { t = 0;
+    const r = sec.getBoundingClientRect(), h = r.height - innerHeight, p = h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 0;
+    const n = Math.round(p * (words.length + 2)) - 1;
+    const cur = words[Math.max(0, Math.min(words.length - 1, n))][1];
+    words.forEach(([w], i) => w.classList.toggle('on', i <= n));
+    lines.forEach((l, i) => { l.classList.toggle('is-now', i === cur && n >= 0); l.classList.toggle('is-past', i < cur); });
+  };
+  addEventListener('scroll', () => { if (!t) t = requestAnimationFrame(run); }, { passive: true }); run();
+})();
+/* questions: one answer open at a time */
+document.querySelectorAll('details.qa').forEach(d => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('details.qa[open]').forEach(o => { if (o !== d) o.open = false; }); }));
+</script>
+<script>
+/* the newest version from GitHub, so the page never shows an old number */
+fetch('https://api.github.com/repos/Alnyz/spotifry/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
+  const v = j && String(j.tag_name || '').replace(/^v/, ''); if (!/^\d+(\.\d+)*$/.test(v || '')) return;
+  document.querySelectorAll('[data-ver]').forEach(e => { e.textContent = v; });
+}).catch(() => {});
+</script>
+<script>
+/* the plane: moved every frame along its path (smooth on any screen), only while the section is on screen */
+(() => {
+  const path = document.getElementById('offpath'), plane = document.querySelector('.off__plane'), sec = document.getElementById('offline');
+  if (!path || !plane) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { plane.style.display = 'none'; return; }
+  const len = path.getTotalLength(), DUR = 16000, N = 72, SEG = 2.5, tg = document.querySelector('.off__trailg'), NS = 'http://www.w3.org/2000/svg';
+  const segs = Array.from({ length: N }, (_, i) => { const ln = document.createElementNS(NS, 'line'); const f = 1 - i / N;
+    ln.setAttribute('stroke', '#ffe2cc'); ln.setAttribute('stroke-linecap', i ? 'butt' : 'round'); ln.setAttribute('stroke-width', (0.8 + 2.6 * f).toFixed(2)); ln.setAttribute('stroke-opacity', (Math.pow(f, 1.6) * .95).toFixed(3)); tg.appendChild(ln); return ln; }); let start = performance.now(), on = false, raf = 0;
+  const step = now => {
+    const d = ((now - start) % DUR) / DUR * len, a = path.getPointAtLength(d), b = path.getPointAtLength(Math.min(len, d + 1));
+    plane.setAttribute('transform', `translate(${a.x.toFixed(2)} ${a.y.toFixed(2)}) rotate(${(Math.atan2(b.y - a.y, b.x - a.x) * 57.2958).toFixed(2)})`);
+    let q = path.getPointAtLength(Math.max(0, d - 12));
+    segs.forEach((ln, i) => { const r = path.getPointAtLength(Math.max(0, d - 12 - (i + 1) * SEG)); ln.setAttribute('x1', q.x.toFixed(1)); ln.setAttribute('y1', q.y.toFixed(1)); ln.setAttribute('x2', r.x.toFixed(1)); ln.setAttribute('y2', r.y.toFixed(1)); q = r; });
+    raf = requestAnimationFrame(step);
+  };
+  new IntersectionObserver(([e]) => { if (e.isIntersecting && !on) { on = true; raf = requestAnimationFrame(step); } else if (!e.isIntersecting && on) { on = false; cancelAnimationFrame(raf); } }).observe(sec);
+})();
+</script>
+<script>
+(() => {
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const smooth = pts => { let d = `M${pts[0][0]} ${pts[0][1]}`; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i-1] || pts[i], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2] || p2;
+    d += ` C${p1[0]+(p2[0]-p0[0])/6} ${p1[1]+(p2[1]-p0[1])/6} ${p2[0]-(p3[0]-p1[0])/6} ${p2[1]-(p3[1]-p1[1])/6} ${p2[0]} ${p2[1]}`; } return d; };
+  const cr = (v, x) => { // catmull-rom through evenly spaced values, x in 0..1
+    const n = v.length - 1, f = Math.min(Math.max(x, 0), 1) * n, i = Math.min(Math.floor(f), n - 1), t = f - i;
+    const p0 = v[Math.max(i-1, 0)], p1 = v[i], p2 = v[i+1], p3 = v[Math.min(i+2, n)];
+    return .5 * (2*p1 + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t*t + (-p0+3*p1-3*p2+p3)*t*t*t); };
+  const jobs = [];
+
+  document.querySelectorAll('.eqx').forEach(box => {
+    const svg = box.querySelector('svg'), q = c => svg.querySelector(c);
+    const bands = [...box.parentElement.querySelectorAll('.eqx__bands > div')], labs = bands.map(b => b.querySelector('b'));
+    const g = q('.eqx__nodes'), nodes = [0,1,2,3,4].map(() => g.appendChild(el('circle', { r: 6 })));
+    const grid = svg.querySelector('.eqx__grid'), glines = [0,1,2,3,4].map(() => grid.appendChild(el('line', {})));
+    const ring = g.insertBefore(el('circle', { r: 12, class: 'ring' }), g.firstChild);
+    const gain = [4, 2, 0, 1, 3], bg = svg.querySelector('.eqx__bars'), bars = [...Array(32)].map(() => bg.appendChild(el('rect', { rx: 1.5 }))); let W = 0, H = 0, shown = [];
+    const size = () => { W = box.clientWidth; H = box.clientHeight; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); };
+    size(); addEventListener('resize', size);
+    const pad = 18, nx = i => pad + i * (W - 2*pad) / 4, gy = db => H * .42 - db * H * .045;
+    jobs.push(t => {
+      gain[1] = 2 + 1.4 * Math.sin(t * .55); gain[3] = 1 + 1.2 * Math.sin(t * .37 + 2);
+      const act = Math.cos(t * .55) ** 2 > Math.cos(t * .37 + 2) ** 2 * 1.6 ? 1 : 3;
+      const q1 = q('.eqx__zero'); q1.setAttribute('x1', 0); q1.setAttribute('x2', W); q1.setAttribute('y1', gy(0)); q1.setAttribute('y2', gy(0));
+      const curve = []; for (let k = 0; k <= 40; k++) { const x = k / 40; curve.push([pad + x * (W - 2*pad), gy(cr(gain, x))]); }
+      curve.unshift([0, curve[0][1]]); curve.push([W, curve[curve.length-1][1]]);
+      const cd = smooth(curve); q('.eqx__curve').setAttribute('d', cd); q('.eqx__cglow').setAttribute('d', cd);
+      glines.forEach((l, i) => { l.setAttribute('x1', nx(i)); l.setAttribute('x2', nx(i)); l.setAttribute('y1', 0); l.setAttribute('y2', H); });
+      nodes.forEach((c, i) => { c.setAttribute('cx', nx(i)); c.setAttribute('cy', gy(gain[i])); c.classList.toggle('on', i === act); });
+      ring.setAttribute('cx', nx(act)); ring.setAttribute('cy', gy(gain[act])); ring.setAttribute('r', 10 + 3 * Math.sin(t * 4));
+      labs.forEach((b, i) => { const v = Math.round(gain[i]); if (shown[i] !== v) { shown[i] = v; b.textContent = (v > 0 ? '+' : '') + v; } bands[i].classList.toggle('on', i === act); });
+      q('.eqx__s1').setAttribute('d', cd + ` L${W} ${H} L0 ${H} Z`);
+      const bw = W / bars.length;
+      bars.forEach((r, k) => { const x = (k + .5) / bars.length, xn = Math.min(Math.max((x * W - pad) / (W - 2*pad), 0), 1);
+        const lvl = (.55 - .25 * x) * (1 + cr(gain, xn) / 10) * (.7 + .18 * Math.sin(t*1.6 + k*.7) + .12 * Math.sin(t*2.7 - k*1.3));
+        const h = lvl * H * .7; r.setAttribute('x', k * bw + bw * .25); r.setAttribute('width', bw * .5); r.setAttribute('y', H - h); r.setAttribute('height', h); });
+    });
+  });
+
+  document.querySelectorAll('.xf').forEach(box => {
+    const svg = box.querySelector('svg'), g = svg.querySelector('.xf__bars'), head = svg.querySelector('.xf__head');
+    const card = box.parentElement, rng = card.querySelector('.xf__range'), val = card.querySelector('.xf__val');
+    const la = box.querySelector('.xf__a'), lb = box.querySelector('.xf__b');
+    const N = 56, seed = [...Array(N)].map((_, i) => .45 + .55 * Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1));
+    const bars = seed.map(() => g.appendChild(el('rect', {}))); let W = 0, H = 64, shownV;
+    const size = () => { W = box.clientWidth; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); }; size(); addEventListener('resize', size);
+    const ease = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+    jobs.push(t => {
+      const sec = 7 + 4.2 * Math.sin(t * .3), fw = sec / 12 * .4, c = .5;
+      const v = Math.round(sec); if (v !== shownV) { shownV = v; val.textContent = v + ' s'; }
+      rng.style.setProperty('--v', ((sec - 2) / 10 * 100).toFixed(1) + '%');
+      const env = x => x < c ? ease((c - x) / fw) : ease((x - c) / fw);
+      const ph = (t * .16) % 1.2 - .1;
+      const bw = W / N;
+      bars.forEach((r, i) => { const x = (i + .5) / N, h = Math.max(2, seed[i] * env(x) * (H - 4) * (.85 + .15 * Math.sin(t * 6 + i)));
+        r.setAttribute('x', i * bw + bw * .2); r.setAttribute('width', bw * .6); r.setAttribute('y', (H - h) / 2); r.setAttribute('height', h);
+        r.setAttribute('fill', x < c ? '#8d8781' : '#ff8a3d'); r.setAttribute('opacity', x < ph ? 1 : .45); });
+      const hx = Math.min(Math.max(ph, 0), 1) * W; head.setAttribute('x1', hx); head.setAttribute('x2', hx); head.setAttribute('y1', -4); head.setAttribute('y2', H + 4);
+      la.style.opacity = ph < c ? .5 + .5 * env(Math.max(ph, 0)) : .5; lb.style.opacity = ph > c ? .5 + .5 * env(Math.min(ph, 1)) : .5;
+    });
+  });
+
+  if (!jobs.length) return;
+  let vis = true; const sec = document.getElementById('sound');
+  if (sec && 'IntersectionObserver' in window) new IntersectionObserver(e => { vis = e[0].isIntersecting; }).observe(sec);
+  const t0 = performance.now(); const tick = now => { if (vis) jobs.forEach(j => j((now - t0) / 1000)); if (!still) requestAnimationFrame(tick); };
+  if (still) jobs.forEach(j => j(2)); else requestAnimationFrame(tick);
+})();
+</script>
+<script>
+/* smooth scroll: the wheel glides to a stop instead of stepping (mouse and trackpad only; touch stays native) */
+(() => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(pointer: coarse)').matches) return;
+  let target = scrollY, cur = scrollY, run = false;
+  const max = () => document.documentElement.scrollHeight - innerHeight;
+  const clamp = v => Math.max(0, Math.min(max(), v));
+  const step = () => {
+    cur += (target - cur) * .1;
+    if (Math.abs(target - cur) < .5) { cur = target; run = false; }
+    scrollTo({ top: cur, behavior: 'instant' });
+    if (run) requestAnimationFrame(step);
+  };
+  const go = y => { target = clamp(y); if (!run) { cur = scrollY; run = true; requestAnimationFrame(step); } };
+  let tok = 0, gliding = false; // a timed, eased glide for link clicks: starts slow, speeds up, settles
+  const glide = y => { const from = scrollY, to = clamp(y), dist = Math.abs(to - from); if (dist < 2) return;
+    const dur = Math.min(1800, 700 + dist * .08), t0 = performance.now(), me = ++tok; run = false; gliding = true;
+    const ease = x => x < .5 ? 8 * x ** 4 : 1 - (-2 * x + 2) ** 4 / 2;
+    const f = now => { if (me !== tok) return; const k = Math.min(1, (now - t0) / dur); const v = from + (to - from) * ease(k);
+      scrollTo({ top: v, behavior: 'instant' }); target = cur = v; if (k < 1) requestAnimationFrame(f); else gliding = false; };
+    requestAnimationFrame(f); };
+  addEventListener('wheel', e => {
+    if (e.ctrlKey || e.defaultPrevented) return;
+    for (let n = e.target; n && n !== document.body; n = n.parentElement) { // let inner scroll boxes scroll themselves
+      const o = getComputedStyle(n).overflowY; if ((o === 'auto' || o === 'scroll') && n.scrollHeight > n.clientHeight) return; }
+    e.preventDefault(); tok++; gliding = false;
+    const d = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
+    go((run ? target : scrollY) + d);
+  }, { passive: false });
+  addEventListener('scroll', () => { if (!run && !gliding) target = cur = scrollY; }, { passive: true }); // keys, scrollbar, find
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#"]'); if (!a || e.defaultPrevented) return;
+    const id = a.getAttribute('href').slice(1), el = id ? document.getElementById(id) : document.documentElement; if (!el) return;
+    e.preventDefault(); history.pushState(null, '', '#' + id); glide(el.getBoundingClientRect().top + scrollY);
+  });
+})();
+</script>
+</body>
+</html>
