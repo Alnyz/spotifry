@@ -76,6 +76,8 @@ class PlaybackService : MediaSessionService() {
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             .setHandleAudioBecomingNoisy(true)
+            // start after 0.75 s of music instead of 2.5 s, and after 2 s (not 5) when it ran dry mid-song
+            .setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(50_000, 50_000, 750, 2_000).build())
             .build()
         player.preloadConfiguration = ExoPlayer.PreloadConfiguration(10_000_000L)
         c.sleepTimer.attach(player)
