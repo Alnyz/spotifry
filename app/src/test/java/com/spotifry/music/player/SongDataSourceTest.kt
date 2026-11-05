@@ -87,4 +87,10 @@ class SongDataSourceTest {
         source.failResolve = true
         assertThrows(IOException::class.java) { resolver.resolveDataSpec(spec()) }
     }
+
+    @Test fun aSongWithNoAudioIsNotRetried() {
+        source.noAudio = true
+        // FileNotFoundException is what the player treats as final: it skips instead of retrying
+        assertThrows(java.io.FileNotFoundException::class.java) { resolver.resolveDataSpec(spec()) }
+    }
 }

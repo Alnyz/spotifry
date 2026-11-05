@@ -47,6 +47,8 @@ class SongDataSourceResolver(
                 try {
                     val s = saved?.toSong() ?: Song(id, "", "", 0, null)
                     dataSpec.withUri(Uri.parse(resolver.get(s, lowQuality()).url))
+                } catch (e: com.spotifry.music.data.source.NoAudioException) {
+                    throw e // not worth retrying: the player skips to the next song
                 } catch (e: Exception) {
                     throw IOException("could not resolve $id", e)
                 }
