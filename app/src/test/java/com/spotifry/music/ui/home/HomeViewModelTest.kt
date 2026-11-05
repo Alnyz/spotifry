@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.spotifry.music.data.FakeMusicSource
+import com.spotifry.music.data.source.PageLink
+import com.spotifry.music.data.source.SearchType
 import com.spotifry.music.data.db.AppDatabase
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.data.testSong
@@ -66,7 +68,7 @@ class HomeViewModelTest {
         vm.onQueryChanged("yellow")
         advanceTimeBy(1_000); advanceUntilIdle()
         assertTrue(seen.contains(SearchState.Loading))
-        assertEquals(SearchState.Results(listOf(testSong)), vm.search.value)
+        assertEquals(SearchState.Results(listOf(testSong), query = "yellow"), vm.search.value)
     }
 
     @Test fun failureShowsErrorAndRetryRecovers() = runTest {
@@ -79,7 +81,24 @@ class HomeViewModelTest {
         source.failSearch = false
         vm.retry()
         advanceUntilIdle()
-        assertEquals(SearchState.Results(listOf(testSong)), vm.search.value)
+        assertEquals(SearchState.Results(listOf(testSong), query = "yellow"), vm.search.value)
+    }
+
+    @Test fun pickedTypeSearchesThatTypeAndStaysForTheNextSearch() = runTest {
+        val album = PageLink(SearchType.ALBUMS, "https://music.youtube.com/playlist?list=OLAK", "Kid A", "Radiohead", null)
+        source.pagesResult = listOf(album)
+        val vm = vm()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.search.collect { } }
+        vm.type.value = SearchType.ALBUMS
+        vm.onQueryChanged("kid a")
+        advanceTimeBy(1_000); advanceUntilIdle()
+        assertEquals(SearchState.Results(emptyList(), listOf(album), SearchType.ALBUMS, "kid a"), vm.search.value)
+        assertEquals(0, source.searchCalls)
+        vm.onQueryChanged("ok computer")
+        advanceTimeBy(1_000); advanceUntilIdle()
+        assertEquals(SearchType.ALBUMS, (vm.search.value as SearchState.Results).type)
+        vm.submit()
+        assertEquals(listOf("ok computer"), vm.recentSearches.list.value)
     }
 
     @Test fun queryDebounced() = runTest {
