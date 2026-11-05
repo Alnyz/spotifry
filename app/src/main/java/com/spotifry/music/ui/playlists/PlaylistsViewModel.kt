@@ -3,6 +3,7 @@ package com.spotifry.music.ui.playlists
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.db.PlaylistDao
+import com.spotifry.music.data.db.PlaylistSongEntity
 import com.spotifry.music.data.db.PlaylistWithCounts
 import com.spotifry.music.data.db.SongDao
 import com.spotifry.music.data.db.SongEntity
@@ -75,6 +76,13 @@ class PlaylistsViewModel(
     fun delete(id: Long) { viewModelScope.launch { dao.delete(id) } }
     fun addSong(playlistId: Long, song: Song) { viewModelScope.launch { addSongNow(playlistId, song) } }
     fun removeSong(playlistId: Long, songId: String) { viewModelScope.launch { dao.removeSong(playlistId, songId) } }
+    /** Ids of the playlists that already hold [songId], for the ticks in "Add to playlist". */
+    fun playlistsWith(songId: String): Flow<Set<Long>> = dao.observePlaylistIdsWith(songId).map { it.toSet() }
+    /** Takes the song out and returns its row (position included), for Undo; null if it wasn't there. */
+    suspend fun takeOut(playlistId: Long, songId: String): PlaylistSongEntity? =
+        dao.row(playlistId, songId)?.also { dao.removeSong(playlistId, songId) }
+    /** Undo for [takeOut]: the song goes back at the same spot. */
+    suspend fun putBack(row: PlaylistSongEntity) = dao.putBack(row)
     fun play(list: List<Song>, index: Int, from: String? = null) = player.playList(list, index, from)
     fun shuffle(list: List<Song>, from: String) = player.shuffleList(list, from)
 

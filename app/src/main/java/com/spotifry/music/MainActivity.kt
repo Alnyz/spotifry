@@ -405,7 +405,17 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             SongMenuSheet(target.song, actions, player.trim?.takeIf { target.fromPlayer }?.note(player.wholeMs)?.let { if (c.trims[target.song.id] == null) "smart trim · $it" else it }) { menu = null }
         }
         addTo?.let { song ->
-            AddToPlaylistSheet(playlists, { plVm.addSong(it, song) }, { newFor = song }) { addTo = null }
+            val holding by remember(song.id) { plVm.playlistsWith(song.id) }.collectAsStateWithLifecycle(emptySet())
+            AddToPlaylistSheet(song.title, playlists, holding, { p, has ->
+                snackbar.currentSnackbarData?.dismiss()
+                if (!has) {
+                    plVm.addSong(p.id, song)
+                    scope.launch { snackbar.showSnackbar("Added to \"${p.name}\"", duration = androidx.compose.material3.SnackbarDuration.Short) }
+                } else scope.launch {
+                    val row = plVm.takeOut(p.id, song.id) ?: return@launch
+                    if (snackbar.showSnackbar("Removed from \"${p.name}\"", "Undo", duration = androidx.compose.material3.SnackbarDuration.Short) == androidx.compose.material3.SnackbarResult.ActionPerformed) plVm.putBack(row)
+                }
+            }, { newFor = song }) { addTo = null }
         }
         newFor?.let { song -> NameDialog("New playlist", "Create", "", { newFor = null }) { plVm.create(it, thenAdd = song); newFor = null } }
         if (showSleep) SleepTimerSheet(

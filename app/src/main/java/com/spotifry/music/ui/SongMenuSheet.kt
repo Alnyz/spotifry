@@ -79,13 +79,14 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 data class MenuAction(val label: String, val icon: ImageVector? = null, val lineAbove: Boolean = false, val onClick: () -> Unit)
 
 @Composable
-private fun ActionRow(label: String, icon: ImageVector? = null, color: Color = Color.Unspecified, onClick: () -> Unit) {
+private fun ActionRow(label: String, icon: ImageVector? = null, color: Color = Color.Unspecified, tick: Boolean = false, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 12.dp),
         Arrangement.spacedBy(16.dp), Alignment.CenterVertically,
     ) {
         if (icon != null) Icon(icon, null, Modifier.size(24.dp), tint = color.takeOrElse { LocalContentColor.current }) else Spacer(Modifier.size(24.dp))
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = color, fontWeight = if (color.isSpecified) FontWeight.SemiBold else null)
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = color, fontWeight = if (color.isSpecified) FontWeight.SemiBold else null)
+        if (tick) Icon(Icons.Check, "Already in this playlist", Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -118,11 +119,23 @@ fun SongMenuSheet(song: Song, actions: List<MenuAction>, trimNote: String? = nul
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddToPlaylistSheet(playlists: List<PlaylistWithCounts>, onPick: (Long) -> Unit, onNew: () -> Unit, onDismiss: () -> Unit) {
+fun AddToPlaylistSheet(
+    songTitle: String, playlists: List<PlaylistWithCounts>, holding: Set<Long>,
+    onPick: (PlaylistWithCounts, Boolean) -> Unit, onNew: () -> Unit, onDismiss: () -> Unit,
+) {
     ModalBottomSheet(onDismiss, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
         Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             Text("Add to playlist", Modifier.padding(horizontal = 24.dp, vertical = 8.dp), style = MaterialTheme.typography.headlineSmall)
-            playlists.forEach { p -> ActionRow(p.name, Icons.List) { onPick(p.id); onDismiss() } }
+            val inCount = playlists.count { it.id in holding }
+            Text(
+                if (inCount == 0) songTitle else "$songTitle · already in $inCount",
+                Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            playlists.forEach { p ->
+                val has = p.id in holding
+                ActionRow(p.name, Icons.List, tick = has) { onPick(p, has); onDismiss() }
+            }
             ActionRow("New playlist", Icons.Plus) { onNew(); onDismiss() }
         }
     }
