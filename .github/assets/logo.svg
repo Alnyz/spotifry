@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="160" height="160">
-  <!-- Spotifry app icon: a pan with sound-wave steam and a play button cut out of it (same drawing as the Android icon) -->
+  <!-- Spotifry app icon: a pan seen from above with a play button cut into it (same drawing as the Android icon) -->
   <rect x="18" y="18" width="72" height="72" rx="16" fill="#2B1408"/>
-  <path fill="#F2F3F5" d="M30.0,35.0 A3.5,3.5 0 0 1 33.5,38.5 V43.5 A3.5,3.5 0 0 1 26.5,43.5 V38.5 A3.5,3.5 0 0 1 30.0,35.0 Z M41.5,30.0 A3.5,3.5 0 0 1 45,33.5 V48.5 A3.5,3.5 0 0 1 38,48.5 V33.5 A3.5,3.5 0 0 1 41.5,30.0 Z M53.0,27.0 A3.5,3.5 0 0 1 56.5,30.5 V51.5 A3.5,3.5 0 0 1 49.5,51.5 V30.5 A3.5,3.5 0 0 1 53.0,27.0 Z M64.5,33.0 A3.5,3.5 0 0 1 68,36.5 V45.5 A3.5,3.5 0 0 1 61,45.5 V36.5 A3.5,3.5 0 0 1 64.5,33.0 Z"/>
-  <path fill="#FF8A3D" fill-rule="evenodd" d="M24,61 L69,61 L64.5,75 Q63,79 59,79 L34,79 Q30,79 28.5,75 Z M43,65 L53.5,70 L43,75 Z"/>
-  <path stroke="#FF8A3D" stroke-width="7" stroke-linecap="round" fill="none" d="M68,66 L84,60"/>
+  <g fill="#FF8A3D" transform="translate(54.43 54) scale(.86) translate(-54 -54)">
+    <path fill-rule="evenodd" d="M42,54 A22,22 0 1 1 86,54 A22,22 0 1 1 42,54 Z M58.52,46.70 Q58.52,44.50 60.42,45.60 L73.06,52.90 Q74.97,54.00 73.06,55.10 L60.42,62.40 Q58.52,63.50 58.52,61.30 Z"/>
+    <path d="M25.5,49.5 H40.5 A4.5,4.5 0 0 1 45,54.0 V54.0 A4.5,4.5 0 0 1 40.5,58.5 H25.5 A4.5,4.5 0 0 1 21,54.0 V54.0 A4.5,4.5 0 0 1 25.5,49.5 Z"/>
+  </g>
 </svg>
