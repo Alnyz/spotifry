@@ -51,6 +51,23 @@ abstract class PlaylistDao {
     @Query("DELETE FROM playlist_songs WHERE playlistId = :playlistId AND songId = :songId")
     abstract suspend fun removeSong(playlistId: Long, songId: String)
 
+    @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId AND songId = :songId")
+    abstract suspend fun row(playlistId: Long, songId: String): PlaylistSongEntity?
+    @Query("UPDATE playlist_songs SET position = position + 1 WHERE playlistId = :playlistId AND position >= :position")
+    protected abstract suspend fun makeRoomAt(playlistId: Long, position: Int)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertRow(row: PlaylistSongEntity)
+    /** Puts a removed [row] back at its old position, moving the songs from there down one. */
+    @Transaction
+    open suspend fun putBack(row: PlaylistSongEntity) {
+        if (row(row.playlistId, row.songId) != null) return
+        makeRoomAt(row.playlistId, row.position)
+        insertRow(row)
+    }
+
+    /** Ids of the playlists that hold [songId]. */
+    @Query("SELECT playlistId FROM playlist_songs WHERE songId = :songId")
+    abstract fun observePlaylistIdsWith(songId: String): Flow<List<Long>>
+
     @Query(
         "SELECT p.id AS id, p.name AS name, " +
             "(SELECT COUNT(*) FROM playlist_songs ps WHERE ps.playlistId = p.id) AS songCount, " +

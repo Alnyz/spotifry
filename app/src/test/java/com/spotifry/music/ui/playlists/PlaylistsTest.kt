@@ -87,6 +87,37 @@ class PlaylistsTest {
         assertEquals(testSong.id, db.songs().get(testSong.id)?.id)
     }
 
+    @Test fun ticksShowThePlaylistsThatHoldTheSong() = runBlocking<Unit> {
+        vm.create("Chill"); vm.create("Gym"); vm.create("Road trip")
+        val (chill, _, road) = vm.playlists.await { it.size == 3 }.map { it.id }
+        vm.addSong(chill, testSong); vm.addSong(road, testSong)
+        assertEquals(setOf(chill, road), vm.playlistsWith(testSong.id).first { it.size == 2 })
+    }
+
+    @Test fun undoPutsTheSongBackInTheSameSpot() = runBlocking<Unit> {
+        vm.create("Mix")
+        val id = vm.playlists.await { it.isNotEmpty() }.single().id
+        (1..4).forEach { vm.addSong(id, testSong.copy(id = "s$it")) }
+        vm.playlists.await { it.single().songCount == 4 }
+        val row = vm.takeOut(id, "s2")!!
+        vm.addSong(id, testSong.copy(id = "s5"))
+        vm.playlists.await { it.single().songCount == 4 }
+        vm.putBack(row)
+        assertEquals(listOf("s1", "s2", "s3", "s4", "s5"), vm.songsOf(id).first().map { it.id })
+        assertEquals(row, db.playlists().row(id, "s2"))
+    }
+
+    @Test fun undoAfterAReorderStillGoesInAtThatPosition() = runBlocking<Unit> {
+        vm.create("Mix")
+        val id = vm.playlists.await { it.isNotEmpty() }.single().id
+        (1..3).forEach { vm.addSong(id, testSong.copy(id = "s$it")) }
+        vm.playlists.await { it.single().songCount == 3 }
+        val row = vm.takeOut(id, "s1")!!
+        db.playlists().setOrder(id, listOf("s3", "s2")) // positions 0 and 1: s1's old spot is taken
+        vm.putBack(row)
+        assertEquals(listOf("s1", "s3", "s2"), vm.songsOf(id).first().map { it.id })
+    }
+
     @Test fun savingAnAlbumTwiceNamesTheCopyWithANumber() = runBlocking<Unit> {
         val songs = listOf(testSong.copy(id = "s1"), testSong.copy(id = "s2"))
         suspend fun save(): String {
