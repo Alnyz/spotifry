@@ -92,6 +92,8 @@ class SavedTest {
         // the file is still downloading (about 600 ms), but the list already shows it
         assertEquals(listOf("abc"), vm.saved.await { it.isNotEmpty() }.map { it.id })
         assertEquals(true, downloads.state("abc").value is com.spotifry.music.data.DownloadState.Downloading)
+        // let the download finish and write to the database before tearDown closes it
+        vm.saved.await { l -> l.firstOrNull()?.filePath != null }
         server.shutdown()
     }
 }
