@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -282,7 +283,11 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             ) { pad ->
                 TopGlow()
                 Box(Modifier.padding(pad).fillMaxSize()) {
-                    CompositionLocalProvider(com.spotifry.music.ui.components.LocalNowPlaying provides com.spotifry.music.ui.components.NowPlayingMark(player.current?.id, player.isPlaying) { showPlayer = true }) {
+                    val inLists by remember { c.db.playlists().observeSongIdsInPlaylists().map { it.toSet() } }.collectAsStateWithLifecycle(emptySet())
+                    CompositionLocalProvider(
+                        com.spotifry.music.ui.components.LocalNowPlaying provides com.spotifry.music.ui.components.NowPlayingMark(player.current?.id, player.isPlaying) { showPlayer = true },
+                        com.spotifry.music.ui.components.LocalInPlaylist provides inLists,
+                    ) {
                     NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().fadeTop().hazeSource(haze)) {
                         composable(Routes.LISTEN) {
                             HomeScreen(home, openMenu, inset, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, top = {
@@ -315,7 +320,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                             PlaylistsScreen(plVm, importVm, { nav.navigate(Routes.playlist(it)) }, { q -> home.onQueryChanged(q); goTo(Routes.SEARCH) }, inset, onShared = { incoming = it })
                         }
                         composable(Routes.PLAYLIST, listOf(navArgument("id") { type = NavType.LongType })) { e ->
-                            PlaylistDetailScreen(plVm, e.arguments!!.getLong("id"), { nav.popBackStack() }, { s, pid -> menu = MenuTarget(s, pid) }, inset, onShare = { name, songs -> sharePlaylist = ShareTarget.of(name, songs) })
+                            CompositionLocalProvider(com.spotifry.music.ui.components.LocalInPlaylist provides emptySet()) { PlaylistDetailScreen(plVm, e.arguments!!.getLong("id"), { nav.popBackStack() }, { s, pid -> menu = MenuTarget(s, pid) }, inset, onShare = { name, songs -> sharePlaylist = ShareTarget.of(name, songs) }) }
                         }
                     }
                     }
