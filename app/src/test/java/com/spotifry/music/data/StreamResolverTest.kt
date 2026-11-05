@@ -1,6 +1,8 @@
 package com.spotifry.music.data
 
 import com.spotifry.music.data.source.MusicSource
+import com.spotifry.music.data.source.PageLink
+import com.spotifry.music.data.source.SearchType
 import com.spotifry.music.data.source.ResolvedStream
 import com.spotifry.music.data.source.Song
 import kotlinx.coroutines.test.runTest
@@ -23,6 +25,8 @@ class FakeMusicSource : MusicSource {
         return ResolvedStream(streamUrl ?: "https://x/$resolveCalls", "audio/mp4", 128, expiresAtMs)
     }
     override suspend fun related(song: Song): List<Song> = emptyList()
+    var pagesResult: List<PageLink> = emptyList()
+    override suspend fun searchPages(query: String, type: SearchType): List<PageLink> = pagesResult
 }
 
 val testSong = Song("abc", "Title", "Artist", 200, null)

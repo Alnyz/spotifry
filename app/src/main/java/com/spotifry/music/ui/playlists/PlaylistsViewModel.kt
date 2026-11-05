@@ -59,12 +59,16 @@ class PlaylistsViewModel(
             if (thenAdd != null) addSongNow(id, thenAdd)
         }
     }
-    /** A new playlist holding [list] (a song list someone shared), named [name] or "name (2)" if that is taken. */
-    fun createWith(name: String, list: List<Song>, onDone: (Long) -> Unit) {
+    /**
+     * A new playlist holding [list] (a song list someone shared, an album), named [name] or "name (2)" if that is
+     * taken. [onDone] gets its id and the name it got.
+     */
+    fun createWith(name: String, list: List<Song>, onDone: (Long, String) -> Unit) {
         viewModelScope.launch {
-            val id = dao.create(com.spotifry.music.data.ShareText.freeName(name.trim(), playlists.value.map { it.name }))
+            val free = com.spotifry.music.data.ShareText.freeName(name.trim(), playlists.value.map { it.name })
+            val id = dao.create(free)
             list.forEach { addSongNow(id, it) }
-            onDone(id)
+            onDone(id, free)
         }
     }
     fun rename(id: Long, name: String) { if (name.isNotBlank()) viewModelScope.launch { dao.rename(id, name.trim()) } }

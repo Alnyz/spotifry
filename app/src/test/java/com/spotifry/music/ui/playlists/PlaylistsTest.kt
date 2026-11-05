@@ -86,4 +86,17 @@ class PlaylistsTest {
         vm.playlists.await { it.isEmpty() }
         assertEquals(testSong.id, db.songs().get(testSong.id)?.id)
     }
+
+    @Test fun savingAnAlbumTwiceNamesTheCopyWithANumber() = runBlocking<Unit> {
+        val songs = listOf(testSong.copy(id = "s1"), testSong.copy(id = "s2"))
+        suspend fun save(): String {
+            val got = kotlinx.coroutines.CompletableDeferred<String>()
+            vm.createWith("Low Season", songs) { _, name -> got.complete(name) }
+            return withContext(Dispatchers.Default) { withTimeout(5_000) { got.await() } }
+        }
+        assertEquals("Low Season", save())
+        vm.playlists.await { it.size == 1 }
+        assertEquals("Low Season (2)", save())
+        assertEquals(listOf(2, 2), vm.playlists.await { p -> p.size == 2 && p.all { it.songCount == 2 } }.map { it.songCount })
+    }
 }

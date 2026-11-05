@@ -50,7 +50,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import android.net.Uri
+import com.spotifry.music.data.source.PageLink
+import com.spotifry.music.data.source.SearchType
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.ui.home.PageActions
+import com.spotifry.music.ui.home.PageScreen
+import com.spotifry.music.ui.home.PageViewModel
 import com.spotifry.music.ui.AddToPlaylistSheet
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.MenuAction
@@ -102,6 +108,8 @@ object Routes {
     const val PLAYLISTS = "playlists"
     const val PLAYLIST = "playlist/{id}"
     fun playlist(id: Long) = "playlist/$id"
+    const val PAGE = "page?type={type}&url={url}&name={name}&by={by}&art={art}"
+    fun page(l: PageLink) = "page?type=${l.type.name}&url=${Uri.encode(l.url)}&name=${Uri.encode(l.name)}&by=${Uri.encode(l.by)}&art=${Uri.encode(l.thumbnailUrl.orEmpty())}"
 }
 
 private data class Dest(val route: String, val label: String, val icon: ImageVector)
@@ -223,6 +231,24 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     val inset = if (player.current != null) 80.dp else 0.dp
     val suggestionMenu: (Int) -> Unit = { i -> player.queue.getOrNull(i)?.let { menu = MenuTarget(it, queueIndex = i) } }
     val openMenu: (Song) -> Unit = { menu = MenuTarget(it) }
+    val context = LocalContext.current
+    val pageActions = remember {
+        PageActions(
+            open = { nav.navigate(Routes.page(it)) },
+            save = { link, songs ->
+                scope.launch {
+                    val list = songs ?: runCatching { c.source.page(link).songs }.getOrDefault(emptyList())
+                    if (list.isEmpty()) { snackbar.showSnackbar("Couldn't load ${link.name}. Check your connection, then try again."); return@launch }
+                    plVm.createWith(link.name, list) { id, name ->
+                        scope.launch {
+                            if (snackbar.showSnackbar("Saved as playlist \"$name\"", "Open", duration = androidx.compose.material3.SnackbarDuration.Short) == androidx.compose.material3.SnackbarResult.ActionPerformed) nav.navigate(Routes.playlist(id))
+                        }
+                    }
+                }
+            },
+            share = { com.spotifry.music.ui.share.sendText(context, "${it.name}\n${it.url}") },
+        )
+    }
     val goTo: (String) -> Unit = { r ->
         nav.navigate(r) {
             popUpTo(Routes.LISTEN) { saveState = true }
@@ -240,7 +266,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                         dests.forEach { d ->
                             NavigationBarItem(
-                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER)),
+                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.SEARCH && route == Routes.PAGE) || (d.route == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER)),
                                 onClick = { goTo(d.route) },
                                 icon = { Icon(d.icon, contentDescription = null) },
                                 label = { Text(d.label) },
@@ -274,7 +300,14 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         }
                         composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.eqInfo, c.spectrum, player.isPlaying, { nav.popBackStack() }, inset) }
-                        composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset) }
+                        composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset, pageActions) }
+                        composable(Routes.PAGE, listOf("type", "url", "name", "by", "art").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } }) { e ->
+                            val a = e.arguments!!
+                            val link = PageLink(SearchType.valueOf(a.getString("type")!!), a.getString("url")!!, a.getString("name")!!, a.getString("by")!!, a.getString("art")!!.ifEmpty { null })
+                            val vm: PageViewModel = viewModel(factory = viewModelFactory { initializer { PageViewModel(c.source, link) } })
+                            val savedIds by home.savedIds.collectAsStateWithLifecycle()
+                            PageScreen(vm, savedIds, { nav.popBackStack() }, plVm::play, plVm::shuffle, openMenu, pageActions, inset)
+                        }
                         composable(Routes.SAVED) {
                             SavedScreen(savedVm, { goTo(Routes.SEARCH) }, openMenu, inset)
                         }
@@ -316,7 +349,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             incoming?.let { got ->
                 ImportSharedPage(
                     got, onPlay = { songs, i, name -> c.player.playList(songs, i, name); incoming = null },
-                    onAdd = { name -> plVm.createWith(name, got.songs) { id -> incoming = null; showPlayer = false; nav.navigate(Routes.playlist(id)) } },
+                    onAdd = { name -> plVm.createWith(name, got.songs) { id, _ -> incoming = null; showPlayer = false; nav.navigate(Routes.playlist(id)) } },
                 ) { incoming = null }
             }
             // lyric times count from the whole song's start, the player from the trim's

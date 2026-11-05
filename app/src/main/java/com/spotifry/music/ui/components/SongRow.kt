@@ -52,6 +52,8 @@ fun SongRow(
     titleColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
     /** Words being searched for: lightly marked in the name and artist. */
     highlight: String? = null,
+    /** Shown in place of the cover: a track number, a wide video picture. */
+    leading: (@Composable () -> Unit)? = null,
 ) {
     val mark = MaterialTheme.colorScheme.primary.copy(alpha = .22f)
     val now = LocalNowPlaying.current
@@ -61,7 +63,7 @@ fun SongRow(
             Modifier.fillMaxWidth().defaultMinSize(minHeight = 70.dp).padding(vertical = 9.dp),
             Arrangement.spacedBy(14.dp), Alignment.CenterVertically,
         ) {
-            Cover(song.id, song.thumbnailUrl, localCover ?: song.localThumbPath, 52.dp, radius = 10.dp)
+            if (leading != null) leading() else Cover(song.id, song.thumbnailUrl, localCover ?: song.localThumbPath, 52.dp, radius = 10.dp)
             Column(Modifier.weight(1f)) {
                 Text(marked(song.title, highlight, mark), color = if (current && titleColor == androidx.compose.ui.graphics.Color.Unspecified) MaterialTheme.colorScheme.primary else titleColor, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -83,10 +85,10 @@ fun SongRow(
 }
 
 @Composable
-fun LoadingRow(modifier: Modifier = Modifier) {
+fun LoadingRow(modifier: Modifier = Modifier, width: androidx.compose.ui.unit.Dp = 52.dp, round: Boolean = false) {
     val bar = MaterialTheme.colorScheme.surfaceContainerHigh
     Row(modifier.fillMaxWidth().defaultMinSize(minHeight = 70.dp).padding(vertical = 9.dp).testTag("loading_row"), Arrangement.spacedBy(14.dp), Alignment.CenterVertically) {
-        Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(bar))
+        Box(Modifier.size(width, 52.dp).clip(if (round) androidx.compose.foundation.shape.CircleShape else RoundedCornerShape(10.dp)).background(bar))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.size(150.dp, 14.dp).clip(RoundedCornerShape(3.dp)).background(bar))
             Box(Modifier.size(90.dp, 11.dp).clip(RoundedCornerShape(3.dp)).background(bar))

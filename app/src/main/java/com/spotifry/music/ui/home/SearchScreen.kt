@@ -36,7 +36,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.spotifry.music.data.source.PageLink
+import com.spotifry.music.data.source.SearchType
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.player.clockText
+import com.spotifry.music.ui.components.Cover
+import com.spotifry.music.ui.components.CoverArt
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.ErrorRow
 import com.spotifry.music.ui.components.LoadingRow
@@ -44,17 +59,18 @@ import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.ui.components.SongRow
 
 @Composable
-fun SearchScreen(vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier) {
+fun SearchScreen(vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp, actions: PageActions, modifier: Modifier = Modifier) {
     val search by vm.search.collectAsStateWithLifecycle()
     val text by vm.queryText.collectAsStateWithLifecycle()
     val saved by vm.savedIds.collectAsStateWithLifecycle()
     val history by vm.recentSearches.list.collectAsStateWithLifecycle()
     val local by vm.localResults.collectAsStateWithLifecycle()
+    val type by vm.type.collectAsStateWithLifecycle()
     SearchContent(
         text, vm::onQueryChanged, search, saved, history, local = local,
         onPlay = vm::playFromSearch, onRetry = vm::retry, onSubmit = vm::submit, onMore = onMore,
         onRemove = vm.recentSearches::remove, onClearHistory = vm.recentSearches::clear,
-        modifier = modifier, bottomInset = bottomInset,
+        modifier = modifier, bottomInset = bottomInset, type = type, onType = { vm.type.value = it }, actions = actions,
     )
 }
 
@@ -65,22 +81,25 @@ fun SearchContent(
     onRemove: (String) -> Unit = {}, onClearHistory: () -> Unit = {}, modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     /** Music files on the phone that match, listed first. */
     local: List<Song> = emptyList(),
+    type: SearchType = SearchType.SONGS, onType: (SearchType) -> Unit = {}, actions: PageActions = PageActions(),
 ) {
     val scheme = MaterialTheme.colorScheme
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 20.dp)) {
         item {
             ScreenHeader("Search")
             SearchField(text, onText, onSubmit, Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp))
+            if (search !is SearchState.Idle) TypeRow(type, onType)
         }
         when {
             search !is SearchState.Idle -> item {
                 Column(Modifier.padding(start = 20.dp, end = 8.dp)) {
-                    if (local.isNotEmpty()) {
+                    // phone files are songs: only under Songs
+                    if (local.isNotEmpty() && type == SearchType.SONGS) {
                         GroupLabel("On this phone")
                         local.forEachIndexed { i, s -> SongRow(s, false, { onPlay(local, i) }, { onMore(s) }) }
                         GroupLabel("Songs", Modifier.padding(top = 12.dp))
                     }
-                    SearchResults(search, savedIds, onPlay, onRetry, onMore)
+                    SearchResults(search, savedIds, onPlay, onRetry, onMore, type = type, actions = actions)
                 }
             }
             history.isEmpty() -> item {
@@ -113,16 +132,71 @@ private fun GroupLabel(text: String, modifier: Modifier = Modifier) =
     Text(text.uppercase(), modifier.padding(top = 8.dp, bottom = 2.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
 @Composable
-fun SearchResults(search: SearchState, savedIds: Set<String>, onPlay: (List<Song>, Int) -> Unit, onRetry: () -> Unit, onMore: (Song) -> Unit, modifier: Modifier = Modifier) {
+fun SearchResults(
+    search: SearchState, savedIds: Set<String>, onPlay: (List<Song>, Int) -> Unit, onRetry: () -> Unit, onMore: (Song) -> Unit,
+    modifier: Modifier = Modifier, type: SearchType = SearchType.SONGS, actions: PageActions = PageActions(),
+) {
     Column(modifier) {
         when (search) {
             SearchState.Idle -> Unit
-            SearchState.Loading -> repeat(3) { LoadingRow() }
+            // the grey rows take the shape of what's coming
+            SearchState.Loading -> repeat(3) { LoadingRow(width = if (type == SearchType.VIDEOS) 92.dp else 52.dp, round = type == SearchType.ARTISTS) }
             is SearchState.Results -> {
-                if (search.songs.isEmpty()) Text("No songs found. Try another spelling.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 16.dp))
-                search.songs.forEachIndexed { i, s -> SongRow(s, s.id in savedIds, { onPlay(search.songs, i) }, { onMore(s) }) }
+                val t = search.type
+                if (search.songs.isEmpty() && search.pages.isEmpty()) Text(
+                    if (t == SearchType.SONGS) "No songs found. Try another spelling." else "No ${t.word} found for \"${search.query}\". Try another spelling, or pick Songs.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 16.dp),
+                )
+                search.songs.forEachIndexed { i, s ->
+                    SongRow(s, s.id in savedIds, { onPlay(search.songs, i) }, { onMore(s) }, leading = if (t == SearchType.VIDEOS) { { VideoArt(s) } } else null)
+                }
+                search.pages.forEach { PageRow(it, actions) }
             }
-            is SearchState.Error -> ErrorRow(search.query, onRetry, Modifier.padding(end = 12.dp))
+            is SearchState.Error -> ErrorRow(if (search.type == SearchType.SONGS) search.query else "${search.type.word} for \"${search.query}\"", onRetry, Modifier.padding(end = 12.dp))
+        }
+    }
+}
+
+/** A music video's wide picture with its length in the corner. */
+@Composable
+private fun VideoArt(s: Song) = Box(Modifier.size(92.dp, 52.dp)) {
+    CoverArt(s.id, s.thumbnailUrl, s.localThumbPath, Modifier.matchParentSize(), RoundedCornerShape(8.dp), large = false)
+    Text(
+        clockText(s.durationSec * 1000), Modifier.align(Alignment.BottomEnd).padding(4.dp).clip(RoundedCornerShape(4.dp))
+            .background(Color.Black.copy(alpha = .66f)).padding(horizontal = 5.dp, vertical = 1.dp),
+        color = Color.White, style = MaterialTheme.typography.labelSmall,
+    )
+}
+
+/** An album or playlist (square cover, ⋮ with Save as playlist and Share) or an artist (round photo, no ⋮). */
+@Composable
+private fun PageRow(link: PageLink, actions: PageActions) {
+    val artist = link.type == SearchType.ARTISTS
+    var menu by remember { mutableStateOf(false) }
+    val by = if (link.type == SearchType.PLAYLISTS && link.by.isNotBlank()) "by ${link.by}" else link.by
+    Box {
+        SongRow(
+            Song(link.url, link.name, by, 0, link.thumbnailUrl), false, { actions.open(link) }, if (artist) null else { { menu = true } },
+            leading = { Cover(link.url, link.thumbnailUrl, null, 52.dp, shape = if (artist) CircleShape else RoundedCornerShape(10.dp)) },
+        )
+        Box(Modifier.align(Alignment.BottomEnd)) { PageMenu(menu, { menu = false }, link, actions, null) }
+    }
+}
+
+/** Songs, Music videos, Albums, Artists, Playlists: slides sideways, and keeps the picked one in view. */
+@Composable
+private fun TypeRow(type: SearchType, onType: (SearchType) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val state = rememberLazyListState()
+    LaunchedEffect(type) { state.animateScrollToItem((type.ordinal - 1).coerceAtLeast(0)) }
+    LazyRow(Modifier.padding(top = 4.dp, bottom = 4.dp), state, PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(SearchType.entries) { t ->
+            val on = t == type
+            Box(
+                Modifier.height(40.dp).clip(CircleShape).background(if (on) scheme.primary else scheme.surfaceContainerHigh)
+                    .selectable(on, role = Role.Tab) { onType(t) }.padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text(t.label, style = MaterialTheme.typography.labelLarge, color = if (on) scheme.onPrimary else scheme.onSurfaceVariant) }
         }
     }
 }

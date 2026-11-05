@@ -55,7 +55,6 @@ import com.spotifry.music.data.source.Song
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.EmptyState
-import com.spotifry.music.ui.components.Pill
 import com.spotifry.music.ui.components.PlayButtons
 import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.ui.components.SongRow
@@ -161,7 +160,10 @@ private fun OrderButton(order: PlaylistOrder, onOrder: (PlaylistOrder) -> Unit, 
     var open by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
     Box {
-        Pill(Icons.Sort, order.label, scheme.surface, scheme.onSurface, { open = true })
+        // icon only, so the search box gets the room; the menu shows which order is picked
+        IconButton({ open = true }, Modifier.size(48.dp), colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(containerColor = scheme.surface, contentColor = scheme.onSurface)) {
+            Icon(Icons.Sort, "Order: ${order.label}", Modifier.size(20.dp))
+        }
         DropdownMenu(open, { open = false }, shape = RoundedCornerShape(16.dp)) {
             PlaylistOrder.entries.forEach { o ->
                 val on = o == order

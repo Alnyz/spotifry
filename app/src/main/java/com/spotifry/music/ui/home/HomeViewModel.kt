@@ -7,6 +7,8 @@ import com.spotifry.music.data.db.HistoryDao
 import com.spotifry.music.data.db.SongDao
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.source.MusicSource
+import com.spotifry.music.data.source.PageLink
+import com.spotifry.music.data.source.SearchType
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.player.SongPlayer
 import kotlinx.coroutines.CancellationException
@@ -27,8 +29,9 @@ import kotlinx.coroutines.flow.stateIn
 sealed interface SearchState {
     data object Idle : SearchState
     data object Loading : SearchState
-    data class Results(val songs: List<Song>) : SearchState
-    data class Error(val query: String) : SearchState
+    /** [songs] for Songs and Music videos, [pages] for the other types. */
+    data class Results(val songs: List<Song>, val pages: List<PageLink> = emptyList(), val type: SearchType = SearchType.SONGS, val query: String = "") : SearchState
+    data class Error(val query: String, val type: SearchType = SearchType.SONGS) : SearchState
 }
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -44,6 +47,8 @@ class HomeViewModel(
     val mostPlayed: StateFlow<List<SongEntity>> = mostPlayed.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     private val query = MutableStateFlow("")
     private val retryTick = MutableStateFlow(0)
+    /** Songs on every fresh start; kept while the app is open. */
+    val type = MutableStateFlow(SearchType.SONGS)
     val currentQuery: String get() = query.value
     /** What the search box shows. Lives here, not in the screen, so the Playlists tab can search for a song. */
     val queryText: StateFlow<String> = query
@@ -51,18 +56,22 @@ class HomeViewModel(
     val localResults: StateFlow<List<Song>> = combine(query, localSongs) { q, l -> com.spotifry.music.data.localMatches(l, q) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val search: StateFlow<SearchState> = combine(query.debounce(400), retryTick) { q, _ -> q.trim() }
-        .flatMapLatest { q ->
+    val search: StateFlow<SearchState> = combine(query.debounce(400), type, retryTick) { q, t, _ -> q.trim() to t }
+        .flatMapLatest { (q, t) ->
             flow {
                 // nothing searchable (empty, spaces, only symbols): no request and no error
                 if (q.none { it.isLetterOrDigit() }) { emit(SearchState.Idle); return@flow }
                 emit(SearchState.Loading)
                 try {
-                    emit(SearchState.Results(source.search(q)))
+                    emit(when (t) {
+                        SearchType.SONGS -> SearchState.Results(source.search(q), query = q)
+                        SearchType.VIDEOS -> SearchState.Results(source.searchVideos(q), type = t, query = q)
+                        else -> SearchState.Results(emptyList(), source.searchPages(q, t), t, q)
+                    })
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    emit(SearchState.Error(q))
+                    emit(SearchState.Error(q, t))
                 }
             }
         }
