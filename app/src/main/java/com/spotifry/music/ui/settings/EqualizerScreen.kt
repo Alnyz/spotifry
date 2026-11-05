@@ -99,7 +99,7 @@ import kotlin.math.roundToInt
 private val TABS = listOf("Graph", "Bands")
 private const val STEP_MB = 50
 /** How close to a point a press has to land to grab it. Further off, the touch scrolls the page instead. */
-private val GRAB = 30.dp
+private val GRAB = 16.dp
 private const val MIN_HZ = 20.0
 private const val MAX_HZ = 20_000.0
 private const val CURVE_POINTS = 160
@@ -182,7 +182,7 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, on
                 Crossfade(tab, label = "tab") { page ->
                     Column {
                         when (page) {
-                            0 -> GraphTab(tap, isPlaying, levels, shape, settings::saveEq)
+                            0 -> GraphTab(tap, isPlaying, on, levels, shape, settings::saveEq)
                             else -> BandsTab(levels, shape, settings::saveEq)
                         }
                     }
@@ -246,7 +246,7 @@ private fun BandSemantics(levels: List<Int>, modifier: Modifier, set: (List<Pair
  * near a point grabs it and it follows the finger up and down; a press anywhere else scrolls the page.
  */
 @Composable
-private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
+private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val current by rememberUpdatedState(levels)
     val change by rememberUpdatedState(set)
@@ -263,6 +263,8 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, se
     // music gets quieter toward the high notes; tilting the picture up 3 dB per octave (level at 1 kHz) keeps the
     // highs moving instead of lying on the floor, and the bass off the ceiling. Like most music analyzers.
     val tilt = remember { FloatArray(Spectrum.BANDS) { 3f * log2(Spectrum.bandCenterHz(it) / 1000f) } }
+    // the music as it comes out: shaped by the curve, which only counts while the equalizer is on
+    val shaped = remember(design, on) { FloatArray(Spectrum.BANDS) { if (on) design.responseDb(Spectrum.bandCenterHz(it).toDouble()).toFloat() else 0f } }
     val labels = MaterialTheme.typography.labelSmall.copy(color = scheme.onSurfaceVariant, fontSize = 10.sp)
 
     Card {
@@ -289,7 +291,8 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, se
                             drag(start.id) { move ->
                                 move.consume()
                                 val to = plot.mbAt(move.position.y + offset)
-                                if (to != current[hit]) {
+                                // preset values sit off the half-dB steps; a sideways drag must not turn them into Custom
+                                if (to != current[hit] && to != plot.mbAt(plot.y(current[hit].toFloat()))) {
                                     if (to == 0) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     change(listOf(hit to to))
                                 }
@@ -317,7 +320,7 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, se
                 // the music, faintly, so you can see what you're shaping: -75 dB on the floor, 0 dB near the top
                 picture.frame.let { }
                 val px = { i: Int -> plot.x(Spectrum.bandCenterHz(i).toDouble()) }
-                val py = { i: Int -> plot.bottom - ((picture.shown[i] + tilt[i] + 75f) / 75f).coerceIn(0f, 1f) * (plot.bottom - plot.top) * .7f }
+                val py = { i: Int -> plot.bottom - ((picture.shown[i] + tilt[i] + shaped[i] + 75f) / 75f).coerceIn(0f, 1f) * (plot.bottom - plot.top) * .7f }
                 val line = Path().apply {
                     moveTo(px(0), py(0))
                     for (i in 1 until Spectrum.BANDS - 1) quadraticTo(px(i), py(i), (px(i) + px(i + 1)) / 2, (py(i) + py(i + 1)) / 2)
@@ -397,7 +400,7 @@ private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, don
                                 val toBand = bandAt(move.position.x, w)
                                 val toMb = plot.mbAt(move.position.y + offset)
                                 if (toBand != band) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                if (toBand != band || toMb != current[toBand]) change(sweep(band, mb, toBand, toMb))
+                                if (toBand != band || (toMb != current[toBand] && toMb != plot.mbAt(plot.y(current[toBand].toFloat())))) change(sweep(band, mb, toBand, toMb))
                                 band = toBand; mb = toMb; active = toBand
                             }
                         } finally { active = -1; finished() }
