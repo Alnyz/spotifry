@@ -64,13 +64,15 @@ class PageActions(
     val share: (PageLink) -> Unit = {},
 )
 
-class PageViewModel(private val source: MusicSource, val link: PageLink) : ViewModel() {
+class PageViewModel(private val source: MusicSource, val link: PageLink, private val warm: (List<Song>) -> Unit = {}) : ViewModel() {
     /** Null while loading. */
     val page = MutableStateFlow<Result<PageContent>?>(null)
     init { load() }
     fun load() {
         page.value = null
-        viewModelScope.launch { page.value = runCatching { source.page(link) } }
+        viewModelScope.launch {
+            page.value = runCatching { source.page(link) }.onSuccess { warm(it.songs.take(3)) }
+        }
     }
 }
 

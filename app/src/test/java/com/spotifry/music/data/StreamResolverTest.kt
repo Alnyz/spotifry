@@ -5,6 +5,8 @@ import com.spotifry.music.data.source.PageLink
 import com.spotifry.music.data.source.SearchType
 import com.spotifry.music.data.source.ResolvedStream
 import com.spotifry.music.data.source.Song
+import kotlinx.coroutines.async
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -65,5 +67,32 @@ class StreamResolverTest {
         val src = FakeMusicSource().apply { failResolve = true }
         StreamResolver(src) { 1_000L }.prefetch(testSong)
         assertEquals(1, src.resolveCalls)
+    }
+
+    @Test fun aLookupInProgressIsWaitedForNotRepeated() = runTest {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var calls = 0
+        val src = object : MusicSource {
+            override suspend fun search(query: String) = emptyList<Song>()
+            override suspend fun related(song: Song) = emptyList<Song>()
+            override suspend fun resolve(song: Song, low: Boolean): ResolvedStream {
+                calls++; gate.await(); return ResolvedStream("https://x/$calls", "audio/mp4", 128, 10_000_000L)
+            }
+        }
+        val r = StreamResolver(src, backgroundScope + kotlinx.coroutines.SupervisorJob(backgroundScope.coroutineContext[kotlinx.coroutines.Job])) { 1_000L }
+        r.warm(listOf(testSong))
+        val tapped = async { r.get(testSong) }
+        testScheduler.runCurrent()
+        gate.complete(Unit)
+        assertEquals("https://x/1", tapped.await().url)
+        assertEquals(1, calls)
+    }
+
+    @Test fun aFailedLookupIsTriedAgainOnTheNextTap() = runTest {
+        val src = FakeMusicSource().apply { failResolve = true }
+        val r = StreamResolver(src, backgroundScope + kotlinx.coroutines.SupervisorJob(backgroundScope.coroutineContext[kotlinx.coroutines.Job])) { 1_000L }
+        r.prefetch(testSong)
+        src.failResolve = false
+        assertEquals("https://x/2", r.get(testSong).url)
     }
 }
