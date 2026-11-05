@@ -186,6 +186,7 @@ class Equalizer {
         if (!changed) return
         changed = false
         val next = filtersFor(wanted)
+        if (now == null && next == null) return
         // carries on from the old filters' memory, so the new ones don't start from silence
         now?.let { n -> next?.let { n.state.copyInto(it.state) } }
         old = now; now = next; fadeLeft = fadeFrames
@@ -214,8 +215,15 @@ class Equalizer {
 }
 
 /**
- * Puts [Equalizer] in the player's sound path, before [LoudnessProcessor]. It stays in the path while off, because
- * joining or leaving the path would make the sound skip.
+ * The order the sound goes through them. Loudness first, so each song's remembered level and the live picture are the
+ * song's own and don't move with the curve. The price: a big boost stays quieter overall, because of [EqDesign.preamp].
+ */
+@UnstableApi
+fun soundChain(equalizer: EqualizerProcessor, loudness: LoudnessProcessor): Array<AudioProcessor> = arrayOf(loudness, equalizer)
+
+/**
+ * Puts [Equalizer] in the player's sound path. It stays in the path while off, because joining or leaving the path
+ * would make the sound skip.
  */
 @UnstableApi
 class EqualizerProcessor : BaseAudioProcessor() {

@@ -12,6 +12,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +29,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -94,6 +98,8 @@ import kotlin.math.roundToInt
 /** A new way to shape the sound gets its tab here. */
 private val TABS = listOf("Graph", "Bands")
 private const val STEP_MB = 50
+/** How close to a point a press has to land to grab it. Further off, the touch scrolls the page instead. */
+private val GRAB = 30.dp
 private const val MIN_HZ = 20.0
 private const val MAX_HZ = 20_000.0
 private const val CURVE_POINTS = 160
@@ -135,11 +141,12 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, on
     val levels by settings.eqLevels.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val scheme = MaterialTheme.colorScheme
-    // any shaping means the user wants to hear it, so it also turns the equalizer on
+    // any shaping means the user wants to hear it, so it also turns the equalizer on; kept when the finger lifts
     val shape = { changes: List<Pair<Int, Int>> ->
         val next = settings.eqLevels.value.toMutableList()
         changes.forEach { (band, mb) -> next[band] = mb }
-        settings.setEq(null, next); settings.setEqOn(true)
+        settings.setEq(null, next, save = false)
+        if (!settings.eqOn.value) settings.setEqOn(true)
     }
     val dim by animateFloatAsState(if (on) 1f else .55f, label = "dim")
 
@@ -148,7 +155,7 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, on
         Column(Modifier.padding(horizontal = 16.dp).padding(top = 12.dp)) {
             Card {
                 Row(
-                    Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Switch, onClickLabel = "Equalizer") { settings.setEqOn(!on) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(on, role = Role.Switch, onValueChange = settings::setEqOn).padding(horizontal = 16.dp, vertical = 8.dp),
                     Arrangement.spacedBy(12.dp), Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(14.dp).clip(CircleShape).background(if (on) scheme.primary else scheme.outline))
@@ -156,7 +163,7 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, on
                         Text("Equalizer", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
                         Text(if (on) "On · ${preset ?: "Custom"}" else "Off", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
-                    Switch(on, settings::setEqOn, Modifier.semantics { contentDescription = "Equalizer" }, colors = switchColors())
+                    Switch(on, null, colors = switchColors())
                 }
             }
             Segments(TABS, tab, Modifier.padding(top = 14.dp).fillMaxWidth(), fill = true) { tab = it }
@@ -167,7 +174,7 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, on
                         style = MaterialTheme.typography.labelLarge, color = scheme.onSurface,
                     )
                 }
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().selectableGroup().horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
                     if (EQ_PRESETS.none { it.first == preset }) Chip("Custom", true) { }
                     EQ_PRESETS.forEach { (name, l) -> Chip(name, preset == name) { settings.setEq(name, l); settings.setEqOn(true) } }
                 }
@@ -175,8 +182,8 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, on
                 Crossfade(tab, label = "tab") { page ->
                     Column {
                         when (page) {
-                            0 -> GraphTab(tap, isPlaying, levels, shape)
-                            else -> BandsTab(levels, shape)
+                            0 -> GraphTab(tap, isPlaying, levels, shape, settings::saveEq)
+                            else -> BandsTab(levels, shape, settings::saveEq)
                         }
                     }
                 }
@@ -203,7 +210,7 @@ private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.heightIn(min = 40.dp).clip(CircleShape)
             .then(if (selected) Modifier.background(scheme.primary) else Modifier.background(scheme.surfaceContainerHigh))
-            .clickable(role = Role.RadioButton, onClickLabel = label, onClick = onClick).padding(horizontal = 16.dp),
+            .selectable(selected, role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp),
         Alignment.Center,
     ) { Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) scheme.onPrimary else scheme.onSurface, maxLines = 1) }
 }
@@ -219,7 +226,7 @@ private fun Modifier.stage(): Modifier {
 
 /** What a screen reader gets for one band: a slider, in its own column over the drawing. */
 @Composable
-private fun BandSemantics(levels: List<Int>, modifier: Modifier, set: (List<Pair<Int, Int>>) -> Unit) {
+private fun BandSemantics(levels: List<Int>, modifier: Modifier, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
     Row(modifier) {
         for (band in 0 until EQ_BANDS) {
             val mb = levels[band]
@@ -227,7 +234,7 @@ private fun BandSemantics(levels: List<Int>, modifier: Modifier, set: (List<Pair
                 Modifier.weight(1f).fillMaxHeight().semantics {
                     contentDescription = hzText(EQ_CENTERS_HZ[band].toInt()); stateDescription = "${dbText(mb)} dB"
                     progressBarRangeInfo = ProgressBarRangeInfo(mb.toFloat(), -EQ_MAX_MB.toFloat()..EQ_MAX_MB.toFloat())
-                    setProgress { v -> set(listOf(band to ((v / STEP_MB).roundToInt() * STEP_MB).coerceIn(-EQ_MAX_MB, EQ_MAX_MB))); true }
+                    setProgress { v -> set(listOf(band to ((v / STEP_MB).roundToInt() * STEP_MB).coerceIn(-EQ_MAX_MB, EQ_MAX_MB))); done(); true }
                 },
             )
         }
@@ -239,10 +246,11 @@ private fun BandSemantics(levels: List<Int>, modifier: Modifier, set: (List<Pair
  * near a point grabs it and it follows the finger up and down; a press anywhere else scrolls the page.
  */
 @Composable
-private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit) {
+private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val current by rememberUpdatedState(levels)
     val change by rememberUpdatedState(set)
+    val finished by rememberUpdatedState(done)
     var selected by rememberSaveable { mutableIntStateOf(0) }
     var dragging by remember { mutableIntStateOf(-1) }
     val pulse by animateFloatAsState(if (dragging >= 0) 1f else 0f, spring(dampingRatio = .6f, stiffness = 500f), label = "pulse")
@@ -269,15 +277,16 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, se
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val plot = plotIn(size.width.toFloat(), size.height.toFloat(), 30.dp.toPx(), 10.dp.toPx(), 24.dp.toPx())
                         val hit = (0 until EQ_BANDS).minBy { hypot(down.position.x - plot.x(EQ_CENTERS_HZ[it]), down.position.y - plot.y(current[it].toFloat())) }
-                        val pointY = plot.y(current[hit].toFloat())
-                        if (hypot(down.position.x - plot.x(EQ_CENTERS_HZ[hit]), down.position.y - pointY) > 30.dp.toPx()) return@awaitEachGesture
-                        down.consume()
-                        selected = hit; dragging = hit
+                        if (hypot(down.position.x - plot.x(EQ_CENTERS_HZ[hit]), down.position.y - plot.y(current[hit].toFloat())) > GRAB.toPx()) return@awaitEachGesture
+                        selected = hit
+                        // a tap or a wobble only picks the point; it moves once the finger really does
+                        val start = awaitTouchSlopOrCancellation(down.id) { move, _ -> move.consume() } ?: return@awaitEachGesture
+                        dragging = hit
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         // keeps the finger's distance from the point, so grabbing it doesn't make it jump
-                        val offset = pointY - down.position.y
+                        val offset = plot.y(current[hit].toFloat()) - start.position.y
                         try {
-                            drag(down.id) { move ->
+                            drag(start.id) { move ->
                                 move.consume()
                                 val to = plot.mbAt(move.position.y + offset)
                                 if (to != current[hit]) {
@@ -285,7 +294,7 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, se
                                     change(listOf(hit to to))
                                 }
                             }
-                        } finally { dragging = -1 }
+                        } finally { dragging = -1; finished() }
                     }
                 },
         ) {
@@ -342,7 +351,7 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, levels: List<Int>, se
                     if (b == selected) drawCircle(scheme.onSurface, r + 2.dp.toPx(), at, style = Stroke(1.5.dp.toPx()))
                 }
             }
-            BandSemantics(levels, Modifier.matchParentSize(), set)
+            BandSemantics(levels, Modifier.matchParentSize(), set, done)
         }
         Text(
             "Drag a point up for more of that sound, down for less.",
@@ -355,10 +364,11 @@ private fun plotIn(width: Float, height: Float, left: Float, inset: Float, below
 
 /** The same ten bands as sliders. One sweep of a finger across them draws the curve. */
 @Composable
-private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit) {
+private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val current by rememberUpdatedState(levels)
     val change by rememberUpdatedState(set)
+    val finished by rememberUpdatedState(done)
     var active by remember { mutableIntStateOf(-1) }
     val haptics = LocalHapticFeedback.current
     val measurer = rememberTextMeasurer(cacheSize = 64)
@@ -370,24 +380,27 @@ private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit) {
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        down.consume()
                         val w = size.width.toFloat()
                         val plot = EqPlot(0f, 30.dp.toPx(), w, size.height - 30.dp.toPx())
                         var band = bandAt(down.position.x, w)
-                        var mb = plot.mbAt(down.position.y)
+                        // only from a thumb, and only once the finger really moves: anything else scrolls the page
+                        if (abs(down.position.y - plot.y(current[band].toFloat())) > GRAB.toPx()) return@awaitEachGesture
+                        val start = awaitTouchSlopOrCancellation(down.id) { move, _ -> move.consume() } ?: return@awaitEachGesture
+                        var mb = current[band]
+                        // keeps the finger's distance from the thumb, so grabbing it doesn't make it jump
+                        val offset = plot.y(mb.toFloat()) - start.position.y
                         active = band
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        change(listOf(band to mb))
                         try {
-                            drag(down.id) { move ->
+                            drag(start.id) { move ->
                                 move.consume()
                                 val toBand = bandAt(move.position.x, w)
-                                val toMb = plot.mbAt(move.position.y)
+                                val toMb = plot.mbAt(move.position.y + offset)
                                 if (toBand != band) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 if (toBand != band || toMb != current[toBand]) change(sweep(band, mb, toBand, toMb))
                                 band = toBand; mb = toMb; active = toBand
                             }
-                        } finally { active = -1 }
+                        } finally { active = -1; finished() }
                     }
                 },
         ) {
@@ -424,10 +437,10 @@ private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit) {
                     drawText(name, topLeft = Offset(at.x - name.size.width / 2f, plot.bottom + 9.dp.toPx()))
                 }
             }
-            BandSemantics(levels, Modifier.matchParentSize(), set)
+            BandSemantics(levels, Modifier.matchParentSize(), set, done)
         }
         Text(
-            "Sweep across the sliders to draw a curve.",
+            "Drag a slider, or sweep across them to draw a curve.",
             Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 14.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
         )
     }

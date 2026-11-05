@@ -146,6 +146,45 @@ class EqualizerTest {
         }
     }
 
+    /** Twelve seconds of a stereo 1 kHz tone through the real chain, as the player sends it. */
+    private fun playThroughChain(levels: List<Int>?, tap: SpectrumTap? = null): LoudnessProcessor {
+        val eq = EqualizerProcessor().apply { set(levels) }
+        val loudness = LoudnessProcessor(tap)
+        val chain = soundChain(eq, loudness)
+        chain.forEach { it.configure(AudioProcessor.AudioFormat(rate, 2, C.ENCODING_PCM_16BIT)); it.flush(AudioProcessor.StreamMetadata.DEFAULT) }
+        for (b in 0 until 120) {
+            var sound = pcm(*ShortArray(rate / 5) { (11_600 * sin(2 * PI * 1000.0 * (b * rate / 10 + it / 2) / rate)).toInt().toShort() })
+            for (p in chain) { p.queueInput(sound); sound = p.output }
+        }
+        return loudness
+    }
+
+    @Test fun theRememberedLevelOfASongDoesNotDependOnTheCurve() {
+        val plain = playThroughChain(null).lastMeasuredDb!!
+        for (levels in listOf(flat, only(8, 1200), only(5, 1200), List(EQ_BANDS) { -1200 })) {
+            assertEquals(plain, playThroughChain(levels).lastMeasuredDb!!, .01f)
+        }
+    }
+
+    @Test fun theLivePictureShowsTheMusicAtTheSameLevelWhenABandIsBoosted() {
+        fun loudest(levels: List<Int>?): Float {
+            val tap = SpectrumTap().apply { listening = true }
+            playThroughChain(levels, tap)
+            return tap.next(1000f)!!.max()
+        }
+        val plain = loudest(null)
+        assertTrue("the picture read $plain", plain > -20f)
+        assertEquals(plain, loudest(only(8, 1200)), .01f)
+    }
+
+    @Test fun offToOffStaysOutOfTheWay() {
+        val e = eq(null)
+        e.set(null); e.update()
+        assertTrue(!e.active)
+        e.set(flat); e.update()
+        assertTrue(!e.active)
+    }
+
     @Test fun anEmptyBufferBeforeAnySoundIsFine() {
         // the player does this; while off, the sound is copied across, and an empty buffer here is the output buffer itself
         for (levels in listOf(null, flat, only(0, 600))) {

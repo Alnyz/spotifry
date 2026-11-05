@@ -22,7 +22,7 @@
 | Search and play | Songs, music videos, albums, artists or playlists from YouTube. The top results are made ready while you look, so a tap plays in under a second. |
 | Artists and albums | An artist's songs and albums on one page, and full albums to play or save as a playlist. |
 | Music on your phone | Plays the music files already on your phone, from Saved and in search. |
-| Equalizer | Your phone's ready-made sounds or your own mix, with a live picture of the music. |
+| Equalizer | Ready-made sounds or your own curve, drawn on a graph, with a live picture of the music. |
 | Fade between songs | The end of a song fades out and the next fades in, from 2 to 12 seconds. |
 | Speed and pitch | Each set on its own, kept for every song. |
 | Same loudness | Quiet songs are turned up and loud ones down. |
@@ -81,7 +81,7 @@ Without a release key, the build is signed with your debug key. The release key 
 - [LRCLIB](https://lrclib.net) for lyrics
 - [SponsorBlock](https://sponsor.ajay.app) for the parts of music videos that aren't music
 - [Haze](https://github.com/chrisbanes/haze) for the glass effect
-- [Mochy Music](https://github.com/realidkroo/Mochy-Music) (GPL-3.0), which the equalizer's filters were adapted from (see `licenses/`)
+- [Mochy Music](https://github.com/realidkroo/Mochy-Music) (GPL-3.0), which the equalizer page and filters were adapted from (see `licenses/`)
 - [Albert Sans](https://github.com/usted/Albert-Sans) font (SIL Open Font License, see `licenses/`)
 
 ## License

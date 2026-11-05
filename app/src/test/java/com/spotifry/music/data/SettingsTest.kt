@@ -57,6 +57,21 @@ class SettingsTest {
         assertEquals("Mine", again.eqPreset.value)
     }
 
+    @Test fun aDragIsHeardAtOnceAndSavedWhenTheFingerLifts() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-drag", 0)
+        val s = Settings(prefs)
+        val mine = List(10) { 100 }
+        s.setEq(null, mine, save = false)
+        assertEquals(mine, s.eqLevels.value)
+        assertEquals(List(10) { 0 }, Settings(prefs).eqLevels.value)
+        s.saveEq()
+        assertEquals(mine, Settings(prefs).eqLevels.value)
+    }
+
+    @Test(expected = IllegalArgumentException::class) fun theWrongNumberOfBandsIsRefused() {
+        Settings(ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-size", 0)).setEq(null, listOf(1, 2, 3))
+    }
+
     @Test fun lowAndHighQualityAreKeptApart() = runBlocking {
         val asked = mutableListOf<Boolean>()
         val source = object : MusicSource {

@@ -62,10 +62,17 @@ class Settings(private val prefs: SharedPreferences) {
     /** Level of each of the [EQ_BANDS] bands in millibels (100 = 1 dB), low to high. */
     val eqLevels: StateFlow<List<Int>> = _eqLevels
     fun setEqOn(on: Boolean) { _eqOn.value = on; prefs.edit().putBoolean(EQ_ON, on).apply() }
-    /** The one way to change the sound's shape: a name to show (null for the user's own mix) and all [EQ_BANDS] levels. */
-    fun setEq(preset: String?, levels: List<Int>) {
+    /**
+     * The one way to change the sound's shape: a name to show (null for the user's own mix) and all [EQ_BANDS] levels.
+     * A finger still dragging passes [save] false, and [saveEq] once it lifts.
+     */
+    fun setEq(preset: String?, levels: List<Int>, save: Boolean = true) {
+        require(levels.size == EQ_BANDS) { "the equalizer has $EQ_BANDS bands, got ${levels.size}" }
         _eqPreset.value = preset; _eqLevels.value = levels
-        prefs.edit().putString(EQ_PRESET, preset).putString(EQ_BANDS_KEY, levels.joinToString(",")).apply()
+        if (save) saveEq()
+    }
+    fun saveEq() {
+        prefs.edit().putString(EQ_PRESET, _eqPreset.value).putString(EQ_BANDS_KEY, _eqLevels.value.joinToString(",")).apply()
     }
     private fun eqNumbers(key: String) = prefs.getString(key, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() }
 
