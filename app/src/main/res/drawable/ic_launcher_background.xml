@@ -1,2 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#2B1408" /></shape>
+<!-- Ember orange, lighter at the top. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient android:angle="270" android:startColor="#FF8A3D" android:endColor="#C2410C" />
+</shape>
