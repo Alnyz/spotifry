@@ -1,0 +1,7 @@
+The equalizer in app/src/main/java/com/spotifry/music/player/Equalizer.kt adapts the
+peak filter, frequency response and fade between settings from Mochy Music
+(https://github.com/realidkroo/Mochy-Music, files eq/audio/BiquadFilter.kt and
+eq/audio/CustomEqualizerAudioProcessor.kt).
+
+Mochy Music is licensed under the GNU General Public License, version 3, the same
+licence as Spotifry. See the LICENSE file at the top of this repository.

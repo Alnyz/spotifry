@@ -24,6 +24,39 @@ class SettingsTest {
         assertEquals(ThemeMode.DARK, again.theme.value)
     }
 
+    @Test fun theOldEqualizerCarriesOver() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-old", 0)
+        prefs.edit().putBoolean("eq_on", true).putString("eq_preset", "Rock").putString("eq_levels", "500,300,-100,300,500").apply()
+        val s = Settings(prefs)
+        assertEquals(true, s.eqOn.value)
+        assertEquals("Rock", s.eqPreset.value)
+        assertEquals(com.spotifry.music.player.eqFromOldBands(listOf(500, 300, -100, 300, 500)), s.eqLevels.value)
+    }
+
+    @Test fun aPresetOnlyThatPhoneHadBecomesTheUsersOwnMix() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-maker", 0)
+        prefs.edit().putString("eq_preset", "Maker Bass").putString("eq_levels", "900,0,0,0,0").apply()
+        val s = Settings(prefs)
+        assertEquals(null, s.eqPreset.value)
+        assertEquals(900, s.eqLevels.value[0])
+    }
+
+    @Test fun nothingSavedIsFlat() {
+        val s = Settings(ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-none", 0))
+        assertEquals(List(10) { 0 }, s.eqLevels.value)
+        assertEquals(false, s.eqOn.value)
+    }
+
+    @Test fun tenBandsSurviveARestartAndBeatTheOldOnes() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-new", 0)
+        prefs.edit().putString("eq_levels", "500,300,-100,300,500").apply()
+        val mine = List(10) { it * 50 }
+        Settings(prefs).setEq("Mine", mine)
+        val again = Settings(prefs)
+        assertEquals(mine, again.eqLevels.value)
+        assertEquals("Mine", again.eqPreset.value)
+    }
+
     @Test fun lowAndHighQualityAreKeptApart() = runBlocking {
         val asked = mutableListOf<Boolean>()
         val source = object : MusicSource {

@@ -1,6 +1,9 @@
 package com.spotifry.music.data
 
 import android.content.SharedPreferences
+import com.spotifry.music.player.EQ_BANDS
+import com.spotifry.music.player.EQ_PRESETS
+import com.spotifry.music.player.eqFromOldBands
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -47,17 +50,24 @@ class Settings(private val prefs: SharedPreferences) {
 
     private val _eqOn = MutableStateFlow(prefs.getBoolean(EQ_ON, false))
     val eqOn: StateFlow<Boolean> = _eqOn
-    private val _eqPreset = MutableStateFlow(prefs.getString(EQ_PRESET, null))
-    /** Name of the phone's ready-made sound in use, or null for the user's own mix. */
+    // until something is set on the ten bands, what the phone's own equalizer left behind counts, converted
+    private val eqSavedOld = !prefs.contains(EQ_BANDS_KEY)
+    private val _eqPreset = MutableStateFlow(prefs.getString(EQ_PRESET, null).takeIf { name -> !eqSavedOld || EQ_PRESETS.any { it.first == name } })
+    /** Name of the ready-made sound in use, or null for the user's own mix. */
     val eqPreset: StateFlow<String?> = _eqPreset
-    private val _eqLevels = MutableStateFlow(prefs.getString(EQ_LEVELS, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() })
-    /** Level of each equalizer bar in millibels (100 = 1 dB), low to high. Empty until first set. */
+    private val _eqLevels = MutableStateFlow(
+        if (eqSavedOld) eqFromOldBands(eqNumbers(EQ_LEVELS))
+        else eqNumbers(EQ_BANDS_KEY).takeIf { it.size == EQ_BANDS } ?: List(EQ_BANDS) { 0 },
+    )
+    /** Level of each of the [EQ_BANDS] bands in millibels (100 = 1 dB), low to high. */
     val eqLevels: StateFlow<List<Int>> = _eqLevels
     fun setEqOn(on: Boolean) { _eqOn.value = on; prefs.edit().putBoolean(EQ_ON, on).apply() }
+    /** The one way to change the sound's shape: a name to show (null for the user's own mix) and all [EQ_BANDS] levels. */
     fun setEq(preset: String?, levels: List<Int>) {
         _eqPreset.value = preset; _eqLevels.value = levels
-        prefs.edit().putString(EQ_PRESET, preset).putString(EQ_LEVELS, levels.joinToString(",")).apply()
+        prefs.edit().putString(EQ_PRESET, preset).putString(EQ_BANDS_KEY, levels.joinToString(",")).apply()
     }
+    private fun eqNumbers(key: String) = prefs.getString(key, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() }
 
     private val _accent = MutableStateFlow(prefs.getString(ACCENT, null) ?: "EMBER")
     /** Name of the accent choice: a ready colour, PHONE (from the wallpaper) or CUSTOM ([accentColor]). */
@@ -93,7 +103,9 @@ class Settings(private val prefs: SharedPreferences) {
         const val FADE = "fade_seconds"
         const val EQ_ON = "eq_on"
         const val EQ_PRESET = "eq_preset"
+        /** The bars of the phone's own equalizer, read only to carry them over. */
         const val EQ_LEVELS = "eq_levels"
+        const val EQ_BANDS_KEY = "eq_bands"
         const val ACCENT = "accent"
         const val PURE_BLACK = "pure_black"
         const val ACCENT_COLOR = "accent_color"

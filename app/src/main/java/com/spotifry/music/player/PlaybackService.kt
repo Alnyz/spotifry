@@ -47,7 +47,6 @@ class PlaybackService : MediaSessionService() {
     private val failures = FailureTracker()
     private val retries = OneRetryPerSong()
     private val plays = PlayCounter()
-    private var equalizer: android.media.audiofx.Equalizer? = null
     /** The song now playing began by running on from the one before, so it fades in. */
     private var fadeIn = false
     /** Smart shuffle is on: one similar song after every three of yours. Turned on only by the Now playing button. */
@@ -65,12 +64,13 @@ class PlaybackService : MediaSessionService() {
         // saved songs play from their file and skip the cache, so they aren't stored twice; file:// goes to the file
         // reader, the music:// id of any other song goes to the cache
         val dataSource = ResolvingDataSource.Factory(DefaultDataSource.Factory(this, cached), SavedFileResolver(c.db.songs()))
+        val equalizer = EqualizerProcessor()
         val loudness = LoudnessProcessor(c.spectrum)
         val levels = LoudnessMemory(getSharedPreferences("loudness", MODE_PRIVATE))
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(arrayOf(loudness)).build()
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(arrayOf(equalizer, loudness)).build()
         }
         val player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
@@ -90,9 +90,8 @@ class PlaybackService : MediaSessionService() {
             }
         }
 
-        attachEqualizer(player.audioSessionId)
         scope.launch {
-            kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels) { on, l -> on to l }.collect { applyEqualizer() }
+            kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels) { on, l -> if (on) l else null }.collect(equalizer::set)
         }
         scope.launch {
             // ponytail: polls the position 20 times a second while a fade is set and music plays; a timer per song end if battery shows it
@@ -105,8 +104,6 @@ class PlaybackService : MediaSessionService() {
         }
 
         player.addListener(object : Player.Listener {
-            override fun onAudioSessionIdChanged(audioSessionId: Int) = attachEqualizer(audioSessionId)
-
             override fun onShuffleModeEnabledChanged(on: Boolean) {
                 if (on) spreadOrder(player) else { smart = false; dropSuggestions(player) }
             }
@@ -243,21 +240,6 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    private fun attachEqualizer(sessionId: Int) {
-        equalizer?.release()
-        equalizer = if (sessionId == C.AUDIO_SESSION_ID_UNSET) null else runCatching { android.media.audiofx.Equalizer(0, sessionId) }.getOrNull()
-        applyEqualizer()
-    }
-
-    private fun applyEqualizer() {
-        val eq = equalizer ?: return
-        val s = (application as MusicApp).container.settings
-        runCatching {
-            s.eqLevels.value.take(eq.numberOfBands.toInt()).forEachIndexed { i, mb -> eq.setBandLevel(i.toShort(), mb.toShort()) }
-            eq.enabled = s.eqOn.value
-        }
-    }
-
     private fun appendSimilarIfNeeded(player: ExoPlayer) {
         val size = player.mediaItemCount
         if (size == 0) return
@@ -384,7 +366,6 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         scope.cancel()
-        equalizer?.release(); equalizer = null
         (application as MusicApp).container.sleepTimer.detach()
         session?.run { player.release(); release() }
         session = null

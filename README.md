@@ -81,6 +81,7 @@ Without a release key, the build is signed with your debug key. The release key 
 - [LRCLIB](https://lrclib.net) for lyrics
 - [SponsorBlock](https://sponsor.ajay.app) for the parts of music videos that aren't music
 - [Haze](https://github.com/chrisbanes/haze) for the glass effect
+- [Mochy Music](https://github.com/realidkroo/Mochy-Music) (GPL-3.0), which the equalizer's filters were adapted from (see `licenses/`)
 - [Albert Sans](https://github.com/usted/Albert-Sans) font (SIL Open Font License, see `licenses/`)
 
 ## License

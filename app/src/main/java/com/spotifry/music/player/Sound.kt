@@ -1,12 +1,7 @@
 package com.spotifry.music.player
 
-import android.content.Context
-import android.media.AudioManager
-import android.media.audiofx.Equalizer
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.ln
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.sin
@@ -21,37 +16,6 @@ fun fadeGain(positionMs: Long, durationMs: Long, fadeMs: Long, fadeIn: Boolean):
     val out = if (durationMs > 0) (durationMs - positionMs).toFloat() / fadeMs else 1f
     val inn = if (fadeIn) positionMs.toFloat() / fadeMs else 1f
     return minOf(out, inn).coerceIn(0f, 1f)
-}
-
-/** What the phone's equalizer offers: level range in millibels, each bar's centre in Hz, and the ready-made sounds. */
-data class EqInfo(val minMb: Int, val maxMb: Int, val centersHz: List<Int>, val presets: List<Pair<String, List<Int>>>) {
-    companion object {
-        /** Asks a throwaway equalizer on an unused sound channel. Null on phones without one. */
-        fun probe(context: Context): EqInfo? = runCatching {
-            val eq = Equalizer(0, context.getSystemService(AudioManager::class.java).generateAudioSessionId())
-            try {
-                val bands = (0 until eq.numberOfBands).map { it.toShort() }
-                val range = eq.bandLevelRange
-                val presets = (0 until eq.numberOfPresets).map { p ->
-                    eq.usePreset(p.toShort())
-                    eq.getPresetName(p.toShort()) to bands.map { eq.getBandLevel(it).toInt() }
-                }
-                EqInfo(range[0].toInt(), range[1].toInt(), bands.map { eq.getCenterFreq(it) / 1000 }, presets)
-            } finally { eq.release() }
-        }.getOrNull()
-    }
-}
-
-/** The equalizer's boost or cut in dB at [hz]: straight lines between the bars on a log scale, flat past the ends. */
-fun eqDbAt(hz: Float, centersHz: List<Int>, levelsMb: List<Int>): Float {
-    val n = minOf(centersHz.size, levelsMb.size)
-    if (n == 0) return 0f
-    if (hz <= centersHz[0]) return levelsMb[0] / 100f
-    for (i in 1 until n) if (hz <= centersHz[i]) {
-        val t = (ln(hz) - ln(centersHz[i - 1].toFloat())) / (ln(centersHz[i].toFloat()) - ln(centersHz[i - 1].toFloat()))
-        return (levelsMb[i - 1] + t * (levelsMb[i] - levelsMb[i - 1])) / 100f
-    }
-    return levelsMb[n - 1] / 100f
 }
 
 /**

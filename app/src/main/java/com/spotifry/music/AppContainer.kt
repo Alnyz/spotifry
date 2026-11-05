@@ -65,8 +65,6 @@ class AppContainer(private val context: Context) {
     val sleepTimer = com.spotifry.music.player.SleepTimer()
     /** Live picture of the sound, drawn on the Equalizer page. */
     val spectrum = com.spotifry.music.player.SpectrumTap()
-    /** The phone's equalizer bars and ready-made sounds, null if it has none. */
-    val eqInfo by lazy { com.spotifry.music.player.EqInfo.probe(context) }
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
         .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
