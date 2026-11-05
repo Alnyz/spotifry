@@ -29,3 +29,9 @@ interface MusicSource {
     suspend fun searchPages(query: String, type: SearchType): List<PageLink> = emptyList()
     suspend fun page(link: PageLink): PageContent = error("can't open ${link.url}")
 }
+
+/**
+ * The song exists but has no audio to play (removed, blocked, age-restricted, no audio stream). A FileNotFoundException,
+ * so the player doesn't retry it (about 8 s of retries before) and moves on to the next song at once.
+ */
+class NoAudioException(message: String) : java.io.FileNotFoundException(message)

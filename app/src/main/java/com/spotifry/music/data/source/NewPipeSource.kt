@@ -57,9 +57,11 @@ class NewPipeSource : MusicSource {
     }
 
     override suspend fun resolve(song: Song, low: Boolean): ResolvedStream = withContext(Dispatchers.IO) {
-        val info = StreamInfo.getInfo(YouTube, song.url)
+        val info = try { StreamInfo.getInfo(YouTube, song.url) } catch (e: org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException) {
+            throw NoAudioException("${song.id}: ${e.message}")
+        }
         val known = info.audioStreams.filter { it.averageBitrate > 0 }.ifEmpty { info.audioStreams }
-        val a = (if (low) known.minByOrNull { it.averageBitrate } else known.maxByOrNull { it.averageBitrate }) ?: error("no audio stream for ${song.id}")
+        val a = (if (low) known.minByOrNull { it.averageBitrate } else known.maxByOrNull { it.averageBitrate }) ?: throw NoAudioException("no audio stream for ${song.id}")
         val url = a.content
         ResolvedStream(url, a.format?.mimeType ?: "audio/mp4", a.averageBitrate, expiryOf(url))
     }

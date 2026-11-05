@@ -16,6 +16,7 @@ class FakeMusicSource : MusicSource {
     var resolveCalls = 0
     var searchCalls = 0
     var failResolve = false
+    var noAudio = false
     var expiresAtMs = 10_000_000L
     var searchResult: List<Song> = emptyList()
     var streamUrl: String? = null
@@ -24,6 +25,7 @@ class FakeMusicSource : MusicSource {
     override suspend fun resolve(song: Song, low: Boolean): ResolvedStream {
         resolveCalls++
         if (failResolve) error("boom")
+        if (noAudio) throw com.spotifry.music.data.source.NoAudioException("no audio stream for ${song.id}")
         return ResolvedStream(streamUrl ?: "https://x/$resolveCalls", "audio/mp4", 128, expiresAtMs)
     }
     override suspend fun related(song: Song): List<Song> = emptyList()
