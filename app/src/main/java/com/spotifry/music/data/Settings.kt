@@ -74,6 +74,22 @@ class Settings(private val prefs: SharedPreferences) {
     fun saveEq() {
         prefs.edit().putString(EQ_PRESET, _eqPreset.value).putString(EQ_BANDS_KEY, _eqLevels.value.joinToString(",")).apply()
     }
+    private val _eqBefore = MutableStateFlow(prefs.contains(EQ_BEFORE))
+    /** Whether a curve is kept to [restoreEqBefore] to: the user's own, set aside when a headphone correction replaced it. */
+    val eqBeforeSaved: StateFlow<Boolean> = _eqBefore
+    fun saveEqBefore() {
+        prefs.edit().putString(EQ_BEFORE, "${_eqPreset.value.orEmpty()}\n${_eqLevels.value.joinToString(",")}").apply()
+        _eqBefore.value = true
+    }
+    /** Puts the curve kept by [saveEqBefore] back, or a flat one when none is kept. */
+    fun restoreEqBefore() {
+        val (name, levels) = prefs.getString(EQ_BEFORE, null)?.split('\n', limit = 2)?.takeIf { it.size == 2 }
+            ?.let { (n, l) -> n.ifEmpty { null } to l.split(',').mapNotNull { it.toIntOrNull() } }
+            ?.takeIf { it.second.size == EQ_BANDS } ?: ("Flat" to List(EQ_BANDS) { 0 })
+        setEq(name, levels)
+        prefs.edit().remove(EQ_BEFORE).apply()
+        _eqBefore.value = false
+    }
     private fun eqNumbers(key: String) = prefs.getString(key, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() }
 
     private val _accent = MutableStateFlow(prefs.getString(ACCENT, null) ?: "EMBER")
@@ -113,6 +129,7 @@ class Settings(private val prefs: SharedPreferences) {
         /** The bars of the phone's own equalizer, read only to carry them over. */
         const val EQ_LEVELS = "eq_levels"
         const val EQ_BANDS_KEY = "eq_bands"
+        const val EQ_BEFORE = "eq_before"
         const val ACCENT = "accent"
         const val PURE_BLACK = "pure_black"
         const val ACCENT_COLOR = "accent_color"

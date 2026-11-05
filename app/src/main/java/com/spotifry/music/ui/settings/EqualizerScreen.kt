@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.spotifry.music.data.AutoEqSource
 import com.spotifry.music.data.Settings
 import com.spotifry.music.player.EQ_BANDS
 import com.spotifry.music.player.EQ_CENTERS_HZ
@@ -96,7 +97,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /** A new way to shape the sound gets its tab here. */
-private val TABS = listOf("Graph", "Bands")
+private val TABS = listOf("Graph", "Bands", "Headphone")
 private const val STEP_MB = 50
 /** How close to a point a press has to land to grab it. Further off, the touch scrolls the page instead. */
 private val GRAB = 16.dp
@@ -135,7 +136,7 @@ internal fun sweep(fromBand: Int, fromMb: Int, toBand: Int, toMb: Int): List<Pai
 }
 
 @Composable
-fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, onBack: () -> Unit, bottomInset: Dp) {
+fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, isPlaying: Boolean, onBack: () -> Unit, bottomInset: Dp) {
     val on by settings.eqOn.collectAsStateWithLifecycle()
     val preset by settings.eqPreset.collectAsStateWithLifecycle()
     val levels by settings.eqLevels.collectAsStateWithLifecycle()
@@ -183,7 +184,8 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, on
                     Column {
                         when (page) {
                             0 -> GraphTab(tap, isPlaying, on, levels, shape, settings::saveEq)
-                            else -> BandsTab(levels, shape, settings::saveEq)
+                            1 -> BandsTab(levels, shape, settings::saveEq)
+                            else -> AutoEqTab(settings, autoEq, preset)
                         }
                     }
                 }
@@ -193,7 +195,7 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, isPlaying: Boolean, on
 }
 
 @Composable
-private fun Card(content: @Composable ColumnScope.() -> Unit) =
+internal fun Card(content: @Composable ColumnScope.() -> Unit) =
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surface), content = content)
 
 @Composable
@@ -205,7 +207,7 @@ private fun Label(text: String, actions: @Composable () -> Unit = {}) {
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Box(
         Modifier.heightIn(min = 40.dp).clip(CircleShape)

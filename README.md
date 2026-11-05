@@ -82,6 +82,7 @@ Without a release key, the build is signed with your debug key. The release key 
 - [SponsorBlock](https://sponsor.ajay.app) for the parts of music videos that aren't music
 - [Haze](https://github.com/chrisbanes/haze) for the glass effect
 - [Mochy Music](https://github.com/realidkroo/Mochy-Music) (GPL-3.0), which the equalizer page and filters were adapted from (see `licenses/`)
+- [AutoEq](https://github.com/jaakkopasanen/AutoEq) (MIT), whose headphone measurements the Headphone tab on the equalizer page reads
 - [Albert Sans](https://github.com/usted/Albert-Sans) font (SIL Open Font License, see `licenses/`)
 
 ## License

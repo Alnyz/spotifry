@@ -24,6 +24,25 @@ class SettingsTest {
         assertEquals(ThemeMode.DARK, again.theme.value)
     }
 
+    @Test fun theOwnCurveComesBackAfterAHeadphoneCorrection() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-before", 0)
+        val own = listOf(100, 0, 0, 0, 0, 0, 0, 0, 0, -50)
+        val s = Settings(prefs)
+        s.setEq(null, own)
+        s.saveEqBefore()
+        s.setEq("AutoEq: Some Headphone", List(10) { 300 })
+        assertEquals(true, Settings(prefs).eqBeforeSaved.value)
+        s.restoreEqBefore()
+        assertEquals(own, s.eqLevels.value)
+        assertEquals(null, s.eqPreset.value)
+        assertEquals(false, s.eqBeforeSaved.value)
+        // nothing kept: back to flat, not a crash
+        s.setEq("AutoEq: Some Headphone", List(10) { 300 })
+        s.restoreEqBefore()
+        assertEquals(List(10) { 0 }, s.eqLevels.value)
+        assertEquals("Flat", s.eqPreset.value)
+    }
+
     @Test fun theOldEqualizerCarriesOver() {
         val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-old", 0)
         prefs.edit().putBoolean("eq_on", true).putString("eq_preset", "Rock").putString("eq_levels", "500,300,-100,300,500").apply()
