@@ -25,12 +25,15 @@ import java.util.zip.ZipOutputStream
 /** The newest file layout this app reads. Raise it only when an older app would misread a new file. */
 const val BACKUP_FORMAT = 1
 private const val ENTRY = "backup.json"
-/** Far above a real backup (a few MB), low enough that a wrong file can't run the phone out of memory. */
-private const val MAX_JSON_BYTES = 128 * 1024 * 1024
+/** Five years at 30 songs a day and 5,000 songs is about 5 MB; even 100 a day for ten years fits. */
+internal const val MAX_JSON_BYTES = 32 * 1024 * 1024
 private const val LOCAL_PREFIX = "local:"
 
 /** A file that can't be restored; the message is shown as it is. */
 class BackupError(message: String) : Exception(message)
+
+/** The library is merged and stays merged, but settings, trims or the songs to download again may not have been written. */
+class BackupPartlyApplied(cause: Exception) : Exception(cause)
 
 data class BackupPlaylistSong(val songId: String, val addedAt: Long)
 /** [order] is the playlist's listing order. It has its own place here because its pref key holds this phone's playlist id. */
@@ -58,6 +61,23 @@ fun backupFileName(today: java.time.LocalDate = java.time.LocalDate.now()) = "sp
 /** Keys in the `app` prefs that describe this phone or this install, not the listener's choices. */
 private fun aboutThisPhone(key: String) = key == FIRST_LAUNCH_SEEN || key == Updates.LAST_CHECK || key == Updates.LATER || key.startsWith(PlaylistOrders.KEY_PREFIX)
 
+/**
+ * What the app reads each setting as. Reading a pref as another type throws, and Settings reads them all as the app starts,
+ * so one wrong value would stop the app opening until its data was cleared. A key added later and missing here is only
+ * checked against this phone's value; add it here.
+ */
+internal val SETTING_TYPES: Map<String, String> =
+    listOf(Settings.JIOSAAVN, Settings.DATA_SAVER, Settings.SAVE_LOW, Settings.KEEP_SCREEN_ON, Settings.SAME_LOUDNESS, Settings.SKIP_SILENCE, Settings.SMART_TRIM, Settings.EQ_ON, Settings.PURE_BLACK).associateWith { "boolean" } +
+        listOf(Settings.PITCH, Settings.FADE, Settings.ACCENT_COLOR).associateWith { "int" } +
+        (Settings.SPEED to "float") +
+        listOf(Settings.ARTISTS, Settings.THEME, Settings.EQ_PRESET, Settings.EQ_LEVELS, Settings.EQ_BANDS_KEY, Settings.EQ_BEFORE, Settings.ACCENT, "recent_searches").associateWith { "string" } +
+        ("not_suggested" to "set")
+
+internal fun prefType(v: Any): String = when (v) {
+    is Boolean -> "boolean"; is Int -> "int"; is Long -> "long"; is Float -> "float"; is String -> "string"; is Set<*> -> "set"
+    else -> error("a pref can't be a ${v::class}")
+}
+
 fun BackupFile.encode(): String = JSONObject()
     .put("format", BACKUP_FORMAT).put("appVersion", appVersion).put("createdAt", createdAt)
     .put("songs", JSONArray(songs.map {
@@ -78,15 +98,11 @@ fun BackupFile.encode(): String = JSONObject()
     .toString()
 
 // the type is written out: a JSON number doesn't say whether a pref was an Int, a Long or a Float, and reading a pref as the wrong one throws
-private fun encodeValue(v: Any): JSONObject = when (v) {
-    is Boolean -> JSONObject().put("type", "boolean").put("value", v)
-    is Int -> JSONObject().put("type", "int").put("value", v)
-    is Long -> JSONObject().put("type", "long").put("value", v)
-    is Float -> JSONObject().put("type", "float").put("value", v.toDouble())
-    is String -> JSONObject().put("type", "string").put("value", v)
-    is Set<*> -> JSONObject().put("type", "set").put("value", JSONArray(v))
-    else -> error("a pref can't be a ${v::class}")
-}
+private fun encodeValue(v: Any): JSONObject = JSONObject().put("type", prefType(v)).put("value", when (v) {
+    is Float -> v.toDouble()
+    is Set<*> -> JSONArray(v)
+    else -> v
+})
 
 private fun decodeValue(o: JSONObject): Any? = when (o.optString("type")) {
     "boolean" -> o.getBoolean("value")
@@ -143,7 +159,10 @@ fun readBackup(input: InputStream): BackupFile = try {
         if (text.size > MAX_JSON_BYTES) throw BackupError(NOT_A_BACKUP)
         decodeBackup(String(text))
     }
-} catch (e: BackupError) { throw e } catch (e: Exception) { throw BackupError(NOT_A_BACKUP) }
+} catch (e: BackupError) { throw e } catch (e: Exception) { throw BackupError(NOT_A_BACKUP) } catch (e: OutOfMemoryError) {
+    // parsing takes several times the file's size: a file under the limit can still be too much for this phone
+    throw BackupError(NOT_A_BACKUP)
+}
 
 /** Makes a [BackupFile] from this phone, and merges one into it. */
 class Backups(
@@ -169,25 +188,42 @@ class Backups(
         )
     }
 
-    /** The database merges in one transaction, first, so a failure there leaves everything as it was. Restart the app after this. */
-    @Suppress("UNCHECKED_CAST")
-    suspend fun restore(b: BackupFile) {
+    /** The backup's settings that this app couldn't read: they are left out, and this phone's value stays. */
+    fun unusableSettings(b: BackupFile): Set<String> {
+        val here = app.all
+        return b.settings.filter { (k, v) -> (SETTING_TYPES[k] ?: here[k]?.let(::prefType))?.let { it != prefType(v) } == true }.keys
+    }
+
+    /**
+     * The database merges in one transaction, first, so a failure there leaves everything as it was; a failure after it is
+     * a [BackupPartlyApplied]. Restart the app after a success, and not after a failure: the running app shows the merged
+     * library by itself and goes on with its old settings. Returns how many settings were left out.
+     */
+    suspend fun restore(b: BackupFile): Int {
         val ids = dao.merge(b)
+        try { applyTheRest(b, ids) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { throw BackupPartlyApplied(e) }
+        return unusableSettings(b).size
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun applyTheRest(b: BackupFile, ids: List<Pair<Long, Boolean>>) {
         val saved = b.songs.filter { it.savedAt != null }.sortedBy { it.savedAt }.map { it.id }
         // oldest first: each download is stamped with its own time, so the Saved page comes back in its old order
         waiting.add(saved - dao.savedIds().toSet())
-        trims.edit().apply { b.trims.forEach { (k, v) -> if (!trims.contains(k)) putString(k, v) } }.commit()
-        app.edit().apply {
-            app.all.keys.filterNot(::aboutThisPhone).forEach { remove(it) }
-            b.settings.filterKeys { !aboutThisPhone(it) }.forEach { (k, v) ->
+        check(trims.edit().apply { b.trims.forEach { (k, v) -> if (!trims.contains(k)) putString(k, v) } }.commit()) { "trims not written" }
+        val unusable = unusableSettings(b)
+        check(app.edit().apply {
+            app.all.keys.filterNot { aboutThisPhone(it) || it in unusable }.forEach { remove(it) }
+            b.settings.filterKeys { !aboutThisPhone(it) && it !in unusable }.forEach { (k, v) ->
                 when (v) {
                     is Boolean -> putBoolean(k, v); is Int -> putInt(k, v); is Long -> putLong(k, v); is Float -> putFloat(k, v)
                     is String -> putString(k, v); is Set<*> -> putStringSet(k, v as Set<String>)
                 }
             }
-            b.playlists.zip(ids).forEach { (p, id) -> p.order?.let { putString(PlaylistOrders.key(id), it) } }
+            // a playlist already on this phone keeps the order picked here
+            b.playlists.zip(ids).forEach { (p, id) -> if (id.second) p.order?.let { putString(PlaylistOrders.key(id.first), it) } }
             putBoolean(FIRST_LAUNCH_SEEN, true) // a phone with a restored library has no use for the first-launch screens
-        }.commit()
+        }.commit()) { "settings not written" }
     }
 }
 
@@ -216,13 +252,16 @@ class RestoreQueue(
     val status: StateFlow<RestoreStatus> = _status
     private var job: Job? = null
 
-    private fun store(list: List<String>, now: Boolean = false) {
+    private fun store(list: List<String>) {
         _ids.value = list
-        prefs.edit().putString(KEY, list.joinToString("\n")).apply { if (now) commit() else apply() }
+        prefs.edit().putString(KEY, list.joinToString("\n")).apply()
     }
 
     /** Written at once: the app exits right after a restore. */
-    fun add(new: List<String>) = store((_ids.value + new).distinct(), now = true)
+    fun add(new: List<String>) {
+        _ids.value = (_ids.value + new).distinct()
+        check(prefs.edit().putString(KEY, _ids.value.joinToString("\n")).commit()) { "list not written" }
+    }
 
     fun forget() { stop(); store(emptyList()) }
 

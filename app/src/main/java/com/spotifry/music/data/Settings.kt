@@ -156,7 +156,7 @@ class Settings(private val prefs: SharedPreferences) {
         line.split('\t').takeIf { it.size == 3 && it[0].isNotBlank() }?.let { PickedArtist(it[0], it[1], it[2].ifEmpty { null }) }
     }
 
-    private companion object {
+    companion object {
         const val JIOSAAVN = "jiosaavn"
         const val ARTISTS = "picked_artists"
         const val DATA_SAVER = "data_saver"

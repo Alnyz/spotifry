@@ -207,6 +207,123 @@ class BackupTest {
         assertEquals(emptyList<String>(), queue.ids.value)
     }
 
+    @Test fun aWrongTypedSettingIsSkippedAndTheAppStillOpens() = runBlocking {
+        app.edit().putBoolean("data_saver", true).putInt("pitch", 1).commit()
+        val b = file(settings = mapOf<String, Any>("data_saver" to "x", "speed" to "fast", "pitch" to (2 as Any)))
+        assertEquals(setOf("data_saver", "speed"), backups.unusableSettings(b))
+        assertEquals(2, backups.restore(b))
+        assertEquals(true, app.getBoolean("data_saver", false)) // this phone's value stays
+        assertFalse(app.contains("speed"))
+        assertEquals(2, app.getInt("pitch", 0)) // the good ones still apply
+        val s = Settings(app) // threw ClassCastException before
+        assertEquals(true, s.dataSaver.value)
+        assertEquals(1f, s.speed.value)
+    }
+
+    @Test fun onAFreshPhoneTheTableStillCatchesAWrongType() = runBlocking {
+        val b = file(settings = mapOf<String, Any>("data_saver" to "x"))
+        assertEquals(1, backups.restore(b))
+        assertFalse(app.contains("data_saver"))
+    }
+
+    @Test fun aKeyNotInTheTableIsCheckedAgainstThisPhone() = runBlocking {
+        app.edit().putInt("future", 1).commit()
+        assertEquals(setOf("future"), backups.unusableSettings(file(settings = mapOf<String, Any>("future" to "x"))))
+        assertEquals(emptySet<String>(), backups.unusableSettings(file(settings = mapOf<String, Any>("future" to (2 as Any), "other" to "y"))))
+    }
+
+    @Test fun everySettingTheAppWritesIsInTheTableWithItsRealType() {
+        val s = Settings(app)
+        s.setDataSaver(true); s.setSaveLow(true); s.setKeepScreenOn(true); s.setTheme(ThemeMode.DARK); s.setSameLoudness(true); s.setSkipSilence(true)
+        s.setSmartTrim(true); s.setSpeed(1.5f); s.setPitch(1); s.setFadeSeconds(2); s.setEqOn(true); s.setEq("Flat", List(com.spotifry.music.player.EQ_BANDS) { 0 })
+        s.saveEqBefore(); s.setAccent("EMBER", 1); s.setPureBlack(true); s.setJioSaavn(true); s.setArtists(listOf(PickedArtist("a", "", null)))
+        s.markFirstLaunchSeen()
+        app.edit().commit()
+        val written = app.all.filterKeys { it != FIRST_LAUNCH_SEEN }
+        assertEquals(19, written.size)
+        written.forEach { (k, v) -> assertEquals(k, prefType(v!!), SETTING_TYPES[k]) }
+    }
+
+    @Test fun anExistingPlaylistKeepsItsOrderAndANewOneGetsTheBackups() = runBlocking {
+        val mine = db.playlists().create("Mine")
+        PlaylistOrders(app).set(mine, PlaylistOrder.ARTIST)
+        val alsoMine = db.playlists().create("No order here")
+        app.edit().commit()
+        backups.restore(file(playlists = listOf(playlist("Mine", order = "TITLE"), playlist("No order here", order = "TITLE"), playlist("New", order = "RECENT"))))
+        val new = db.backup().playlists().first { it.name == "New" }.id
+        assertEquals("ARTIST", app.getString(PlaylistOrders.key(mine), null))
+        assertNull(app.getString(PlaylistOrders.key(alsoMine), null))
+        assertEquals("RECENT", app.getString(PlaylistOrders.key(new), null))
+    }
+
+    private fun proxied(real: SharedPreferences, edit: () -> SharedPreferences.Editor) = java.lang.reflect.Proxy.newProxyInstance(
+        javaClass.classLoader, arrayOf(SharedPreferences::class.java),
+    ) { _, m, args -> if (m.name == "edit") edit() else m.invoke(real, *args.orEmpty()) } as SharedPreferences
+
+    private fun failingEdits(real: SharedPreferences): SharedPreferences = proxied(real) { throw java.io.IOException("disk full") }
+    /** Edits that go through but whose commit reports false, as Android does when the write fails. */
+    private fun failingCommits(real: SharedPreferences): SharedPreferences = proxied(real) {
+        java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader, arrayOf(SharedPreferences.Editor::class.java)) { self, m, _ -> if (m.name == "commit") false else self } as SharedPreferences.Editor
+    }
+
+    private fun vmFor(b: Backups, onRestart: () -> Unit = {}) = com.spotifry.music.ui.settings.BackupViewModel(b, { null }, { null }, onRestart)
+    private suspend fun noteAfter(vm: com.spotifry.music.ui.settings.BackupViewModel) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        kotlinx.coroutines.withTimeout(5_000) { vm.step.first { it is com.spotifry.music.ui.settings.BackupStep.Note } } as com.spotifry.music.ui.settings.BackupStep.Note
+    }
+
+    @Test fun aFailureAfterTheMergeKeepsTheLibraryAndSaysSo() = runBlocking {
+        var restarts = 0
+        val vm = vmFor(Backups(db.backup(), app, failingEdits(trims), queue, "1.0")) { restarts++ }
+        vm.restore(file(songs = listOf(song("a")), settings = mapOf<String, Any>("pitch" to (2 as Any)), trims = mapOf("a" to "1,")))
+        val note = noteAfter(vm)
+        assertEquals("Restored only in part", note.title)
+        assertTrue(note.text.contains("were added"))
+        assertEquals(listOf("a"), db.backup().songs().map { it.id })
+        assertFalse(app.contains("pitch"))
+        assertEquals(0, restarts)
+    }
+
+    @Test fun aCommitThatReportsFalseIsAFailureToo() = runBlocking {
+        val b = file(songs = listOf(song("a")), trims = mapOf("a" to "1,"))
+        assertThrows(BackupPartlyApplied::class.java) { runBlocking { Backups(db.backup(), failingCommits(app), trims, queue, "1.0").restore(b) } }
+        assertThrows(BackupPartlyApplied::class.java) { runBlocking { Backups(db.backup(), app, failingCommits(trims), queue, "1.0").restore(b) } }
+        Unit
+    }
+
+    @Test fun aFailureBeforeTheMergeCommitsSaysNothingWasAdded() = runBlocking {
+        db.openHelper.writableDatabase.execSQL("CREATE TRIGGER boom BEFORE INSERT ON listens BEGIN SELECT RAISE(ABORT, 'boom'); END")
+        var restarts = 0
+        val vm = vmFor(backups) { restarts++ }
+        vm.restore(file(songs = listOf(song("a")), listens = listOf(ListenEntity(1, "a", 5))))
+        val note = noteAfter(vm)
+        assertEquals("Couldn't restore", note.title)
+        assertTrue(note.text.contains("nothing was added"))
+        assertEquals(emptyList<SongEntity>(), db.backup().songs())
+        assertEquals(0, restarts)
+    }
+
+    @Test fun theConfirmStepCountsSettingsThatWillBeSkipped() = runBlocking {
+        val bytes = zipped(file(settings = mapOf<String, Any>("data_saver" to "x")))
+        val vm = com.spotifry.music.ui.settings.BackupViewModel(backups, { null }, { ByteArrayInputStream(bytes) }, {})
+        vm.read(android.net.Uri.EMPTY)
+        val step = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            kotlinx.coroutines.withTimeout(5_000) { vm.step.first { it is com.spotifry.music.ui.settings.BackupStep.Confirm } }
+        } as com.spotifry.music.ui.settings.BackupStep.Confirm
+        assertEquals(1, step.unusableSettings)
+    }
+
+    @Test fun aSuccessfulRestoreRestarts() = runBlocking {
+        val restarted = kotlinx.coroutines.CompletableDeferred<Unit>()
+        vmFor(backups) { restarted.complete(Unit) }.restore(file(songs = listOf(song("a"))))
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { kotlinx.coroutines.withTimeout(5_000) { restarted.await() } }
+    }
+
+    @Test fun anEntryOverTheLimitIsRefusedThoughItIsValid() {
+        val pad = "x".repeat(MAX_JSON_BYTES)
+        assertTrue(refused(zipOf("backup.json", """{"format":1,"pad":"$pad"}""")).contains("isn't a Spotifry backup"))
+        assertEquals(1, readBackup(ByteArrayInputStream(zipOf("backup.json", """{"format":1,"pad":"x","songs":[{"id":"a"}]}"""))).songs.size)
+    }
+
     private fun zipOf(name: String, text: String) = ByteArrayOutputStream().also { o ->
         ZipOutputStream(o).use { it.putNextEntry(ZipEntry(name)); it.write(text.toByteArray()); it.closeEntry() }
     }.toByteArray()

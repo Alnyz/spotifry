@@ -150,16 +150,17 @@ abstract class BackupDao {
     protected abstract suspend fun largerPlays(songId: String, count: Int, at: Long)
     @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertListen(e: ListenEntity)
 
-    /** Returns this phone's id for each of the backup's playlists, in order. */
+    /** Returns this phone's id for each of the backup's playlists, in order, and whether the merge made it. */
     @Transaction
-    open suspend fun merge(b: com.spotifry.music.data.BackupFile): List<Long> {
+    open suspend fun merge(b: com.spotifry.music.data.BackupFile): List<Pair<Long, Boolean>> {
         b.songs.forEach { insertSong(it.copy(savedAt = null, filePath = null, thumbPath = null)) }
         // the nth playlist of a name is the nth one here, so two with the same name stay two
         val here = playlists().groupBy({ it.name }, { it.id }).mapValues { ArrayDeque(it.value) }
         val ids = b.playlists.map { p ->
-            val id = here[p.name]?.removeFirstOrNull() ?: insertPlaylist(PlaylistEntity(name = p.name, createdAt = p.createdAt))
+            val found = here[p.name]?.removeFirstOrNull()
+            val id = found ?: insertPlaylist(PlaylistEntity(name = p.name, createdAt = p.createdAt))
             p.songs.forEach { appendSong(id, it.songId, it.addedAt) }
-            id
+            id to (found == null)
         }
         b.history.forEach { insertHistory(it); laterHistory(it.songId, it.playedAt) }
         pruneHistory()

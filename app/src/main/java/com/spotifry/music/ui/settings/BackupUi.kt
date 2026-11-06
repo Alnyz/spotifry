@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.BackupError
 import com.spotifry.music.data.BackupFile
+import com.spotifry.music.data.BackupPartlyApplied
 import com.spotifry.music.data.Backups
 import com.spotifry.music.data.backupFileName
 import com.spotifry.music.data.readBackup
@@ -31,7 +32,7 @@ sealed interface BackupStep {
     data object None : BackupStep
     data class Working(val text: String) : BackupStep
     data class Note(val title: String, val text: String) : BackupStep
-    data class Confirm(val file: BackupFile) : BackupStep
+    data class Confirm(val file: BackupFile, val unusableSettings: Int = 0) : BackupStep
 }
 
 /** Survives Android's file dialog and a rotation; the dialogs below only draw [step]. */
@@ -58,7 +59,8 @@ class BackupViewModel(
     fun read(uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
         _step.value = BackupStep.Working("Reading the backup…")
         _step.value = try {
-            BackupStep.Confirm((input(uri) ?: throw BackupError(CANT_OPEN)).use(::readBackup))
+            val file = (input(uri) ?: throw BackupError(CANT_OPEN)).use(::readBackup)
+            BackupStep.Confirm(file, backups.unusableSettings(file).size)
         } catch (e: CancellationException) { throw e } catch (e: BackupError) {
             BackupStep.Note("Couldn't restore", e.message.orEmpty())
         } catch (e: Exception) {
@@ -71,7 +73,9 @@ class BackupViewModel(
         try {
             backups.restore(file)
             restart()
-        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+        } catch (e: CancellationException) { throw e } catch (e: BackupPartlyApplied) {
+            _step.value = BackupStep.Note("Restored only in part", "Your playlists, songs and history were added, but your settings or trims may not have been. Restoring the same file again is safe.")
+        } catch (e: Exception) {
             _step.value = BackupStep.Note("Couldn't restore", "Something went wrong, so nothing was added. Try again.")
         }
     }
@@ -100,7 +104,11 @@ fun rememberBackupActions(vm: BackupViewModel): BackupActions {
         is BackupStep.Confirm -> AlertDialog(
             onDismissRequest = vm::dismiss,
             title = { Text("Restore this backup?") },
-            text = { Text("${s.file.summary()}.\n\nThese join what's on this phone; nothing newer is overwritten. Your settings are replaced by the ones in the backup. The app restarts, so music stops.") },
+            text = {
+                val left = s.unusableSettings
+                val skipped = if (left == 0) "" else " $left ${if (left == 1) "setting" else "settings"} in the file can't be used and ${if (left == 1) "stays" else "stay"} as ${if (left == 1) "it is" else "they are"} here."
+                Text("${s.file.summary()}.\n\nThese join what's on this phone; nothing newer is overwritten. Your settings are replaced by the ones in the backup.$skipped The app restarts, so music stops.")
+            },
             confirmButton = { TextButton({ vm.restore(s.file) }) { Text("Restore") } },
             dismissButton = { TextButton(vm::dismiss) { Text("Cancel") } },
         )
