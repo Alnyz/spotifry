@@ -4,6 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,9 +34,17 @@ import com.spotifry.music.ui.components.CoverArt
 import com.spotifry.music.ui.components.SectionTitle
 
 /** Home's rows for the artists picked on first launch: the artists, then a few songs from each. Nothing when none were picked. */
-fun LazyListScope.artistItems(a: ArtistsHome, onOpen: (PickedArtist) -> Unit, onPlay: (List<Song>, Int) -> Unit) {
+fun LazyListScope.artistItems(a: ArtistsHome, onOpen: (PickedArtist) -> Unit, onPlay: (List<Song>, Int) -> Unit, onEdit: () -> Unit = {}) {
     if (a.artists.isEmpty()) return
-    item { SectionTitle("Your artists") }
+    item {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Bottom) {
+            SectionTitle("Your artists", Modifier.weight(1f))
+            Box(
+                Modifier.padding(end = 6.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Edit your artists", onClick = onEdit).defaultMinSize(minWidth = 48.dp, minHeight = 48.dp).padding(horizontal = 14.dp),
+                Alignment.Center,
+            ) { Text("Edit", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
+        }
+    }
     item {
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             itemsIndexed(a.artists, key = { _, x -> x.key }) { _, x -> ArtistCircle(x, onOpen) }

@@ -76,4 +76,30 @@ class ArtistsHomeViewModelTest {
         assertEquals(listOf("Hindia"), vm.state.value.artists.map { it.name })
         assertEquals(1, vm.state.value.songs.size)
     }
+
+    @Test fun editingAsksOnlyForAddedArtistsAndDropsRemovedOnes() {
+        val s = settings(); s.setArtists(listOf(PickedArtist("Tulus", "url/Tulus", null), PickedArtist("Raisa", "", null)))
+        val vm = ArtistsHomeViewModel(s, ArtistSongs(source))
+        assertEquals(1, lookups.get()); assertEquals(2, pages.get())
+        s.setArtists(listOf(PickedArtist("Raisa", "url/Raisa", null), PickedArtist("Hindia", "url/Hindia", null)))
+        // Raisa is cached, Tulus is gone, only Hindia is new
+        assertEquals(1, lookups.get()); assertEquals(3, pages.get())
+        assertEquals(listOf("Raisa-1", "Hindia-1"), vm.state.value.songs.map { it.id })
+        s.setArtists(emptyList())
+        assertEquals(ArtistsHome(), vm.state.value)
+        // Tulus was dropped from the cache, so picking it again asks again
+        s.setArtists(listOf(PickedArtist("Tulus", "url/Tulus", null)))
+        assertEquals(4, pages.get())
+    }
+
+    @Test fun aLateLookupDoesNotOverwriteAnEditSavedMeanwhile() {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val slow = object : MusicSource by source { override suspend fun searchPages(query: String, type: SearchType): List<PageLink> { gate.await(); return source.searchPages(query, type) } }
+        val s = settings(); s.setArtists(listOf(PickedArtist("Tulus", "", null)))
+        ArtistsHomeViewModel(s, ArtistSongs(slow))
+        val edited = listOf(PickedArtist("Raisa", "url/Raisa", null))
+        s.setArtists(edited)
+        gate.complete(Unit)
+        assertEquals(edited, s.artists.value)
+    }
 }

@@ -59,7 +59,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.spotifry.music.data.MIN_ARTISTS
 import com.spotifry.music.data.db.PlaylistWithCounts
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.db.toEntity
@@ -206,7 +205,7 @@ fun HomeContent(
                 }
             }
         }
-        artistItems(artists, onOpenArtist) { list, i -> onPlay(list, i, "From your artists") }
+        artistItems(artists, onOpenArtist, { list, i -> onPlay(list, i, "From your artists") }, onPickArtists)
         // the start card already offers this when no artists are picked
         if (recent.isEmpty() && playlists.isEmpty() && artists.artists.isNotEmpty()) item {
             Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)) {
@@ -335,7 +334,7 @@ private fun StartCard(onSearch: () -> Unit, onImport: () -> Unit, onPickArtists:
         HorizontalDivider(color = scheme.outlineVariant)
         ImportWay(onImport)
         HorizontalDivider(color = scheme.outlineVariant)
-        Way(Icons.List, "Pick your artists", "Choose $MIN_ARTISTS or more for Home", onPickArtists)
+        Way(Icons.List, "Pick your artists", "Choose artists for Home", onPickArtists)
     }
 }
 

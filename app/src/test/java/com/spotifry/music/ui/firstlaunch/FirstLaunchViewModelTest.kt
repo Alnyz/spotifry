@@ -109,4 +109,38 @@ class FirstLaunchViewModelTest {
         assertEquals(1, vm.step.value)
         assertEquals(4, s.artists.value.size)
     }
+
+    @Test fun editKeepsTheCurrentPicksTickedAndRemoveAndAddAreSaved() {
+        val s = settings(); s.setArtists(listOf(PickedArtist("Tulus", "url/Tulus", null), a("Raisa"), a("Hindia")))
+        val vm = FirstLaunchViewModel(Source(), s, reopen = true)
+        assertEquals(listOf("tulus", "raisa", "hindia"), vm.picked.value.map { it.key })
+        vm.toggle(a("Raisa")); vm.toggle(a("Queen")); vm.next()
+        assertEquals(listOf("Tulus", "Hindia", "Queen"), s.artists.value.map { it.name })
+        // a kept artist keeps the page it already had
+        assertEquals("url/Tulus", s.artists.value.first().url)
+    }
+
+    @Test fun editAllowsFewerThanThreeAndEvenNone() {
+        val s = settings(); s.setArtists(listOf(a("Tulus"), a("Raisa"), a("Hindia")))
+        val vm = FirstLaunchViewModel(Source(), s, reopen = true)
+        vm.toggle(a("Raisa")); vm.toggle(a("Hindia")); vm.next()
+        assertEquals(listOf("Tulus"), s.artists.value.map { it.name })
+        vm.toggle(a("Tulus")); assertTrue(vm.canContinue); vm.next()
+        assertTrue(s.artists.value.isEmpty())
+    }
+
+    @Test fun leavingWithoutSavingKeepsTheOldPicks() {
+        val s = settings(); s.setArtists(listOf(a("Tulus"), a("Raisa"), a("Hindia")))
+        val vm = FirstLaunchViewModel(Source(), s, reopen = true)
+        vm.toggle(a("Raisa")); vm.toggle(a("Queen")) // then Cancel/back: next() is never called
+        assertEquals(listOf("Tulus", "Raisa", "Hindia"), s.artists.value.map { it.name })
+    }
+
+    @Test fun savingKeepsAPageHomeFoundWhileTheScreenWasOpen() {
+        val s = settings(); s.setArtists(listOf(a("Tulus"), a("Raisa")))
+        val vm = FirstLaunchViewModel(Source(), s, reopen = true)
+        s.setArtists(listOf(PickedArtist("Tulus", "url/Tulus", null), a("Raisa")))
+        vm.toggle(a("Queen")); vm.next()
+        assertEquals("url/Tulus", s.artists.value.first().url)
+    }
 }

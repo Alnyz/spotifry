@@ -22,7 +22,8 @@ class ArtistsHomeViewModel(private val settings: Settings, private val loader: A
     init {
         viewModelScope.launch {
             settings.artists.collect { list ->
-                _state.value = ArtistsHome(list, _state.value.songs.takeIf { list.isNotEmpty() }.orEmpty())
+                loader.keepOnly(list)
+                _state.value = ArtistsHome(list, loader.known(list))
                 load(list)
             }
         }
@@ -35,7 +36,8 @@ class ArtistsHomeViewModel(private val settings: Settings, private val loader: A
         job = viewModelScope.launch {
             val got = loader.load(list)
             // an artist picked offline now has its page: keep it, so it isn't looked up again
-            if (got.artists != list) settings.setArtists(got.artists)
+            // only if the picks are still the ones this load started from: an edit saved meanwhile is not overwritten
+            if (got.artists != list && settings.artists.value == list) settings.setArtists(got.artists)
             _state.value = ArtistsHome(got.artists, got.songs)
         }
     }

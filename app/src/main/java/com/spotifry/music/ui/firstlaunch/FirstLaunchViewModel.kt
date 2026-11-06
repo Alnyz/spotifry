@@ -40,8 +40,8 @@ sealed interface ArtistSearch {
 }
 
 /**
- * Screen 1 (pick artists) and the step number of the two screens. [reopen]: opened again from an empty Home; it starts
- * from the artists already picked and has no second screen.
+ * Screen 1 (pick artists) and the step number of the two screens. [reopen]: opened again from Home (Edit, or the button on an empty Home); it starts
+ * from the artists already picked, takes any number of them and has no second screen.
  */
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class FirstLaunchViewModel(
@@ -99,12 +99,16 @@ class FirstLaunchViewModel(
         picked.value = if (picked.value.any { it.key == a.key }) picked.value.filterNot { it.key == a.key } else picked.value + a
     }
 
-    val canContinue get() = picked.value.size >= MIN_ARTISTS
+    /** The first launch needs [MIN_ARTISTS]; editing from Home takes any number, even none. */
+    val minPicks get() = if (reopen) 0 else MIN_ARTISTS
+    val canContinue get() = picked.value.size >= minPicks
 
     /** "Continue": the picks are kept now, so closing the app between the screens doesn't lose them. */
     fun next() {
         if (!canContinue) return
-        settings.setArtists(picked.value)
+        // Home may have found an artist's page while this screen was open: keep that over the copy picked earlier
+        val now = settings.artists.value.associateBy { it.key }
+        settings.setArtists(picked.value.map { now[it.key] ?: it })
         if (!reopen) step.value = 2
     }
 
