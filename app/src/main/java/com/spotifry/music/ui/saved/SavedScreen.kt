@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,7 +32,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,84 +40,72 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.EmptyState
 import com.spotifry.music.ui.components.PlayButtons
 import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.ui.components.SongRow
-import com.spotifry.music.ui.settings.Segments
-
-/** The "On this phone" tab: whether music access is allowed, the files found, and what tapping does. */
-class PhoneTab(val allowed: Boolean, val songs: List<Song>, val onAllow: () -> Unit, val onPlay: (List<Song>, Int) -> Unit, val onShuffle: (List<Song>) -> Unit = {})
+import com.spotifry.music.ui.settings.Chip
 
 @Composable
 fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier) {
-    val saved by vm.saved.collectAsStateWithLifecycle()
-    val phone by vm.phone.collectAsStateWithLifecycle()
-    var onPhone by rememberSaveable { mutableStateOf(false) }
+    val view by vm.view.collectAsStateWithLifecycle()
     var allowed by remember { mutableStateOf(vm.allowed()) }
     // Android asks its own question; a no leaves the card in place
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it; if (it) vm.refreshPhone() }
-    // opening the tab reads the files again, so new ones (or access given in Android's settings) show up
-    LaunchedEffect(onPhone) { if (onPhone) { allowed = vm.allowed(); vm.refreshPhone() } }
+    // showing a list that has phone files reads them again, so new ones (or access given in Android's settings) show up
+    LaunchedEffect(view.filter) { if (view.filter != SavedFilter.Offline) { allowed = vm.allowed(); vm.refreshPhone() } }
     SavedContent(
-        saved, onFindSong, vm::play, onMore, modifier, bottomInset, onShuffle = vm::shuffle,
-        onPhone = onPhone, onTab = { onPhone = it },
-        phone = PhoneTab(allowed, phone, { ask.launch(Manifest.permission.READ_MEDIA_AUDIO) }, vm::playPhone, vm::shufflePhone),
+        view, vm::pick, onFindSong, vm::play, onMore, modifier, bottomInset, onShuffle = vm::shuffle,
+        phoneAllowed = allowed, onAllow = { ask.launch(Manifest.permission.READ_MEDIA_AUDIO) },
     )
 }
 
 @Composable
 fun SavedContent(
-    saved: List<SongEntity>, onFindSong: () -> Unit, onPlay: (List<Song>, Int) -> Unit, onMore: (Song) -> Unit,
+    view: SavedView, onFilter: (SavedFilter) -> Unit, onFindSong: () -> Unit, onPlay: (List<Song>, Int) -> Unit, onMore: (Song) -> Unit,
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
-    onPhone: Boolean = false, onTab: (Boolean) -> Unit = {}, phone: PhoneTab? = null,
-    onShuffle: (List<Song>) -> Unit = {},
+    onShuffle: (List<Song>) -> Unit = {}, phoneAllowed: Boolean = true, onAllow: () -> Unit = {},
 ) {
+    val rows = view.rows
+    val songs = remember(rows) { rows.map { it.song } }
+    val count = "${rows.size} ${if (rows.size == 1) "song" else "songs"}"
     val subtitle = when {
-        onPhone && phone != null -> if (phone.allowed && phone.songs.isNotEmpty()) "${phone.songs.size} ${if (phone.songs.size == 1) "song" else "songs"} on this phone" else "Plays without internet"
-        saved.isEmpty() -> null
-        else -> "${saved.size} ${if (saved.size == 1) "song" else "songs"} · plays without internet"
+        rows.isEmpty() -> null
+        view.filter == SavedFilter.Offline -> "$count · plays without internet"
+        else -> count
     }
     val rowPad = Modifier.padding(start = 20.dp, end = 8.dp)
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 16.dp)) {
         item { ScreenHeader("Saved", subtitle = subtitle) }
-        if (phone != null) item {
-            Segments(listOf("Saved here", "On this phone"), if (onPhone) 1 else 0, Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), fill = true) { onTab(it == 1) }
+        item {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup().padding(horizontal = 20.dp, vertical = 12.dp), Arrangement.spacedBy(8.dp)) {
+                SavedFilter.entries.forEach { Chip(it.label, it == view.filter) { onFilter(it) } }
+            }
         }
-        if (onPhone && phone != null) {
-            when {
-                !phone.allowed -> item { AskCard(phone.onAllow) }
-                phone.songs.isEmpty() -> item { EmptyState("No music files found", "Songs you copy or download to this phone, like MP3s, show up here.") }
-                else -> {
-                    item {
-                        PlayButtons({ phone.onPlay(phone.songs, 0) }, { phone.onShuffle(phone.songs) }, Modifier.padding(start = 20.dp, top = 16.dp))
-                        Spacer(Modifier.height(10.dp))
-                    }
-                    itemsIndexed(phone.songs, key = { _, s -> s.id }) { i, s -> SongRow(s, false, { phone.onPlay(phone.songs, i) }, { onMore(s) }, rowPad) }
+        when {
+            view.filter == SavedFilter.Phone && !phoneAllowed -> item { AskCard(onAllow) }
+            rows.isEmpty() -> item { Empty(view.filter, onFindSong) }
+            else -> {
+                item {
+                    PlayButtons({ onPlay(songs, 0) }, { onShuffle(songs) }, Modifier.padding(start = 20.dp, top = 4.dp))
+                    Spacer(Modifier.height(10.dp))
                 }
-            }
-        } else if (saved.isEmpty()) {
-            item {
-                EmptyState(
-                    "Nothing saved yet",
-                    "Open any song and tap “Save on this phone”. It will play here without internet.",
-                    "Find a song to save", onFindSong,
-                )
-            }
-        } else {
-            val songs = saved.map { it.toSong() }
-            item {
-                PlayButtons({ onPlay(songs, 0) }, { onShuffle(songs) }, Modifier.padding(start = 20.dp, top = 16.dp))
-                Spacer(Modifier.height(10.dp))
-            }
-            itemsIndexed(saved, key = { _, s -> s.id }) { i, s ->
-                SongRow(songs[i], true, { onPlay(songs, i) }, { onMore(songs[i]) }, rowPad, localCover = s.thumbPath)
+                itemsIndexed(rows, key = { _, r -> r.song.id }) { i, r ->
+                    SongRow(r.song, r.saved, { onPlay(songs, i) }, { onMore(r.song) }, rowPad, localCover = r.song.localThumbPath)
+                }
             }
         }
     }
+}
+
+@Composable
+private fun Empty(filter: SavedFilter, onFindSong: () -> Unit) = when (filter) {
+    SavedFilter.All -> EmptyState("Nothing here yet", "Save a song from search, or allow music on this phone, and it shows up here.", "Find a song to save", onFindSong)
+    SavedFilter.Offline -> EmptyState("Nothing saved yet", "Open any song and tap “Save on this phone”. It will play here without internet.", "Find a song to save", onFindSong)
+    SavedFilter.Phone -> EmptyState("No music files found", "Songs you copy or download to this phone, like MP3s, show up here.")
+    SavedFilter.Lately -> EmptyState("Nothing played lately", "Saved songs and music from this phone that you play show up here, newest first.")
 }
 
 /** First visit to "On this phone": what it does, and the button that makes Android ask. */
