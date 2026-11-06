@@ -27,6 +27,8 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onRoot
@@ -140,6 +142,21 @@ class FadeBarTest {
         // inside the fade, above the tab row: the page is pressed
         compose.onRoot().performTouchInput { click(Offset(3f, h - tabRow - d / 2)) }
         assertEquals("fade zone", 1, under)
+    }
+
+    /** A real finger moves a pixel or two between down and up; a scripted `adb input tap` never does. */
+    @Test fun aTapWithAFingerWobbleStillReachesTheTab() {
+        val clicked = mutableListOf<String>()
+        compose.setContent { MaterialTheme { FadeBar(tabs, Routes.LISTEN, { clicked += it }, playing = false) } }
+        compose.onNodeWithContentDescription("Saved").performTouchInput { down(center); moveBy(Offset(2f, 1f)); moveBy(Offset(-1f, 2f)); up() }
+        assertEquals(listOf(Routes.SAVED), clicked)
+    }
+
+    @Test fun aTapWithAFingerWobbleStillReachesTheCapsule() {
+        var opened = 0
+        compose.setContent { MaterialTheme { FadeBar(tabs, Routes.LISTEN, {}, playing = true) { androidx.compose.foundation.layout.Box(Modifier.size(200.dp, 56.dp).clickable { opened++ }) { Text("capsule") } } } }
+        compose.onNodeWithText("capsule").performTouchInput { down(center); moveBy(Offset(2f, 1f)); up() }
+        assertEquals(1, opened)
     }
 
     @Test fun pillRestsOnTheSelectedTab_andFollowsARouteChangeFromOutsideTheBar() {

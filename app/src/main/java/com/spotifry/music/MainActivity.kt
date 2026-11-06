@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import com.spotifry.music.ui.FadeBarSpec
+import com.spotifry.music.ui.SlideOverlay
 import com.spotifry.music.ui.FadeBar
 import com.spotifry.music.ui.BarTab
 import androidx.compose.material3.ScaffoldDefaults
@@ -20,9 +21,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -385,10 +383,10 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                 }
             }
 
-            AnimatedVisibility(showPlayer, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
+            SlideOverlay(showPlayer) {
                 // one handler for the whole player, added each time it opens so it is the newest and outranks the
                 // NavHost's own back handling on every tab: full lyrics close first, then Now playing
-                BackHandler { if (showLyrics) showLyrics = false else showPlayer = false }
+                BackHandler(enabled = showPlayer) { if (showLyrics) showLyrics = false else showPlayer = false }
                 KeepScreenOn(keepScreenOn && player.wantsPlay)
                 NowPlayingContent(
                     player, save,

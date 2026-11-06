@@ -153,7 +153,9 @@ fun FadeBar(
             }
             .padding(top = FadeBarSpec.FADE),
     ) {
-        Column(Modifier.fillMaxWidth().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } }) {
+        // an empty pointerInput: it is in the touch path, so the page under this part hears nothing, but it consumes nothing itself.
+        // (Consuming every event here cancelled any tap whose finger moved a pixel between down and up.)
+        Column(Modifier.fillMaxWidth().pointerInput(Unit) {}) {
             if (playing) Box(Modifier.padding(start = 8.dp, end = 8.dp, bottom = FadeBarSpec.MINI_GAP)) { mini() }
             val selected = tabs.indexOfFirst { tabSelected(it.route, route) }
             val still = rememberStill()
