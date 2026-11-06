@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -150,7 +151,7 @@ private fun Message(text: String, maxLines: Int = Int.MAX_VALUE) = Text(
 private fun Page(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
     BackHandler(onBack = onBack)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.statusBarsPadding().navigationBarsPadding()) {
+        Column(Modifier.statusBarsPadding().navigationBarsPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp), Arrangement.spacedBy(6.dp), Alignment.CenterVertically) {
                 IconButton(onBack, Modifier.size(48.dp)) { Icon(Icons.Back, "Back") }
                 Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -287,18 +288,21 @@ fun ImportSharedPage(shared: ShareText.Shared, onPlay: (List<Song>, Int, String)
     val scheme = MaterialTheme.colorScheme
     Page("Import playlist", onBack) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
-            Label("Name", Modifier.padding(top = 0.dp))
-            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
-            val n = shared.songs.size
-            val files = shared.phoneFiles
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(color = scheme.onSurface, fontWeight = FontWeight.Bold)) { append("$n ${if (n == 1) "song" else "songs"} ready.") }
-                    if (files > 0) append(if (files == 1) " 1 left out: it was a file on their phone." else " $files left out: they were files on their phone.")
-                },
-                Modifier.padding(top = 14.dp, bottom = 6.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
-            )
+            // the name scrolls with the songs and the buttons stay: with a keyboard up in landscape, little else fits
             LazyColumn(Modifier.weight(1f)) {
+                item {
+                    Label("Name", Modifier.padding(top = 0.dp))
+                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
+                    val n = shared.songs.size
+                    val files = shared.phoneFiles
+                    Text(
+                        buildAnnotatedString {
+                            withStyle(SpanStyle(color = scheme.onSurface, fontWeight = FontWeight.Bold)) { append("$n ${if (n == 1) "song" else "songs"} ready.") }
+                            if (files > 0) append(if (files == 1) " 1 left out: it was a file on their phone." else " $files left out: they were files on their phone.")
+                        },
+                        Modifier.padding(top = 14.dp, bottom = 6.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                    )
+                }
                 itemsIndexed(shared.songs, key = { _, s -> s.id }) { i, s -> SongRow(s, false, { onPlay(shared.songs, i, name.ifBlank { shared.title }) }, null) }
             }
             Row(Modifier.fillMaxWidth().padding(top = 10.dp), Arrangement.spacedBy(10.dp)) {

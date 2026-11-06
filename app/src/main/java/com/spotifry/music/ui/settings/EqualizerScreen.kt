@@ -14,10 +14,11 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -194,17 +195,14 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                         style = MaterialTheme.typography.labelLarge, color = scheme.onSurface,
                     )
                 }
-                Row(Modifier.fillMaxWidth().selectableGroup().horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
-                    val selectedChip = remember { BringIntoViewRequester() }
-                    // opening the page shows the picked chip, even when it's far along the row
-                    LaunchedEffect(Unit) { withFrameNanos { }; selectedChip.bringIntoView() }
-                    presetChips(preset).forEach { name ->
+                val chips = presetChips(preset)
+                // opening the page shows the picked chip, even when it's far along the row; only the row moves, not the page
+                val chipRow = rememberLazyListState(initialFirstVisibleItemIndex = (chips.indexOf(preset).takeIf { it >= 0 } ?: chips.lastIndex).minus(1).coerceAtLeast(0))
+                LazyRow(Modifier.fillMaxWidth().selectableGroup(), chipRow, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(chips) { name ->
                         val l = EQ_PRESETS.firstOrNull { it.first == name }?.second
                         // Custom is only in the row while it's the one picked
-                        val picked = l == null || preset == name
-                        Box(if (picked) Modifier.bringIntoViewRequester(selectedChip) else Modifier) {
-                            Chip(name, picked) { if (l != null) { settings.setEq(name, l); settings.setEqOn(true) } }
-                        }
+                        Chip(name, l == null || preset == name) { if (l != null) { settings.setEq(name, l); settings.setEqOn(true) } }
                     }
                 }
                 }

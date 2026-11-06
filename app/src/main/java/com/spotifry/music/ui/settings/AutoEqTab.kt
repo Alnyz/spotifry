@@ -123,7 +123,7 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
                     Text("Correcting for", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
                     Text(active, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
                 } else Text("Equalizer is off. Turn it on to correct for $active.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
-                Chip(if (before) "Back to my curve" else "Turn off correction", false, Role.Button) { settings.restoreEqBefore() }
+                Chip(if (before) "Back to my curve" else if (on) "Turn off correction" else "Remove correction", false, Role.Button) { settings.restoreEqBefore() }
             }
             when (val s = step) {
                 Step.Idle -> {}
