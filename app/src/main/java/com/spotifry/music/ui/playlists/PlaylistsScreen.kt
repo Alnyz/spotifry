@@ -91,7 +91,7 @@ fun PlaylistsContent(playlists: List<PlaylistWithCounts>, onOpen: (Long) -> Unit
         }
         ExtendedFloatingActionButton(
             onClick = onNew,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomInset + 16.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = (bottomInset - 28.dp).coerceAtLeast(16.dp)),
             containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
             shape = CircleShape,
             icon = { Icon(Icons.Plus, null) }, text = { Text("New playlist") },

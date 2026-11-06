@@ -10,6 +10,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.consumeWindowInsets
+import com.spotifry.music.ui.FadeBarSpec
+import com.spotifry.music.ui.FadeBar
+import com.spotifry.music.ui.BarTab
+import androidx.compose.material3.ScaffoldDefaults
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -20,9 +29,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -128,12 +134,11 @@ object Routes {
     fun mood(m: Mood) = "mood?name=${Uri.encode(m.name)}"
 }
 
-private data class Dest(val route: String, val label: String, val icon: ImageVector)
-private val dests = listOf(
-    Dest(Routes.LISTEN, "Home", Icons.Home),
-    Dest(Routes.SEARCH, "Search", Icons.Search),
-    Dest(Routes.SAVED, "Saved", Icons.Saved),
-    Dest(Routes.PLAYLISTS, "Playlists", Icons.List),
+private val barTabs = listOf(
+    BarTab(Routes.LISTEN, "Home", Icons.Home),
+    BarTab(Routes.SEARCH, "Search", Icons.Search),
+    BarTab(Routes.SAVED, "Saved", Icons.Saved),
+    BarTab(Routes.PLAYLISTS, "Playlists", Icons.List),
 )
 
 class MainActivity : ComponentActivity() {
@@ -259,7 +264,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     LaunchedEffect(player.current != null) { if (player.current != null) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) }
     LaunchedEffect(player.current == null) { if (player.current == null) showPlayer = false }
 
-    val inset = if (player.current != null) 80.dp else 0.dp
+    // the bar fades over the page, so every list keeps this much clear at its end (168 dp playing, 108 dp not, on a 16 dp gesture area)
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val inset = FadeBarSpec.reserve(player.current != null, navInset)
     val suggestionMenu: (Int) -> Unit = { i -> player.queue.getOrNull(i)?.let { menu = MenuTarget(it, queueIndex = i) } }
     val openMenu: (Song) -> Unit = { menu = MenuTarget(it) }
     val context = LocalContext.current
@@ -303,24 +310,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             // under the first-launch screens the app is not drawn, so touches and screen readers can't reach it
             if (!covered) Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
-                snackbarHost = { SnackbarHost(snackbar) },
-                bottomBar = {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
-                        dests.forEach { d ->
-                            NavigationBarItem(
-                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.SEARCH && (route == Routes.PAGE || route == Routes.MOOD)) || (d.route == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER || route == Routes.LISTENING)),
-                                onClick = { goTo(d.route) },
-                                icon = { Icon(d.icon, contentDescription = null) },
-                                label = { Text(d.label) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            )
-                        }
-                    }
-                },
+                snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = FadeBarSpec.solid(player.current != null, navInset))) },
+                contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
             ) { pad ->
                 TopGlow()
                 Box(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
@@ -388,10 +379,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         }
                     }
                     }
-                    MiniPlayer(
-                        player, position, haze, c.player::toggle, c.player::next, { showPlayer = true },
-                        Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, top = 8.dp),
-                    )
+                    FadeBar(barTabs, route, goTo, player.current != null, Modifier.align(Alignment.BottomCenter)) {
+                        MiniPlayer(player, position, haze, c.player::toggle, c.player::next, { showPlayer = true })
+                    }
                 }
             }
 
