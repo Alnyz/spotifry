@@ -71,10 +71,12 @@ fun CoverArt(seed: String, thumbnailUrl: String?, localPath: String?, modifier: 
     }
     Box(modifier.clip(shape)) {
         val img = image
+        // grey stays under a cover that is fading in, so nothing flashes empty in between
+        val grey = shelf && !instant && thumbnailUrl != null && client != null && !isFileArt(thumbnailUrl) && (img != null || !failed)
+        if (grey) LoadingBox(Modifier.matchParentSize().then(if (img == null) Modifier.testTag("cover_grey") else Modifier), RoundedCornerShape(0.dp))
         if (img != null) Image(img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().fadeIn(shelf && !instant))
         else if (isFileArt(thumbnailUrl)) NoCover(Modifier.matchParentSize())
-        else if (shelf && !failed && thumbnailUrl != null && client != null) LoadingBox(Modifier.matchParentSize().testTag("cover_grey"), RoundedCornerShape(0.dp))
-        else Box(Modifier.matchParentSize().background(stripes(seed)))
+        else if (!grey) Box(Modifier.matchParentSize().background(stripes(seed)))
     }
 }
 
