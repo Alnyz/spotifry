@@ -22,6 +22,7 @@ class SettingsViewModel(
     val recentSearches: RecentSearches,
     private val history: HistoryDao,
     private val plays: PlayCountDao,
+    private val listens: com.spotifry.music.data.db.ListenDao,
     private val songs: SongDao,
     private val songsDir: File,
     private val covers: Cache?,
@@ -53,5 +54,5 @@ class SettingsViewModel(
 
     fun clearSearches() = recentSearches.clear()
 
-    fun clearHistory() = viewModelScope.launch { history.clear(); plays.clear() }
+    fun clearHistory() = viewModelScope.launch { history.clear(); plays.clear(); listens.clear() }
 }

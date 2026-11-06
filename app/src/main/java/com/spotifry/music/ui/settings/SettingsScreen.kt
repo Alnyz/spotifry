@@ -121,7 +121,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
             }
             Group("History") {
                 Item("Clear recent searches", if (searches.isEmpty()) "Nothing to clear" else "${searches.size} saved", onClick = vm::clearSearches)
-                Item("Clear listening history", "Empties Recently played and Most played", danger = true, onClick = { confirmHistory = true })
+                Item("Clear listening history", "Empties Recently played, Most played and Your listening", danger = true, onClick = { confirmHistory = true })
             }
             Group("About") {
                 if (updates != null) {
@@ -161,7 +161,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     if (confirmHistory) AlertDialog(
         onDismissRequest = { confirmHistory = false },
         title = { Text("Clear listening history?") },
-        text = { Text("Recently played and Most played start empty. Saved songs and playlists stay.") },
+        text = { Text("Recently played, Most played and Your listening start empty. Saved songs and playlists stay.") },
         confirmButton = { TextButton({ vm.clearHistory(); confirmHistory = false }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Clear") } },
         dismissButton = { TextButton({ confirmHistory = false }) { Text("Keep it") } },
     )

@@ -62,7 +62,7 @@ import java.time.LocalTime
 fun HomeScreen(
     vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp,
     onOpenSaved: () -> Unit, onOpenPlaylists: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {},
-    top: @Composable () -> Unit = {},
+    listening: @Composable () -> Unit = {}, top: @Composable () -> Unit = {},
 ) {
     val recent by vm.recentOrNull.collectAsStateWithLifecycle()
     val saved by vm.savedIds.collectAsStateWithLifecycle()
@@ -70,7 +70,7 @@ fun HomeScreen(
     HomeContent(
         recent = recent.orEmpty(), loading = recent == null, savedIds = saved, mostPlayed = most,
         onPlay = vm::play, onMore = onMore, modifier = modifier, bottomInset = bottomInset,
-        onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, top = top,
+        onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, listening = listening, top = top,
     )
 }
 
@@ -85,6 +85,8 @@ fun HomeContent(
     loading: Boolean = false,
     /** Shown under the greeting: the update card when there is one. */
     top: @Composable () -> Unit = {},
+    /** Shown under the shortcuts: the way into Your listening. */
+    listening: @Composable () -> Unit = {},
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 20.dp)) {
         item {
@@ -110,6 +112,7 @@ fun HomeContent(
                 if (savedIds.isNotEmpty()) Shortcut(Icons.Shuffle, "Shuffle", onShuffleSaved)
             }
         }
+        if (!loading) item { listening() }
         if (recent.isEmpty()) {
             if (!loading) item {
                 Text(

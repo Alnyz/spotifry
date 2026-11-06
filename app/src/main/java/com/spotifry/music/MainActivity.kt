@@ -121,6 +121,7 @@ object Routes {
     const val PAGE = "page?type={type}&url={url}&name={name}&by={by}&art={art}"
     fun page(l: PageLink) = "page?type=${l.type.name}&url=${Uri.encode(l.url)}&name=${Uri.encode(l.name)}&by=${Uri.encode(l.by)}&art=${Uri.encode(l.thumbnailUrl.orEmpty())}"
     const val MOOD = "mood?name={name}"
+    const val LISTENING = "listening"
     fun mood(m: Mood) = "mood?name=${Uri.encode(m.name)}"
 }
 
@@ -176,7 +177,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic, c.db.history()) } })
     val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs)) } })
     val settingsVm: SettingsViewModel = viewModel(factory = viewModelFactory { initializer {
-        SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache)
+        SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.listens(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache)
     } })
     val importVm: ImportViewModel = viewModel(factory = viewModelFactory { initializer { ImportViewModel({ SpotifyImport.fetch(c.client, it) }, c.source, c.db.playlists(), c.db.songs()) } })
     val npVm: NowPlayingViewModel = viewModel(factory = viewModelFactory { initializer { NowPlayingViewModel(c.player, c.downloads, c.db.songs(), c.lyrics) } })
@@ -280,7 +281,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                         dests.forEach { d ->
                             NavigationBarItem(
-                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.SEARCH && (route == Routes.PAGE || route == Routes.MOOD)) || (d.route == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER)),
+                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.SEARCH && (route == Routes.PAGE || route == Routes.MOOD)) || (d.route == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER || route == Routes.LISTENING)),
                                 onClick = { goTo(d.route) },
                                 icon = { Icon(d.icon, contentDescription = null) },
                                 label = { Text(d.label) },
@@ -303,7 +304,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     ) {
                     NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().imePadding().fadeTop().hazeSource(haze)) {
                         composable(Routes.LISTEN) {
-                            HomeScreen(home, openMenu, inset, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, top = {
+                            HomeScreen(home, openMenu, inset, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, listening = {
+                                com.spotifry.music.ui.listening.ListeningRow(c.db.listens(), player.isPlaying && !showPlayer, { nav.navigate(Routes.LISTENING) { launchSingleTop = true } }, Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp))
+                            }, top = {
                                 val update by c.updates.state.collectAsStateWithLifecycle()
                                 val later by c.updates.laterFor.collectAsStateWithLifecycle()
                                 val u = update
@@ -315,6 +318,11 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                                     )
                                 }
                             })
+                        }
+                        composable(Routes.LISTENING) {
+                            val vm: com.spotifry.music.ui.listening.ListeningViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.listening.ListeningViewModel(c.db.listens()) } })
+                            val savedIds by home.savedIds.collectAsStateWithLifecycle()
+                            com.spotifry.music.ui.listening.ListeningScreen(vm, savedIds, player.isPlaying && !showPlayer, { nav.popBackStack() }, plVm::play, openMenu, { name -> home.onQueryChanged(name); goTo(Routes.SEARCH) }, inset)
                         }
                         composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.spectrum, c.autoEq, player.isPlaying, { nav.popBackStack() }, inset) }
