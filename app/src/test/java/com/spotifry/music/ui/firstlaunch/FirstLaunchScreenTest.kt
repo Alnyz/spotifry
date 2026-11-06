@@ -121,6 +121,13 @@ class FirstLaunchScreenTest {
         compose.onNodeWithText("Go to Home").assertIsDisplayed()
     }
 
+    @Test fun skipOnAFailedImportEndsTheFirstLaunch() {
+        var skipped = 0
+        compose.setContent { MusicTheme { LinkStep(ImportState.Failed("x"), false, emptyMap(), {}, { skipped++ }, {}, {}) } }
+        compose.onAllNodesWithText("Skip")[0].performClick()
+        assertEquals(1, skipped)
+    }
+
     /** The whole screen with a real import that never answers: start it, cancel it, and the link box is back. */
     @Test fun cancellingTheImportBringsTheLinkBoxBack() {
         val context = ApplicationProvider.getApplicationContext<Context>()

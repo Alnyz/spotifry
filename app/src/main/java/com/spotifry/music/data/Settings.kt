@@ -143,7 +143,7 @@ class Settings(private val prefs: SharedPreferences) {
     val artists: StateFlow<List<PickedArtist>> = _artists
     fun setArtists(list: List<PickedArtist>) {
         _artists.value = list
-        prefs.edit().putString(ARTISTS, list.joinToString("\n") { listOf(it.name, it.url, it.thumbnailUrl.orEmpty()).joinToString("\t") }).apply()
+        prefs.edit().putString(ARTISTS, list.joinToString("\n") { listOf(it.name, it.url, it.thumbnailUrl.orEmpty()).joinToString("\t") { f -> f.replace(Regex("[\\t\\n]"), " ") } }).apply()
     }
     private fun readArtists() = prefs.getString(ARTISTS, "").orEmpty().lines().mapNotNull { line ->
         line.split('\t').takeIf { it.size == 3 && it[0].isNotBlank() }?.let { PickedArtist(it[0], it[1], it[2].ifEmpty { null }) }

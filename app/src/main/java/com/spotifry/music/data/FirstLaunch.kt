@@ -23,8 +23,14 @@ val STARTER_ARTISTS = listOf(
 )
 
 /**
- * A fresh install has nothing played, saved or made. Anyone who updated from an older version has history, songs or
- * playlists, and is never shown the first-launch screens, whatever the "seen" flag says.
+ * Only an install that was never updated can be fresh ([neverUpdated]: Android's first-install and last-update times are
+ * equal), and even then only with nothing played, saved or made. Anyone who updated, or who cleared their history, is
+ * never shown the first-launch screens, whatever the "seen" flag says.
  */
-suspend fun isFreshInstall(history: HistoryDao, songs: SongDao, playlists: PlaylistDao): Boolean =
-    history.observeRecent().first().isEmpty() && songs.savedCount() == 0 && playlists.observePlaylists().first().isEmpty()
+suspend fun isFreshInstall(neverUpdated: Boolean, history: HistoryDao, songs: SongDao, playlists: PlaylistDao): Boolean =
+    neverUpdated && history.observeRecent().first().isEmpty() && songs.savedCount() == 0 && playlists.observePlaylists().first().isEmpty()
+
+fun neverUpdated(context: android.content.Context): Boolean = try {
+    val info = context.packageManager.getPackageInfo(context.packageName, 0)
+    info.firstInstallTime == info.lastUpdateTime
+} catch (e: Exception) { false }

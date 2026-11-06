@@ -108,7 +108,7 @@ class FirstLaunchViewModel(
         if (!reopen) step.value = 2
     }
 
-    /** "Skip" on screen 1 keeps nothing and goes on to the link screen. */
+    /** "Skip" on screen 1 saves no picks and goes on to the link screen. */
     fun skipArtists() { if (!reopen) step.value = 2 }
 
     fun back() { if (step.value == 2) step.value = 1 }

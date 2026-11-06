@@ -22,9 +22,14 @@ class FirstLaunchTest {
     private val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
     @After fun tearDown() = db.close()
 
-    private suspend fun fresh() = isFreshInstall(db.history(), db.songs(), db.playlists())
+    private suspend fun fresh(neverUpdated: Boolean = true) = isFreshInstall(neverUpdated, db.history(), db.songs(), db.playlists())
 
     @Test fun emptyPhoneIsAFreshInstall() = runBlocking { assertTrue(fresh()) }
+
+    @Test fun anUpdatedPhoneIsNeverFreshEvenWithNothingLeftInTheDatabase() = runBlocking {
+        // history cleared in Settings, nothing saved: the install times still say it was updated
+        assertFalse(fresh(neverUpdated = false))
+    }
 
     @Test fun anUpdatedPhoneWithHistoryIsNot() = runBlocking {
         db.songs().upsert(testSong.toEntity())
@@ -41,6 +46,12 @@ class FirstLaunchTest {
         db.songs().upsert(testSong.toEntity())
         db.songs().markSaved(testSong.id, "/f", "/t", 1L)
         assertFalse(fresh())
+    }
+
+    @Test fun namesWithTabsOrNewlinesDoNotBreakTheStoredList() {
+        val prefs = context.getSharedPreferences("odd", 0)
+        Settings(prefs).setArtists(listOf(PickedArtist("A\tB\nC", "u", null), PickedArtist("D", "", null)))
+        assertEquals(listOf("A B C", "D"), Settings(prefs).artists.value.map { it.name })
     }
 
     @Test fun seenFlagIsOffUntilSetAndSurvivesARestart() {

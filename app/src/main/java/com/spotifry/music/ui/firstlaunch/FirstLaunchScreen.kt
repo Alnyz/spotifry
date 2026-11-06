@@ -38,6 +38,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,20 +86,22 @@ fun FirstLaunchScreen(
     val step by vm.step.collectAsStateWithLifecycle()
     val importing by importVm.state.collectAsStateWithLifecycle()
     val running = importing is ImportState.Opening || importing is ImportState.Running
+    val finish = { importVm.close(); vm.finish() }
     val context = LocalContext.current
     // read when something fails, not kept: a connection that comes back is seen on the next try
     val offline = remember(importing) { !isOnline(context) }
 
-    LaunchedEffect(step) { if (step == 2) importVm.open() else importVm.close() }
+    // reopened from Home there is no link screen, and an import running from Playlists is not ours to stop
+    LaunchedEffect(step) { if (step == 2) importVm.open() else if (!vm.reopen) importVm.close() }
     // a cancelled import closes the import; the link box comes back
     LaunchedEffect(importing, step) { if (step == 2 && importing == ImportState.Closed) importVm.open() }
     // nothing to go back to on the first screen of a first launch; while the import runs the back key waits for Cancel import
     BackHandler(enabled = step == 2 || vm.reopen) {
         if (running) return@BackHandler
-        if (step == 2) vm.back() else onClose()
+        // a finished import is not thrown away by going back: that ends the first launch
+        if (importing is ImportState.Done) finish() else if (step == 2) vm.back() else onClose()
     }
-    val finish = { importVm.close(); vm.finish() }
-
+    
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).systemBarsPadding().imePadding()) {
         if (step == 1) {
             val starters by vm.starters.collectAsStateWithLifecycle()
@@ -127,7 +136,7 @@ private fun TopRow(stepLabel: String?, skipLabel: String, skipEnabled: Boolean, 
         Text(stepLabel.orEmpty(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             skipLabel,
-            Modifier.alpha(if (skipEnabled) 1f else .35f).clickable(enabled = skipEnabled, role = Role.Button, onClick = onSkip).padding(horizontal = 6.dp, vertical = 12.dp),
+            Modifier.alpha(if (skipEnabled) 1f else .35f).clickable(enabled = skipEnabled, role = Role.Button, onClick = onSkip).heightIn(min = 48.dp).widthIn(min = 48.dp).padding(horizontal = 6.dp).wrapContentHeight(Alignment.CenterVertically),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
         )
     }
@@ -135,7 +144,7 @@ private fun TopRow(stepLabel: String?, skipLabel: String, skipEnabled: Boolean, 
 
 @Composable
 private fun Heading(text: String, sub: String? = null) {
-    Text(text, Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.headlineLarge)
+    Text(text, Modifier.padding(horizontal = 20.dp).semantics { heading() }, style = MaterialTheme.typography.headlineLarge)
     if (sub != null) Text(sub, Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
@@ -158,7 +167,7 @@ internal fun ArtistsStep(
         Box(Modifier.padding(horizontal = 20.dp, vertical = 16.dp).alpha(if (offline) .5f else 1f)) {
             SearchField(query, onQuery, { keyboard?.hide() }, hint = "Search for an artist")
             // no connection: the box can't search, and shouldn't pretend to
-            if (offline) Box(Modifier.matchParentSize().clickable(onClickLabel = null) {})
+            if (offline) Box(Modifier.matchParentSize().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } })
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (query.isBlank()) {
@@ -181,7 +190,7 @@ internal fun ArtistsStep(
         Foot {
             val n = picked.size
             if (n >= MIN_ARTISTS) Pill(null, "$continueLabel · $n picked", scheme.primary, scheme.onPrimary, onContinue, Modifier.fillMaxWidth())
-            else Pill(null, if (n == 0) "Pick $MIN_ARTISTS or more" else "Pick ${MIN_ARTISTS - n} more", scheme.surfaceContainerHigh, scheme.onSurfaceVariant, {}, Modifier.fillMaxWidth())
+            else Pill(null, if (n == 0) "Pick $MIN_ARTISTS or more" else "Pick ${MIN_ARTISTS - n} more", scheme.surfaceContainerHigh, scheme.onSurfaceVariant, {}, Modifier.fillMaxWidth().semantics { disabled() })
         }
     }
 }
@@ -197,7 +206,7 @@ private fun Note(lead: String, text: String, action: String? = null, onAction: (
             withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = scheme.onSurface)) { append(lead) }
             append(" "); append(text)
         }, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-        if (action != null) Text(action, Modifier.clickable(role = Role.Button, onClick = onAction).padding(vertical = 10.dp), style = MaterialTheme.typography.labelLarge, color = scheme.primary)
+        if (action != null) Text(action, Modifier.clickable(role = Role.Button, onClick = onAction).heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically), style = MaterialTheme.typography.labelLarge, color = scheme.primary)
     }
 }
 
@@ -278,7 +287,7 @@ internal fun LinkStep(
     val keyboard = LocalSoftwareKeyboardController.current
     // a Spotify link already copied is filled in, so the usual case is one tap
     val copied = remember { clip.getText()?.text?.takeIf { SpotifyImport.playlistId(it) != null }.orEmpty() }
-    var link by remember { mutableStateOf(copied) }
+    var link by rememberSaveable { mutableStateOf(copied) }
     val running = state is ImportState.Opening || state is ImportState.Running
     Column(Modifier.fillMaxSize()) {
         TopRow(if (state is ImportState.Done) null else "2 of 2", "Skip", skipEnabled = !running && state !is ImportState.Done, onSkip)
@@ -336,7 +345,7 @@ internal fun LinkStep(
                 else -> {
                     val ready = link.isNotBlank()
                     if (ready) Pill(null, "Import", scheme.primary, scheme.onPrimary, { keyboard?.hide(); onImport(link) }, Modifier.fillMaxWidth())
-                    else Pill(null, "Import", scheme.surfaceContainerHigh, scheme.onSurfaceVariant, {}, Modifier.fillMaxWidth())
+                    else Pill(null, "Import", scheme.surfaceContainerHigh, scheme.onSurfaceVariant, {}, Modifier.fillMaxWidth().semantics { disabled() })
                 }
             }
         }

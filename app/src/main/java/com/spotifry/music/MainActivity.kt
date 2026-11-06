@@ -392,7 +392,12 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             // the first launch covers everything, mini player included; an update never shows it (see isFreshInstall)
             val firstSeen by c.settings.firstLaunchSeen.collectAsStateWithLifecycle()
             val fresh by produceState<Boolean?>(if (firstSeen) false else null) {
-                if (!firstSeen) value = com.spotifry.music.data.isFreshInstall(c.db.history(), c.db.songs(), c.db.playlists()).also { if (!it) c.settings.markFirstLaunchSeen() }
+                if (!firstSeen) {
+                    // a failed check counts as "not fresh": nobody is shown first launch by mistake
+                    val isFresh = try { com.spotifry.music.data.isFreshInstall(com.spotifry.music.data.neverUpdated(context), c.db.history(), c.db.songs(), c.db.playlists()) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { false }
+                    value = isFresh
+                    if (!isFresh) c.settings.markFirstLaunchSeen()
+                }
             }
             val plCovers by plVm.covers.collectAsStateWithLifecycle()
             if (!firstSeen && fresh == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
