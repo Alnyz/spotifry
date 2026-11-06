@@ -79,4 +79,17 @@ class YourArtistsTest {
         compose.onNodeWithText("Chill").performClick()
         assertEquals("Chill", mood?.name)
     }
+
+    @Test fun editNextToYourArtistsOpensThePicker() {
+        var edits = 0
+        compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, artists = ArtistsHome(artists, songs), onPickArtists = { edits++ }) } }
+        list.performScrollToNode(hasText("Edit"))
+        compose.onNodeWithText("Edit").performClick()
+        assertEquals(1, edits)
+    }
+
+    @Test fun noEditWithoutArtists() {
+        compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}) } }
+        compose.onAllNodesWithText("Edit").assertCountEquals(0)
+    }
 }

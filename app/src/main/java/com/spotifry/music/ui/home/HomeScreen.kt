@@ -207,7 +207,7 @@ fun HomeContent(
                 }
             }
         }
-        artistItems(artists, onOpenArtist) { list, i -> onPlay(list, i, "From your artists") }
+        artistItems(artists, onOpenArtist, { list, i -> onPlay(list, i, "From your artists") }, onPickArtists)
         // the start card already offers this when no artists are picked
         if (recent.isEmpty() && playlists.isEmpty() && artists.artists.isNotEmpty()) item {
             Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)) {

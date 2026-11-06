@@ -30,9 +30,19 @@ class ArtistSongs(
      */
     suspend fun load(artists: List<PickedArtist>): Loaded = coroutineScope {
         val got = artists.take(MAX_ARTISTS).map { async { one(it) } }.awaitAll()
-        // one from each artist in turn, so the row isn't five songs of the first artist
-        val songs = (0 until PER_ARTIST).flatMap { i -> got.mapNotNull { it.second.getOrNull(i) } }.distinctBy { it.id }
-        Loaded(got.map { it.first } + artists.drop(MAX_ARTISTS), songs)
+        Loaded(got.map { it.first } + artists.drop(MAX_ARTISTS), mix(got.map { it.second }))
+    }
+
+    // one from each artist in turn, so the row isn't five songs of the first artist
+    private fun mix(lists: List<List<Song>>) = (0 until PER_ARTIST).flatMap { i -> lists.mapNotNull { it.getOrNull(i) } }.distinctBy { it.id }
+
+    /** The songs already known for [artists], with no request, so Home can drop a removed artist's songs at once. */
+    fun known(artists: List<PickedArtist>): List<Song> = mix(artists.take(MAX_ARTISTS).map { cache[it.key]?.songs.orEmpty() })
+
+    /** Forget every artist not in [artists] (they were removed); added ones are asked for on the next [load]. */
+    fun keepOnly(artists: List<PickedArtist>) {
+        val keys = artists.map { it.key }.toSet()
+        cache.keys.retainAll(keys); failedAt.keys.retainAll(keys)
     }
 
     private suspend fun one(a: PickedArtist): Pair<PickedArtist, List<Song>> {

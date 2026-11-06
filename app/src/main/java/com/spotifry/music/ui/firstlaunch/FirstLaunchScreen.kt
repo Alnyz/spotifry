@@ -121,6 +121,7 @@ fun FirstLaunchScreen(
                 onToggle = vm::toggle, onRetry = vm::retryPhotos,
                 onSkip = { if (vm.reopen) onClose() else vm.skipArtists() },
                 onContinue = { vm.next(); if (vm.reopen) onClose() },
+                minPicks = vm.minPicks,
             )
         } else {
             LinkStep(
@@ -164,6 +165,7 @@ internal fun ArtistsStep(
     starters: List<Starter>, picked: List<PickedArtist>, query: String, onQuery: (String) -> Unit, search: ArtistSearch, offline: Boolean,
     stepLabel: String?, skipLabel: String, continueLabel: String,
     onToggle: (PickedArtist) -> Unit, onRetry: () -> Unit, onSkip: () -> Unit, onContinue: () -> Unit,
+    minPicks: Int = MIN_ARTISTS,
 ) {
     val scheme = MaterialTheme.colorScheme
     val keyboard = LocalSoftwareKeyboardController.current
@@ -197,7 +199,7 @@ internal fun ArtistsStep(
         // the keyboard is up: the button comes back when it closes (the search key closes it); the count stays in view above
         if (!WindowInsets.isImeVisible) Foot {
             val n = picked.size
-            if (n >= MIN_ARTISTS) Pill(null, "$continueLabel · $n picked", scheme.primary, scheme.onPrimary, onContinue, Modifier.fillMaxWidth())
+            if (n >= minPicks) Pill(null, if (n == 0) "$continueLabel · none picked" else "$continueLabel · $n picked", scheme.primary, scheme.onPrimary, onContinue, Modifier.fillMaxWidth())
             else Pill(null, if (n == 0) "Pick $MIN_ARTISTS or more" else "Pick ${MIN_ARTISTS - n} more", scheme.surfaceContainerHigh, scheme.onSurfaceVariant, {}, Modifier.fillMaxWidth().semantics { disabled() })
         }
     }

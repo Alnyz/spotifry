@@ -22,7 +22,8 @@ class ArtistsHomeViewModel(private val settings: Settings, private val loader: A
     init {
         viewModelScope.launch {
             settings.artists.collect { list ->
-                _state.value = ArtistsHome(list, _state.value.songs.takeIf { list.isNotEmpty() }.orEmpty())
+                loader.keepOnly(list)
+                _state.value = ArtistsHome(list, loader.known(list))
                 load(list)
             }
         }
