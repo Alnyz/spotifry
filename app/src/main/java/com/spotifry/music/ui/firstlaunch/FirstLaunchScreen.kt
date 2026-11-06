@@ -7,6 +7,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -102,7 +105,9 @@ fun FirstLaunchScreen(
         if (importing is ImportState.Done) finish() else if (step == 2) vm.back() else onClose()
     }
     
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).systemBarsPadding().imePadding()) {
+    // a Surface, so text takes the theme's ink: outside the Scaffold it would default to black on the dark background
+    androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+    Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
         if (step == 1) {
             val starters by vm.starters.collectAsStateWithLifecycle()
             val picked by vm.picked.collectAsStateWithLifecycle()
@@ -122,6 +127,7 @@ fun FirstLaunchScreen(
                 importing, offline, covers, onImport = importVm::start, onSkip = finish, onCancel = importVm::cancel, onDone = finish,
             )
         }
+    }
     }
 }
 
@@ -152,6 +158,7 @@ private fun Heading(text: String, sub: String? = null) {
 private fun Foot(content: @Composable () -> Unit) = Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp)) { content() }
 
 /** Screen 1. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ArtistsStep(
     starters: List<Starter>, picked: List<PickedArtist>, query: String, onQuery: (String) -> Unit, search: ArtistSearch, offline: Boolean,
@@ -163,7 +170,8 @@ internal fun ArtistsStep(
     val on = { a: PickedArtist -> picked.any { it.key == a.key } }
     Column(Modifier.fillMaxSize()) {
         TopRow(stepLabel, skipLabel, true, onSkip)
-        Heading("Pick a few artists", "Home fills with their songs. Stays on this phone.")
+        // while searching, the title gives way: on a small phone the keyboard leaves little room for results
+        if (query.isBlank()) Heading("Pick a few artists", "Home fills with their songs. Stays on this phone.")
         Box(Modifier.padding(horizontal = 20.dp, vertical = 16.dp).alpha(if (offline) .5f else 1f)) {
             SearchField(query, onQuery, { keyboard?.hide() }, hint = "Search for an artist")
             // no connection: the box can't search, and shouldn't pretend to
@@ -187,7 +195,8 @@ internal fun ArtistsStep(
                 SearchResults(search, picked.size, on, onToggle)
             }
         }
-        Foot {
+        // the keyboard is up: the button comes back when it closes (the search key closes it); the count stays in view above
+        if (!WindowInsets.isImeVisible) Foot {
             val n = picked.size
             if (n >= MIN_ARTISTS) Pill(null, "$continueLabel · $n picked", scheme.primary, scheme.onPrimary, onContinue, Modifier.fillMaxWidth())
             else Pill(null, if (n == 0) "Pick $MIN_ARTISTS or more" else "Pick ${MIN_ARTISTS - n} more", scheme.surfaceContainerHigh, scheme.onSurfaceVariant, {}, Modifier.fillMaxWidth().semantics { disabled() })
@@ -290,7 +299,7 @@ internal fun LinkStep(
     var link by rememberSaveable { mutableStateOf(copied) }
     val running = state is ImportState.Opening || state is ImportState.Running
     Column(Modifier.fillMaxSize()) {
-        TopRow(if (state is ImportState.Done) null else "2 of 2", "Skip", skipEnabled = !running && state !is ImportState.Done, onSkip)
+        TopRow(if (state is ImportState.Done) null else "2 of 2", if (state is ImportState.Done) "" else "Skip", skipEnabled = !running && state !is ImportState.Done, onSkip)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
             when (state) {
                 is ImportState.Opening -> {

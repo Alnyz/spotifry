@@ -278,9 +278,23 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
         }
     }
 
+    // the first launch covers everything, mini player included; an update never shows it (see isFreshInstall)
+    val firstSeen by c.settings.firstLaunchSeen.collectAsStateWithLifecycle()
+    val fresh by produceState<Boolean?>(if (firstSeen) false else null) {
+        if (!firstSeen) {
+            // a failed check counts as "not fresh": nobody is shown first launch by mistake
+            val isFresh = try { com.spotifry.music.data.isFreshInstall(com.spotifry.music.data.neverUpdated(context), c.db.history(), c.db.songs(), c.db.playlists()) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { false }
+            value = isFresh
+            if (!isFresh) c.settings.markFirstLaunchSeen()
+        }
+    }
+    val plCovers by plVm.covers.collectAsStateWithLifecycle()
+    val covered = (!firstSeen && fresh != false) || (pickArtists > 0 && pickingOpen)
+
     CompositionLocalProvider(LocalImageClient provides c.imageClient) {
         Box(Modifier.fillMaxSize()) {
-            Scaffold(
+            // under the first-launch screens the app is not drawn, so touches and screen readers can't reach it
+            if (!covered) Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
@@ -389,17 +403,6 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             }
             // lyric times count from the whole song's start, the player from the trim's
             picture?.let { t -> MakePicturePage(t, c.lyrics, player.current?.id == t.songs.firstOrNull()?.id && !t.playlist, { position() + (player.trim?.startMs ?: 0) }) { picture = null } }
-            // the first launch covers everything, mini player included; an update never shows it (see isFreshInstall)
-            val firstSeen by c.settings.firstLaunchSeen.collectAsStateWithLifecycle()
-            val fresh by produceState<Boolean?>(if (firstSeen) false else null) {
-                if (!firstSeen) {
-                    // a failed check counts as "not fresh": nobody is shown first launch by mistake
-                    val isFresh = try { com.spotifry.music.data.isFreshInstall(com.spotifry.music.data.neverUpdated(context), c.db.history(), c.db.songs(), c.db.playlists()) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { false }
-                    value = isFresh
-                    if (!isFresh) c.settings.markFirstLaunchSeen()
-                }
-            }
-            val plCovers by plVm.covers.collectAsStateWithLifecycle()
             if (!firstSeen && fresh == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
             if (!firstSeen && fresh == true) {
                 val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "first-launch", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings) } })
