@@ -282,11 +282,13 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
 
     // the first launch covers everything, mini player included; an update never shows it (see isFreshInstall)
     val firstSeen by c.settings.firstLaunchSeen.collectAsStateWithLifecycle()
-    val fresh by produceState<Boolean?>(if (firstSeen) false else null) {
-        if (!firstSeen) {
+    // kept through a rotation: the answer must not change once the screens' own import has made a playlist
+    var fresh by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Boolean?>(if (firstSeen) false else null) }
+    LaunchedEffect(Unit) {
+        if (!firstSeen && fresh == null) {
             // a failed check counts as "not fresh": nobody is shown first launch by mistake
             val isFresh = try { com.spotifry.music.data.isFreshInstall(com.spotifry.music.data.neverUpdated(context), c.db.history(), c.db.songs(), c.db.playlists()) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { false }
-            value = isFresh
+            fresh = isFresh
             if (!isFresh) c.settings.markFirstLaunchSeen()
         }
     }

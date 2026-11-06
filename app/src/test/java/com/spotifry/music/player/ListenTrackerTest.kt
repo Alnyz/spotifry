@@ -37,6 +37,14 @@ class ListenTrackerTest {
         assertTrue(lines().isEmpty())
     }
 
+    @Test fun theClockSetBackMidSongNeverTakesTimeAway() {
+        move("a"); play("a", 180)
+        clock -= 3_600_000
+        play("a", 60)
+        move("b")
+        assertEquals(240, lines().single().secondsHeard)
+    }
+
     @Test fun aLineStartsWhenTheSoundStarted() {
         move("a"); play("a", 1)
         assertEquals(ListenEntity(clock - 1000, "a", 1), lines().single())

@@ -54,7 +54,9 @@ class ListenTracker(private val now: () -> Long = System::currentTimeMillis) {
         }
         if (songId == null) return emptyList()
         if (!sounding) return if (written && heardMs != writtenMs) listOf(heard()) else emptyList()
-        return listOfNotNull(add(songId, minOf(credit, now() - movedAt)))
+        // the phone's clock can be set back mid-song: then the time since the move says nothing, and must never subtract
+        val sinceMove = now() - movedAt
+        return listOfNotNull(add(songId, if (sinceMove < 0) credit else minOf(credit, sinceMove)))
     }
 
     private fun add(song: String, ms: Long): ListenWrite? {
