@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -45,23 +49,31 @@ private val cache = object : LruCache<String, ImageBitmap>(48 * 1024 * 1024) {
 fun clearCoverMemory() = cache.evictAll()
 
 @Composable
-fun Cover(seed: String, thumbnailUrl: String?, localPath: String?, size: Dp, modifier: Modifier = Modifier, radius: Dp = 4.dp, shape: Shape? = null) =
-    CoverArt(seed, thumbnailUrl, localPath, modifier.size(size), shape ?: RoundedCornerShape(radius), large = size > 96.dp)
+fun Cover(seed: String, thumbnailUrl: String?, localPath: String?, size: Dp, modifier: Modifier = Modifier, radius: Dp = 4.dp, shape: Shape? = null, shelf: Boolean = false) =
+    CoverArt(seed, thumbnailUrl, localPath, modifier.size(size), shape ?: RoundedCornerShape(radius), large = size > 96.dp, shelf = shelf)
 
-/** Same as [Cover], but takes whatever size [modifier] gives it (banners, grid tiles). */
+/**
+ * Same as [Cover], but takes whatever size [modifier] gives it (banners, grid tiles). [shelf]: one of Home's tiles. Until its
+ * cover is ready it is a plain grey shape (still, so it costs no frames), a cover that arrives fades in over it, and one
+ * that can't be fetched settles on the usual placeholder.
+ */
 @Composable
-fun CoverArt(seed: String, thumbnailUrl: String?, localPath: String?, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(0.dp), large: Boolean = true) {
+fun CoverArt(seed: String, thumbnailUrl: String?, localPath: String?, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(0.dp), large: Boolean = true, shelf: Boolean = false) {
     val client = LocalImageClient.current
     val files = androidx.compose.ui.platform.LocalContext.current.contentResolver
+    var failed by remember(thumbnailUrl, localPath, large) { mutableStateOf(false) }
+    // already in memory when first drawn: no grey and no fade
+    val instant = remember(thumbnailUrl, localPath, large) { cached(thumbnailUrl, localPath, large) != null }
     val image by produceState(cached(thumbnailUrl, localPath, large), thumbnailUrl, localPath, client, large) {
         // a new song: drop the previous cover at once rather than showing it until the new one arrives
         value = cached(thumbnailUrl, localPath, large)
-        if (value == null) value = loadRetrying(client, thumbnailUrl, localPath, large, files)
+        if (value == null) value = loadRetrying(client, thumbnailUrl, localPath, large, files) { failed = true }
     }
     Box(modifier.clip(shape)) {
         val img = image
-        if (img != null) Image(img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+        if (img != null) Image(img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().fadeIn(shelf && !instant))
         else if (isFileArt(thumbnailUrl)) NoCover(Modifier.matchParentSize())
+        else if (shelf && !failed && thumbnailUrl != null && client != null) LoadingBox(Modifier.matchParentSize().testTag("cover_grey"), RoundedCornerShape(0.dp))
         else Box(Modifier.matchParentSize().background(stripes(seed)))
     }
 }
@@ -112,8 +124,9 @@ private suspend fun load(client: OkHttpClient?, url: String?, localPath: String?
  * connection comes back by itself. The caller's scope ends the tries when the cover leaves the screen.
  * ponytail: a cover that is gone for good is retried every 30 s while shown; cheap, but a "gave up" mark would stop it.
  */
-private suspend fun loadRetrying(client: OkHttpClient?, url: String?, localPath: String?, large: Boolean = true, files: ContentResolver? = null): ImageBitmap? {
+private suspend fun loadRetrying(client: OkHttpClient?, url: String?, localPath: String?, large: Boolean = true, files: ContentResolver? = null, onFirstFail: () -> Unit = {}): ImageBitmap? {
     load(client, url, localPath, large, files)?.let { return it }
+    onFirstFail()
     // a file with no cover won't grow one: no retries
     if (url == null || client == null || isFileArt(url)) return null
     var wait = 2_000L

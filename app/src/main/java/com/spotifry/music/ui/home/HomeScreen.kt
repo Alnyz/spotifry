@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -68,7 +69,17 @@ import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.CoverArt
 import com.spotifry.music.ui.components.CoverMosaic
 import com.spotifry.music.ui.components.ErrorRow
+import com.spotifry.music.ui.components.CardRowShape
+import com.spotifry.music.ui.components.FADE_MS
+import com.spotifry.music.ui.components.fadeIn
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.spotifry.music.ui.components.LoadingBox
+import com.spotifry.music.ui.components.LoadingRow
 import com.spotifry.music.ui.components.LoadingShapes
 import com.spotifry.music.ui.components.PlaylistTile
 import com.spotifry.music.ui.components.SectionTitle
@@ -91,7 +102,7 @@ fun HomeScreen(
     val savedRead by vm.savedRead.collectAsStateWithLifecycle()
     val most by vm.mostPlayed.collectAsStateWithLifecycle()
     HomeContent(
-        recent = recent.orEmpty(), loading = recent == null || !savedRead || !libraryRead, savedIds = saved, mostPlayed = most,
+        recent = recent.orEmpty(), loading = recent == null || !savedRead || !libraryRead, savedIds = saved, mostPlayed = most.orEmpty(), mostRead = most != null,
         onPlay = vm::play, onMore = onMore, modifier = modifier, bottomInset = bottomInset,
         onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, listening = listening, top = top,
         artists = artists, onOpenArtist = onOpenArtist, onPickArtists = onPickArtists,
@@ -106,7 +117,7 @@ fun HomeContent(
     onPlay: (List<Song>, Int, String) -> Unit, onMore: (Song) -> Unit,
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     onOpenSaved: () -> Unit = {}, onOpenPlaylists: () -> Unit = {}, onShuffleSaved: () -> Unit = {},
-    mostPlayed: List<SongEntity> = emptyList(), onOpenSettings: () -> Unit = {},
+    mostPlayed: List<SongEntity> = emptyList(), mostRead: Boolean = true, onOpenSettings: () -> Unit = {},
     /** The history, saved songs or playlists aren't read yet, so nothing can be said about this person. */
     loading: Boolean = false,
     /** Shown under the greeting: the update card when there is one. */
@@ -128,6 +139,12 @@ fun HomeContent(
     val heroList = if (heroSong == null) playlists.filter { it.songCount > 0 }.maxByOrNull { it.id } else null
     val otherSongs = recent.withIndex().filter { it.value.id != heroSong?.id }
     val otherLists = playlists.filter { it.id != heroList?.id }.sortedByDescending { it.id }
+    // shapes were up and the real shelves are replacing them: the rows fade in once, then nothing animates
+    val shapes = loading || artists.loading || !mostRead
+    var hadShapes by remember { mutableStateOf(false) }
+    var settled by remember { mutableStateOf(false) }
+    LaunchedEffect(shapes) { if (shapes) hadShapes = true else { delay(FADE_MS + 100L); settled = true } }
+    val fade = hadShapes && !settled
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 20.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -176,8 +193,19 @@ fun HomeContent(
             artists.loading -> item { HeroShape() }
             artists.artists.isEmpty() -> item { StartCard(onSearch, onImport, onPickArtists) }
         }
-        // with nothing played they'd jump up when the shape goes, so they wait for the read
-        if (loading) return@LazyColumn
+        // reads not finished: each shelf is a shape of its real size in its real place, and goes if its read comes back empty
+        if (loading) {
+            item { SectionTitle("Recently played") }
+            item { CardRowShape(140.dp, 9.dp) }
+            item { SectionTitle("Your playlists") }
+            item { CardRowShape(132.dp, 8.dp) }
+            artistItems(artists, onOpenArtist, { list, i -> onPlay(list, i, "From your artists") }, onPickArtists)
+            mostPlayedShape()
+            item { SectionTitle("Keep listening") }
+            item { LoadingShapes { LoadingBox(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(86.dp), RoundedCornerShape(20.dp)) } }
+            // the moods depend on how much was played, so they wait for the read
+            return@LazyColumn
+        }
         // both are in the bottom bar too, and with nothing in them they'd open empty pages
         if (savedIds.isNotEmpty() || playlists.isNotEmpty()) item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), Arrangement.spacedBy(10.dp)) {
@@ -190,7 +218,7 @@ fun HomeContent(
         if (otherSongs.isNotEmpty()) {
             item { SectionTitle("Recently played") }
             item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyRow(Modifier.fadeIn(fade), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(otherSongs, key = { it.value.id }) { (i, s) ->
                         RecentCard(s, { onPlay(songs, i, "Recently played") }, { onMore(songs[i]) })
                     }
@@ -200,24 +228,25 @@ fun HomeContent(
         if (otherLists.isNotEmpty()) {
             item { SectionTitle("Your playlists") }
             item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                LazyRow(Modifier.fadeIn(fade), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(otherLists, key = { it.id }) { p -> PlaylistTile(p, covers[p.id].orEmpty(), { onOpenPlaylist(p.id) }, Modifier.width(132.dp), large = false) }
                 }
             }
         }
-        artistItems(artists, onOpenArtist, { list, i -> onPlay(list, i, "From your artists") }, onPickArtists)
+        artistItems(artists, onOpenArtist, { list, i -> onPlay(list, i, "From your artists") }, onPickArtists, fade)
         // the start card already offers this when no artists are picked
         if (recent.isEmpty() && playlists.isEmpty() && artists.artists.isNotEmpty()) item {
             Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)) {
                 ImportWay(onImport)
             }
         }
+        if (!mostRead) mostPlayedShape()
         // five or nothing: a top list of two isn't a top list yet
-        if (mostPlayed.size >= 5) {
+        else if (mostPlayed.size >= 5) {
             item { SectionTitle("Most played") }
             val top = mostPlayed.map { it.toSong() }
             itemsIndexed(top, key = { _, s -> "most-" + s.id }) { i, s ->
-                Row(Modifier.padding(start = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fadeIn(fade).padding(start = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("${i + 1}", Modifier.width(22.dp), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SongRow(s, s.id in savedIds, { onPlay(top, i, "Most played") }, { onMore(s) }, Modifier.padding(start = 6.dp, end = 8.dp), localCover = mostPlayed[i].thumbPath)
                 }
@@ -226,7 +255,7 @@ fun HomeContent(
         if (songs.isNotEmpty()) {
             item { SectionTitle("Keep listening") }
             // one song queued alone: when it ends, the player adds similar songs, so this plays as a mix
-            item { MixCard(recent[0]) { onPlay(listOf(songs[0]), 0, "Mix from ${songs[0].title}") } }
+            item { MixCard(recent[0], Modifier.fadeIn(fade)) { onPlay(listOf(songs[0]), 0, "Mix from ${songs[0].title}") } }
         }
         // built into the app, so they cost nothing until tapped; once there's history, Search has them
         if (recent.size < MOODS_UNTIL_PLAYED) {
@@ -234,6 +263,11 @@ fun HomeContent(
             moodTiles(MOODS.take(if (recent.isEmpty() && artists.songs.isEmpty()) 6 else 4), onMood)
         }
     }
+}
+
+private fun LazyListScope.mostPlayedShape() {
+    item { SectionTitle("Most played") }
+    item { LoadingShapes { repeat(5) { LoadingRow(Modifier.padding(start = 48.dp, end = 20.dp)) } } }
 }
 
 /** Past this many songs in the history, Home has enough of your own to show. */
@@ -386,7 +420,7 @@ private fun RowScope.Shortcut(icon: ImageVector, label: String, onClick: () -> U
 private fun RecentCard(s: SongEntity, onPlay: () -> Unit, onMore: () -> Unit) {
     Column(Modifier.width(140.dp).combinedClickable(onClickLabel = "Play", onLongClickLabel = "More options", onLongClick = onMore, onClick = onPlay)) {
         Box {
-            CoverArt(s.id, s.thumbnailUrl, s.thumbPath, Modifier.size(140.dp), RoundedCornerShape(14.dp))
+            CoverArt(s.id, s.thumbnailUrl, s.thumbPath, Modifier.size(140.dp), RoundedCornerShape(14.dp), shelf = true)
             Box(Modifier.align(Alignment.BottomEnd).padding(8.dp).size(34.dp).clip(CircleShape).background(Color(0xB80C0D10)), Alignment.Center) {
                 Icon(Icons.Play, null, Modifier.size(18.dp), tint = Color.White)
             }
@@ -397,10 +431,10 @@ private fun RecentCard(s: SongEntity, onPlay: () -> Unit, onMore: () -> Unit) {
 }
 
 @Composable
-private fun MixCard(s: SongEntity, onPlay: () -> Unit) {
+private fun MixCard(s: SongEntity, modifier: Modifier, onPlay: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Row(
-        Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(86.dp).clip(RoundedCornerShape(20.dp))
+        modifier.padding(horizontal = 20.dp).fillMaxWidth().height(86.dp).clip(RoundedCornerShape(20.dp))
             .background(Brush.horizontalGradient(listOf(scheme.primary.copy(alpha = .22f), scheme.surface), endX = 900f))
             .background(scheme.surface.copy(alpha = .35f))
             .clickable(onClickLabel = "Play mix", onClick = onPlay)

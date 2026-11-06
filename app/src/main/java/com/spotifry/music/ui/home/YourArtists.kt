@@ -29,12 +29,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.spotifry.music.data.PickedArtist
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.ui.components.CardRowShape
 import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.CoverArt
 import com.spotifry.music.ui.components.SectionTitle
+import com.spotifry.music.ui.components.fadeIn
 
 /** Home's rows for the artists picked on first launch: the artists, then a few songs from each. Nothing when none were picked. */
-fun LazyListScope.artistItems(a: ArtistsHome, onOpen: (PickedArtist) -> Unit, onPlay: (List<Song>, Int) -> Unit, onEdit: () -> Unit = {}) {
+fun LazyListScope.artistItems(a: ArtistsHome, onOpen: (PickedArtist) -> Unit, onPlay: (List<Song>, Int) -> Unit, onEdit: () -> Unit = {}, fade: Boolean = false) {
     if (a.artists.isEmpty()) return
     item {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Bottom) {
@@ -50,10 +52,15 @@ fun LazyListScope.artistItems(a: ArtistsHome, onOpen: (PickedArtist) -> Unit, on
             itemsIndexed(a.artists, key = { _, x -> x.key }) { _, x -> ArtistCircle(x, onOpen) }
         }
     }
-    if (a.songs.isEmpty()) return
+    if (a.songs.isEmpty() && !a.loading) return
+    // the heading is there from the first frame; grey cards the size of the songs hold the place until they arrive
     item { SectionTitle("From your artists") }
+    if (a.songs.isEmpty()) {
+        item { CardRowShape(132.dp, 8.dp) }
+        return
+    }
     item {
-        LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        LazyRow(Modifier.fadeIn(fade), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             itemsIndexed(a.songs, key = { _, s -> "artist-" + s.id }) { i, s -> ArtistSong(s) { onPlay(a.songs, i) } }
         }
     }
@@ -77,7 +84,7 @@ private fun ArtistCircle(a: PickedArtist, onOpen: (PickedArtist) -> Unit) {
         Modifier.width(76.dp).clickable(enabled = a.url.isNotBlank(), onClickLabel = "Open ${a.name}") { onOpen(a) },
         Arrangement.spacedBy(6.dp), Alignment.CenterHorizontally,
     ) {
-        Cover(a.key, a.thumbnailUrl, null, 72.dp, shape = CircleShape)
+        Cover(a.key, a.thumbnailUrl, null, 72.dp, shape = CircleShape, shelf = true)
         Text(a.name, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
     }
 }
@@ -85,7 +92,7 @@ private fun ArtistCircle(a: PickedArtist, onOpen: (PickedArtist) -> Unit) {
 @Composable
 private fun ArtistSong(s: Song, onPlay: () -> Unit) {
     Column(Modifier.width(132.dp).clickable(onClickLabel = "Play", onClick = onPlay)) {
-        CoverArt(s.id, s.thumbnailUrl, s.localThumbPath, Modifier.size(132.dp), RoundedCornerShape(14.dp))
+        CoverArt(s.id, s.thumbnailUrl, s.localThumbPath, Modifier.size(132.dp), RoundedCornerShape(14.dp), shelf = true)
         Text(s.title, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(s.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

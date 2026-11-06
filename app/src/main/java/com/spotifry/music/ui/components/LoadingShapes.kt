@@ -15,7 +15,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -48,8 +51,7 @@ private const val PULSE_MS = 1_400
 fun LoadingShapes(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     var show by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(SHOW_AFTER_MS); show = true }
-    val context = LocalContext.current
-    val still = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+    val still = rememberStill()
     val pulse = if (still) null else rememberInfiniteTransition("loading").animateFloat(1f, .6f, infiniteRepeatable(tween(PULSE_MS), RepeatMode.Reverse), "pulse")
     Column(
         modifier.graphicsLayer { alpha = if (show) pulse?.value ?: 1f else 0f }
@@ -71,6 +73,24 @@ fun LoadingRow(modifier: Modifier = Modifier, width: Dp = 52.dp, height: Dp = 52
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             LoadingBox(Modifier.size(150.dp, 14.dp), RoundedCornerShape(3.dp))
             LoadingBox(Modifier.size(90.dp, 11.dp), RoundedCornerShape(3.dp))
+        }
+    }
+}
+
+/** A sideways row of cards as in Home's shelves: a [size] cover, then a title line and an artist line. Three, cut off by the screen edge. */
+@Composable
+fun CardRowShape(size: Dp, gapAboveTitle: Dp, modifier: Modifier = Modifier) {
+    LoadingShapes(modifier) {
+        androidx.compose.foundation.lazy.LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), userScrollEnabled = false,
+        ) {
+            items(3) {
+                Column(Modifier.width(size)) {
+                    LoadingBox(Modifier.size(size), RoundedCornerShape(14.dp))
+                    Box(Modifier.padding(top = gapAboveTitle).height(20.dp), Alignment.CenterStart) { LoadingBox(Modifier.size(100.dp, 12.dp), RoundedCornerShape(3.dp)) }
+                    Box(Modifier.height(16.dp), Alignment.CenterStart) { LoadingBox(Modifier.size(70.dp, 10.dp), RoundedCornerShape(3.dp)) }
+                }
+            }
         }
     }
 }

@@ -16,17 +16,20 @@ class ArtistSongs(
     private val source: MusicSource,
     private val now: () -> Long = System::currentTimeMillis,
     parallel: Int = PARALLEL,
+    /** Which songs of a page are picked; injectable so tests are stable. */
+    private val random: kotlin.random.Random = kotlin.random.Random.Default,
 ) {
     class Loaded(val artists: List<PickedArtist>, val songs: List<Song>)
 
     private val gate = Semaphore(parallel)
-    private class Entry(val at: Long, val artist: PickedArtist, val songs: List<Song>)
+    private class Entry(val artist: PickedArtist, val songs: List<Song>)
     private val cache = HashMap<String, Entry>()
     private val failedAt = HashMap<String, Long>()
 
     /**
      * Songs come from the artist pages, at most [PARALLEL] requests at a time and only for the first [MAX_ARTISTS] artists.
-     * An answer is kept for [KEEP_MS], so opening Home again costs nothing; a failed one isn't asked again for [RETRY_MS].
+     * An answer is kept until the app closes, so Home shows the same songs all run and opening it again costs nothing; a failed
+     * one isn't asked again for [RETRY_MS].
      */
     suspend fun load(artists: List<PickedArtist>): Loaded = coroutineScope {
         val got = artists.take(MAX_ARTISTS).map { async { one(it) } }.awaitAll()
@@ -47,20 +50,22 @@ class ArtistSongs(
 
     private suspend fun one(a: PickedArtist): Pair<PickedArtist, List<Song>> {
         val k = a.key
-        cache[k]?.takeIf { now() - it.at < KEEP_MS }?.let { return it.artist to it.songs }
-        val stale = cache[k]
+        // picked once for the whole run: Home never swaps shown songs for others
+        cache[k]?.let { return it.artist to it.songs }
         val failed = failedAt[k]
-        if (failed != null && now() - failed < RETRY_MS) return (stale?.artist ?: a) to stale?.songs.orEmpty()
+        if (failed != null && now() - failed < RETRY_MS) return a to emptyList()
         return gate.withPermit {
             try {
                 val link = if (a.url.isNotBlank()) a.link else source.lookupArtist(a.name) ?: throw NoSuchElementException(a.name)
                 val artist = PickedArtist(a.name, link.url, link.thumbnailUrl ?: a.thumbnailUrl)
-                val songs = source.page(link).songs.take(PER_ARTIST)
-                cache[k] = Entry(now(), artist, songs); failedAt.remove(k)
+                // a different few each app start; kept in the cache, so Home doesn't reshuffle while the app runs
+                val songs = source.page(link).songs.shuffled(random).take(PER_ARTIST)
+                if (songs.isEmpty()) throw NoSuchElementException(a.name)
+                cache[k] = Entry(artist, songs); failedAt.remove(k)
                 artist to songs
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
                 failedAt[k] = now()
-                (stale?.artist ?: a) to stale?.songs.orEmpty()
+                a to emptyList()
             }
         }
     }
@@ -69,7 +74,6 @@ class ArtistSongs(
         const val PARALLEL = 2
         const val MAX_ARTISTS = 6
         const val PER_ARTIST = 3
-        const val KEEP_MS = 6 * 60 * 60 * 1000L
         const val RETRY_MS = 5 * 60 * 1000L
     }
 }

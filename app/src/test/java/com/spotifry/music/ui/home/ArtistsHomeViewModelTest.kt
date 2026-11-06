@@ -102,4 +102,37 @@ class ArtistsHomeViewModelTest {
         gate.complete(Unit)
         assertEquals(edited, s.artists.value)
     }
+
+    @Test fun theFirstStateIsAlreadyLoadingWhenArtistsArePicked() {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val slow = object : MusicSource by source { override suspend fun page(link: PageLink): PageContent { gate.await(); return source.page(link) } }
+        val s = settings(); s.setArtists(listOf(PickedArtist("Raisa", "url/Raisa", null)))
+        val vm = ArtistsHomeViewModel(s, ArtistSongs(slow))
+        assertEquals(true, vm.state.value.loading)
+        gate.complete(Unit)
+        assertEquals(false, vm.state.value.loading)
+        // nobody picked: never loading
+        assertEquals(false, ArtistsHomeViewModel(settings().also { it.setArtists(emptyList()) }, ArtistSongs(source)).state.value.loading)
+    }
+
+    @Test fun whenEveryPageFailsLoadingEndsWithNoSongs() {
+        val dead = object : MusicSource by source { override suspend fun page(link: PageLink): PageContent = throw java.io.IOException("offline") }
+        val s = settings(); s.setArtists(listOf(PickedArtist("Raisa", "url/Raisa", null)))
+        val vm = ArtistsHomeViewModel(s, ArtistSongs(dead))
+        assertEquals(ArtistsHome(s.artists.value), vm.state.value)
+    }
+
+    @Test fun shownSongsAreNeverSwappedWithinARun() {
+        val s = settings(); s.setArtists(listOf(PickedArtist("Raisa", "url/Raisa", null), PickedArtist("Tulus", "url/Tulus", null)))
+        val big = object : MusicSource by source {
+            override suspend fun page(link: PageLink): PageContent { pages.incrementAndGet(); return PageContent(link.name, "", "Artist", null, (1..20).map { Song("${link.name}-$it", "t", link.name, 100, null) }) }
+        }
+        var t = 0L
+        val vm = ArtistsHomeViewModel(s, ArtistSongs(big, now = { t }))
+        val shown = vm.state.value.songs
+        assertEquals(6, shown.size)
+        repeat(3) { t += 24L * 60 * 60 * 1000; vm.refresh() }
+        assertEquals(shown, vm.state.value.songs)
+        assertEquals(2, pages.get())
+    }
 }

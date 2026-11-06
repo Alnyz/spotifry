@@ -43,7 +43,7 @@ class ArtistSongsTest {
         assertTrue("peak ${s.peak.get()}", s.peak.get() <= 2)
         // three from each of six, one artist after another
         assertEquals(18, got.songs.size)
-        assertEquals(listOf("A1-1", "A2-1", "A3-1"), got.songs.take(3).map { it.id })
+        assertEquals(listOf("A1", "A2", "A3"), got.songs.take(3).map { it.id.substringBefore('-') })
     }
 
     @Test fun openingHomeAgainAsksNothingWhileTheAnswersAreFresh() = runBlocking {
@@ -51,9 +51,10 @@ class ArtistSongsTest {
         val loader = ArtistSongs(s, now = { t })
         loader.load(artists(3)); loader.load(artists(3))
         assertEquals(3, s.pages.get())
-        t += ArtistSongs.KEEP_MS + 1
+        // however long the app stays open, the songs picked at the start stay
+        t += 7 * 24 * 60 * 60 * 1000L
         loader.load(artists(3))
-        assertEquals(6, s.pages.get())
+        assertEquals(3, s.pages.get())
     }
 
     @Test fun aFailedArtistIsNotAskedAgainRightAway() = runBlocking {
@@ -72,5 +73,15 @@ class ArtistSongsTest {
         val got = ArtistSongs(s).load(listOf(PickedArtist("Tulus", "", null)))
         assertEquals(PickedArtist("Tulus", "url/Tulus", "img/Tulus"), got.artists.single())
         assertEquals(1, s.lookups.get())
+    }
+
+    @Test fun eachAppStartPicksDifferentSongsButOneRunKeepsItsPicks() = runBlocking {
+        val s = Source()
+        val a = ArtistSongs(s, random = kotlin.random.Random(1)); val b = ArtistSongs(s, random = kotlin.random.Random(2))
+        val first = a.load(artists(2)).songs.map { it.id }
+        assertTrue(first != b.load(artists(2)).songs.map { it.id })
+        // same instance: no reshuffle, and still one from each artist in turn
+        assertEquals(first, a.load(artists(2)).songs.map { it.id })
+        assertEquals(listOf("A1", "A2", "A1"), first.take(3).map { it.substringBefore('-') })
     }
 }

@@ -50,7 +50,8 @@ class HomeViewModel(
     /** Fetches the links of songs likely to be tapped next. */
     private val warm: (List<Song>) -> Unit = {},
 ) : ViewModel() {
-    val mostPlayed: StateFlow<List<SongEntity>> = mostPlayed.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** Null until the play counts have been read, so an empty list says something. */
+    val mostPlayed: StateFlow<List<SongEntity>?> = mostPlayed.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val query = MutableStateFlow("")
     private val retryTick = MutableStateFlow(0)
     /** Songs on every fresh start; kept while the app is open. */

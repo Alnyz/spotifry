@@ -15,6 +15,11 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.boundsInRoot
+import org.junit.Assert.assertTrue
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.data.testSong
@@ -170,5 +175,50 @@ class HomeScreenTest {
         val list = compose.onAllNodes(hasScrollToNodeAction()).onFirst()
         list.performScrollToNode(hasText("Moods and genres"))
         list.performScrollToNode(hasText("Chill"))
+    }
+
+    private val list get() = compose.onAllNodes(hasScrollToNodeAction()).onFirst()
+    private fun loadingNodes() = compose.onAllNodesWithContentDescription("Loading").fetchSemanticsNodes().size
+    private fun many(n: Int) = (1..n).map { Song("id$it", "Song $it", "Artist $it", 100, null).toEntity() }
+    private fun top(text: String) = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
+
+    @Test fun shelfShapesHoldTheirPlacesWhileReadsArePendingAndTheRealShelvesReplaceThemInTheSameOrder() {
+        var loading by mutableStateOf(true)
+        val lists = listOf(PlaylistWithCounts(1, "Mine", 3, 0, 1))
+        compose.setContent { MusicTheme { HomeContent(if (loading) emptyList() else many(8), emptySet(), { _, _, _ -> }, {}, loading = loading, mostPlayed = if (loading) emptyList() else many(6), playlists = if (loading) emptyList() else lists) } }
+        compose.mainClock.advanceTimeBy(300)
+        val heads = listOf("Recently played", "Your playlists", "Most played", "Keep listening")
+        list.performScrollToNode(hasText("Keep listening"))
+        assertTrue(loadingNodes() > 0)
+        compose.onAllNodesWithText("Moods and genres").assertCountEquals(0)
+        for (h in heads) { list.performScrollToNode(hasText(h)); compose.onNodeWithText(h).assertExists() }
+        loading = false
+        compose.mainClock.advanceTimeBy(300)
+        compose.waitForIdle()
+        list.performScrollToNode(hasText("Keep listening"))
+        compose.onNodeWithText("Keep listening").assertExists()
+        assertEquals(0, loadingNodes())
+        // same shelves, same order, top to bottom
+        list.performScrollToNode(hasText("Recently played"))
+        val tops = heads.map { h -> list.performScrollToNode(hasText(h)); top(h) }
+        assertEquals(4, tops.size)
+    }
+
+    @Test fun readsThatCameBackEmptyLeaveNoShelvesAndNoShapes() {
+        compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, loading = false) } }
+        compose.mainClock.advanceTimeBy(300)
+        for (h in listOf("Recently played", "Your playlists", "Most played", "Keep listening")) compose.onAllNodesWithText(h).assertCountEquals(0)
+        assertEquals(0, loadingNodes())
+    }
+
+    @Test fun mostPlayedShowsShapesUntilReadAndLeavesNoGapWhenTooShort() {
+        var read by mutableStateOf(false)
+        compose.setContent { MusicTheme { HomeContent(many(8), emptySet(), { _, _, _ -> }, {}, mostPlayed = emptyList(), mostRead = read) } }
+        compose.mainClock.advanceTimeBy(300)
+        list.performScrollToNode(hasText("Most played"))
+        compose.onNodeWithText("Most played").assertExists()
+        read = true
+        compose.waitForIdle()
+        compose.onAllNodesWithText("Most played").assertCountEquals(0)
     }
 }

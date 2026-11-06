@@ -7,6 +7,7 @@ import com.spotifry.music.data.PickedArtist
 import com.spotifry.music.data.Settings
 import com.spotifry.music.data.source.Song
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -15,33 +16,42 @@ import kotlinx.coroutines.launch
 data class ArtistsHome(val artists: List<PickedArtist> = emptyList(), val songs: List<Song> = emptyList(), val loading: Boolean = false)
 
 class ArtistsHomeViewModel(private val settings: Settings, private val loader: ArtistSongs) : ViewModel() {
-    private val _state = MutableStateFlow(ArtistsHome(settings.artists.value))
+    private val _state = MutableStateFlow(settings.artists.value.let { ArtistsHome(it, loader.known(it), loading = it.isNotEmpty() && loader.known(it).isEmpty()) })
     val state: StateFlow<ArtistsHome> = _state
     private var job: Job? = null
+    private var giveUp: Job? = null
 
     init {
         viewModelScope.launch {
             settings.artists.collect { list ->
                 loader.keepOnly(list)
-                _state.value = ArtistsHome(list, loader.known(list))
+                val known = loader.known(list)
+                _state.value = ArtistsHome(list, known, loading = list.isNotEmpty() && known.isEmpty())
                 load(list)
             }
         }
     }
 
     private fun load(list: List<PickedArtist>) {
-        job?.cancel()
+        job?.cancel(); giveUp?.cancel()
         if (list.isEmpty()) return
-        if (_state.value.songs.isEmpty()) _state.value = _state.value.copy(loading = true)
+        if (_state.value.songs.isEmpty()) {
+            _state.value = _state.value.copy(loading = true)
+            // a slow or dead connection doesn't keep the grey shapes up for good; the songs still show if they arrive later
+            giveUp = viewModelScope.launch { delay(SHAPES_MAX_MS); _state.value = _state.value.copy(loading = false) }
+        }
         job = viewModelScope.launch {
             val got = loader.load(list)
             // an artist picked offline now has its page: keep it, so it isn't looked up again
             // only if the picks are still the ones this load started from: an edit saved meanwhile is not overwritten
             if (got.artists != list && settings.artists.value == list) settings.setArtists(got.artists)
+            giveUp?.cancel()
             _state.value = ArtistsHome(got.artists, got.songs)
         }
     }
 
-    /** Home was opened: nothing while a load is running, and no request while the answers are fresh. */
-    fun refresh() { if (job?.isActive != true) load(settings.artists.value) }
+    private companion object { const val SHAPES_MAX_MS = 10_000L }
+
+    /** Home was opened: only when there are no songs yet (a failed start); shown songs are never swapped within a run. */
+    fun refresh() { if (job?.isActive != true && _state.value.songs.isEmpty()) load(settings.artists.value) }
 }

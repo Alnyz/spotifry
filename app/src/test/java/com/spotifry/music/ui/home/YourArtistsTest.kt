@@ -10,6 +10,11 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.test.performClick
 import com.spotifry.music.data.PickedArtist
 import com.spotifry.music.data.source.Song
@@ -91,5 +96,34 @@ class YourArtistsTest {
     @Test fun noEditWithoutArtists() {
         compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}) } }
         compose.onAllNodesWithText("Edit").assertCountEquals(0)
+    }
+
+    private fun loadingNodes() = compose.onAllNodesWithContentDescription("Loading").fetchSemanticsNodes().size
+
+    @Test fun skeletonCardsHoldTheRowFromTheFirstFrameAndTheSongsReplaceThem() {
+        var state by mutableStateOf(ArtistsHome(artists, loading = true))
+        compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, artists = state) } }
+        list.performScrollToNode(hasText("From your artists"))
+        compose.onNodeWithText("From your artists").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(300)
+        assertTrue(loadingNodes() > 0)
+        state = ArtistsHome(artists, songs)
+        compose.waitForIdle()
+        list.performScrollToNode(hasText("Mantan Terindah"))
+        compose.onNodeWithText("Mantan Terindah").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(300)
+        assertEquals(0, loadingNodes())
+    }
+
+    @Test fun aFailedLoadLeavesNoRowAndNoArtistsNoRowAtAll() {
+        var state by mutableStateOf(ArtistsHome(artists, loading = true))
+        compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, artists = state) } }
+        state = ArtistsHome(artists, emptyList(), loading = false)
+        compose.waitForIdle()
+        compose.onAllNodesWithText("From your artists").assertCountEquals(0)
+        state = ArtistsHome()
+        compose.waitForIdle()
+        compose.onAllNodesWithText("From your artists").assertCountEquals(0)
+        compose.onAllNodesWithText("Your artists").assertCountEquals(0)
     }
 }
