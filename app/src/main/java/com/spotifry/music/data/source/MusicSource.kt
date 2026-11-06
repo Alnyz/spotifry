@@ -28,6 +28,8 @@ interface MusicSource {
     /** Albums, artists or playlists, for those [type]s. */
     suspend fun searchPages(query: String, type: SearchType): List<PageLink> = emptyList()
     suspend fun page(link: PageLink): PageContent = error("can't open ${link.url}")
+    /** How many of a playlist's songs can play, going by what's quick to read, to check it's worth showing. */
+    suspend fun playableSongs(link: PageLink): Int = page(link).songs.size
 }
 
 /**

@@ -58,6 +58,10 @@ import com.spotifry.music.data.source.PageLink
 import com.spotifry.music.data.source.SearchType
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.ui.home.PageActions
+import com.spotifry.music.ui.home.MOODS
+import com.spotifry.music.ui.home.Mood
+import com.spotifry.music.ui.home.MoodScreen
+import com.spotifry.music.ui.home.MoodViewModel
 import com.spotifry.music.ui.home.PageScreen
 import com.spotifry.music.ui.home.PageViewModel
 import com.spotifry.music.ui.AddToPlaylistSheet
@@ -116,6 +120,8 @@ object Routes {
     fun playlist(id: Long) = "playlist/$id"
     const val PAGE = "page?type={type}&url={url}&name={name}&by={by}&art={art}"
     fun page(l: PageLink) = "page?type=${l.type.name}&url=${Uri.encode(l.url)}&name=${Uri.encode(l.name)}&by=${Uri.encode(l.by)}&art=${Uri.encode(l.thumbnailUrl.orEmpty())}"
+    const val MOOD = "mood?name={name}"
+    fun mood(m: Mood) = "mood?name=${Uri.encode(m.name)}"
 }
 
 private data class Dest(val route: String, val label: String, val icon: ImageVector)
@@ -274,7 +280,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                         dests.forEach { d ->
                             NavigationBarItem(
-                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.SEARCH && route == Routes.PAGE) || (d.route == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER)),
+                                selected = route == d.route || (d.route == Routes.PLAYLISTS && route == Routes.PLAYLIST) || (d.route == Routes.SEARCH && (route == Routes.PAGE || route == Routes.MOOD)) || (d.route == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER)),
                                 onClick = { goTo(d.route) },
                                 icon = { Icon(d.icon, contentDescription = null) },
                                 label = { Text(d.label) },
@@ -312,7 +318,12 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         }
                         composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.spectrum, c.autoEq, player.isPlaying, { nav.popBackStack() }, inset) }
-                        composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset, pageActions) }
+                        composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset, pageActions, onMood = { nav.navigate(Routes.mood(it)) }) }
+                        composable(Routes.MOOD, listOf(navArgument("name") { type = NavType.StringType; defaultValue = "" })) { e ->
+                            val mood = MOODS.first { it.name == e.arguments!!.getString("name") }
+                            val vm: MoodViewModel = viewModel(factory = viewModelFactory { initializer { MoodViewModel(c.source, mood, home.moodLists) } })
+                            MoodScreen(vm, { nav.popBackStack() }, pageActions, inset)
+                        }
                         composable(Routes.PAGE, listOf("type", "url", "name", "by", "art").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } }) { e ->
                             val a = e.arguments!!
                             val link = PageLink(SearchType.valueOf(a.getString("type")!!), a.getString("url")!!, a.getString("name")!!, a.getString("by")!!, a.getString("art")!!.ifEmpty { null })

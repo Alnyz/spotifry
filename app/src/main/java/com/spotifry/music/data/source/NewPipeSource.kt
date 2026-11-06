@@ -50,6 +50,11 @@ class NewPipeSource : MusicSource {
         )
     }
 
+    /** Only the first page, a single request. Mixes hours long count for nothing here, as they do in [toSongs]. */
+    override suspend fun playableSongs(link: PageLink): Int = withContext(Dispatchers.IO) {
+        PlaylistInfo.getInfo(YouTube, link.url).relatedItems.toSongs().size
+    }
+
     private fun find(query: String, type: SearchType): List<InfoItem> {
         val ex = YouTube.getSearchExtractor(query, listOf(filterOf(type)), "")
         ex.fetchPage()

@@ -54,6 +54,8 @@ class HomeViewModel(
     private val retryTick = MutableStateFlow(0)
     /** Songs on every fresh start; kept while the app is open. */
     val type = MutableStateFlow(SearchType.SONGS)
+    /** Each mood tile's playlists, so opening it again is instant while the app runs. */
+    val moodLists = mutableMapOf<String, List<PageLink>>()
     val currentQuery: String get() = query.value
     /** What the search box shows. Lives here, not in the screen, so the Playlists tab can search for a song. */
     val queryText: StateFlow<String> = query

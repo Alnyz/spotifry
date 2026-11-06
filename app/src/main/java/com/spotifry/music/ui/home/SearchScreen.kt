@@ -60,7 +60,7 @@ import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.ui.components.SongRow
 
 @Composable
-fun SearchScreen(vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp, actions: PageActions, modifier: Modifier = Modifier) {
+fun SearchScreen(vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp, actions: PageActions, modifier: Modifier = Modifier, onMood: (Mood) -> Unit = {}) {
     val search by vm.search.collectAsStateWithLifecycle()
     val text by vm.queryText.collectAsStateWithLifecycle()
     val saved by vm.savedIds.collectAsStateWithLifecycle()
@@ -71,7 +71,7 @@ fun SearchScreen(vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp, act
         text, vm::onQueryChanged, search, saved, history, local = local,
         onPlay = vm::playFromSearch, onRetry = vm::retry, onSubmit = vm::submit, onMore = onMore,
         onRemove = vm.recentSearches::remove, onClearHistory = vm.recentSearches::clear,
-        modifier = modifier, bottomInset = bottomInset, type = type, onType = { vm.type.value = it }, actions = actions,
+        modifier = modifier, bottomInset = bottomInset, type = type, onType = { vm.type.value = it }, actions = actions, onMood = onMood,
     )
 }
 
@@ -82,17 +82,19 @@ fun SearchContent(
     onRemove: (String) -> Unit = {}, onClearHistory: () -> Unit = {}, modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     /** Music files on the phone that match, listed first. */
     local: List<Song> = emptyList(),
-    type: SearchType = SearchType.SONGS, onType: (SearchType) -> Unit = {}, actions: PageActions = PageActions(),
+    type: SearchType = SearchType.SONGS, onType: (SearchType) -> Unit = {}, actions: PageActions = PageActions(), onMood: (Mood) -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
+    // the search itself waits for a pause in typing; what the box holds is what counts here
+    val results = text.isNotEmpty() && search !is SearchState.Idle
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 20.dp)) {
         item {
             ScreenHeader("Search")
             SearchField(text, onText, onSubmit, Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp))
-            if (search !is SearchState.Idle) TypeRow(type, onType)
+            if (results) TypeRow(type, onType)
         }
         when {
-            search !is SearchState.Idle -> item {
+            results -> item {
                 Column(Modifier.padding(start = 20.dp, end = 8.dp)) {
                     // phone files are songs: only under Songs
                     if (local.isNotEmpty() && type == SearchType.SONGS) {
@@ -125,6 +127,7 @@ fun SearchContent(
                 }
             }
         }
+        if (text.isEmpty()) moodGrid(onMood)
     }
 }
 
@@ -170,11 +173,11 @@ private fun VideoArt(s: Song) = Box(Modifier.size(92.dp, 52.dp)) {
 
 /** An album or playlist (square cover, ⋮ with Save as playlist and Share) or an artist (round photo, no ⋮). */
 @Composable
-private fun PageRow(link: PageLink, actions: PageActions) {
+internal fun PageRow(link: PageLink, actions: PageActions, modifier: Modifier = Modifier) {
     val artist = link.type == SearchType.ARTISTS
     var menu by remember { mutableStateOf(false) }
     val by = if (link.type == SearchType.PLAYLISTS && link.by.isNotBlank()) "by ${link.by}" else link.by
-    Box {
+    Box(modifier) {
         SongRow(
             Song(link.url, link.name, by, 0, link.thumbnailUrl), false, { actions.open(link) }, if (artist) null else { { menu = true } },
             leading = { Cover(link.url, link.thumbnailUrl, null, 52.dp, shape = if (artist) CircleShape else RoundedCornerShape(10.dp)) },
