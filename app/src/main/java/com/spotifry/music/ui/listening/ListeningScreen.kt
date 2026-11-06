@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,7 +47,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -57,10 +63,12 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.ListeningStats
@@ -76,6 +84,7 @@ import com.spotifry.music.data.longDuration
 import com.spotifry.music.data.minutesOf
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.data.sunScale
+import com.spotifry.music.data.weekStart
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.CoverArt
@@ -86,10 +95,16 @@ import com.spotifry.music.ui.theme.LocalAccent
 import com.spotifry.music.ui.theme.isDark
 import com.spotifry.music.ui.theme.onAccent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.max
@@ -107,6 +122,25 @@ class ListeningViewModel(listens: ListenDao) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
+/** What Home's row shows. Held above the page, so coming back to Home finds the row in place instead of pushing the page down. */
+class ListeningRowViewModel(private val listens: ListenDao, private val zone: () -> ZoneId = ZoneId::systemDefault) : ViewModel() {
+    class Week(val hours: List<Long>, val minutes: Int)
+
+    val any = listens.observeAny().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    private val since = MutableStateFlow(weekStartMs())
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val week = since.flatMapLatest { listens.observeSince(it) }.map { rows ->
+        val z = zone()
+        val hours = LongArray(24).also { a -> rows.forEach { a[Instant.ofEpochMilli(it.startedAt).atZone(z).hour] += it.secondsHeard.toLong() } }.toList()
+        Week(hours, minutesOf(rows.sumOf { it.secondsHeard.toLong() }))
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Week(List(24) { 0L }, 0))
+    val motion = SunMotion()
+
+    /** Each time Home comes back: it may be Monday now. */
+    fun refresh() { since.value = weekStartMs() }
+    private fun weekStartMs(): Long { val z = zone(); return weekStart(LocalDate.now(z)).atStartOfDay(z).toInstant().toEpochMilli() }
+}
+
 /** The big title: what your own hours make you. */
 internal fun listenerTitle(p: Period, firstDay: Boolean) = when {
     p.seconds == 0L -> "Still warm"
@@ -115,7 +149,7 @@ internal fun listenerTitle(p: Period, firstDay: Boolean) = when {
 }
 
 internal fun listenerLine(p: Period, firstDay: Boolean) = when {
-    p.seconds == 0L -> "Nothing yet this week. Play something."
+    p.seconds == 0L -> "Nothing yet ${p.label.lowercase()}. Play something."
     firstDay -> "${p.minutes} ${if (p.minutes == 1) "minute" else "minutes"} in. This grows as you listen."
     else -> "${longDuration(p.minutes)} of music. Most of it around ${hourName(p.peakHour)}"
 }
@@ -156,13 +190,25 @@ internal fun ListeningContent(
             Text(line, Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item("sun") {
-            Box(Modifier.fillMaxWidth(), Alignment.Center) {
-                Sun(
-                    period.hours, sunScale(period.minutes), playing, motion, Modifier.fillMaxWidth(), selected = hour,
-                    onTap = { h -> hour = if (h == hour) null else h },
-                    description = if (period.seconds == 0L) "Nothing heard yet" else "Your listening by hour of the day. Most around ${hourName(period.peakHour)}. Tap an hour to see its minutes.",
-                )
-                Centre(period, hour, Modifier.fillMaxWidth(.37f))
+            // the hole in the sun has a fixed size, so text there stops growing past this; the line above says the same in full
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, minOf(density.fontScale, 1.3f))) {
+                Box(
+                    Modifier.fillMaxWidth().semantics {
+                        if (period.seconds > 0) customActions = listOf(
+                            CustomAccessibilityAction("Next hour") { hour = ((hour ?: period.peakHour - 1) + 1).mod(24); true },
+                            CustomAccessibilityAction("Previous hour") { hour = ((hour ?: period.peakHour + 1) - 1).mod(24); true },
+                        )
+                    },
+                    Alignment.Center,
+                ) {
+                    Sun(
+                        period.hours, sunScale(period.minutes), playing, motion, Modifier.fillMaxWidth(), selected = hour,
+                        onTap = { h -> hour = if (h == hour) null else h },
+                        description = if (period.seconds == 0L) "Nothing heard yet" else "Your listening by hour of the day. Most around ${hourName(period.peakHour)}",
+                    )
+                    Centre(period, hour, Modifier.fillMaxWidth(.37f).semantics { liveRegion = LiveRegionMode.Polite })
+                }
             }
         }
         if (stats.periods.size > 1) item("tabs") {
@@ -225,7 +271,7 @@ internal fun ListeningContent(
     }
 }
 
-/** One line that shrinks to fit the hole in the sun, at any text size. */
+/** One line that shrinks to fit across the hole in the sun. */
 @Composable
 private fun Fit(text: String, style: TextStyle, color: Color, max: androidx.compose.ui.unit.TextUnit = style.fontSize) {
     BasicText(text, style = style.copy(color = color, textAlign = TextAlign.Center), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = max))
@@ -260,7 +306,7 @@ private fun PeriodTab(p: Period, on: Boolean, modifier: Modifier, onClick: () ->
             .selectable(on, role = Role.RadioButton, onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
         Arrangement.Center,
     ) {
-        Text(p.label, style = MaterialTheme.typography.labelMedium, color = if (on) scheme.onPrimary else scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        BasicText(p.label, style = MaterialTheme.typography.labelMedium.copy(color = if (on) scheme.onPrimary else scheme.onSurfaceVariant), maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = MaterialTheme.typography.labelMedium.fontSize))
         BasicText(count(p.minutes), style = MaterialTheme.typography.titleMedium.copy(color = ink, fontSize = 17.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontFeatureSettings = Tabular), maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 17.sp))
     }
 }
@@ -346,21 +392,18 @@ private fun DaysGrid(stats: ListeningStats) {
 
 /** On Home: your sun, small, and how much you've heard this week. Not there until something has been heard. */
 @Composable
-fun ListeningRow(listens: ListenDao, playing: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    val any by remember(listens) { listens.observeAny() }.collectAsStateWithLifecycle(false)
+fun ListeningRow(vm: ListeningRowViewModel, playing: Boolean, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    LifecycleResumeEffect(vm) { vm.refresh(); onPauseOrDispose {} }
+    val any by vm.any.collectAsStateWithLifecycle()
     if (!any) return
-    val zone = java.time.ZoneId.systemDefault()
-    val since = remember { com.spotifry.music.data.weekStart(java.time.LocalDate.now(zone)).atStartOfDay(zone).toInstant().toEpochMilli() }
-    val week by remember(listens, since) { listens.observeSince(since) }.collectAsStateWithLifecycle(emptyList())
-    val hours = remember(week) { LongArray(24).also { a -> week.forEach { a[java.time.Instant.ofEpochMilli(it.startedAt).atZone(zone).hour] += it.secondsHeard.toLong() } }.toList() }
-    val minutes = minutesOf(week.sumOf { it.secondsHeard.toLong() })
-    val motion = remember { SunMotion() }
+    val week by vm.week.collectAsStateWithLifecycle()
+    val minutes = week.minutes
     Row(
         modifier.fillMaxWidth().heightIn(min = 72.dp).clip(RoundedCornerShape(36.dp)).background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onOpen).padding(start = 6.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
         Arrangement.spacedBy(10.dp), Alignment.CenterVertically,
     ) {
-        Sun(hours, sunScale(minutes), playing, motion, Modifier.size(64.dp), small = true)
+        Sun(week.hours, sunScale(minutes), playing, vm.motion, Modifier.size(64.dp), small = true)
         Column(Modifier.weight(1f)) {
             Text("Your listening", style = MaterialTheme.typography.labelLarge)
             if (minutes > 0) Text("${count(minutes)} min this week", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

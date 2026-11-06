@@ -7,6 +7,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -132,6 +133,53 @@ class ListeningScreenTest {
         sun.performTouchInput { click(center) }
         rule.waitForIdle()
         missing("12 p.m.")
+    }
+
+    @Test fun anEmptyMonthTabDoesNotSayWeek() {
+        // Wednesday the 3rd of a month that began on a Monday would merge, so: Thursday 11 March, heard only last month and this week
+        show(row(at(2027, 2, 2, 23), "a", 600), row(at(2027, 3, 9, 23), "b", 600))
+        rule.onNodeWithText("Night listener.").assertIsDisplayed()
+        assertEquals("Nothing yet this month. Play something.", listenerLine(com.spotifry.music.data.Period(com.spotifry.music.data.PeriodId.MONTH, "This month", 0, 0, 0, List(24) { 0L }, List(24) { null }, emptyList(), emptyList()), false))
+    }
+
+    @Test fun talkBackCanStepThroughTheHours() {
+        show(row(at(2027, 3, 10, 1), "a", 600), row(at(2027, 3, 10, 2), "b", 60))
+        val node = rule.onNode(androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.CustomActions))
+        val actions = node.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
+        rule.runOnIdle { actions.first { it.label == "Next hour" }.action() }
+        rule.waitForIdle()
+        rule.onNodeWithText("1 a.m.").assertExists()
+        rule.runOnIdle { actions.first { it.label == "Next hour" }.action() }
+        rule.waitForIdle()
+        rule.onNodeWithText("2 a.m.").assertExists()
+    }
+
+    @Test fun emptyingTheLogGoesBack() = kotlinx.coroutines.runBlocking {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>(), com.spotifry.music.data.db.AppDatabase::class.java).allowMainThreadQueries().build()
+        db.listens().insert(com.spotifry.music.data.db.ListenEntity(now, "a", 60))
+        var backs = 0
+        val vm = ListeningViewModel(db.listens())
+        rule.setContent { MusicTheme { ListeningScreen(vm, emptySet(), false, { backs++ }, { _, _, _ -> }, {}, {}, 0.dp) } }
+        rule.waitUntil(5_000) { vm.stats.value != null }
+        rule.waitForIdle()
+        assertEquals(0, backs)
+        db.listens().clear()
+        rule.waitUntil(5_000) { backs == 1 }
+        db.close()
+    }
+
+    @Test fun homesRowWaitsForAListenAndSaysTheWeek() = kotlinx.coroutines.runBlocking {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>(), com.spotifry.music.data.db.AppDatabase::class.java).allowMainThreadQueries().build()
+        val vm = ListeningRowViewModel(db.listens())
+        rule.setContent { MusicTheme { ListeningRow(vm, false, {}) } }
+        rule.waitForIdle()
+        missing("Your listening")
+        db.listens().insert(com.spotifry.music.data.db.ListenEntity(1_000, "a", 60)) // long ago
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Your listening").fetchSemanticsNodes().isNotEmpty() }
+        missing("1 min this week")
+        db.listens().insert(com.spotifry.music.data.db.ListenEntity(System.currentTimeMillis(), "a", 120))
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("2 min this week").fetchSemanticsNodes().isNotEmpty() }
+        db.close()
     }
 
     @Test fun anHourIsFoundFromWhereTheTapFell() {

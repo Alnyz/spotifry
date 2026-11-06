@@ -74,15 +74,19 @@ fun listeningStats(rows: List<ListenRow>, now: Long = System.currentTimeMillis()
     val week = weekStart(today)
     val month = today.withDayOfMonth(1)
     val firstRow = rows.minBy { it.startedAt }
-    val firstDate = dateOf(firstRow.startedAt)
+    // lines can be dated ahead of today: the phone moved west, or its clock was set back
+    val firstDate = minOf(dateOf(firstRow.startedAt), today)
+    class Line(val row: ListenRow, val date: LocalDate, val hour: Int)
+    val lines = rows.map { r -> Instant.ofEpochMilli(r.startedAt).atZone(zone).let { Line(r, it.toLocalDate(), it.hour) } }
 
     fun period(id: PeriodId, label: String, from: LocalDate?): Period {
-        val inside = if (from == null) rows else rows.filter { !dateOf(it.startedAt).isBefore(from) }
+        val within = if (from == null) lines else lines.filter { !it.date.isBefore(from) }
+        val inside = within.map { it.row }
         val named = inside.filter { it.song != null }
-        val hourOf = { r: ListenRow -> Instant.ofEpochMilli(r.startedAt).atZone(zone).hour }
-        val hours = LongArray(24).also { a -> inside.forEach { a[hourOf(it)] += it.secondsHeard.toLong() } }.toList()
+        val hours = LongArray(24).also { a -> within.forEach { a[it.hour] += it.row.secondsHeard.toLong() } }.toList()
+        val byHour = within.filter { it.row.song != null }.groupBy { it.hour }
         val hourSongs = (0 until 24).map { h ->
-            named.filter { hourOf(it) == h }.groupBy { it.songId }.maxByOrNull { (_, l) -> l.sumOf { it.secondsHeard.toLong() } }?.value?.first()?.song
+            byHour[h].orEmpty().groupBy { it.row.songId }.maxByOrNull { (_, l) -> l.sumOf { it.row.secondsHeard.toLong() } }?.value?.first()?.row?.song
         }
         return Period(
             id, label, inside.sumOf { it.secondsHeard.toLong() },
@@ -95,15 +99,15 @@ fun listeningStats(rows: List<ListenRow>, now: Long = System.currentTimeMillis()
                 .sortedByDescending { it.seconds }.take(TOP),
         )
     }
-    // a period that holds all of the log would only repeat All time
+    // a period that holds all of the log would only repeat All time, and one holding the same as the week would repeat that
     val periods = buildList {
         if (firstDate.isBefore(week)) add(period(PeriodId.WEEK, "This week", week))
-        if (firstDate.isBefore(month)) add(period(PeriodId.MONTH, "This month", month))
+        if (firstDate.isBefore(month)) period(PeriodId.MONTH, "This month", month).let { m -> if (m.seconds != firstOrNull()?.seconds) add(m) }
         add(period(PeriodId.ALL, if (isEmpty()) "So far" else "All time", null))
     }
 
     val dayCount = ChronoUnit.DAYS.between(firstDate, today).toInt() + 1
-    val days = LongArray(dayCount).also { a -> rows.forEach { r -> a[ChronoUnit.DAYS.between(firstDate, dateOf(r.startedAt)).toInt().coerceIn(0, dayCount - 1)] += r.secondsHeard.toLong() } }.toList()
+    val days = LongArray(dayCount).also { a -> lines.forEach { l -> a[ChronoUnit.DAYS.between(firstDate, l.date).toInt().coerceIn(0, dayCount - 1)] += l.row.secondsHeard.toLong() } }.toList()
     var run = 0; var longest = 0
     days.forEach { if (it > 0) { run++; longest = maxOf(longest, run) } else run = 0 }
 

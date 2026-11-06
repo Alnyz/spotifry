@@ -1,9 +1,9 @@
 package com.spotifry.music.player
 
+import androidx.media3.common.Player
 import com.spotifry.music.data.db.ListenEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -26,16 +26,13 @@ class ListenTrackerTest {
 
     private fun play(id: String?, seconds: Int, sounding: Boolean = true) = repeat(seconds) {
         clock += 1000
-        t.tick(id, sounding, 1000) { 200 }?.let(log::add)
+        log += t.tick(id, sounding, 1000)
     }
 
-    private fun move(id: String?, length: Long = 200, again: Boolean = false, byListener: Boolean = true) {
-        t.moved(id, length, again, byListener)?.let(log::add)
-    }
+    private fun move(id: String?, byListener: Boolean = true) { t.moved(id, byListener)?.let(log::add) }
 
-    @Test fun aSongPassedInUnderASecondLeavesNoLine() {
-        move("a"); clock += 400
-        t.tick("a", true, 400) { 200 }?.let(log::add)
+    @Test fun aSongPassedInUnderASecondLeavesNoLineEvenIfATickLandsOnIt() {
+        move("a"); clock += 300; log += t.tick("a", true, 1000); clock += 100
         move("b")
         assertTrue(lines().isEmpty())
     }
@@ -53,12 +50,30 @@ class ListenTrackerTest {
         assertEquals(8, lines().single().secondsHeard)
     }
 
+    @Test fun wakingAfterALongPauseAddsAtMostTheTimeBetweenTwoTicks() {
+        move("a"); play("a", 5); play("a", 1, sounding = false)
+        clock += 3_600_000; log += t.tick("a", true, 3_600_000)
+        move(null, byListener = false)
+        assertEquals(6, lines().single().secondsHeard)
+    }
+
+    @Test fun aBusyMomentWhilePlayingLosesNothingButALongGapIsNotBelieved() {
+        move("a"); play("a", 2)
+        clock += 3000; log += t.tick("a", true, 3000)
+        move(null, byListener = false)
+        assertEquals(5, lines().single().secondsHeard)
+        move("b"); play("b", 2)
+        clock += 60_000; log += t.tick("b", true, 60_000)
+        move(null, byListener = false)
+        assertEquals(7, lines().last().secondsHeard)
+    }
+
     @Test fun aSongPlayingIsWrittenEveryTenSeconds() {
         move("a"); play("a", 25)
         assertTrue(lines().single().secondsHeard in 15..25)
     }
 
-    @Test fun stoppingEarlyByMovingOnIsASkip() {
+    @Test fun stoppingEarlyByMovingOnIsASkipHoweverShortTheSong() {
         move("a"); play("a", 12); move("b")
         assertTrue(lines().single().skipped)
         assertEquals(12, lines().single().secondsHeard)
@@ -70,13 +85,7 @@ class ListenTrackerTest {
     }
 
     @Test fun aSongThatEndsByItselfIsNotASkip() {
-        move("a", 25); play("a", 25); move("b", byListener = false)
-        assertFalse(lines().single().skipped)
-    }
-
-    @Test fun aShortSongIsNeverASkipEvenWhenACrossfadeMovesOnEarly() {
-        // a crossfade hands over with a SEEK, which looks like the listener moving on
-        move("a", 40); play("a", 28); move("b", byListener = true)
+        move("a"); play("a", 25); move("b", byListener = false)
         assertFalse(lines().single().skipped)
     }
 
@@ -90,16 +99,10 @@ class ListenTrackerTest {
         assertFalse(lines().single().skipped)
     }
 
-    @Test fun aNewTrimReplacingTheSongIsTheSameListen() {
-        move("a"); play("a", 20); assertNull(t.moved("a", 200, again = false, byListener = true)); play("a", 20); move("b")
-        val only = lines().single()
-        assertEquals(40, only.secondsHeard)
-        assertFalse(only.skipped)
-    }
-
-    @Test fun repeatOneIsANewListen() {
-        move("a"); play("a", 40); move("a", again = true, byListener = false); play("a", 40); move("b")
-        assertEquals(listOf(40, 40), lines().map { it.secondsHeard })
+    @Test fun theSameSongAgainIsANewListenAndNotASkip() {
+        move("a"); play("a", 40); move("a"); play("a", 10); move("a", byListener = false); play("a", 40); move("b")
+        assertEquals(listOf(40, 10, 40), lines().map { it.secondsHeard })
+        assertFalse(lines().any { it.skipped })
     }
 
     @Test fun aSongAlreadyInPlaceWhenTheServiceComesUpIsCounted() {
@@ -112,20 +115,46 @@ class ListenTrackerTest {
         assertTrue(lines().isEmpty())
     }
 
+    @Test fun onlyAHandMovingOnIsByTheListener() {
+        assertTrue(movedByListener(Player.MEDIA_ITEM_TRANSITION_REASON_SEEK, false))
+        assertTrue(movedByListener(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED, false))
+        assertFalse(movedByListener(Player.MEDIA_ITEM_TRANSITION_REASON_AUTO, false))
+        assertFalse(movedByListener(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT, false))
+        assertFalse(movedByListener(Player.MEDIA_ITEM_TRANSITION_REASON_SEEK, true))
+    }
+
     /**
-     * The handover: the service feeds "sounding" as main playing or the tail voice heard, so the seconds of a crossfade are
-     * the real time that passed. Main moves on when the overlap's lead begins and is silent and loading for 3 s while the
-     * old song is heard on its tail voice; then both sound for 6 s. Nothing is counted twice and nothing is lost.
+     * A crossfade as the service feeds it: the service leaves out the handover move, and names the song on the tail voice
+     * until that's done. The old song keeps every second, however little of it had been heard, and isn't a skip.
      */
-    @Test fun aCrossfadeCountsEverySecondOnceAcrossBothSongs() {
-        move("a"); play("a", 100)
-        move("b", byListener = true) // the handover
-        play("b", 3, sounding = true) // main loading, tail heard
-        play("b", 6, sounding = true) // the overlap
-        play("b", 50)
+    @Test fun aCrossfadeCountsEverySecondOnceAndTheOldSongKeepsTheOverlap() {
+        move("a"); play("a", 20)
+        play("a", 9) // main has moved on, silent then fading in; the tail voice is heard
+        play("b", 50) // the first of these seconds passed before the tail was done, so it's still the old song's
         move("c", byListener = false)
-        assertEquals(listOf(100, 59), lines().map { it.secondsHeard })
-        assertEquals(159, lines().sumOf { it.secondsHeard })
+        assertEquals(listOf(30, 49), lines().map { it.secondsHeard })
+        assertEquals(79, lines().sumOf { it.secondsHeard })
+        assertEquals(listOf("a", "b"), lines().map { it.songId })
         assertFalse(lines().any { it.skipped })
+    }
+
+    /** The new song failed mid-overlap: when the tail is done nothing plays, so it gets no line. */
+    @Test fun aNewSongThatNeverSoundedGetsNoLineAfterACrossfade() {
+        move("a"); play("a", 100)
+        play("b", 10, sounding = false)
+        assertEquals(listOf("a"), lines().map { it.songId })
+        assertEquals(100, lines().single().secondsHeard)
+    }
+
+    @Test fun theSecondsBeforeASongChangesUnderTheTickStayWithTheOldSong() {
+        move("a"); play("a", 1)
+        clock += 1000; log += t.tick("b", true, 1000)
+        assertEquals(2, lines().single().secondsHeard)
+    }
+
+    @Test fun aSongJustCrossingASecondAsItChangesStillGetsItsLine() {
+        move("a"); clock += 500; log += t.tick("a", true, 500)
+        clock += 700; log += t.tick("b", true, 700)
+        assertEquals(1, lines().single().secondsHeard)
     }
 }

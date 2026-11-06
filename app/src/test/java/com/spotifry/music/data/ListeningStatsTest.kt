@@ -109,8 +109,8 @@ class ListeningStatsTest {
     @Test fun thisWeekSplitsOffFromTheSecondMondayAndThisMonthFromTheNextFirst() {
         // began this month, before this week
         assertEquals(listOf("This week", "All time"), stats(row(at(2027, 3, 2), "a", 60)).periods.map { it.label })
-        // began last month
-        assertEquals(listOf("This week", "This month", "All time"), stats(row(at(2027, 2, 2), "a", 60)).periods.map { it.label })
+        // began last month, with some of this month before this week
+        assertEquals(listOf("This week", "This month", "All time"), stats(row(at(2027, 2, 2), "a", 60), row(at(2027, 3, 2), "b", 60)).periods.map { it.label })
     }
 
     @Test fun aWeekWithNothingYetOpensOnTheNextPeriodWithListening() {
@@ -125,6 +125,33 @@ class ListeningStatsTest {
         assertEquals(3, s.longestRun)
         assertEquals(5, s.daysPlayed)
         assertEquals(11, s.days.size)
+    }
+
+    @Test fun linesDatedAheadOfTodayDontBreakThePage() {
+        for (ahead in listOf(1L, 2L, 400L)) {
+            val s = stats(row(now + ahead * 86_400_000, "a", 60))
+            assertEquals(1, s.days.size)
+            assertEquals(60L, s.days[0])
+        }
+    }
+
+    @Test fun aMonthHoldingTheSameAsTheWeekIsNotASecondTab() {
+        // March 2027 begins on a Monday; on the 3rd the week and the month are the same days
+        val third = at(2027, 3, 3, 12)
+        val s = listeningStats(listOf(row(at(2027, 2, 2), "a", 60), row(at(2027, 3, 2), "b", 60)), third, zone)!!
+        assertEquals(listOf("This week", "All time"), s.periods.map { it.label })
+        // nothing heard in either yet: one empty tab, not two
+        val empty = listeningStats(listOf(row(at(2027, 2, 2), "a", 60)), third, zone)!!
+        assertEquals(listOf("This week", "All time"), empty.periods.map { it.label })
+    }
+
+    @Test fun aChangeOfClocksKeepsEveryDayOnce() {
+        val york = java.time.ZoneId.of("America/New_York")
+        // the clocks went forward on 14 March 2027
+        val noon = { d: Int -> LocalDateTime.of(2027, 3, d, 12, 0).atZone(york).toInstant().toEpochMilli() }
+        val s = listeningStats(listOf(row(noon(13), "a", 60), row(noon(14), "a", 60), row(noon(15), "a", 60)), noon(15), york)!!
+        assertEquals(listOf(60L, 60L, 60L), s.days)
+        assertEquals(3, s.longestRun)
     }
 
     @Test fun weekStartsOnMonday() {

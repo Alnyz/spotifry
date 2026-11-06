@@ -64,6 +64,8 @@ class SunMotion {
     val now = FloatArray(24)
     var scale = 0f
     var clock = 0f
+    /** How much the flames move: eases out when music pauses, so they settle instead of jumping. */
+    var wave = 0f
 }
 
 /** Which hour a tap at ([x], [y]) on a sun [width] wide falls on: midnight at the top, going clockwise. Null in the middle. */
@@ -104,6 +106,7 @@ fun Sun(
             var moving = false
             for (i in 0 until 24) { val d = target[i] - motion.now[i]; motion.now[i] += d * k; if (kotlin.math.abs(d) > .002f) moving = true }
             val d = scale - motion.scale; motion.scale += d * k; if (kotlin.math.abs(d) > .002f) moving = true
+            val w = (if (live) 1f else 0f) - motion.wave; motion.wave += w * k; if (kotlin.math.abs(w) > .01f) moving = true else if (!live) motion.wave = 0f
             motion.clock += dt / 1000
             frame++
             if (moving) shapeFrame++
@@ -131,7 +134,7 @@ fun Sun(
 
     fun length(i: Int, moving: Boolean): Float {
         val a = i.toFloat() / rayCount * 2 * PI.toFloat()
-        val wave = if (moving) 1 + .07f * sin(motion.clock * 1.7f + a * 9) + .05f * sin(motion.clock * 2.9f - a * 17) else 1f
+        val wave = if (moving) 1 + motion.wave * (.07f * sin(motion.clock * 1.7f + a * 9) + .05f * sin(motion.clock * 2.9f - a * 17)) else 1f
         return valueAt(motion.now, a).pow(.7f) * (.5f + .5f * spread[i * (RAYS / rayCount)]) * wave * motion.scale
     }
 
@@ -155,12 +158,13 @@ fun Sun(
             path.close()
             drawPath(path, hot, alpha = if (dark) .62f else .42f)
         }
-        Canvas(Modifier.fillMaxSize().then(if (onTap != null) Modifier.pointerInput(onTap) { detectTapGestures { p -> onTap(hourAt(p.x, p.y, size.width.toFloat())) } } else Modifier)) {
+        // its own layer: a new frame repaints only the rays, not the page under them that the mini player's blur reads
+        Canvas(Modifier.fillMaxSize().graphicsLayer().then(if (onTap != null) Modifier.pointerInput(onTap) { detectTapGestures { p -> onTap(hourAt(p.x, p.y, size.width.toFloat())) } } else Modifier)) {
             frame // read while drawing: a new frame repaints this and recomposes nothing
             val w = size.width; val c = w / 2
             val r0 = w * inner; val mx = w * reach
             val brush = Brush.radialGradient(*stops, center = Offset(c, c), radius = r0 + mx)
-            val moving = live && !noMotion
+            val moving = !noMotion
             val pick = selected?.let { it.toFloat() / 24 * rayCount }
             val half = rayCount / 48f
             fun point(i: Int, r: Float): Offset { val a = i.toFloat() / rayCount * 2 * PI.toFloat() - PI.toFloat() / 2; return Offset(c + cos(a) * r, c + sin(a) * r) }

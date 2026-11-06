@@ -654,10 +654,34 @@ class BeatJoinTest {
         toPriming()
         // running silently under the song on main, which is what's heard
         assertEquals(false, join.tailHeard)
+        assertEquals(null, join.tailSong)
+    }
+
+    @Test fun throughTheOverlapTheOldSongIsTheOneHeard() {
         toMidOverlap()
         assertEquals(true, join.tailHeard)
-        main.pos = main.duration; repeat(400) { run(50) }
+        assertEquals(a.mediaId, join.tailSong)
+        assertEquals(b.mediaId, main.currentMediaItem?.mediaId)
+    }
+
+    @Test fun pausedMidOverlapNothingIsHeard() {
+        toMidOverlap()
+        main.playWhenReady = false
+        idle()
+        join.tick(true)
+        idle()
         assertEquals(false, join.tailHeard)
+    }
+
+    @Test fun theHandoverIsMarkedAsTheJoinsOwnMove() {
+        val seen = ArrayList<Boolean>()
+        main.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) { seen += join.handingOver }
+        })
+        toHandover()
+        idle()
+        assertEquals(listOf(true), seen)
+        assertEquals(false, join.handingOver)
     }
 
     private fun toMidOverlap(): Float {

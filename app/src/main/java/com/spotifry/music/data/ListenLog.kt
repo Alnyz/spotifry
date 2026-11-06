@@ -29,4 +29,5 @@ class ListenLog(private val dao: ListenDao, scope: CoroutineScope = CoroutineSco
     }
 
     fun write(w: ListenWrite?) { if (w != null) writes.trySend(w) }
+    fun write(all: List<ListenWrite>) = all.forEach(::write)
 }

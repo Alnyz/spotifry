@@ -96,7 +96,7 @@ class ListenLogTest {
         val scope = CoroutineScope(Dispatchers.IO)
         val log = ListenLog(db.listens(), scope)
         log.write(ListenWrite.New(ListenEntity(1, "a", 1)))
-        repeat(50) { log.write(ListenWrite.Heard(1, it + 2, false)) }
+        log.write((2..50).map { ListenWrite.Heard(1, it, false) })
         log.write(ListenWrite.Heard(1, 100, true))
         log.write(null)
         val row = withTimeout(5_000) {

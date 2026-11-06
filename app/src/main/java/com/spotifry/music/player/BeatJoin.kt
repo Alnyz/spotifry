@@ -349,9 +349,16 @@ class BeatJoin(
         if (!lining && tail.playbackParameters != wanted()) tail.playbackParameters = wanted()
     }
 
-    /** The old song is what's heard, on the tail voice: [main] may be silent and still loading the new one. */
+    /** The tail voice has taken over: this is the song being heard, whatever [main] says. Null otherwise. */
+    val tailSong: String?
+        get() = when (val s = stage) { is Swapping -> s.tail; is Settling -> s.tail; is Fading -> s.tail; else -> null }?.currentMediaItem?.mediaId
+
+    /** It's sounding. [main] may be silent and still loading the new song. */
     val tailHeard: Boolean
         get() = when (val s = stage) { is Swapping -> s.tail.isPlaying; is Settling -> s.tail.isPlaying; is Fading -> s.tail.isPlaying; else -> false }
+
+    /** [main] is moving on because of the join, not because of the listener. */
+    val handingOver get() = ownSeek
 
     private val tail: Player?
         get() = when (val s = stage) { is Priming -> s.tail; is Swapping -> s.tail; is Settling -> s.tail; is Fading -> s.tail; else -> null }
