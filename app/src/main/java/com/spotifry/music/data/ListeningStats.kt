@@ -25,7 +25,12 @@ data class TopSong(val song: SongEntity, val seconds: Long, val plays: Int) { va
 data class TopArtist(val name: String, val seconds: Long) { val minutes get() = minutesOf(seconds) }
 
 data class Period(
-    val id: PeriodId, val label: String, val seconds: Long, val songs: Int, val skips: Int,
+    val id: PeriodId, val label: String, val seconds: Long, val songs: Int,
+    /** Listens of at least 30 seconds, a song heard three times counting three. */
+    val plays: Int,
+    val artistCount: Int,
+    /** Songs whose first listen is in this period; 0 for All time, where every song is new. */
+    val newSongs: Int,
     /** Seconds by the hour of the day each listen started, 24 of them. */
     val hours: List<Long>,
     /** The song with the most seconds in each hour. */
@@ -79,10 +84,12 @@ fun listeningStats(rows: List<ListenRow>, now: Long = System.currentTimeMillis()
     class Line(val row: ListenRow, val date: LocalDate, val hour: Int)
     val lines = rows.map { r -> Instant.ofEpochMilli(r.startedAt).atZone(zone).let { Line(r, it.toLocalDate(), it.hour) } }
 
+    val firstHeard = lines.filter { it.row.secondsHeard >= LISTEN_SEC }.groupBy { it.row.songId }.mapValues { (_, l) -> l.minOf { it.date } }
     fun period(id: PeriodId, label: String, from: LocalDate?): Period {
         val within = if (from == null) lines else lines.filter { !it.date.isBefore(from) }
         val inside = within.map { it.row }
         val named = inside.filter { it.song != null }
+        val heard = inside.filter { it.secondsHeard >= LISTEN_SEC }
         val hours = LongArray(24).also { a -> within.forEach { a[it.hour] += it.row.secondsHeard.toLong() } }.toList()
         val byHour = within.filter { it.row.song != null }.groupBy { it.hour }
         val hourSongs = (0 until 24).map { h ->
@@ -90,7 +97,9 @@ fun listeningStats(rows: List<ListenRow>, now: Long = System.currentTimeMillis()
         }
         return Period(
             id, label, inside.sumOf { it.secondsHeard.toLong() },
-            inside.filter { it.secondsHeard >= LISTEN_SEC }.distinctBy { it.songId }.size, inside.count { it.skipped },
+            heard.distinctBy { it.songId }.size, heard.size,
+            heard.mapNotNull { it.song?.artist?.let(::cleanArtist)?.takeIf { a -> a.isNotBlank() } }.distinct().size,
+            if (from == null) 0 else firstHeard.count { !it.value.isBefore(from) },
             hours, hourSongs,
             named.filter { it.song!!.artist.isNotBlank() }.groupBy { cleanArtist(it.song!!.artist) }
                 .map { (n, l) -> TopArtist(n, l.sumOf { it.secondsHeard.toLong() }) }.sortedByDescending { it.seconds }.take(TOP),

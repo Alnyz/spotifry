@@ -314,19 +314,20 @@ private fun PeriodTab(p: Period, on: Boolean, modifier: Modifier, onClick: () ->
     }
 }
 
-/** The joke is the point: you skip as much as you like, and it's counted. The ads line is always 0: the app doesn't play any. */
+/** The numbers to show off: what was played, how wide it went, and what was new. */
 @Composable
 private fun Tally(p: Period) {
     val scheme = MaterialTheme.colorScheme
     val big = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = Tabular)
-    @Composable fun line(n: Int, words: String, color: Color = scheme.onSurface) {
+    @Composable fun line(n: Int, one: String, many: String, color: Color = scheme.onSurface) {
         Text(count(n), style = big, color = color)
-        Text(words, Modifier.padding(bottom = 14.dp), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
+        Text(if (n == 1) one else many, Modifier.padding(bottom = 14.dp), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
     }
     Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 40.dp)) {
-        line(p.songs, if (p.songs == 1) "different song" else "different songs")
-        if (p.skips > 0) line(p.skips, if (p.skips == 1) "skip. Nobody stopped you." else "skips. Nobody stopped you.")
-        line(0, "ads. Not one.", scheme.primary)
+        line(p.plays, "play", "plays")
+        line(p.songs, "different song", "different songs")
+        if (p.artistCount > 0) line(p.artistCount, "different artist", "different artists")
+        if (p.newSongs > 0) line(p.newSongs, "song new to you", "songs new to you", scheme.primary)
     }
 }
 
@@ -379,8 +380,10 @@ private fun DaysGrid(stats: ListeningStats) {
                 val x = at / 7 * c; val y = top + at % 7 * c
                 val centre = Offset(x + c / 2, y + c / 2)
                 val color = if (s == 0L) scheme.surfaceContainerHigh else lerp(base, scheme.primary, .28f + .72f * sqrt(s / most))
-                drawCircle(color, (c - gap) / 2, centre)
-                if (i == stats.days.lastIndex) drawCircle(scheme.onSurface, (c - gap) / 2 + 1.5.dp.toPx(), centre, style = Stroke(2.dp.toPx()))
+                // today's ring sits inside its cell: drawn outside the dot it was cut off at the grid's left and right edges
+                val today = i == stats.days.lastIndex
+                drawCircle(color, (c - gap) / 2 - if (today) 2.dp.toPx() else 0f, centre)
+                if (today) drawCircle(scheme.onSurface, c / 2 - 1.5.dp.toPx(), centre, style = Stroke(2.dp.toPx()))
             }
             var d = stats.firstDate; var last = 0
             while (!d.isAfter(stats.firstDate.plusDays(stats.days.size - 1L))) {

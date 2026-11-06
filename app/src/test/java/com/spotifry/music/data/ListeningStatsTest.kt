@@ -46,9 +46,21 @@ class ListeningStatsTest {
         assertEquals(1, p.songs)
     }
 
-    @Test fun skipsAreTheLinesMarkedSkipped() {
-        val p = stats(row(at(2026, 1, 1), "z", 1), row(now - 2000, "a", 10, skipped = true), row(now - 1000, "b", 10)).period(PeriodId.WEEK)
-        assertEquals(1, p.skips)
+    @Test fun playsArtistsAndNewSongsCountOnlyListensOfThirtySeconds() {
+        val p = stats(
+            row(at(2026, 1, 1), "old", 100),                                  // heard long before: not new
+            row(now - 5000, "old", 100, artist = "Artist old"),
+            row(now - 4000, "a", 60, artist = "Duo - Topic"), row(now - 3000, "a", 60, artist = "Duo"), // one song, two plays, one artist
+            row(now - 2000, "b", 10, skipped = true, artist = "Skipped"),     // under 30 s: nothing
+        ).period(PeriodId.WEEK)
+        assertEquals(3, p.plays)
+        assertEquals(2, p.songs)
+        assertEquals(2, p.artistCount) // "Duo - Topic" and "Duo" are one artist
+        assertEquals(1, p.newSongs)    // "a"; "old" was heard before the week, "b" was a skip
+    }
+
+    @Test fun allTimeHasNoNewSongsBecauseEveryOneWas() {
+        assertEquals(0, stats(row(now - 1000, "a", 60)).period(PeriodId.ALL).newSongs)
     }
 
     @Test fun playsCountOnlyListensOfThirtySeconds() {
