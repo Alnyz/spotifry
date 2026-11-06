@@ -80,11 +80,11 @@ import com.spotifry.music.ui.playlists.Title
 
 /**
  * The two first-launch screens: pick artists, then paste a Spotify playlist link. The link screen is the existing import
- * ([importVm]), drawn full screen. [onClose] is only for [FirstLaunchViewModel.reopen].
+ * ([importVm]), drawn full screen. [onClose] is only for [FirstLaunchViewModel.reopen]; it stays the last parameter so a trailing lambda is the close action.
  */
 @Composable
 fun FirstLaunchScreen(
-    vm: FirstLaunchViewModel, importVm: ImportViewModel, covers: Map<Long, List<SongEntity>>, onClose: () -> Unit = {}, onRestore: (() -> Unit)? = null,
+    vm: FirstLaunchViewModel, importVm: ImportViewModel, covers: Map<Long, List<SongEntity>>, onRestore: (() -> Unit)? = null, onClose: () -> Unit = {},
 ) {
     val step by vm.step.collectAsStateWithLifecycle()
     val importing by importVm.state.collectAsStateWithLifecycle()

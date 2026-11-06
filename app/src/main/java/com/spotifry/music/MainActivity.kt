@@ -79,6 +79,7 @@ import com.spotifry.music.player.canEndAt
 import com.spotifry.music.player.canStartAt
 import com.spotifry.music.player.clipText
 import com.spotifry.music.ui.components.LocalImageClient
+import com.spotifry.music.ui.goToTab
 import com.spotifry.music.ui.components.MiniPlayer
 import com.spotifry.music.ui.home.HomeScreen
 import com.spotifry.music.ui.home.HomeViewModel
@@ -280,13 +281,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             share = { com.spotifry.music.ui.share.sendText(context, "${it.name}\n${it.url}") },
         )
     }
-    val goTo: (String) -> Unit = { r ->
-        nav.navigate(r) {
-            popUpTo(Routes.LISTEN) { saveState = true }
-            launchSingleTop = true
-            restoreState = true
-        }
-    }
+    val goTo: (String) -> Unit = { r -> nav.goToTab(r) }
 
     // the first launch covers everything, mini player included; an update never shows it (see isFreshInstall)
     val firstSeen by c.settings.firstLaunchSeen.collectAsStateWithLifecycle()
@@ -435,7 +430,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                 com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers, onRestore = backupActions.restore)
             } else if (pickArtists > 0 && pickingOpen) {
                 val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "pick-artists-$pickArtists", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings, reopen = true) } })
-                com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers) { pickingOpen = false }
+                com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers, onClose = { pickingOpen = false })
             }
         }
 
