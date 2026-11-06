@@ -42,7 +42,7 @@ class NewPipeSourceLiveTest {
         val few = mutableListOf<String>()
         for (m in MOODS) {
             val start = System.currentTimeMillis()
-            val lists = moodLists(source, m)
+            val lists = moodLists(source, m).lists
             val took = System.currentTimeMillis() - start
             println("LIVE ${m.name}: ${lists.size} lists in $took ms: ${lists.take(6).joinToString(" | ") { it.name.take(40) }}")
             if (lists.size < 3) { few += m.name; continue }

@@ -318,10 +318,12 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         }
                         composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.spectrum, c.autoEq, player.isPlaying, { nav.popBackStack() }, inset) }
-                        composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset, pageActions, onMood = { nav.navigate(Routes.mood(it)) }) }
+                        composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset, pageActions, onMood = { nav.navigate(Routes.mood(it)) { launchSingleTop = true } }) }
                         composable(Routes.MOOD, listOf(navArgument("name") { type = NavType.StringType; defaultValue = "" })) { e ->
-                            val mood = MOODS.first { it.name == e.arguments!!.getString("name") }
-                            val vm: MoodViewModel = viewModel(factory = viewModelFactory { initializer { MoodViewModel(c.source, mood, home.moodLists) } })
+                            // a name no tile has (saved state after a rename): nothing to show, back to Search
+                            val mood = MOODS.firstOrNull { it.name == e.arguments!!.getString("name") }
+                            if (mood == null) { LaunchedEffect(Unit) { nav.popBackStack() }; return@composable }
+                            val vm: MoodViewModel = viewModel(factory = viewModelFactory { initializer { MoodViewModel(c.source, mood, home.moodLists, c::streamLow) } })
                             MoodScreen(vm, { nav.popBackStack() }, pageActions, inset)
                         }
                         composable(Routes.PAGE, listOf("type", "url", "name", "by", "art").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } }) { e ->

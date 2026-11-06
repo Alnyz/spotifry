@@ -25,6 +25,15 @@ import com.spotifry.music.data.source.PageLink
 import com.spotifry.music.data.source.SearchType
 import com.spotifry.music.ui.theme.MusicTheme
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -33,6 +42,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -57,14 +67,13 @@ class MoodsTest {
         fun next() = CompletableDeferred<List<PageLink>>().also { answers.addLast(it) }
     }
 
-    @Test fun theTilesHaveNoDuplicatesOrBlanksAndFitATile() {
+    @Test fun theTilesHaveNoDuplicatesOrBlanks() {
         assertTrue(MOODS.size in 12..16)
         assertEquals(MOODS.size, MOODS.map { it.name.lowercase() }.toSet().size)
         assertEquals(MOODS.size, MOODS.map { it.query.lowercase() }.toSet().size)
         assertEquals(MOODS.size, MOODS.map { it.line }.toSet().size)
         MOODS.forEach {
             assertTrue(it.name, it.name.isNotBlank() && it.line.isNotBlank() && it.query.isNotBlank())
-            assertTrue("long word in ${it.name}", it.name.split(" ").all { w -> w.length <= 8 })
         }
     }
 
@@ -155,10 +164,10 @@ class MoodsTest {
         assertFalse(mood.name in cache)
     }
 
-    @Test fun onlyListsThatHaveSongsToPlayGetARow() = kotlinx.coroutines.runBlocking {
+    @Test fun onlyListsThatHaveSongsToPlayGetARow() = runBlocking {
         val s = Source().apply { songs += mapOf("empty" to 0, "tiny" to 4, "enough" to 5); broken += "bad" }
         s.next().complete(listOf("empty", "tiny", "enough", "bad", "fine").map { link.copy(url = it, name = it) } + link.copy(url = "k", name = "Lagu KARAOKE nada pria") + link.copy(url = "same", name = " ENOUGH "))
-        assertEquals(listOf("enough", "fine"), moodLists(s, mood).map { it.name })
+        assertEquals(listOf("enough", "fine"), moodLists(s, mood).lists.map { it.name })
     }
 
     @Test fun whenNoListCanBeCheckedItIsAFailureNotAnEmptyPage() {
@@ -194,5 +203,98 @@ class MoodsTest {
         val vm = MoodViewModel(s, mood, cache)
         compose.waitUntil { vm.lists.value != null }
         assertTrue(cache.isEmpty())
+    }
+
+    private fun many(n: Int) = List(n) { link.copy(url = "u$it", name = "List $it") }
+
+    /** Tiles' checks wait at a gate, so what's running at once can be counted. */
+    private class Gated(val found: List<PageLink>) : MusicSource by FakeMusicSource() {
+        val running = AtomicInteger()
+        val peak = AtomicInteger()
+        val calls = AtomicInteger()
+        val gate = CompletableDeferred<Unit>()
+        override suspend fun searchPages(query: String, type: SearchType) = found
+        override suspend fun playableSongs(link: PageLink): Int {
+            calls.incrementAndGet()
+            peak.accumulateAndGet(running.incrementAndGet(), ::maxOf)
+            try { gate.await() } finally { running.decrementAndGet() }
+            return 10
+        }
+    }
+
+    @Test fun noMoreThanFourChecksRunAtOnceAcrossTiles() = runBlocking {
+        val s = Gated(many(20))
+        withContext(Dispatchers.Default) {
+            val tiles = MOODS.take(3).map { m -> async { moodLists(s, m) } }
+            withTimeout(5000) { while (s.running.get() < 4) delay(5) }
+            delay(200)
+            assertEquals(4, s.peak.get())
+            s.gate.complete(Unit)
+            tiles.awaitAll().forEach { assertEquals(10, it.lists.size) }
+        }
+        assertEquals(4, s.peak.get())
+    }
+
+    @Test fun itStopsCheckingOnceEnoughListsPass() = runBlocking {
+        val s = Source()
+        var checked = 0
+        val counting = object : MusicSource by s { override suspend fun playableSongs(link: PageLink): Int { checked++; return s.playableSongs(link) } }
+        s.next().complete(many(20))
+        val found = moodLists(counting, mood)
+        assertEquals(many(20).take(10), found.lists)
+        assertTrue(found.keep)
+        assertEquals("three groups of four", 12, checked)
+    }
+
+    @Test fun onMeteredDataWithDataSaverAFewListsAreEnough() {
+        val s = Source()
+        s.next().complete(many(20))
+        val vm = MoodViewModel(s, mood, mutableMapOf(), low = { true })
+        compose.waitUntil { vm.lists.value != null }
+        assertEquals(5, vm.lists.value!!.getOrThrow().size)
+    }
+
+    @Test fun leavingThePageStopsTheChecksAndGivesBackTheirPlaces() = runBlocking {
+        val s = Gated(many(20))
+        val tile = launch(Dispatchers.Default) { moodLists(s, mood) }
+        withTimeout(5000) { while (s.running.get() < 4) delay(5) }
+        tile.cancelAndJoin()
+        assertEquals("no further group started", 4, s.calls.get())
+        val free = Gated(many(4)).apply { gate.complete(Unit) }
+        assertEquals(4, withTimeout(5000) { moodLists(free, mood) }.lists.size)
+    }
+
+    private fun failing(good: Map<String, Int>) = Source().apply {
+        many(20).forEach { if (it.url !in good) broken += it.url }
+        songs += good
+        next().complete(many(20))
+    }
+
+    @Test fun aPartFailureShowsWhatPassedButIsNotKept() {
+        val cache = mutableMapOf<String, List<PageLink>>()
+        val vm = MoodViewModel(failing(mapOf("u3" to 10)), mood, cache)
+        compose.waitUntil { vm.lists.value != null }
+        assertEquals(listOf("u3"), vm.lists.value!!.getOrThrow().map { it.url })
+        assertTrue(cache.isEmpty())
+    }
+
+    @Test fun nothingPassedAndSomethingFailedIsAFailureNotNothingFound() {
+        val cache = mutableMapOf<String, List<PageLink>>()
+        page(MoodViewModel(failing(mapOf("u3" to 0)), mood, cache))
+        compose.onNodeWithText("Retry").assertIsDisplayed()
+        compose.onNodeWithText("No playlists found for ${mood.name} right now. Try again later.").assertDoesNotExist()
+        assertTrue(cache.isEmpty())
+    }
+
+    @Test fun someFailuresDontMatterOnceEnoughPassed() = runBlocking {
+        val s = Source().apply { broken += "u0"; next().complete(many(20)) }
+        val found = moodLists(s, mood)
+        assertEquals(10, found.lists.size)
+        assertTrue(found.keep)
+    }
+
+    @Test fun fewerListsThanEnoughAreKeptWhenNothingFailed() = runBlocking {
+        val s = Source().apply { next().complete(many(3)) }
+        assertTrue(moodLists(s, mood).keep)
     }
 }

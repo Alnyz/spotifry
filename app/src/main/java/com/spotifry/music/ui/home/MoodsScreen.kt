@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,8 +28,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
@@ -39,16 +43,19 @@ import com.spotifry.music.ui.components.LoadingRow
 import com.spotifry.music.ui.components.LoadingShapes
 import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.ui.components.SectionTitle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /** A tile under the empty search box. Its playlists come from a fixed search for [query]; words with "hits" find fewer stray personal lists. */
 data class Mood(val name: String, val line: String, val query: String)
 
-/** Names stay short: at 1.3x text on a 320 dp screen, a tile fits a word of about eight letters. */
+/** Short names keep their full size at normal text. At very large text on a narrow screen [MoodTile] shrinks them to fit. */
 val MOODS = listOf(
     Mood("Chill", "Easy songs that keep things slow and quiet.", "chill hits"),
     Mood("Focus", "Mostly wordless music for reading or work.", "focus instrumental"),
@@ -71,29 +78,65 @@ val MOODS = listOf(
 /** A list with fewer songs than this isn't worth a row. */
 private const val MIN_SONGS = 5
 
+/** How many lists a tile looks for; on metered data with data saver on, fewer. */
+private const val ENOUGH_LISTS = 10
+private const val ENOUGH_LISTS_LOW = 5
+
+/**
+ * List checks running at once, across every tile. Opening several tiles quickly must not flood YouTube from one
+ * address, or the next song's link could be refused. A page left behind holds its permit until its request returns.
+ */
+private const val CHECKS_AT_ONCE = 4
+private val checks = Semaphore(CHECKS_AT_ONCE)
+
+/** [keep]: nothing failed or enough lists passed, so a later visit wouldn't find more. */
+internal class MoodFind(val lists: List<PageLink>, val keep: Boolean)
+
 /**
  * The playlists a tile shows. YouTube has no moods list NewPipe can read, so it's a search, and a search finds lists
- * that open with nothing to play (all hour-long mixes, say) or with one song. Each is checked first, so these don't show.
+ * that open with nothing to play (all hour-long mixes, say) or with one song. They're checked a few at a time in the
+ * search's order until there are [enough].
  */
-internal suspend fun moodLists(source: MusicSource, mood: Mood): List<PageLink> = coroutineScope {
+internal suspend fun moodLists(source: MusicSource, mood: Mood, enough: Int = ENOUGH_LISTS): MoodFind {
     val found = source.searchPages(mood.query, SearchType.PLAYLISTS)
         .distinctBy { it.url }.distinctBy { it.name.trim().lowercase() }.filterNot { "karaoke" in it.name.lowercase() }
-    val songs = found.map { async { runCatching { source.playableSongs(it) } } }.awaitAll()
-    // all of them failing is the connection, not the lists
-    if (songs.isNotEmpty() && songs.all { it.isFailure }) songs.first().getOrThrow()
-    found.filterIndexed { i, _ -> songs[i].getOrDefault(0) >= MIN_SONGS }
+    val passed = mutableListOf<PageLink>()
+    var failure: Exception? = null
+    for (group in found.chunked(CHECKS_AT_ONCE)) {
+        if (passed.size >= enough) break
+        val songs = coroutineScope {
+            group.map { link ->
+                async {
+                    try { checks.withPermit { source.playableSongs(link) } } catch (e: CancellationException) { throw e } catch (e: Exception) { failure = e; 0 }
+                }
+            }.awaitAll()
+        }
+        group.forEachIndexed { i, link -> if (songs[i] >= MIN_SONGS) passed += link }
+    }
+    // nothing to show because checks failed is the connection, not the lists
+    failure?.let { if (passed.isEmpty()) throw it }
+    return MoodFind(passed.take(enough), failure == null || passed.size >= enough)
 }
 
-class MoodViewModel(private val source: MusicSource, val mood: Mood, private val cache: MutableMap<String, List<PageLink>>) : ViewModel() {
+class MoodViewModel(
+    private val source: MusicSource, val mood: Mood, private val cache: MutableMap<String, List<PageLink>>, private val low: () -> Boolean = { false },
+) : ViewModel() {
     /** Null while loading. */
     val lists = MutableStateFlow(cache[mood.name]?.let { Result.success(it) })
     init { if (lists.value == null) load() }
     fun load() {
         lists.value = null
         viewModelScope.launch {
-            lists.value = runCatching { moodLists(source, mood) }
-                // an empty answer isn't kept: it may just be a bad moment
-                .onSuccess { if (it.isNotEmpty()) cache[mood.name] = it }
+            lists.value = try {
+                val found = moodLists(source, mood, if (low()) ENOUGH_LISTS_LOW else ENOUGH_LISTS)
+                // an empty or part-failed answer isn't kept: it may just be a bad moment
+                if (found.keep && found.lists.isNotEmpty()) cache[mood.name] = found.lists
+                Result.success(found.lists)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
     }
 }
@@ -116,7 +159,14 @@ private fun MoodTile(mood: Mood, onOpen: (Mood) -> Unit, modifier: Modifier = Mo
         modifier.fillMaxHeight().heightIn(min = 84.dp).clip(RoundedCornerShape(16.dp)).background(scheme.surfaceContainerHigh)
             .clickable(role = Role.Button) { onOpen(mood) }.padding(12.dp),
         Alignment.BottomStart,
-    ) { Text(mood.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = scheme.onSurface) }
+    ) {
+        // one line, a little smaller if it must be, so a long word never breaks in the middle
+        val style = MaterialTheme.typography.titleLarge
+        BasicText(
+            mood.name, style = style.copy(fontWeight = FontWeight.Bold, color = scheme.onSurface), maxLines = 1, softWrap = false,
+            overflow = TextOverflow.Ellipsis, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = style.fontSize),
+        )
+    }
 }
 
 /** A tile's page: one plain line, then its playlists. */

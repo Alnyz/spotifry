@@ -9,6 +9,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -283,14 +286,16 @@ private fun PickLinePage(lines: List<String>, picked: String?, onPick: (String?)
 }
 
 /** A song list someone sent: rename it, play it, or keep it as a playlist. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ImportSharedPage(shared: ShareText.Shared, onPlay: (List<Song>, Int, String) -> Unit, onAdd: (String) -> Unit, onBack: () -> Unit) {
     var name by remember(shared) { mutableStateOf(shared.title) }
     val scheme = MaterialTheme.colorScheme
     Page("Import playlist", onBack) {
         BoxWithConstraints {
-        // with a keyboard up in landscape there's only room for the name being typed: the buttons come back with the keyboard's Done
-        val roomy = maxHeight >= 160.dp
+        // with a keyboard up in landscape there's only room for the name being typed: the buttons come back with the keyboard's Done.
+        // Without a keyboard they always show: in a small split screen nothing would ever bring them back
+        val roomy = maxHeight >= 160.dp || !WindowInsets.isImeVisible
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = if (roomy) 16.dp else 0.dp)) {
             // the name scrolls with the songs and the buttons stay
             LazyColumn(Modifier.weight(1f)) {
