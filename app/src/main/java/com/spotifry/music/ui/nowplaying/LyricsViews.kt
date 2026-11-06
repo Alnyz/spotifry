@@ -192,9 +192,14 @@ private class Follow { var last = -1; var away = false }
 private class Boxes {
     var layout: TextLayoutResult? = null
     var rects: List<Rect> = emptyList()
+    private var words: List<LyricWord>? = null
+
+    /** The same layout read again for a changed line (lyrics upgraded to word times): the rects follow the line. */
+    fun place(line: LyricLine, offs: IntArray?) { if (words !== line.words) { words = line.words; layout?.let { set(it, line, offs) } } }
 
     fun set(l: TextLayoutResult, line: LyricLine, offsets: IntArray?) {
         layout = l
+        words = line.words
         rects = if (offsets == null || l.getParagraphDirection(0) == ResolvedTextDirection.Rtl) emptyList() else List(line.words.size) { k ->
             val s = offsets[k]; val e = offsets[k + 1]
             if (e <= s) Rect.Zero else {
@@ -259,7 +264,7 @@ private fun DrawScope.drawLyric(layout: TextLayoutResult, line: LyricLine, rects
  * A page move ([bus]) starts every line [Shift.px] off its place and lets it travel home after its turn in the chain.
  */
 @Composable
-private fun LyricRow(i: Int, line: LyricLine, focus: State<Float>, pos: State<Long>, bus: ShiftBus, calm: Boolean, blurOn: Boolean, onClick: () -> Unit) {
+private fun LyricRow(i: Int, line: LyricLine, focus: State<Float>, pos: State<Long>, bus: ShiftBus, calm: Boolean, blurOn: Boolean, reading: () -> Boolean, onClick: () -> Unit) {
     val offset = remember { Animatable(0f) }
     LaunchedEffect(bus) {
         // a line that scrolls into view mid-move doesn't take part (the first value is dropped)
@@ -272,7 +277,7 @@ private fun LyricRow(i: Int, line: LyricLine, focus: State<Float>, pos: State<Lo
         }
     }
     val offsets = remember(line) { wordOffsets(line) }
-    val boxes = remember(line) { Boxes() }
+    val boxes = remember(line.text) { Boxes() }
     val whole = remember(line) { wholeWords(line.words) }
     Box(
         Modifier.fillMaxWidth()
@@ -280,7 +285,7 @@ private fun LyricRow(i: Int, line: LyricLine, focus: State<Float>, pos: State<Lo
                 val d = i - focus.value
                 translationY = offset.value
                 if (!calm) { val s = focusScale(d); scaleX = s; scaleY = s; transformOrigin = TransformOrigin(0f, .5f) }
-                renderEffect = if (blurOn) blurOf(blurDp(d) * density) else null
+                renderEffect = if (blurOn && !reading()) blurOf(blurDp(d) * density) else null
             }
             .clickable(onClickLabel = "Play from here", onClick = onClick),
     ) {
@@ -288,11 +293,13 @@ private fun LyricRow(i: Int, line: LyricLine, focus: State<Float>, pos: State<Lo
         Text(
             line.text,
             Modifier.fillMaxWidth(.9f).drawWithContent {
+                boxes.place(line, offsets)
                 val l = boxes.layout ?: return@drawWithContent
-                val d = i - focus.value
+                val d = if (calm) i - Math.round(focus.value).toFloat() else i - focus.value
                 // lines well away from the focus are plainly unsung or sung: they don't watch the clock, so they don't redraw every frame
-                val p = if (abs(d) < 2f) pos.value else if (d > 0) Long.MIN_VALUE else Long.MAX_VALUE
-                drawLyric(l, line, boxes.rects, whole, p, d, calm)
+                val p = if (abs(d) < 2f) pos.value else if (d > 0) Long.MIN_VALUE / 2 else Long.MAX_VALUE / 2
+                // while the reader scrolls by hand nothing is blurred or dimmed beyond a line away
+                drawLyric(l, line, boxes.rects, whole, p, if (reading()) d.coerceIn(-1f, 1f) else d, calm)
             },
             style = BigLine, onTextLayout = { boxes.set(it, line, offsets) },
         )
@@ -314,7 +321,7 @@ internal fun LyricsScreen(
     // lyric times count from the whole song's start, the player from the trim's
     val trimStart = state.trim?.startMs ?: 0L
     val sung = remember(trimStart) { { position() + trimStart } }
-    val smooth = smoothPosition(sung, state.isPlaying, speed)
+    val smooth = smoothPosition(sung, state.isPlaying && timed != null, speed)
     val starts = remember(timed) { LongArray(lines.size) { lines[it].atMs } }
     val focus = remember(starts) { derivedStateOf { focusPosition(starts, smooth.value) } }
     val now by remember(timed) { derivedStateOf { lines.indexAt(smooth.value) } }
@@ -326,7 +333,7 @@ internal fun LyricsScreen(
 
     val list = rememberLazyListState()
     val bus = remember { ShiftBus() }
-    val follow = remember { Follow() }
+    val follow = remember(timed) { Follow() }
     var manual by remember { mutableStateOf(false) }
     var height by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -384,7 +391,7 @@ internal fun LyricsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (timed != null) itemsIndexed(timed.lines) { i, line ->
-                LyricRow(i, line, focus, smooth, bus, calm, blurOn) {
+                LyricRow(i, line, focus, smooth, bus, calm, blurOn, { manual }) {
                     manual = false
                     onSeek((line.atMs - trimStart).coerceAtLeast(0))
                 }
