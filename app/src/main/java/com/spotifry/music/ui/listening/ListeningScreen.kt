@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.layout.RowScope
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -327,16 +328,22 @@ private fun PeriodTab(p: Period, on: Boolean, modifier: Modifier, onClick: () ->
 private fun Tally(p: Period) {
     val scheme = MaterialTheme.colorScheme
     val big = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = Tabular, color = scheme.onSurface)
-    @Composable fun RowScope.stat(n: Int, one: String, many: String) = Column(Modifier.weight(1f)) {
-        BasicText(count(n), style = big, maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(minFontSize = 20.sp, maxFontSize = big.fontSize))
-        Text(if (n == 1) one else many, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
     Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp)) {
-        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.Bottom) {
-            stat(p.plays, "play", "plays")
-            stat(p.songs, "song", "songs")
-            if (p.artistCount > 0) stat(p.artistCount, "artist", "artists")
-            stat(p.activeDays, "day", "days")
+        val stats = listOfNotNull(
+            Triple(p.plays, "play", "plays"), Triple(p.songs, "song", "songs"),
+            Triple(p.artistCount, "artist", "artists").takeIf { p.artistCount > 0 }, Triple(p.activeDays, "day", "days"),
+        )
+        // the first stat on the left margin, the last on the right one, the same gap between: each is as wide as its own text, up to a share of the row
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val share = (maxWidth - 12.dp * (stats.size - 1)) / stats.size
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Bottom) {
+                stats.forEach { (n, one, many) ->
+                    Column(Modifier.widthIn(max = share)) {
+                        BasicText(count(n), style = big, maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(minFontSize = 20.sp, maxFontSize = big.fontSize))
+                        Text(if (n == 1) one else many, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
         }
         if (p.newSongs > 0) Text(
             buildAnnotatedString { withStyle(SpanStyle(color = scheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)) { append(count(p.newSongs)) }; append(if (p.newSongs == 1) " song new to you" else " songs new to you") },
