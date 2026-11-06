@@ -264,7 +264,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     LaunchedEffect(player.current != null) { if (player.current != null) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) }
     LaunchedEffect(player.current == null) { if (player.current == null) showPlayer = false }
 
-    // the bar fades over the page, so every list keeps this much clear at its end (168 dp playing, 108 dp not, on a 16 dp gesture area)
+    // the bar fades over the page, so every list keeps this much clear at its end (164 dp playing, 104 dp not, on a 16 dp gesture area)
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val inset = FadeBarSpec.reserve(player.current != null, navInset)
     val suggestionMenu: (Int) -> Unit = { i -> player.queue.getOrNull(i)?.let { menu = MenuTarget(it, queueIndex = i) } }

@@ -110,7 +110,7 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
                 DropdownMenuItem(text = { Text("Delete playlist") }, onClick = { menu = false; deleting = true })
             }
         }
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 8.dp))
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = (bottomInset - com.spotifry.music.ui.FadeBarSpec.FADE).coerceAtLeast(0.dp) + 8.dp))
     }
     if (renaming) NameDialog("Rename playlist", "Save", name, { renaming = false }) { vm.rename(id, it); renaming = false }
     if (deleting) AlertDialog(
