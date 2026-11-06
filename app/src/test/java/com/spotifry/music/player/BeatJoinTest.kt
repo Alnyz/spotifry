@@ -3,6 +3,7 @@ package com.spotifry.music.player
 import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
@@ -23,7 +24,9 @@ import org.robolectric.annotation.Config
 
 /** Just enough of a player: a list of songs, a position the test moves, and what was asked of it. */
 @UnstableApi
-private class FakePlayer(private val items: List<MediaItem>, private val lengthMs: Long = 200_000) : SimpleBasePlayer(Looper.getMainLooper()) {
+private class FakePlayer(items: List<MediaItem>, private val lengthMs: Long = 200_000) : SimpleBasePlayer(Looper.getMainLooper()) {
+    val items = items.toMutableList()
+    var error: PlaybackException? = null
     var index = 0; var pos = 0L; var play = true; var vol = 1f; var repeat = Player.REPEAT_MODE_OFF
     var suppression = Player.PLAYBACK_SUPPRESSION_REASON_NONE
     var play_state = Player.STATE_READY
@@ -39,7 +42,9 @@ private class FakePlayer(private val items: List<MediaItem>, private val lengthM
         .setCurrentMediaItemIndex(index).setContentPositionMs(pos).setPlaybackState(play_state)
         .setPlayWhenReady(play, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
         .setPlaybackSuppressionReason(suppression)
-        .setVolume(vol).setRepeatMode(repeat).setPlaybackParameters(params).build()
+        .setVolume(vol).setRepeatMode(repeat).setPlaybackParameters(params).setPlayerError(error).build()
+
+    fun drop(i: Int) { items.removeAt(i); changed() }
 
     override fun handleSetVolume(volume: Float, volumeOperationType: Int): ListenableFuture<*> { vol = volume; return Futures.immediateVoidFuture() }
     override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> { play = playWhenReady; return Futures.immediateVoidFuture() }
@@ -64,16 +69,18 @@ class BeatJoinTest {
     private val tails = ArrayList<FakePlayer>()
     private var fade = 5_000L
     private var grid: BeatGrid? = BeatGrid(0.0, 500.0, .9f, 0, Long.MAX_VALUE / 4)
+    private var oldGrid: BeatGrid? = null
     private var beatsOn = true
     private var stopsAfter = false
     private var sleep = 1f
+    private var setting = PlaybackParameters.DEFAULT
 
     private val join = BeatJoin(
         main,
         { item, at -> FakePlayer(listOf(item)).also { it.pos = at; it.play = false; it.vol = 0f; tails += it } },
-        { _, _, _ -> grid },
+        { item, _, _ -> if (item.mediaId == "a") oldGrid ?: grid else grid },
         CoroutineScope(Dispatchers.Unconfined),
-        { fade }, { beatsOn }, { stopsAfter }, { sleep },
+        { fade }, { beatsOn }, { stopsAfter }, { sleep }, { setting },
     )
     private val tail get() = tails.last()
 
@@ -128,7 +135,8 @@ class BeatJoinTest {
         val cross = ArrayList<kotlin.Pair<Float, Float>>()
         repeat(120) { run(50, null); join.tick(true)?.let { cross += it to tail.vol } }
         val mid = cross.minBy { kotlin.math.abs(it.first - it.second) }
-        assertEquals(.707f, mid.first, .05f); assertEquals(.707f, mid.second, .05f)
+        // .707 each for the same loudness, less the dip that keeps two loud songs under full level
+        assertEquals(.566f, mid.first, .05f); assertEquals(.566f, mid.second, .05f)
     }
 
     @Test fun aNewSongOutOfStepCatchesUpAndGoesBackToItsSpeed() {
@@ -283,12 +291,157 @@ class BeatJoinTest {
         assertTrue("tail at ${tail.vol}", tail.vol <= .5f)
     }
 
-    @Test fun aSeekAlreadyOverPlansAgainAfterASeekBack() {
+    @Test fun aSeekBackAfterAJoinPlansItAgain() {
         toHandover(); run(11_000)
         assertTrue(tail.released)
-        main.seekTo(0, 150_000)
+        assertEquals(1, tails.size)
+        main.seekTo(0, 160_000)
         org.robolectric.Shadows.shadowOf(Looper.getMainLooper()).idle()
-        run(100)
         assertEquals(0, main.index)
+        while (main.index == 0 && main.pos < 199_000) run(50)
+        assertEquals("a second tail voice for the second join", 2, tails.size)
+        assertEquals(1, main.index)
+    }
+
+    private fun idle() = org.robolectric.Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+    @Test fun aTailStuckBufferingBringsTheMainPlayerBack() {
+        toHandover(); run(50)
+        tail.play_state = Player.STATE_BUFFERING; tail.changed(); idle()
+        val seeks = main.seeks.size
+        val gains = ArrayList<Float?>()
+        repeat(40) { main.pos += 50; main.changed(); gains += join.tick(true) }
+        assertTrue("released within about a second", tail.released)
+        assertNull(gains.last())
+        assertEquals("no seeks chasing a position that isn't moving", seeks, main.seeks.size)
+    }
+
+    @Test fun aTailFailingAfterTheHandoverBringsTheMainPlayerBack() {
+        toHandover(); run(50)
+        tail.error = PlaybackException("x", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+        tail.play_state = Player.STATE_IDLE; tail.changed(); idle()
+        assertNull(join.tick(true))
+        assertTrue(tail.released)
+    }
+
+    private fun mainFails() {
+        main.error = PlaybackException("x", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+        main.play_state = Player.STATE_IDLE; main.changed(); idle()
+    }
+
+    @Test fun theNewSongFailingLetsTheOldSongPlayOut() {
+        toHandover(); run(3_000)
+        mainFails()
+        assertTrue("old song goes on", tail.play)
+        join.tick(true)
+        assertEquals(1f, tail.vol, .01f)
+        assertFalse(tail.released)
+        tail.play_state = Player.STATE_ENDED; tail.changed(); idle()
+        join.tick(true)
+        assertTrue(tail.released)
+    }
+
+    @Test fun theNewSongFailingBeforeTheOverlapLetsTheOldSongPlayOut() {
+        toHandover(); run(50)
+        mainFails()
+        assertTrue(tail.play)
+        tail.play_state = Player.STATE_ENDED; tail.changed(); idle()
+        join.tick(true)
+        assertTrue(tail.released)
+    }
+
+    @Test fun twiceTheSpeedStillJoinsAndCatchesUpRight() {
+        setting = PlaybackParameters(2f); main.params = setting; main.changed()
+        toHandover()
+        assertEquals(1, main.index)
+        assertEquals(2f, tail.params.speed, .001f)
+        // the first beat at or past 5 s of lead, at twice the speed
+        val cue = main.seeks.first().second - 350 + 5_000
+        main.pos = tail.pos - 194_000 + cue - 240; main.changed()
+        // measuring takes 9 ticks, and catching up 240 ms at a quarter over twice the speed takes 9 more
+        run(1_100)
+        assertEquals("back at its speed by now", 2f, main.params.speed, .001f)
+        val off = (main.pos - cue) - (tail.pos - 194_000)
+        assertTrue("off by $off at twice the speed", kotlin.math.abs(off) <= 60)
+    }
+
+    @Test fun aSpeedChosenWhileCatchingUpIsTheOneItGoesBackTo() {
+        toHandover()
+        main.pos = tail.pos - 194_000 + 2_500 - 250; main.changed()
+        run(800)
+        assertTrue(main.params.speed > 1f)
+        setting = PlaybackParameters(1.5f)
+        run(3_000)
+        assertEquals(1.5f, main.params.speed, .001f)
+        assertEquals(1.5f, tail.params.speed, .001f)
+    }
+
+    @Test fun catchingUpStopsEarlyInTheOverlap() {
+        toHandover()
+        // kept 500 ms late up to the overlap, so it's still catching up as the overlap starts
+        while (tail.pos < 194_000) { run(50); main.pos = tail.pos - 194_000 + 2_500 - 500; main.changed() }
+        val seen = ArrayList<Pair<Float, Float>>()
+        repeat(100) {
+            main.pos += (50 * main.params.speed).toLong(); main.changed()
+            tail.pos += 50; tail.changed()
+            join.tick(true)?.let { g -> seen += g to main.params.speed }
+        }
+        assertTrue("it did catch up in the overlap", seen.any { it.second != 1f })
+        val loudest = seen.filter { it.second != 1f }.maxOf { it.first }
+        assertTrue("still off its speed at gain $loudest", loudest < .2f)
+    }
+
+    @Test fun theHandoverCrossAddsUpToOne() {
+        at(160_000); join.tick(true)
+        val sums = ArrayList<Float>()
+        while (main.index == 0 && main.pos < 199_000) {
+            main.pos += 50; main.changed()
+            if (tails.isNotEmpty() && tail.play) { tail.pos += (50 * tail.params.speed).toLong(); tail.changed() }
+            val g = join.tick(true)
+            if (tails.isNotEmpty() && tail.vol > 0f) sums += tail.vol + (g ?: 1f)
+        }
+        assertTrue("the cross was seen", sums.isNotEmpty())
+        assertTrue("same music adds up: ${sums.max()}", sums.max() <= 1.01f)
+    }
+
+    @Test fun removingTheNextSongBeforeTheHandoverCallsItOff() {
+        at(160_000); join.tick(true)
+        while (tails.isEmpty()) run(50)
+        main.drop(1); idle()
+        repeat(6) { run(50) }
+        assertTrue(tail.released)
+        assertEquals(0, main.index)
+        assertTrue(main.seeks.isEmpty())
+    }
+
+    @Test fun repeatAllWrapsToTheFirstSong() {
+        main.index = 1; main.repeat = Player.REPEAT_MODE_ALL; main.changed(); idle()
+        at(160_000); join.tick(true)
+        while (main.index == 1 && main.pos < 199_000) run(50)
+        assertEquals(0, main.index)
+        assertEquals(1, tails.size)
+    }
+
+    @Test fun aReadCutShortIsNotTakenForTheEndOfTheSong() {
+        // read as far as 178 s, 22 s short of the real end
+        oldGrid = BeatGrid(0.0, 500.0, .9f, 0, 178_000, whole = false)
+        toHandover()
+        assertEquals(1, main.index)
+        assertTrue("old song at ${tail.pos}", tail.pos > 190_000)
+    }
+
+    @Test fun aSongFarFromItsEndKeepsItsFadeIn() {
+        at(160_000); join.tick(true)
+        run(100)
+        assertNull("plan made, no override yet", join.tick(true))
+    }
+
+    @Test fun nothingNeedsQuickTicksFarFromTheEnd() {
+        at(10_000); join.tick(true)
+        assertFalse(join.quick)
+        at(160_000); join.tick(true)
+        assertFalse("waiting for its moment", join.quick)
+        while (tails.isEmpty()) run(50)
+        assertTrue(join.quick)
     }
 }

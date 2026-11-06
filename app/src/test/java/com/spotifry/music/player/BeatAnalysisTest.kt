@@ -154,6 +154,18 @@ class BeatAnalysisTest {
         assertTrue(p.lengthMs < 12_000)
     }
 
+    @Test fun tempoAPartMeetAtTheMiddleNotTheStart() {
+        val out = beats(120.0, 113.0); val inn = beats(122.0, 47.0)
+        val p = planJoin(out, inn, 200_000, 180_000, 8_000, 1_500)!!
+        assertTrue(p.onBeat)
+        onABeat(out, p.startMs + p.lengthMs / 2.0)
+        onABeat(inn, p.cueMs + p.lengthMs / 2.0)
+        assertTrue("room to line up before it's heard", p.cueMs >= 1_500)
+        // at the start of the overlap the new song's beat is off by the slip, in the other direction from its end
+        val atStart = (p.cueMs - inn.firstBeatMs).mod(inn.periodMs).let { minOf(it, inn.periodMs - it) }
+        assertTrue("off by $atStart at the start", atStart in 1.0..70.0)
+    }
+
     @Test fun veryDifferentTemposFallBackToThePlainOverlap() {
         val p = planJoin(beats(120.0), beats(97.0), 200_000, 180_000, 5_000, 1_500)!!
         assertFalse(p.onBeat)

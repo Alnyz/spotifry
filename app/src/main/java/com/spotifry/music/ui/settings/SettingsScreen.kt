@@ -94,7 +94,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     Segments(FADES.map { if (it == 0) "Off" else "$it s" }, FADES.indexOf(fade).coerceAtLeast(0)) { vm.settings.setFadeSeconds(FADES[it]) }
                 }
                 Item(
-                    "Match the beat between songs", "Songs overlap and the change lands on a beat of each. When the beat isn't clear, the fade above is used.",
+                    "Match the beat between songs", "Songs overlap and the change lands on a beat of each. The first 2 to 3 seconds of the next song are skipped to line it up, and the overlap is usually at least 6 seconds, even with the fade off. When the beat isn't clear, the fade above is used.",
                     onClick = { vm.settings.setBeatMatch(!beatMatch) }, role = Role.Switch,
                 ) {
                     Switch(beatMatch, null, colors = switchColors())

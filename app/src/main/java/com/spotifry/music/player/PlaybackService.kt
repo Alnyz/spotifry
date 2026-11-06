@@ -102,13 +102,13 @@ class PlaybackService : MediaSessionService() {
             while (true) {
                 val fadeMs = c.settings.fadeSeconds.value * 1000L
                 val matching = c.settings.beatMatch.value
-                if (matching && join == null) join = newJoin(player, dataSource, equalizer, loudness, levels)
+                if (matching && join == null) join = newJoin(player, dataSource, equalizer, loudness)
                 // null with the setting off, and whenever no join is under way: the fade below goes on as always
                 val joined = join?.tick(matching)
                 if (!matching && join?.idle == true) { join?.release(); join = null }
                 val g = joined ?: if (fadeMs > 0) fadeGain(player.currentPosition, player.duration, fadeMs, fadeIn) else 1f
                 if (g != c.sleepTimer.songGain) c.sleepTimer.songGain = g
-                delay(if ((fadeMs > 0 || join != null) && player.isPlaying) 50 else 500)
+                delay(if ((fadeMs > 0 && player.isPlaying) || join?.quick == true) 50 else 500)
             }
         }
 
@@ -250,15 +250,15 @@ class PlaybackService : MediaSessionService() {
     }
 
     /** Built only when the setting is on, so with it off nothing of this exists. */
-    private fun newJoin(player: ExoPlayer, dataSource: androidx.media3.datasource.DataSource.Factory, equalizer: EqualizerProcessor, loudness: LoudnessProcessor, levels: LoudnessMemory): BeatJoin {
+    private fun newJoin(player: ExoPlayer, dataSource: androidx.media3.datasource.DataSource.Factory, equalizer: EqualizerProcessor, loudness: LoudnessProcessor): BeatJoin {
         val c = (application as MusicApp).container
         val quiet = Dispatchers.IO.limitedParallelism(1)
         return BeatJoin(
             player,
             newTail = { item, at ->
-                // its own sound chain, as a chain can't serve two players. It holds the level the song was at and remembers nothing.
+                // its own sound chain, as a chain can't serve two players. It holds the level the song is at now and remembers nothing.
                 val eq = EqualizerProcessor().apply { set(if (c.settings.eqOn.value) c.settings.eqLevels.value else null) }
-                val level = LoudnessProcessor().apply { enabled = c.settings.sameLoudness.value; startSong(loudness.lastMeasuredDb ?: levels.get(item.mediaId)) }
+                val level = LoudnessProcessor().apply { enabled = c.settings.sameLoudness.value; leveler.hold(loudness.gainDb) }
                 tailEqualizer = eq; tailLoudness = level
                 val renderers = object : DefaultRenderersFactory(this@PlaybackService) {
                     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
@@ -285,17 +285,19 @@ class PlaybackService : MediaSessionService() {
                     val was = android.os.Process.getThreadPriority(android.os.Process.myTid())
                     android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
                     try {
-                        kotlinx.coroutines.withTimeoutOrNull(30_000) { decodeStretch(dataSource, uri, item.mediaId, from, to) }
-                            ?.let { (mono, n, at) -> analyseBeats(mono, n, at) }
+                        // short enough that both songs can be read in the time before the join
+                        kotlinx.coroutines.withTimeoutOrNull(15_000) { decodeStretch(dataSource, uri, item.mediaId, from, to) }
+                            ?.let { d -> analyseBeats(d.mono, d.count, d.startMs)?.copy(whole = d.reachedEnd) }
                     } finally { android.os.Process.setThreadPriority(was) }
                 }
             },
             scope = scope,
             fadeMs = { c.settings.fadeSeconds.value * 1000L },
-            // skipping silence moves the music against the clock, so beats can't stay lined up: a plain overlap then
-            beatsAllowed = { !player.skipSilenceEnabled },
+            // skipping silence moves the music against the clock, so beats can't stay lined up; on data saver, nothing extra is read
+            beatsAllowed = { !player.skipSilenceEnabled && !c.streamLow() },
             stopsAfterSong = { player.pauseAtEndOfMediaItems },
             sleepGain = { c.sleepTimer.sleepGain },
+            wanted = { androidx.media3.common.PlaybackParameters(c.settings.speed.value, 2.0.pow(c.settings.pitch.value / 12.0).toFloat()) },
         )
     }
 

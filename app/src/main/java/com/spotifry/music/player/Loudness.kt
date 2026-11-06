@@ -27,6 +27,11 @@ class Leveler {
     private var songBlocks = 0
     private var gainDb = 0f
     private var targetDb = 0f
+    private var held = false
+    val currentGainDb get() = gainDb
+
+    /** Stays at [db] and measures nothing: a voice playing out the end of a song already levelled. */
+    fun hold(db: Float) { held = true; gainDb = db; targetDb = db }
 
     fun configure(sampleRate: Int, channels: Int) { this.channels = channels; blockFrames = sampleRate / 10 }
 
@@ -54,6 +59,7 @@ class Leveler {
     private fun endBlock() {
         val db = 10 * log10(blockEnergy / blockCount + 1e-12)
         blockEnergy = 0.0; blockCount = 0
+        if (held) return
         if (db > GATE_DB) {
             songEnergy += 10.0.pow(db / 10.0); songBlocks++
             // from 2 s of sound on, aim for the song's level so far; before that, keep the last song's level
@@ -90,6 +96,8 @@ class LoudnessProcessor(private val tap: SpectrumTap? = null) : BaseAudioProcess
     @Volatile private var pending: Float? = null
     @Volatile private var pendingSet = false
     @Volatile var lastMeasuredDb: Float? = null; private set
+    /** The level it's playing at now, for a second voice to match. */
+    @Volatile var gainDb = 0f; private set
 
     /** Called on the main thread when a song starts; applied by the audio thread before its next samples. */
     fun startSong(knownDb: Float?) { pending = knownDb; pendingSet = true }
@@ -123,6 +131,7 @@ class LoudnessProcessor(private val tap: SpectrumTap? = null) : BaseAudioProcess
         }
         out.flip()
         lastMeasuredDb = leveler.measuredDb()
+        gainDb = leveler.currentGainDb
     }
 
     /** Feeds the live picture with the song as it is, before the leveler, so its loudness moves don't show. */

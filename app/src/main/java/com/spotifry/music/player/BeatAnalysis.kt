@@ -23,7 +23,7 @@ private const val SURE = .35f
  * The beats of a stretch of song: beat n falls at [firstBeatMs] + n * [periodMs]. [soundFromMs] and [soundToMs] are where
  * sound starts and stops in that stretch, so a silent tail isn't counted as music.
  */
-data class BeatGrid(val firstBeatMs: Double, val periodMs: Double, val confidence: Float, val soundFromMs: Long, val soundToMs: Long) {
+data class BeatGrid(val firstBeatMs: Double, val periodMs: Double, val confidence: Float, val soundFromMs: Long, val soundToMs: Long, val whole: Boolean = true) {
     val bpm get() = 60_000.0 / periodMs
     val isSure get() = confidence >= SURE
     fun beatAtOrAfter(ms: Double) = firstBeatMs + ceil((ms - firstBeatMs) / periodMs) * periodMs
@@ -188,8 +188,13 @@ fun planJoin(out: BeatGrid?, inn: BeatGrid?, outMs: Long, inMs: Long, fadeMs: Lo
     if (inn == null) return null
     val end = minOf(outMs, out?.soundToMs ?: outMs)
     if (out != null && out.isSure && inn.isSure) beatJoin(out, inn, end, inMs, fadeMs, leadMs)?.let { return it }
+    return plainJoin(end, outMs, inMs, fadeMs, inn.soundFromMs)
+}
+
+/** The overlap with no beats to go by, ending at [end] of the old song. Null with no fade set or songs too short for it. */
+fun plainJoin(end: Long, outMs: Long, inMs: Long, fadeMs: Long, soundFromMs: Long): JoinPlan? {
     if (fadeMs <= 0 || end - fadeMs < 0 || outMs < 2 * fadeMs || (inMs in 1 until 2 * fadeMs)) return null
-    return JoinPlan(end - fadeMs, fadeMs, inn.soundFromMs.takeIf { it <= 10_000 } ?: 0, false, 0)
+    return JoinPlan(end - fadeMs, fadeMs, soundFromMs.takeIf { it <= 10_000 } ?: 0, false, 0)
 }
 
 private fun beatJoin(out: BeatGrid, inn: BeatGrid, end: Long, inMs: Long, fadeMs: Long, leadMs: Long): JoinPlan? {
@@ -205,7 +210,9 @@ private fun beatJoin(out: BeatGrid, inn: BeatGrid, end: Long, inMs: Long, fadeMs
     if (length < 1_500) return null
     val start = out.beatAtOrBefore(end - length)
     if (start < out.firstBeatMs) return null
-    val cue = inn.beatAtOrAfter(maxOf(leadMs, inn.soundFromMs).toDouble())
+    // the two run on the same clock, so with tempos apart they only meet once: this puts that at the middle
+    val shift = bars * 2 * (inBeat - out.periodMs)
+    val cue = inn.beatAtOrAfter(maxOf(leadMs, inn.soundFromMs) + abs(shift)) + shift
     if (inMs in 1 until (cue + 2 * length).toLong()) return null
     return JoinPlan(start.roundToInt().toLong(), length.roundToInt().toLong(), cue.roundToInt().toLong(), true, leadMs)
 }

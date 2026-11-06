@@ -14,8 +14,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 private const val TAG = "BeatJoin"
-/** Analysis starts this long before the end: a slow connection needs the time, and it only reads what's about to play anyway. */
-private const val LOOK_BEFORE_END_MS = 90_000L
+/** Analysis starts this long before the end: the player has buffered that far by then, so nothing is fetched twice. */
+private const val LOOK_BEFORE_END_MS = 45_000L
 private const val STRETCH_MS = 30_000L
 private const val MIN_LEFT_MS = 6_000L
 /** Time for the new song to start and be lined up, unheard, before the overlap: the first of it passes under the fade. */
@@ -35,6 +35,12 @@ private const val SEEK_OVER_MS = 600L
 private const val SEEK_START_UP_MS = 350L
 private const val LEAVING_TICKS = 3
 private const val TICK_MS = 50
+/** The old song stuck for this long after the handover: the main player comes back up rather than stay silent. */
+private const val STALL_TICKS = 20
+/** How far into the overlap the new song may still run off its speed: it's about 16 dB down until here. */
+private const val CATCH_UP_UNTIL = .1f
+/** Both voices dip this much at the middle of the overlap, as two loud songs together can pass full level. */
+private const val OVERLAP_CUT = .2f
 
 /**
  * Overlaps one song into the next. [main] stays the one player the session, notification, queue and position follow: at
@@ -55,6 +61,8 @@ class BeatJoin(
     private val beatsAllowed: () -> Boolean,
     private val stopsAfterSong: () -> Boolean,
     private val sleepGain: () -> Float,
+    /** The speed and pitch the user set, which [main] goes back to after catching up. */
+    private val wanted: () -> PlaybackParameters,
 ) : Player.Listener {
     private class Pair(val out: MediaItem, val nextIndex: Int, val next: MediaItem) {
         val key = "${out.mediaId} ${out.trim} ${next.mediaId} ${next.trim}"
@@ -81,7 +89,7 @@ class BeatJoin(
             readings.clear()
             if (abs(last) <= within) return true
             val b = base()
-            slewing = (abs(last) / CATCH_UP / TICK_MS).toInt().coerceAtLeast(1)
+            slewing = (abs(last) / CATCH_UP / b.speed / TICK_MS).toInt().coerceAtLeast(1)
             p.playbackParameters = PlaybackParameters(b.speed * (if (last < 0) 1 + CATCH_UP else 1 - CATCH_UP), b.pitch)
             return false
         }
@@ -93,21 +101,34 @@ class BeatJoin(
     private class Looking(val key: String) : Stage { var job: Job? = null }
     private class Waiting(val key: String, val plan: JoinPlan) : Stage
     private class Priming(val key: String, val plan: JoinPlan, val tail: Player) : Stage { var ran = 0; var inStep = false; val line = Liner() }
-    private class Swapping(val plan: JoinPlan, val tail: Player) : Stage { var step = 0 }
-    private class Settling(val plan: JoinPlan, val tail: Player) : Stage { var ran = 0; var locked = false; val line = Liner() }
+    private class Swapping(val plan: JoinPlan, val tail: Player) : Stage { var step = 0; var stalled = 0 }
+    private class Settling(val plan: JoinPlan, val tail: Player) : Stage { var ran = 0; var locked = false; var stalled = 0; val line = Liner() }
     private class Fading(val plan: JoinPlan, val tail: Player, val cue: Long, var locked: Boolean, val line: Liner) : Stage
 
     private var stage: Stage = Watching
     private val leaving = ArrayDeque<kotlin.Pair<Player, IntArray>>()
     private var ownSeek = false
-    /** [main]'s real speed while it runs a little off it to line up the beats. */
-    private var mainBase: PlaybackParameters? = null
+    /** [main] is running a little off [wanted] to line up the beats. */
+    private var mainLining = false
     private val known = HashMap<String, BeatGrid>()
 
     init { main.addListener(this) }
 
     /** Nothing under way, so this can be let go when the setting goes off. */
     val idle get() = leaving.isEmpty() && (stage === Watching || stage is Done)
+
+    /** Something here needs a tick every 50 ms; otherwise a slow poll does, so the setting costs little for most of a song. */
+    val quick: Boolean
+        get() = leaving.isNotEmpty() || when (val s = stage) {
+            is Priming, is Swapping, is Settling, is Fading -> true
+            is Waiting -> main.currentPosition >= primeAt(s.plan, wanted().speed) - 1_000
+            else -> false
+        }
+
+    private fun primeAt(plan: JoinPlan, speed: Float) = plan.startMs - plan.leadMs - (PRIME_MS * speed).toLong()
+
+    /** The plain fade doesn't start on a song about to be handed over; its fade-in, far from the end, is left alone. */
+    private fun holdFade(pos: Long): Float? = if (main.duration - pos < fadeMs()) 1f else null
 
     private fun pairNow(): Pair? {
         val out = main.currentMediaItem ?: return null
@@ -120,13 +141,13 @@ class BeatJoin(
     fun tick(on: Boolean): Float? {
         tickLeaving()
         if (!on) { letGo("switched off"); return null }
-        val speed = main.playbackParameters.speed
+        val speed = wanted().speed
         val pos = main.currentPosition
         when (val s = stage) {
             Watching -> {
-                val p = pairNow() ?: return null
                 val left = main.duration - pos
                 if (main.duration == C.TIME_UNSET || !main.isPlaying || left > LOOK_BEFORE_END_MS * speed) return null
+                val p = pairNow() ?: return null
                 if (left < MIN_LEFT_MS * speed) { stage = Done(p.key); return null }
                 start(p, (JOIN_LEAD_MS * speed).toLong())
             }
@@ -135,15 +156,13 @@ class BeatJoin(
             is Waiting -> {
                 val p = pairNow()
                 if (p?.key != s.key) { stage = Watching; return null }
-                val handover = s.plan.startMs - s.plan.leadMs
-                val prime = handover - (PRIME_MS * speed).toLong()
+                val prime = primeAt(s.plan, speed)
                 if (pos > prime + SLACK_MS * speed) { Log.i(TAG, "too late for the join at $pos"); stage = Done(s.key); return null }
                 if (pos >= prime) {
                     stage = Priming(s.key, s.plan, newTail(p.out, pos + SEEK_START_UP_MS))
                     Log.i(TAG, "tail voice starts at $pos")
                 }
-                // the plain fade doesn't start on a song about to be handed over
-                return 1f
+                return holdFade(pos)
             }
             is Priming -> return priming(s, pos, speed)
             is Swapping -> return swapping(s)
@@ -162,11 +181,18 @@ class BeatJoin(
         val inMs = p.next.trim?.endMs?.let { it - inStart } ?: (p.next.toSong().durationSec * 1000 - inStart).coerceAtLeast(0)
         val fade = fadeMs()
         val beats = beatsAllowed()
+        if (!beats) {
+            // nothing to read: skipping silence or saving data gets the plain overlap
+            val plan = plainJoin(outMs, outMs, inMs, fade, 0)
+            Log.i(TAG, "${p.key}: no beats wanted: $plan")
+            stage = if (plan != null) Waiting(p.key, plan) else Done(p.key)
+            return
+        }
         looking.job = scope.launch {
-            val out = if (beats) lookOnce(p.out, (outStart + outMs - STRETCH_MS).coerceAtLeast(outStart), outStart + outMs)?.shifted(-outStart) else null
+            // a read cut short can't say where the song's sound ends, and its beats would be guessed far ahead: not used
+            val out = lookOnce(p.out, (outStart + outMs - STRETCH_MS).coerceAtLeast(outStart), outStart + outMs)?.takeIf { it.whole }?.shifted(-outStart)
             val inn = lookOnce(p.next, inStart, inStart + STRETCH_MS)?.shifted(-inStart)
             if (stage !== looking) return@launch
-            // fed with no grid for the old song, the plan is a plain overlap
             val plan = planJoin(out, inn, outMs, inMs, fade, leadMs)
             Log.i(TAG, "${p.key}: ${out?.bpm}/${out?.confidence} to ${inn?.bpm}/${inn?.confidence}: $plan")
             stage = if (plan != null) Waiting(p.key, plan) else Done(p.key)
@@ -180,7 +206,7 @@ class BeatJoin(
         val g = try { look(item, fromMs, toMs) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { Log.w(TAG, "couldn't read ${item.mediaId}: $e"); null }
         Log.i(TAG, "read ${item.mediaId} from $fromMs in ${System.currentTimeMillis() - began} ms: ${g?.bpm}")
         // a failure isn't kept: a stream that timed out may read fine next time
-        if (g != null) { if (known.size > 16) known.clear(); known[key] = g }
+        if (g != null && g.whole) { if (known.size > 16) known.clear(); known[key] = g }
         return g
     }
 
@@ -191,22 +217,28 @@ class BeatJoin(
         if (!s.inStep && s.tail.isPlaying && main.isPlaying && ++s.ran >= SETTLE_TICKS) {
             val off = s.tail.currentPosition - pos
             if (abs(off) > SEEK_OVER_MS) { s.tail.seekTo(pos + SEEK_START_UP_MS); s.ran = 0 }
-            else if (s.line.step(s.tail, off, IN_STEP_MS) { main.playbackParameters }) { s.inStep = true; Log.i(TAG, "tail voice in step, off by ${s.line.last} ms") }
+            else if (s.line.step(s.tail, off, IN_STEP_MS, wanted)) { s.inStep = true; Log.i(TAG, "tail voice in step, off by ${s.line.last} ms") }
         }
         if (s.inStep && pos >= handover) stage = Swapping(s.plan, s.tail)
         else if (!s.inStep && pos > handover + SLACK_MS * speed) { Log.i(TAG, "tail voice wasn't ready"); drop(s.tail); stage = Done(s.key); return null }
-        return 1f
+        return holdFade(pos)
     }
 
     private fun swapping(s: Swapping): Float? {
         follow(s.tail)
         val keep = sleepGain()
-        // the same music on both for a moment; held while paused
-        if (!main.isPlaying) return if (s.step == 0) 1f else if (s.step == 1) .7f else 0f
+        if (s.tail.playerError != null) { finish(s.tail, "tail voice failed"); return null }
+        if (main.isPlaying && !s.tail.isPlaying) {
+            if (++s.stalled >= STALL_TICKS) { finish(s.tail, "tail stalled"); return null }
+            return if (s.step == 0) 1f else if (s.step == 1) .5f else 0f
+        }
+        s.stalled = 0
+        // the same music on both for a moment, in step, so half of each adds up to one; held while paused
+        if (!main.isPlaying) return if (s.step == 0) 1f else if (s.step == 1) .5f else 0f
         val p = pairNow()
         if (p == null) { drop(s.tail); stage = Watching; return null }
         when (s.step++) {
-            0 -> { s.tail.volume = .7f * keep; return .7f }
+            0 -> { s.tail.volume = .5f * keep; return .5f }
             1 -> { s.tail.volume = keep; return 0f }
             else -> {
                 val at = s.plan.cueMs - s.plan.leadMs + (if (s.plan.onBeat) SEEK_START_UP_MS else 0)
@@ -222,6 +254,11 @@ class BeatJoin(
     private fun settling(s: Settling, pos: Long): Float? {
         follow(s.tail)
         if (s.tail.playerError != null || s.tail.playbackState == Player.STATE_ENDED) { finish(s.tail, "old song ended before the new one played"); return null }
+        if (main.isPlaying && !s.tail.isPlaying) {
+            if (++s.stalled >= STALL_TICKS) { finish(s.tail, "tail stalled"); return null }
+            return 0f
+        }
+        s.stalled = 0
         s.tail.volume = sleepGain()
         val a = s.tail.currentPosition
         if (main.isPlaying && !s.locked && s.plan.onBeat && ++s.ran >= SETTLE_TICKS) {
@@ -241,34 +278,42 @@ class BeatJoin(
 
     private fun fading(s: Fading, pos: Long): Float? {
         follow(s.tail)
+        if (main.playerError != null) {
+            // the new song failed with nothing after it: the old song's end isn't lost with it
+            if (s.tail.playerError != null || s.tail.playbackState == Player.STATE_ENDED) { finish(s.tail, "old song played out"); return null }
+            s.tail.volume = sleepGain()
+            return 0f
+        }
         val f = ((pos - s.cue).toFloat() / s.plan.lengthMs).coerceIn(0f, 1f)
         if (!s.locked && main.isPlaying) {
             // still catching up: fine while the new song is hardly heard, then it stays where it is
             val off = (pos - s.plan.cueMs) - (s.tail.currentPosition - s.plan.startMs)
-            if (f > .33f) { restoreMain(); s.locked = true; Log.i(TAG, "beats not lined up, last off by ${s.line.last} ms") }
+            if (f > CATCH_UP_UNTIL) { restoreMain(); s.locked = true; Log.i(TAG, "beats not lined up, last off by ${s.line.last} ms") }
             else s.locked = lineUpMain(s.line, off)
         }
         if (f >= 1f) { finish(s.tail, "overlap done"); return null }
         // equal power: the two together stay about as loud as one
-        s.tail.volume = cos(f * PI / 2).toFloat() * sleepGain()
-        return sin(f * PI / 2).toFloat()
+        val cut = 1 - OVERLAP_CUT * sin(f * PI).toFloat()
+        s.tail.volume = cos(f * PI / 2).toFloat() * cut * sleepGain()
+        return sin(f * PI / 2).toFloat() * cut
     }
 
     private fun lineUpMain(line: Liner, off: Long): Boolean {
-        val base = mainBase ?: main.playbackParameters.also { mainBase = it }
-        val done = line.step(main, off, LOCKED_MS) { base }
-        if (done) { mainBase = null; Log.i(TAG, "new song on the beat, off by ${line.last} ms") }
+        mainLining = true
+        val done = line.step(main, off, LOCKED_MS, wanted)
+        if (done) { mainLining = false; Log.i(TAG, "new song on the beat, off by ${line.last} ms") }
         return done
     }
 
-    private fun restoreMain() { mainBase?.let { main.playbackParameters = it }; mainBase = null }
+    private fun restoreMain() { if (mainLining) main.playbackParameters = wanted(); mainLining = false }
 
     /** Pause, a phone call, headphones out: the tail voice does what [main] does. */
     private fun follow(tail: Player, lining: Boolean = false) {
-        val play = main.playWhenReady && main.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE && main.playbackState != Player.STATE_IDLE
+        // idle from a Stop silences it; idle from an error doesn't, so a failed next song doesn't cut off the old one
+        val stopped = main.playbackState == Player.STATE_IDLE && main.playerError == null
+        val play = main.playWhenReady && main.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE && !stopped
         if (tail.playWhenReady != play) tail.playWhenReady = play
-        val base = mainBase ?: main.playbackParameters
-        if (!lining && tail.playbackParameters != base) tail.playbackParameters = base
+        if (!lining && tail.playbackParameters != wanted()) tail.playbackParameters = wanted()
     }
 
     private val tail: Player?

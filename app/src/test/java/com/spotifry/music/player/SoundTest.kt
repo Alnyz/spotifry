@@ -58,4 +58,11 @@ class SoundTest {
         org.junit.Assert.assertTrue("only $shown pictures in 5 s", shown > 140)
         org.junit.Assert.assertTrue("a gap of $worstGap ms", worstGap <= 70)
     }
+
+    @Test fun aHeldLevelStaysPutWhateverItHears() {
+        val l = Leveler().apply { configure(48_000, 1); hold(-4f) }
+        repeat(48_000 * 5) { l.process(.9f) }
+        assertEquals(-4f, l.currentGainDb, .001f)
+        assertEquals(null, l.measuredDb())
+    }
 }

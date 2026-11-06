@@ -15,12 +15,15 @@ import kotlinx.coroutines.ensureActive
 import java.nio.ByteOrder
 import kotlin.coroutines.coroutineContext
 
+/** Decoded sound, [count] samples of [mono] from [startMs] of the song. [reachedEnd] is false when the read stopped short. */
+class Stretch(val mono: FloatArray, val count: Int, val startMs: Long, val reachedEnd: Boolean)
+
 /**
  * The stretch of a song from [fromMs] to [toMs] as mono at [ANALYSIS_RATE], with where it really starts. Goes through the
  * player's own [factory], so what's cached or saved isn't fetched again and only this stretch is read from the network.
  */
 @UnstableApi
-suspend fun decodeStretch(factory: DataSource.Factory, uri: Uri, id: String, fromMs: Long, toMs: Long): Triple<FloatArray, Int, Long>? {
+suspend fun decodeStretch(factory: DataSource.Factory, uri: Uri, id: String, fromMs: Long, toMs: Long): Stretch? {
     val job = coroutineContext[kotlinx.coroutines.Job]
     val source = SongBytes(factory, uri, id) { job?.isActive != false }
     val extractor = MediaExtractor()
@@ -31,12 +34,15 @@ suspend fun decodeStretch(factory: DataSource.Factory, uri: Uri, id: String, fro
         val format = extractor.getTrackFormat(track)
         extractor.selectTrack(track)
         if (fromMs > 0) extractor.seekTo(fromMs * 1_000, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-        codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!).apply { configure(format, null, null, 0); start() }
+        codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+        codec.configure(format, null, null, 0)
+        codec.start()
         var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
         var rate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
         val out = FloatArray(((toMs - fromMs) * ANALYSIS_RATE / 1_000).toInt() + ANALYSIS_RATE)
         var n = 0
         var startMs = -1L
+        var lastMs = -1L
         var pos = 0.0; var prev = 0f
         val info = MediaCodec.BufferInfo()
         var inputDone = false
@@ -59,6 +65,7 @@ suspend fun decodeStretch(factory: DataSource.Factory, uri: Uri, id: String, fro
                 val b = codec.getOutputBuffer(o)
                 if (b != null && info.size > 0 && info.presentationTimeUs >= fromMs * 1_000) {
                     if (startMs < 0) startMs = info.presentationTimeUs / 1_000
+                    lastMs = info.presentationTimeUs / 1_000
                     b.position(info.offset); b.limit(info.offset + info.size)
                     val pcm = b.order(ByteOrder.nativeOrder()).asShortBuffer()
                     val step = rate.toDouble() / ANALYSIS_RATE
@@ -74,7 +81,7 @@ suspend fun decodeStretch(factory: DataSource.Factory, uri: Uri, id: String, fro
                 if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
             }
         }
-        return if (startMs < 0) null else Triple(out, n, startMs)
+        return if (startMs < 0) null else Stretch(out, n, startMs, lastMs >= toMs - REACHED_WITHIN_MS)
     } finally {
         codec?.runCatching { stop() }
         codec?.runCatching { release() }
@@ -84,6 +91,8 @@ suspend fun decodeStretch(factory: DataSource.Factory, uri: Uri, id: String, fro
 }
 
 private const val SKIP = 1_000_000L
+/** A song's last samples can end this far before its stated length without the read having stopped short. */
+private const val REACHED_WITHIN_MS = 2_000L
 /** About a minute and a half at high quality: more than a stretch of 30 s should cost. */
 private const val MAX_FETCH = 2_000_000L
 
@@ -135,7 +144,8 @@ private class SongBytes(private val factory: DataSource.Factory, private val uri
     private fun open(offset: Long) {
         close()
         val next = factory.createDataSource()
-        val opened = next.open(DataSpec.Builder().setUri(uri).setKey(id).setPosition(offset).build())
+        // not closed, a failed open would hold its lock on the song's cache until the app restarts
+        val opened = try { next.open(DataSpec.Builder().setUri(uri).setKey(id).setPosition(offset).build()) } catch (e: Exception) { runCatching { next.close() }; throw e }
         val range = next.responseHeaders.entries.firstOrNull { it.key.equals("Content-Range", true) }?.value?.firstOrNull()
         range?.substringAfterLast('/')?.trim()?.toLongOrNull()?.let { length = it }
         // nothing came from the network: the cache knows how much there is
