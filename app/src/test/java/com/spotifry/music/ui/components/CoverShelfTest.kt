@@ -10,13 +10,13 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.test.core.app.ApplicationProvider
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.concurrent.CountDownLatch
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -25,20 +25,31 @@ class CoverShelfTest {
 
     private fun scale(v: Float) { Settings.Global.putFloat(ApplicationProvider.getApplicationContext<android.content.Context>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, v) }
 
-    @Test fun removedAnimationsMeanNoFadeAndNormalOnesDo() {
-        val still = mutableStateOf<Boolean?>(null)
-        scale(0f)
-        compose.setContent { still.value = rememberStill() }
-        compose.waitForIdle()
-        assertTrue(still.value == true)
-        scale(1f)
+    @Test fun aFadeStartsInvisibleOnlyWhenAnimationsAreOn() {
+        assertEquals(0f, fadeStart(on = true, still = false))
+        assertEquals(1f, fadeStart(on = true, still = true)) // removed animations: it just swaps
+        assertEquals(1f, fadeStart(on = false, still = false))
     }
 
-    @Test fun aCoverThatCannotBeFetchedGoesFromGreyToThePlaceholderAndStopsThere() {
-        val failing = OkHttpClient.Builder().addInterceptor { throw java.io.IOException("offline") }.build()
+    @Test fun theSystemSettingForRemovedAnimationsIsRead() {
+        val still = mutableStateOf<Boolean?>(null)
+        try {
+            scale(0f)
+            compose.setContent { still.value = rememberStill() }
+            compose.waitForIdle()
+            assertTrue(still.value == true)
+        } finally { scale(1f) }
+    }
+
+    @Test fun aCoverThatCannotBeFetchedIsGreyFirstThenSettlesOnThePlaceholderAndStopsThere() {
+        val release = CountDownLatch(1)
+        val failing = OkHttpClient.Builder().addInterceptor { release.await(); throw java.io.IOException("offline") }.build()
         compose.setContent {
             CompositionLocalProvider(LocalImageClient provides failing) { CoverArt("seed", "https://img/x.jpg", null, Modifier, shelf = true) }
         }
+        // the fetch is held, so this is the first frame: grey
+        compose.onAllNodesWithTag("cover_grey").assertCountEquals(1)
+        release.countDown()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("cover_grey").fetchSemanticsNodes().isEmpty() }
         compose.onAllNodesWithTag("cover_grey").assertCountEquals(0)
     }

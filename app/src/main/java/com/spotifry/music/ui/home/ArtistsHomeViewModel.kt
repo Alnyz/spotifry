@@ -52,6 +52,6 @@ class ArtistsHomeViewModel(private val settings: Settings, private val loader: A
 
     private companion object { const val SHAPES_MAX_MS = 10_000L }
 
-    /** Home was opened: only when there are no songs yet (a failed start); shown songs are never swapped within a run. */
-    fun refresh() { if (job?.isActive != true && _state.value.songs.isEmpty()) load(settings.artists.value) }
+    /** Home was opened: asks again only for an artist whose page failed before; the ones already picked are kept as they are. */
+    fun refresh() { if (job?.isActive != true && loader.missing(settings.artists.value)) load(settings.artists.value) }
 }

@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -122,17 +123,40 @@ class ArtistsHomeViewModelTest {
         assertEquals(ArtistsHome(s.artists.value), vm.state.value)
     }
 
-    @Test fun shownSongsAreNeverSwappedWithinARun() {
-        val s = settings(); s.setArtists(listOf(PickedArtist("Raisa", "url/Raisa", null), PickedArtist("Tulus", "url/Tulus", null)))
+    @Test fun shownSongsAreNeverSwappedWithinARunEvenWhenAnotherArtistIsAdded() {
+        val s = settings(); val first = listOf(PickedArtist("Raisa", "url/Raisa", null), PickedArtist("Tulus", "url/Tulus", null))
+        s.setArtists(first)
         val big = object : MusicSource by source {
-            override suspend fun page(link: PageLink): PageContent { pages.incrementAndGet(); return PageContent(link.name, "", "Artist", null, (1..20).map { Song("${link.name}-$it", "t", link.name, 100, null) }) }
+            override suspend fun page(link: PageLink): PageContent { pages.incrementAndGet(); return PageContent(link.name, "", "Artist", null, (1..30).map { Song("${link.name}-$it", "t", link.name, 100, null) }) }
         }
-        var t = 0L
-        val vm = ArtistsHomeViewModel(s, ArtistSongs(big, now = { t }))
+        val vm = ArtistsHomeViewModel(s, ArtistSongs(big))
         val shown = vm.state.value.songs
         assertEquals(6, shown.size)
-        repeat(3) { t += 24L * 60 * 60 * 1000; vm.refresh() }
-        assertEquals(shown, vm.state.value.songs)
-        assertEquals(2, pages.get())
+        // a new load (an edit adds someone): the two artists already shown keep their songs, drawn from 30 each they would differ if asked again
+        s.setArtists(first + PickedArtist("Hindia", "url/Hindia", null))
+        assertEquals(3, pages.get())
+        assertTrue(vm.state.value.songs.containsAll(shown))
+        vm.refresh()
+        assertEquals(3, pages.get())
+    }
+
+    @Test fun anArtistWhoseStartFailedIsAskedAgainOnRefreshAndTheOthersStay() {
+        var tulusOk = false
+        val flaky = object : MusicSource by source {
+            override suspend fun page(link: PageLink): PageContent {
+                if (link.name == "Tulus" && !tulusOk) throw java.io.IOException("timeout")
+                return source.page(link)
+            }
+        }
+        val s = settings(); s.setArtists(listOf(PickedArtist("Raisa", "url/Raisa", null), PickedArtist("Tulus", "url/Tulus", null)))
+        var t = 0L
+        val vm = ArtistsHomeViewModel(s, ArtistSongs(flaky, now = { t }))
+        assertEquals(listOf("Raisa-1"), vm.state.value.songs.map { it.id })
+        tulusOk = true
+        vm.refresh() // too soon: the failed one is not asked again right away
+        assertEquals(listOf("Raisa-1"), vm.state.value.songs.map { it.id })
+        t += ArtistSongs.RETRY_MS + 1
+        vm.refresh()
+        assertEquals(setOf("Raisa-1", "Tulus-1"), vm.state.value.songs.map { it.id }.toSet())
     }
 }

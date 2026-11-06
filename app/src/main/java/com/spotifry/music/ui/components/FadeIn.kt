@@ -25,10 +25,14 @@ fun rememberStill(): Boolean {
  * the system settings) it is just there. Only the alpha changes, so nothing moves.
  */
 fun Modifier.fadeIn(on: Boolean = true): Modifier = composed {
-    if (!on || rememberStill()) this
+    val start = fadeStart(on, rememberStill())
+    if (start == 1f) this
     else {
-        val alpha = remember { Animatable(0f) }
+        val alpha = remember { Animatable(start) }
         LaunchedEffect(Unit) { alpha.animateTo(1f, tween(FADE_MS)) }
         graphicsLayer { this.alpha = alpha.value }
     }
 }
+
+/** Where a fade starts: 1 (already there, no animation) when it is off or the system removed animations, else 0. */
+internal fun fadeStart(on: Boolean, still: Boolean) = if (!on || still) 1f else 0f

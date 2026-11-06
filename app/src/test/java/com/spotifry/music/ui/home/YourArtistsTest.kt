@@ -10,6 +10,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -103,10 +105,12 @@ class YourArtistsTest {
     @Test fun skeletonCardsHoldTheRowFromTheFirstFrameAndTheSongsReplaceThem() {
         var state by mutableStateOf(ArtistsHome(artists, loading = true))
         compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, artists = state) } }
-        list.performScrollToNode(hasText("From your artists"))
-        compose.onNodeWithText("From your artists").assertIsDisplayed()
+        // the heading is part of the shape group: nothing of it is announced or drawn until the group shows, after 150 ms
+        val group = hasContentDescription("Loading") and hasAnyDescendant(hasText("From your artists"))
+        compose.onAllNodes(group).assertCountEquals(0)
         compose.mainClock.advanceTimeBy(300)
-        assertTrue(loadingNodes() > 0)
+        list.performScrollToNode(hasText("From your artists"))
+        compose.onAllNodes(group).assertCountEquals(1)
         state = ArtistsHome(artists, songs)
         compose.waitForIdle()
         list.performScrollToNode(hasText("Mantan Terindah"))

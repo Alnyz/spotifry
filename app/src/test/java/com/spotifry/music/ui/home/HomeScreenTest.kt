@@ -183,25 +183,25 @@ class HomeScreenTest {
     private fun top(text: String) = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top
 
     @Test fun shelfShapesHoldTheirPlacesWhileReadsArePendingAndTheRealShelvesReplaceThemInTheSameOrder() {
+        // a window tall enough that every shelf is composed, so their positions can be compared
+        org.robolectric.RuntimeEnvironment.setQualifiers("w360dp-h4000dp")
         var loading by mutableStateOf(true)
         val lists = listOf(PlaylistWithCounts(1, "Mine", 3, 0, 1))
         compose.setContent { MusicTheme { HomeContent(if (loading) emptyList() else many(8), emptySet(), { _, _, _ -> }, {}, loading = loading, mostPlayed = if (loading) emptyList() else many(6), playlists = if (loading) emptyList() else lists) } }
         compose.mainClock.advanceTimeBy(300)
         val heads = listOf("Recently played", "Your playlists", "Most played", "Keep listening")
-        list.performScrollToNode(hasText("Keep listening"))
         assertTrue(loadingNodes() > 0)
         compose.onAllNodesWithText("Moods and genres").assertCountEquals(0)
-        for (h in heads) { list.performScrollToNode(hasText(h)); compose.onNodeWithText(h).assertExists() }
+        val shapeTops = heads.map { top(it) }
+        assertEquals(shapeTops.sorted(), shapeTops)
+        assertEquals(heads.size, shapeTops.distinct().size)
         loading = false
-        compose.mainClock.advanceTimeBy(300)
+        compose.mainClock.advanceTimeBy(600)
         compose.waitForIdle()
-        list.performScrollToNode(hasText("Keep listening"))
-        compose.onNodeWithText("Keep listening").assertExists()
         assertEquals(0, loadingNodes())
-        // same shelves, same order, top to bottom
-        list.performScrollToNode(hasText("Recently played"))
-        val tops = heads.map { h -> list.performScrollToNode(hasText(h)); top(h) }
-        assertEquals(4, tops.size)
+        val realTops = heads.map { top(it) }
+        assertEquals(realTops.sorted(), realTops)
+        assertEquals(heads.size, realTops.distinct().size)
     }
 
     @Test fun readsThatCameBackEmptyLeaveNoShelvesAndNoShapes() {

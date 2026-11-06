@@ -42,6 +42,9 @@ class ArtistSongs(
     /** The songs already known for [artists], with no request, so Home can drop a removed artist's songs at once. */
     fun known(artists: List<PickedArtist>): List<Song> = mix(artists.take(MAX_ARTISTS).map { cache[it.key]?.songs.orEmpty() })
 
+    /** Some of the first [MAX_ARTISTS] of [artists] have no songs yet (their page failed or timed out). */
+    fun missing(artists: List<PickedArtist>): Boolean = artists.take(MAX_ARTISTS).any { it.key !in cache }
+
     /** Forget every artist not in [artists] (they were removed); added ones are asked for on the next [load]. */
     fun keepOnly(artists: List<PickedArtist>) {
         val keys = artists.map { it.key }.toSet()

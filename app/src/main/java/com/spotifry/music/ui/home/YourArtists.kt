@@ -53,12 +53,12 @@ fun LazyListScope.artistItems(a: ArtistsHome, onOpen: (PickedArtist) -> Unit, on
         }
     }
     if (a.songs.isEmpty() && !a.loading) return
-    // the heading is there from the first frame; grey cards the size of the songs hold the place until they arrive
-    item { SectionTitle("From your artists") }
+    // grey cards the size of the songs hold the place until they arrive; the heading waits with them, so a fast failure shows nothing
     if (a.songs.isEmpty()) {
-        item { CardRowShape(132.dp, 8.dp) }
+        item { CardRowShape(132.dp, 8.dp, title = "From your artists") }
         return
     }
+    item { SectionTitle("From your artists") }
     item {
         LazyRow(Modifier.fadeIn(fade), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             itemsIndexed(a.songs, key = { _, s -> "artist-" + s.id }) { i, s -> ArtistSong(s) { onPlay(a.songs, i) } }
