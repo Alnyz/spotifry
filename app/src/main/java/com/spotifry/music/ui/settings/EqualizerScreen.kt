@@ -357,11 +357,14 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
                 val px = { i: Int -> plot.x(Spectrum.bandCenterHz(i).toDouble()) }
                 val py = { i: Int -> plot.bottom - ((picture.shown[i] + tilt[i] + shaped[i] + 75f) / 75f).coerceIn(0f, 1f) * (plot.bottom - plot.top) * .7f }
                 val line = Path().apply {
-                    moveTo(px(0), py(0))
+                    // the analysis covers 40 Hz to 16 kHz; its end values are held out to the edges of the box
+                    moveTo(plot.left, py(0))
+                    lineTo(px(0), py(0))
                     for (i in 1 until Spectrum.BANDS - 1) quadraticTo(px(i), py(i), (px(i) + px(i + 1)) / 2, (py(i) + py(i + 1)) / 2)
                     lineTo(px(Spectrum.BANDS - 1), py(Spectrum.BANDS - 1))
+                    lineTo(plot.right, py(Spectrum.BANDS - 1))
                 }
-                val under = Path().apply { addPath(line); lineTo(px(Spectrum.BANDS - 1), plot.bottom); lineTo(px(0), plot.bottom); close() }
+                val under = Path().apply { addPath(line); lineTo(plot.right, plot.bottom); lineTo(plot.left, plot.bottom); close() }
                 drawPath(under, Brush.verticalGradient(listOf(scheme.onSurface.copy(alpha = .16f), scheme.onSurface.copy(alpha = .02f)), plot.top, plot.bottom))
                 drawPath(line, scheme.onSurface.copy(alpha = .18f), style = Stroke(1.dp.toPx()))
 
