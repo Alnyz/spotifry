@@ -29,7 +29,8 @@ suspend fun decodeStretch(factory: DataSource.Factory, uri: Uri, id: String, fro
     val extractor = MediaExtractor()
     var codec: MediaCodec? = null
     try {
-        extractor.setDataSource(source)
+        // the extractor only says it couldn't make an extractor; what went wrong reading is more useful
+        try { extractor.setDataSource(source) } catch (e: java.io.IOException) { coroutineContext.ensureActive(); throw source.failure ?: e }
         val track = (0 until extractor.trackCount).firstOrNull { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true } ?: return null
         val format = extractor.getTrackFormat(track)
         extractor.selectTrack(track)
@@ -108,8 +109,13 @@ private class SongBytes(private val factory: DataSource.Factory, private val uri
     private var fromNetwork = false
     private var fetched = 0L
     private val skipped = ByteArray(16_384)
+    /** The last thing that went wrong opening or reading, for the caller to report instead of the extractor's own vague message. */
+    var failure: Exception? = null; private set
 
-    override fun readAt(offset: Long, buffer: ByteArray, bufferOffset: Int, size: Int): Int {
+    override fun readAt(offset: Long, buffer: ByteArray, bufferOffset: Int, size: Int): Int =
+        try { read(offset, buffer, bufferOffset, size) } catch (e: Exception) { failure = e; throw e }
+
+    private fun read(offset: Long, buffer: ByteArray, bufferOffset: Int, size: Int): Int {
         if (size == 0) return 0
         // gives up rather than block: analysis was cancelled, or would fetch more than it's worth
         if ((length >= 0 && offset >= length) || !wanted() || fetched > MAX_FETCH) return -1
@@ -145,7 +151,7 @@ private class SongBytes(private val factory: DataSource.Factory, private val uri
         close()
         val next = factory.createDataSource()
         // not closed, a failed open would hold its lock on the song's cache until the app restarts
-        val opened = try { next.open(DataSpec.Builder().setUri(uri).setKey(id).setPosition(offset).build()) } catch (e: Exception) { runCatching { next.close() }; throw e }
+        val opened = try { next.open(DataSpec.Builder().setUri(uri).setKey(id).setPosition(offset).build()) } catch (e: Exception) { failure = e; runCatching { next.close() }; throw e }
         val range = next.responseHeaders.entries.firstOrNull { it.key.equals("Content-Range", true) }?.value?.firstOrNull()
         range?.substringAfterLast('/')?.trim()?.toLongOrNull()?.let { length = it }
         // nothing came from the network: the cache knows how much there is

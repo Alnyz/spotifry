@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -62,6 +63,7 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
     val scheme = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     var query by rememberSaveable { mutableStateOf("") }
     var list by remember { mutableStateOf<List<AutoEqEntry>?>(null) }
     var listError by remember { mutableStateOf<String?>(null) }
@@ -93,6 +95,8 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
 
     fun pick(entry: AutoEqEntry) {
         if (step is Step.Fitting) return
+        // the keyboard would cover the result
+        focus.clearFocus(); keyboard?.hide()
         // the download takes a while; if the equalizer is changed meanwhile, the result is dropped, not laid over the change
         val seenPreset = settings.eqPreset.value
         val seenLevels = settings.eqLevels.value

@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -99,6 +101,10 @@ import kotlin.math.roundToInt
 /** A new way to shape the sound gets its tab here. */
 private val TABS = listOf("Graph", "Bands", "Headphone")
 private const val STEP_MB = 50
+private val MAX_GRAPH = 300.dp
+private val MIN_GRAPH = 180.dp
+/** Everything above the graph's drawing at normal text size: header, switch, tabs, presets, the point's label. */
+private val ABOVE_GRAPH = 440.dp
 /** How close to a point a press has to land to grab it. Further off, the touch scrolls the page instead. */
 private val GRAB = 16.dp
 private const val MIN_HZ = 20.0
@@ -151,7 +157,11 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
     }
     val dim by animateFloatAsState(if (on) 1f else .55f, label = "dim")
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = bottomInset + 24.dp)) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // on a short screen the graph gives a little height, so it ends above the mini player instead of under it
+    val graphHeight = (maxHeight - bottomInset - ABOVE_GRAPH).coerceIn(MIN_GRAPH, MAX_GRAPH)
+    // with the keyboard up the page is shorter, so the field being typed in scrolls into view
+    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(bottom = bottomInset + 24.dp)) {
         ScreenHeader("Equalizer", onBack = onBack)
         Column(Modifier.padding(horizontal = 16.dp).padding(top = 12.dp)) {
             Card {
@@ -168,7 +178,8 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                 }
             }
             Segments(TABS, tab, Modifier.padding(top = 14.dp).fillMaxWidth(), fill = true) { tab = it }
-            Column(Modifier.padding(top = 18.dp).alpha(dim)) {
+            Column(Modifier.padding(top = 18.dp)) {
+                Column(Modifier.alpha(dim)) {
                 Label("Presets") {
                     Text(
                         "Reset", Modifier.clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { settings.setEq("Flat", List(EQ_BANDS) { 0 }) }.padding(horizontal = 10.dp, vertical = 10.dp),
@@ -176,14 +187,17 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                     )
                 }
                 Row(Modifier.fillMaxWidth().selectableGroup().horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
-                    if (EQ_PRESETS.none { it.first == preset }) Chip("Custom", true) { }
                     EQ_PRESETS.forEach { (name, l) -> Chip(name, preset == name) { settings.setEq(name, l); settings.setEqOn(true) } }
+                    // last, so it showing up or going never moves the presets under a finger
+                    if (EQ_PRESETS.none { it.first == preset }) Chip("Custom", true) { }
+                }
                 }
                 Spacer(Modifier.height(18.dp))
                 Crossfade(tab, label = "tab") { page ->
-                    Column {
+                    // the headphone list works with the equalizer off, so it isn't dimmed like the rest
+                    Column(Modifier.alpha(if (page == 2) 1f else dim)) {
                         when (page) {
-                            0 -> GraphTab(tap, isPlaying, on, levels, shape, settings::saveEq)
+                            0 -> GraphTab(tap, isPlaying, on, levels, shape, settings::saveEq, graphHeight)
                             1 -> BandsTab(levels, shape, settings::saveEq)
                             else -> AutoEqTab(settings, autoEq, preset)
                         }
@@ -191,6 +205,7 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                 }
             }
         }
+    }
     }
 }
 
@@ -249,7 +264,7 @@ private fun BandSemantics(levels: List<Int>, modifier: Modifier, set: (List<Pair
  * near a point grabs it and it follows the finger up and down; a press anywhere else scrolls the page.
  */
 @Composable
-private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
+private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, height: Dp) {
     val scheme = MaterialTheme.colorScheme
     val current by rememberUpdatedState(levels)
     val change by rememberUpdatedState(set)
@@ -279,7 +294,7 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
             Text("${dbText(levels[selected])} dB", style = MaterialTheme.typography.labelLarge, color = scheme.primary)
         }
         Box(
-            Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp).fillMaxWidth().height(300.dp).stage()
+            Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp).fillMaxWidth().height(height).stage()
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
