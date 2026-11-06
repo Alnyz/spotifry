@@ -32,6 +32,8 @@ private const val LOCKED_MS = 30L
 private const val CATCH_UP = .25f
 /** Further off than this it's quicker to seek than to catch up, though seeks land a varying time late. */
 private const val SEEK_OVER_MS = 600L
+/** An averaged drift past this while priming gets lined up again: at the handover it would be heard as an echo and a jump. */
+private const val RELINE_MS = 150L
 private const val SEEK_START_UP_MS = 350L
 private const val LEAVING_TICKS = 3
 private const val TICK_MS = 50
@@ -67,6 +69,8 @@ class BeatJoin(
     private val sleepGain: () -> Float,
     /** The speed and pitch the user set, which [main] goes back to after catching up. */
     private val wanted: () -> PlaybackParameters,
+    /** Asks for a [tick] now: while paused they are slow, and [main] may still be held silent from before the pause. */
+    private val wake: () -> Unit = {},
 ) : Player.Listener {
     private class Pair(val out: MediaItem, val nextIndex: Int, val next: MediaItem) {
         val key = "${out.mediaId} ${out.trim} ${next.mediaId} ${next.trim}"
@@ -97,6 +101,17 @@ class BeatJoin(
             p.playbackParameters = PlaybackParameters(b.speed * (if (last < 0) 1 + CATCH_UP else 1 - CATCH_UP), b.pitch)
             return false
         }
+
+        /** Fed while in step: whether the average of these readings has moved past [limit]. */
+        fun drifted(off: Long, limit: Long): Boolean {
+            readings += off
+            if (readings.size < AVERAGE_TICKS) return false
+            last = readings.average().toLong()
+            readings.clear()
+            return abs(last) > limit
+        }
+
+        fun forget() = readings.clear()
     }
 
     private sealed interface Stage
@@ -219,9 +234,12 @@ class BeatJoin(
         if (pairNow()?.key != s.key || s.tail.playerError != null || main.playerError != null) { Log.i(TAG, "tail voice dropped before the join"); drop(s.tail); stage = Done(s.key); return null }
         follow(s.tail, lining = !s.inStep)
         val handover = s.plan.startMs - s.plan.leadMs
-        if (s.inStep && s.tail.isPlaying && main.isPlaying && abs(s.tail.currentPosition - pos) > SEEK_OVER_MS) {
-            // main buffered or was held: the silent tail ran on and is no longer in step
-            s.inStep = false; s.ran = 0
+        if (s.inStep) {
+            // one reading can be a quarter second out: only a big one or the average counts. Either player stopping means the
+            // silent tail may have run on, so it's measured again before any handover. This can't go round for long: not in step
+            // by the slack below, the join is called off.
+            val off = s.tail.currentPosition - pos
+            if (!s.tail.isPlaying || !main.isPlaying || abs(off) > SEEK_OVER_MS || s.line.drifted(off, RELINE_MS)) { s.inStep = false; s.ran = 0; s.line.forget() }
         }
         if (!s.inStep && s.tail.isPlaying && main.isPlaying && ++s.ran >= SETTLE_TICKS) {
             val off = s.tail.currentPosition - pos
@@ -335,7 +353,7 @@ class BeatJoin(
         get() = when (val s = stage) { is Priming -> s.tail; is Swapping -> s.tail; is Settling -> s.tail; is Fading -> s.tail; else -> null }
 
     private fun followNow() { tail?.let { follow(it, lining = (stage as? Priming)?.inStep == false) } }
-    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) = followNow()
+    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { followNow(); wake() }
     override fun onPlaybackSuppressionReasonChanged(reason: Int) = followNow()
     override fun onPlaybackStateChanged(state: Int) = followNow()
 
@@ -346,6 +364,7 @@ class BeatJoin(
     }
 
     private fun letGo(why: String) {
+        if (stage !== Watching && stage !is Done) wake()
         (stage as? Looking)?.job?.cancel()
         tail?.let { Log.i(TAG, "let go: $why"); drop(it) }
         restoreMain()

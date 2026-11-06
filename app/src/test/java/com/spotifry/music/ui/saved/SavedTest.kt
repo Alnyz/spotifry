@@ -78,6 +78,14 @@ class SavedTest {
         say.forEach { (f, text) -> now = f; compose.onNodeWithText(text).assertIsDisplayed() }
     }
 
+    @Test fun allOnlyAsksForMusicAccessWhenItIsntGivenYet() {
+        var given by androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent { MusicTheme { SavedContent(SavedView(SavedFilter.All), {}, {}, { _, _ -> }, {}, phoneAllowed = given) } }
+        compose.onNodeWithText("Save a song from search, or allow music on this phone, and it shows up here.").assertIsDisplayed()
+        given = true
+        compose.onNodeWithText("Save a song from search, or add music files to this phone, and it shows up here.").assertIsDisplayed()
+    }
+
     @Test fun theFourChipsAreThereAndTappingOneAsksForIt() {
         val picked = ArrayList<SavedFilter>()
         show(SavedFilter.All, onFilter = { picked += it })

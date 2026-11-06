@@ -31,11 +31,13 @@ import com.spotifry.music.MusicApp
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.OkHttpDownloader
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.pow
 
 @UnstableApi
@@ -54,6 +56,7 @@ class PlaybackService : MediaSessionService() {
     private var filling = false
     /** Overlapping songs on the beat; null while that setting is off. */
     private var join: BeatJoin? = null
+    private val wakeTick = Channel<Unit>(Channel.CONFLATED)
     private var tailEqualizer: EqualizerProcessor? = null
     private var tailLoudness: LoudnessProcessor? = null
 
@@ -108,7 +111,7 @@ class PlaybackService : MediaSessionService() {
                 if (!matching && join?.idle == true) { join?.release(); join = null }
                 val g = joined ?: if (fadeMs > 0) fadeGain(player.currentPosition, player.duration, fadeMs, fadeIn) else 1f
                 if (g != c.sleepTimer.songGain) c.sleepTimer.songGain = g
-                delay(if ((fadeMs > 0 && player.isPlaying) || join?.quick == true) 50 else 500)
+                withTimeoutOrNull(if ((fadeMs > 0 && player.isPlaying) || join?.quick == true) 50L else 500L) { wakeTick.receive() }
             }
         }
 
@@ -298,6 +301,7 @@ class PlaybackService : MediaSessionService() {
             stopsAfterSong = { player.pauseAtEndOfMediaItems },
             sleepGain = { c.sleepTimer.sleepGain },
             wanted = { androidx.media3.common.PlaybackParameters(c.settings.speed.value, 2.0.pow(c.settings.pitch.value / 12.0).toFloat()) },
+            wake = { wakeTick.trySend(Unit) },
         )
     }
 

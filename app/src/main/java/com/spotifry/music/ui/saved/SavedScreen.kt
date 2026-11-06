@@ -39,6 +39,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.ui.Icons
@@ -54,8 +56,10 @@ fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Un
     var allowed by remember { mutableStateOf(vm.allowed()) }
     // Android asks its own question; a no leaves the card in place
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it; if (it) vm.refreshPhone() }
-    // showing a list that has phone files reads them again, so new ones (or access given in Android's settings) show up
+    // showing a list that has phone files reads them again, so new ones show up
     LaunchedEffect(view.filter) { if (view.filter != SavedFilter.Offline) { allowed = vm.allowed(); vm.refreshPhone() } }
+    // back from Android's settings with access given
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { val now = vm.allowed(); if (now != allowed) { allowed = now; vm.refreshPhone() } }
     SavedContent(
         view, vm::pick, onFindSong, vm::play, onMore, modifier, bottomInset, onShuffle = vm::shuffle,
         phoneAllowed = allowed, onAllow = { ask.launch(Manifest.permission.READ_MEDIA_AUDIO) },
@@ -86,7 +90,7 @@ fun SavedContent(
         }
         when {
             view.filter == SavedFilter.Phone && !phoneAllowed -> item { AskCard(onAllow) }
-            rows.isEmpty() -> item { Empty(view.filter, onFindSong) }
+            rows.isEmpty() -> item { Empty(view.filter, phoneAllowed, onFindSong) }
             else -> {
                 item {
                     PlayButtons({ onPlay(songs, 0) }, { onShuffle(songs) }, Modifier.padding(start = 20.dp, top = 4.dp))
@@ -101,8 +105,8 @@ fun SavedContent(
 }
 
 @Composable
-private fun Empty(filter: SavedFilter, onFindSong: () -> Unit) = when (filter) {
-    SavedFilter.All -> EmptyState("Nothing here yet", "Save a song from search, or allow music on this phone, and it shows up here.", "Find a song to save", onFindSong)
+private fun Empty(filter: SavedFilter, phoneAllowed: Boolean, onFindSong: () -> Unit) = when (filter) {
+    SavedFilter.All -> EmptyState("Nothing here yet", if (phoneAllowed) "Save a song from search, or add music files to this phone, and it shows up here." else "Save a song from search, or allow music on this phone, and it shows up here.", "Find a song to save", onFindSong)
     SavedFilter.Offline -> EmptyState("Nothing saved yet", "Open any song and tap “Save on this phone”. It will play here without internet.", "Find a song to save", onFindSong)
     SavedFilter.Phone -> EmptyState("No music files found", "Songs you copy or download to this phone, like MP3s, show up here.")
     SavedFilter.Lately -> EmptyState("Nothing played lately", "Saved songs and music from this phone that you play show up here, newest first.")

@@ -37,5 +37,25 @@ class SavedFilterTest {
         assertTrue(filterSaved(SavedFilter.Lately, s, p, recent).let { !it[0].saved && it[1].saved })
     }
 
+    @Test fun theSameSongIsFoundWhateverTheCaseAndSpaces() =
+        assertEquals(listOf("y1", "y2"), ids(SavedFilter.All, s, listOf(file(9, "  oNe ", " a "))))
+
+    @Test fun anotherArtistIsAnotherSong() = assertEquals(listOf("y1", "y2", "local:9"), ids(SavedFilter.All, s, listOf(file(9, "One", "B"))))
+
+    @Test fun threeSecondsApartIsTheSameSongAndFourIsNot() =
+        assertEquals(listOf("y1", "y2", "local:8", "local:9"), ids(SavedFilter.All, s, listOf(file(7, "One", "A", 203), file(8, "One", "A", 204), file(9, "One", "A", 196))))
+
+    @Test fun anyOfTwoSavedCopiesOfANameCanMatchAFile() {
+        val two = listOf(saved("y1", "One", sec = 200), saved("y3", "One", sec = 300))
+        assertEquals(listOf("y1", "y3"), ids(SavedFilter.All, two, listOf(file(9, "One", "A", 301))))
+    }
+
+    @Test fun allIsPlayedAsYourMusicAsItCanHoldPhoneFiles() {
+        assertEquals("Your music", SavedFilter.All.queueName)
+        assertEquals("Saved", SavedFilter.Offline.queueName)
+        assertEquals("On this phone", SavedFilter.Phone.queueName)
+        assertEquals("Played lately", SavedFilter.Lately.queueName)
+    }
+
     @Test fun nothingInNothingOut() = SavedFilter.entries.forEach { assertTrue(ids(it, emptyList(), emptyList()).isEmpty()) }
 }

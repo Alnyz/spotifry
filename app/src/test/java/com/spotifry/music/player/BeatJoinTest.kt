@@ -74,13 +74,14 @@ class BeatJoinTest {
     private var stopsAfter = false
     private var sleep = 1f
     private var setting = PlaybackParameters.DEFAULT
+    private var wakes = 0
 
     private val join = BeatJoin(
         main,
         { item, at -> FakePlayer(listOf(item)).also { it.pos = at; it.play = false; it.vol = 0f; tails += it } },
         { item, _, _ -> if (item.mediaId == "a") oldGrid ?: grid else grid },
         CoroutineScope(Dispatchers.Unconfined),
-        { fade }, { beatsOn }, { stopsAfter }, { sleep }, { setting },
+        { fade }, { beatsOn }, { stopsAfter }, { sleep }, { setting }, { wakes++ },
     )
     private val tail get() = tails.last()
 
@@ -446,7 +447,9 @@ class BeatJoinTest {
     }
     /** Ticks with only the tail advancing, as when the main player is held up. */
     private fun tailRunsOn(ticks: Int, gains: MutableList<Float?>? = null) = repeat(ticks) {
-        tail.pos += 50; tail.changed(); main.changed(); gains?.add(join.tick(true))
+        tail.pos += 50; tail.changed(); main.changed()
+        val g = join.tick(true)
+        gains?.add(g)
     }
 
     private fun toPriming() { at(160_000); join.tick(true); while (tails.isEmpty()) run(50) }
@@ -545,5 +548,102 @@ class BeatJoinTest {
         assertTrue("the leaving tail still fades out at full rate", join.quick)
         repeat(4) { join.tick(true) }
         assertFalse(join.quick)
+    }
+
+    /** Plays to just before the handover at 191.5 s, in step. */
+    private fun toJustBeforeHandover() { toPriming(); run(5_900); assertEquals(0, main.index) }
+
+    @Test fun aMainPlayerBufferingAtTheHandoverPutsItOff() {
+        toJustBeforeHandover(); run(50)
+        main.play_state = Player.STATE_BUFFERING; main.changed()
+        val gains = ArrayList<Float?>()
+        tailRunsOn(8, gains)
+        assertEquals("no handover while it isn't playing", 0, main.index)
+        assertEquals(0f, tail.vol, .001f)
+        assertTrue(gains.none { it == .5f })
+    }
+
+    @Test fun afterAHoldItOnlyHandsOverOnceMeasuredInStep() {
+        toJustBeforeHandover()
+        main.play_state = Player.STATE_BUFFERING; main.changed()
+        tailRunsOn(1)
+        main.play_state = Player.STATE_READY; main.changed()
+        run(300)
+        assertEquals("a fresh average takes longer than this", 0, main.index)
+        run(800)
+        assertEquals(1, main.index)
+    }
+
+    @Test fun aStallJustBeforeTheHandoverIsMeasuredAgainNotHandedOverWithAnEcho() {
+        toJustBeforeHandover()
+        main.play_state = Player.STATE_BUFFERING; main.changed()
+        tailRunsOn(6)
+        main.play_state = Player.STATE_READY; main.changed()
+        // main crosses the handover well before a fresh average of the 300 ms the tail ran on
+        run(300)
+        assertEquals(0, main.index)
+        assertEquals("both voices still one", 0f, tail.vol, .001f)
+        run(2_000)
+        assertEquals("too far to fix in the time left, so no join", 0, main.index)
+        assertTrue(tail.released)
+    }
+
+    @Test fun aShortStallJustBeforeTheHandoverStillJoinsInStep() {
+        toJustBeforeHandover()
+        main.play_state = Player.STATE_BUFFERING; main.changed()
+        tailRunsOn(2)
+        main.play_state = Player.STATE_READY; main.changed()
+        while (main.index == 0 && main.pos < 193_000) { val before = tail.pos - main.pos; run(50); if (main.index == 1) assertTrue("handed over off by $before", kotlin.math.abs(before) <= 40) }
+        assertEquals(1, main.index)
+    }
+
+    @Test fun aSmallDriftIsLinedUpAgainBeforeTheHandover() {
+        toPriming(); run(2_500)
+        val seeks = tail.seeks.size
+        tail.pos += 300; tail.changed()
+        // a reading in progress, a clean one, the wait to settle and one more
+        run(1_100)
+        assertTrue("slowed, unheard: ${tail.params.speed}", tail.params.speed < 1f)
+        assertEquals(0f, tail.vol, .001f)
+        run(1_500)
+        assertEquals(1f, tail.params.speed, .001f)
+        assertTrue("off by ${tail.pos - main.pos}", kotlin.math.abs(tail.pos - main.pos) <= 40)
+        assertEquals("no seek for so little", seeks, tail.seeks.size)
+        assertEquals("not yet at the handover", 0, main.index)
+    }
+
+    @Test fun positionsMovingInStepsDontSetItHunting() {
+        toPriming(); run(2_500)
+        val seeks = tail.seeks.size
+        // the reading swings a quarter second, as a position read on an emulator does
+        tail.pos -= 180
+        var up = true
+        repeat(8) { tail.pos += if (up) 360 else -360; up = !up; tail.changed(); run(250); assertEquals(1f, tail.params.speed, .001f) }
+        assertEquals(seeks, tail.seeks.size)
+    }
+
+    @Test fun aDriftTooBigToFixInTimeCallsTheJoinOffRatherThanEcho() {
+        toPriming(); run(5_000)
+        tail.pos += 500; tail.changed()
+        run(3_000)
+        assertEquals("the song runs on", 0, main.index)
+        assertTrue(tail.released)
+        assertTrue(main.seeks.isEmpty())
+    }
+
+    @Test fun pausingResumingAndLettingGoAskForATickNow() {
+        toHandover(); run(1_000); wakes = 0
+        main.play = false; main.changed(); idle()
+        assertEquals(1, wakes)
+        main.seekTo(1, 60_000); idle()
+        assertEquals("the song picked while paused must not stay silent", 2, wakes)
+        main.play = true; main.changed(); idle()
+        assertEquals(3, wakes)
+    }
+
+    @Test fun switchedOffItDoesntAskForTicksOverAndOver() {
+        toHandover(); run(1_000); wakes = 0
+        repeat(5) { join.tick(false) }
+        assertEquals("once, as it lets go, or the tail's fade out would race", 1, wakes)
     }
 }
