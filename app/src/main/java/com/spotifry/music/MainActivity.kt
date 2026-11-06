@@ -31,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.foundation.background
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -181,6 +183,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
         SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.listens(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache)
     } })
     val importVm: ImportViewModel = viewModel(factory = viewModelFactory { initializer { ImportViewModel({ SpotifyImport.fetch(c.client, it) }, c.source, c.db.playlists(), c.db.songs()) } })
+    val artistsVm: com.spotifry.music.ui.home.ArtistsHomeViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.home.ArtistsHomeViewModel(c.settings, com.spotifry.music.data.ArtistSongs(c.source)) } })
     val npVm: NowPlayingViewModel = viewModel(factory = viewModelFactory { initializer { NowPlayingViewModel(c.player, c.downloads, c.db.songs(), c.lyrics) } })
 
     val player by c.player.state.collectAsStateWithLifecycle()
@@ -206,6 +209,10 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     var showPlayer by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
     var showLyrics by remember { mutableStateOf(false) }
+    // "Pick artists for Home" on an empty Home: each tap counts up, so the screen opens fresh
+    var pickArtists by remember { mutableStateOf(0) }
+    var pickingOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(pickArtists) { if (pickArtists > 0) pickingOpen = true }
     var shareSong by remember { mutableStateOf<Song?>(null) }
     var sharePlaylist by remember { mutableStateOf<ShareTarget?>(null) }
     var picture by remember { mutableStateOf<ShareTarget?>(null) }
@@ -273,9 +280,23 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
         }
     }
 
+    // the first launch covers everything, mini player included; an update never shows it (see isFreshInstall)
+    val firstSeen by c.settings.firstLaunchSeen.collectAsStateWithLifecycle()
+    val fresh by produceState<Boolean?>(if (firstSeen) false else null) {
+        if (!firstSeen) {
+            // a failed check counts as "not fresh": nobody is shown first launch by mistake
+            val isFresh = try { com.spotifry.music.data.isFreshInstall(com.spotifry.music.data.neverUpdated(context), c.db.history(), c.db.songs(), c.db.playlists()) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { false }
+            value = isFresh
+            if (!isFresh) c.settings.markFirstLaunchSeen()
+        }
+    }
+    val plCovers by plVm.covers.collectAsStateWithLifecycle()
+    val covered = (!firstSeen && fresh != false) || (pickArtists > 0 && pickingOpen)
+
     CompositionLocalProvider(LocalImageClient provides c.imageClient) {
         Box(Modifier.fillMaxSize()) {
-            Scaffold(
+            // under the first-launch screens the app is not drawn, so touches and screen readers can't reach it
+            if (!covered) Scaffold(
                 containerColor = MaterialTheme.colorScheme.background,
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
@@ -305,7 +326,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     ) {
                     NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().imePadding().fadeTop().hazeSource(haze)) {
                         composable(Routes.LISTEN) {
-                            HomeScreen(home, openMenu, inset, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, listening = {
+                            LaunchedEffect(Unit) { artistsVm.refresh() }
+                            val artistsHome by artistsVm.state.collectAsStateWithLifecycle()
+                            HomeScreen(home, openMenu, inset, artists = artistsHome, onOpenArtist = { nav.navigate(Routes.page(it.link)) }, onPickArtists = { pickArtists++ }, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, listening = {
                                 com.spotifry.music.ui.listening.ListeningRow(listeningRow, player.isPlaying && !showPlayer, { nav.navigate(Routes.LISTENING) { launchSingleTop = true } }, Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp))
                             }, top = {
                                 val update by c.updates.state.collectAsStateWithLifecycle()
@@ -389,6 +412,14 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             }
             // lyric times count from the whole song's start, the player from the trim's
             picture?.let { t -> MakePicturePage(t, c.lyrics, player.current?.id == t.songs.firstOrNull()?.id && !t.playlist, { position() + (player.trim?.startMs ?: 0) }) { picture = null } }
+            if (!firstSeen && fresh == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+            if (!firstSeen && fresh == true) {
+                val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "first-launch", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings) } })
+                com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers)
+            } else if (pickArtists > 0 && pickingOpen) {
+                val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "pick-artists-$pickArtists", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings, reopen = true) } })
+                com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers) { pickingOpen = false }
+            }
         }
 
         menu?.let { target ->

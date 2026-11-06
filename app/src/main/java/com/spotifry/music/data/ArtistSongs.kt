@@ -1,0 +1,69 @@
+package com.spotifry.music.data
+
+import com.spotifry.music.data.source.MusicSource
+import com.spotifry.music.data.source.PageLink
+import com.spotifry.music.data.source.SearchType
+import com.spotifry.music.data.source.Song
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+
+/** What Home shows for the picked artists: each one's page looked up if needed, and a few songs from each. */
+class ArtistSongs(
+    private val source: MusicSource,
+    private val now: () -> Long = System::currentTimeMillis,
+    parallel: Int = PARALLEL,
+) {
+    class Loaded(val artists: List<PickedArtist>, val songs: List<Song>)
+
+    private val gate = Semaphore(parallel)
+    private class Entry(val at: Long, val artist: PickedArtist, val songs: List<Song>)
+    private val cache = HashMap<String, Entry>()
+    private val failedAt = HashMap<String, Long>()
+
+    /**
+     * Songs come from the artist pages, at most [PARALLEL] requests at a time and only for the first [MAX_ARTISTS] artists.
+     * An answer is kept for [KEEP_MS], so opening Home again costs nothing; a failed one isn't asked again for [RETRY_MS].
+     */
+    suspend fun load(artists: List<PickedArtist>): Loaded = coroutineScope {
+        val got = artists.take(MAX_ARTISTS).map { async { one(it) } }.awaitAll()
+        // one from each artist in turn, so the row isn't five songs of the first artist
+        val songs = (0 until PER_ARTIST).flatMap { i -> got.mapNotNull { it.second.getOrNull(i) } }.distinctBy { it.id }
+        Loaded(got.map { it.first } + artists.drop(MAX_ARTISTS), songs)
+    }
+
+    private suspend fun one(a: PickedArtist): Pair<PickedArtist, List<Song>> {
+        val k = a.key
+        cache[k]?.takeIf { now() - it.at < KEEP_MS }?.let { return it.artist to it.songs }
+        val stale = cache[k]
+        val failed = failedAt[k]
+        if (failed != null && now() - failed < RETRY_MS) return (stale?.artist ?: a) to stale?.songs.orEmpty()
+        return gate.withPermit {
+            try {
+                val link = if (a.url.isNotBlank()) a.link else source.lookupArtist(a.name) ?: throw NoSuchElementException(a.name)
+                val artist = PickedArtist(a.name, link.url, link.thumbnailUrl ?: a.thumbnailUrl)
+                val songs = source.page(link).songs.take(PER_ARTIST)
+                cache[k] = Entry(now(), artist, songs); failedAt.remove(k)
+                artist to songs
+            } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                failedAt[k] = now()
+                (stale?.artist ?: a) to stale?.songs.orEmpty()
+            }
+        }
+    }
+
+    companion object {
+        const val PARALLEL = 2
+        const val MAX_ARTISTS = 6
+        const val PER_ARTIST = 3
+        const val KEEP_MS = 6 * 60 * 60 * 1000L
+        const val RETRY_MS = 5 * 60 * 1000L
+    }
+}
+
+/** The artist page whose name is [name], or the first result when none matches exactly. */
+suspend fun MusicSource.lookupArtist(name: String): PageLink? =
+    searchPages(name, SearchType.ARTISTS).let { r -> r.firstOrNull { it.name.equals(name, ignoreCase = true) } ?: r.firstOrNull() }
