@@ -27,7 +27,7 @@ fun Song.toMediaItem(trim: Trim? = trimOf(id)): MediaItem = MediaItem.Builder()
             MediaItem.ClippingConfiguration.Builder().setStartPositionMs(trim.startMs).apply { trim.endMs?.let(::setEndPositionMs) }.build(),
         )
     }
-    .setUri("music://song/$id")
+    .setUri(Uri.Builder().scheme("music").authority("song").appendPath(id).appendQueryParameter("t", title).appendQueryParameter("a", artist).appendQueryParameter("d", durationSec.toString()).build())
     .setCustomCacheKey(id)
     .setMediaMetadata(
         MediaMetadata.Builder()
@@ -38,6 +38,9 @@ fun Song.toMediaItem(trim: Trim? = trimOf(id)): MediaItem = MediaItem.Builder()
             .build()
     )
     .build()
+
+/** The song named in the [toMediaItem] URI, for a first play: its row in the songs table is written about the same time as the load starts. */
+fun songFromUri(id: String, uri: Uri) = Song(id, uri.getQueryParameter("t").orEmpty(), uri.getQueryParameter("a").orEmpty(), uri.getQueryParameter("d")?.toLongOrNull() ?: 0, null)
 
 fun MediaItem.toSong(): Song = Song(
     id = mediaId,

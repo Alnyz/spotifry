@@ -24,14 +24,16 @@ class StreamResolver(
 ) {
     private val cache = ConcurrentHashMap<String, ResolvedStream>()
     private val pending = ConcurrentHashMap<String, Deferred<ResolvedStream>>()
+    @Volatile private var clears = 0
 
     suspend fun get(song: Song, low: Boolean = false): ResolvedStream {
         val key = if (low) "${song.id}|low" else song.id
         cache[key]?.let { if (it.expiresAtMs - now() > FRESH_MARGIN_MS) return it }
         // started only once stored, so a lookup that ends at once can't remove itself before it is in the map
         val job = pending.computeIfAbsent(key) {
+            val asOf = clears
             scope.async(start = CoroutineStart.LAZY) {
-                try { source.resolve(song, low).also { cache[key] = it } } finally { pending.remove(key) }
+                try { source.resolve(song, low).also { if (asOf == clears) cache[key] = it } } finally { pending.remove(key) }
             }
         }
         return job.await()
@@ -45,10 +47,13 @@ class StreamResolver(
     /** Looks [songs] up in the background, so a tap on one of them starts without waiting for YouTube. */
     fun warm(songs: List<Song>, low: Boolean = false) = songs.forEach { scope.launch { prefetch(it, low) } }
 
-    /** YouTube's bitrate for a song looked up in this run, for the quality label. Null when it played from the cache or a file. */
+    /** The source's bitrate for a song looked up in this run, for the quality label. Null when it played from the cache or a file. */
     fun knownKbps(songId: String): Int? = (cache[songId] ?: cache["$songId|low"])?.bitrateKbps?.takeIf { it > 0 }
 
     fun invalidate(songId: String) { cache.remove(songId); cache.remove("$songId|low") }
+
+    /** Forgets every link, for when the songs should come from elsewhere from now on. */
+    fun clear() { clears++; cache.clear() }
 
     private companion object { const val FRESH_MARGIN_MS = 60_000L }
 }

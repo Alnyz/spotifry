@@ -71,7 +71,7 @@ class PlaybackService : MediaSessionService() {
         val http = OkHttpDataSource.Factory(c.client).setUserAgent(OkHttpDownloader.USER_AGENT)
         // songs not saved: kept in the song cache under their id, fetched from YouTube only when not there
         val cached = CacheDataSource.Factory().setCache(c.songCache)
-            .setUpstreamDataSourceFactory(ResolvingDataSource.Factory(DefaultDataSource.Factory(this, http), SongDataSourceResolver(c.resolver, c.db.songs(), c::streamLow)))
+            .setUpstreamDataSourceFactory(ResolvingDataSource.Factory(DefaultDataSource.Factory(this, http), SongDataSourceResolver(c.resolver, c.db.songs(), c::streamLow, c.songCache)))
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         // saved songs play from their file and skip the cache, so they aren't stored twice; file:// goes to the file
         // reader, the music:// id of any other song goes to the cache
@@ -166,7 +166,7 @@ class PlaybackService : MediaSessionService() {
                 val id = player.currentMediaItem?.mediaId.orEmpty()
                 c.resolver.invalidate(id)
                 // a link the server refuses (expired, or the phone switched networks): try a fresh one once before giving up on the song
-                val refused = generateSequence(error.cause) { it.cause }.any { it is HttpDataSource.InvalidResponseCodeException }
+                val refused = generateSequence(error.cause) { it.cause }.any { it is HttpDataSource.InvalidResponseCodeException || it is SourceChangedException }
                 // prepare only: the player keeps wanting to play or not, so a Pause tapped while the song loaded still holds
                 if (refused && retries.allow(id)) {
                     player.prepare()

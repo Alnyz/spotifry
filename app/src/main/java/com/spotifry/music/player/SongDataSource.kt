@@ -34,6 +34,8 @@ class SongDataSourceResolver(
     private val songs: SongDao,
     /** Asked at each load, so turning on data saver or leaving Wi-Fi applies from the next song. */
     private val lowQuality: () -> Boolean = { false },
+    /** The song cache in front of this; null when there is none. */
+    private val cache: androidx.media3.datasource.cache.Cache? = null,
 ) : ResolvingDataSource.Resolver {
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
         val id = dataSpec.key ?: throw IOException("missing song id")
@@ -45,14 +47,38 @@ class SongDataSourceResolver(
                 dataSpec.withUri(Uri.fromFile(File(path)))
             } else {
                 try {
-                    val s = saved?.toSong() ?: Song(id, "", "", 0, null)
-                    dataSpec.withUri(Uri.parse(resolver.get(s, lowQuality()).url))
-                } catch (e: com.spotifry.music.data.source.NoAudioException) {
-                    throw e // not worth retrying: the player skips to the next song
+                    val s = saved?.toSong() ?: songFromUri(id, dataSpec.uri)
+                    val url = resolver.get(s, lowQuality()).url
+                    keepCacheToOneSource(id, url)
+                    dataSpec.withUri(Uri.parse(url))
+                } catch (e: java.io.FileNotFoundException) {
+                    throw e // not worth retrying as it is: NoAudioException skips to the next song, SourceChanged starts over
                 } catch (e: Exception) {
                     throw IOException("could not resolve $id", e)
                 }
             }
         }
     }
+
+    /**
+     * The cache joins what it has of a song to the rest from the link, so both must be the same file. A song half
+     * played from one source and now coming from the other (the switch, or a slow lookup) starts over from the new one.
+     * Nothing recorded means YouTube: that's all the cache held before there was a choice.
+     */
+    private fun keepCacheToOneSource(id: String, url: String) {
+        val c = cache ?: return
+        val from = if ("saavncdn.com" in url) "saavn" else "youtube"
+        val had = c.getContentMetadata(id).get(SOURCE_KEY, null as String?)
+        if ((had ?: "youtube") != from && c.getCachedSpans(id).isNotEmpty()) {
+            c.removeResource(id)
+            c.applyContentMetadataMutations(id, androidx.media3.datasource.cache.ContentMetadataMutations().set(SOURCE_KEY, from))
+            throw SourceChangedException(id)
+        }
+        if (had != from) c.applyContentMetadataMutations(id, androidx.media3.datasource.cache.ContentMetadataMutations().set(SOURCE_KEY, from))
+    }
+
+    private companion object { const val SOURCE_KEY = "custom_source" }
 }
+
+/** A FileNotFoundException, so the player doesn't retry it from the same position; PlaybackService starts the song's loading over. */
+class SourceChangedException(id: String) : java.io.FileNotFoundException("$id now comes from another source")
