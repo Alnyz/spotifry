@@ -31,12 +31,12 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun MiniPlayer(state: PlayerUiState, position: () -> Long, haze: HazeState, onToggle: () -> Unit, onNext: () -> Unit, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val song = state.current ?: return
-    val shape = RoundedCornerShape(18.dp)
-    Box(modifier.fillMaxWidth().height(66.dp).glass(haze, shape).clickable(onClickLabel = "Open player", onClick = onOpen)) {
-        Row(Modifier.padding(start = 10.dp, end = 4.dp).height(66.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
-            Cover(song.id, song.thumbnailUrl, song.localThumbPath, 46.dp, radius = 9.dp)
+    val shape = RoundedCornerShape(28.dp)
+    Box(modifier.fillMaxWidth().height(com.spotifry.music.ui.FadeBarSpec.MINI).glass(haze, shape).clickable(onClickLabel = "Open player", onClick = onOpen)) {
+        Row(Modifier.padding(start = 7.dp, end = 4.dp).height(com.spotifry.music.ui.FadeBarSpec.MINI), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+            Cover(song.id, song.thumbnailUrl, song.localThumbPath, 42.dp, radius = 21.dp)
             Column(Modifier.weight(1f)) {
-                Text(song.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(song.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             IconButton(onToggle, Modifier.size(48.dp)) { Icon(if (state.isPlaying) Icons.Pause else Icons.Play, if (state.isPlaying) "Pause" else "Play") }
@@ -44,7 +44,7 @@ fun MiniPlayer(state: PlayerUiState, position: () -> Long, haze: HazeState, onTo
         }
         val color = MaterialTheme.colorScheme.primary
         // position is read while drawing, so each tick only repaints this line
-        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(2.dp).drawBehind {
+        Box(Modifier.align(Alignment.BottomStart).padding(horizontal = 26.dp).fillMaxWidth().height(2.dp).drawBehind {
             val fraction = if (state.durationMs > 0) (position().toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
             drawRect(color, size = size.copy(width = size.width * fraction))
         })

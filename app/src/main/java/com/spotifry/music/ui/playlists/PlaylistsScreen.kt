@@ -76,7 +76,7 @@ fun PlaylistsContent(playlists: List<PlaylistWithCounts>, onOpen: (Long) -> Unit
     Box(modifier.fillMaxSize()) {
         LazyVerticalGrid(
             GridCells.Fixed(2), Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = bottomInset + 96.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = bottomInset + 72.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             item(span = { GridItemSpan(2) }) {
@@ -91,7 +91,7 @@ fun PlaylistsContent(playlists: List<PlaylistWithCounts>, onOpen: (Long) -> Unit
         }
         ExtendedFloatingActionButton(
             onClick = onNew,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomInset + 16.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomInset.coerceAtLeast(16.dp)),
             containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
             shape = CircleShape,
             icon = { Icon(Icons.Plus, null) }, text = { Text("New playlist") },

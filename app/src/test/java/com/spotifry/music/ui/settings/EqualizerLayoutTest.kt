@@ -12,6 +12,7 @@ class EqualizerLayoutTest {
         assertEquals(300.dp, graphHeight(900.dp, 80.dp))
         assertEquals(180.dp, graphHeight(536.dp, 80.dp))
         assertEquals(250.dp, graphHeight(770.dp, 80.dp))
+        assertEquals("a 360x640 phone with a song: the floor holds", 180.dp, graphHeight(590.dp, 164.dp))
         assertEquals("no mini player, more room", 300.dp, graphHeight(770.dp, 0.dp))
     }
 
