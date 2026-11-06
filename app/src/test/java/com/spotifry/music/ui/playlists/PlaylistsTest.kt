@@ -51,6 +51,18 @@ class PlaylistsTest {
         assertEquals(listOf(all[1].number, all[2].number), vm.playlists.await { it.size == 2 }.map { it.number })
     }
 
+    @Test fun playAllStartsAtTheTopInThePlaylistsOwnOrder() = runBlocking<Unit> {
+        var got: Triple<List<String>, Int, String?>? = null
+        val player = object : SongPlayer { override fun playList(songs: List<Song>, startIndex: Int, from: String?) { got = Triple(songs.map { it.id }, startIndex, from) } }
+        val v = PlaylistsViewModel(db.playlists(), db.songs(), player)
+        v.create("Mix")
+        val p = v.playlists.await { it.isNotEmpty() }.single()
+        v.addSong(p.id, testSong.copy(id = "a")); v.addSong(p.id, testSong.copy(id = "b"))
+        v.playAll(p)
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (got?.first?.size != 2) { kotlinx.coroutines.delay(10); v.playAll(p) } } }
+        assertEquals(Triple(listOf("a", "b"), 0, "Mix"), got)
+    }
+
     @Test fun coversListFirstFourSongsPerPlaylist() = runBlocking<Unit> {
         vm.create("Mix")
         val id = vm.playlists.await { it.isNotEmpty() }.single().id

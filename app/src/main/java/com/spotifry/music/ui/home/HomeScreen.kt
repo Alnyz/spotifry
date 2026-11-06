@@ -83,8 +83,8 @@ fun HomeScreen(
     onOpenSaved: () -> Unit, onOpenPlaylists: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {},
     listening: @Composable () -> Unit = {}, top: @Composable () -> Unit = {},
     artists: ArtistsHome = ArtistsHome(), onOpenArtist: (com.spotifry.music.data.PickedArtist) -> Unit = {}, onPickArtists: () -> Unit = {},
-    player: PlayerUiState = PlayerUiState(), onToggle: () -> Unit = {}, onOpenPlayer: () -> Unit = {},
-    playlists: List<PlaylistWithCounts> = emptyList(), playlistsRead: Boolean = true, covers: Map<Long, List<SongEntity>> = emptyMap(),
+    player: PlayerUiState = PlayerUiState(), onToggle: () -> Unit = {}, onPause: () -> Unit = {}, onOpenPlayer: () -> Unit = {},
+    playlists: List<PlaylistWithCounts> = emptyList(), libraryRead: Boolean = true, covers: Map<Long, List<SongEntity>> = emptyMap(),
     onOpenPlaylist: (Long) -> Unit = {}, onPlayPlaylist: (PlaylistWithCounts) -> Unit = {},
     onSearch: () -> Unit = {}, onImport: () -> Unit = {}, onMood: (Mood) -> Unit = {},
 ) {
@@ -93,11 +93,11 @@ fun HomeScreen(
     val savedRead by vm.savedRead.collectAsStateWithLifecycle()
     val most by vm.mostPlayed.collectAsStateWithLifecycle()
     HomeContent(
-        recent = recent.orEmpty(), loading = recent == null || !savedRead || !playlistsRead, savedIds = saved, mostPlayed = most,
+        recent = recent.orEmpty(), loading = recent == null || !savedRead || !libraryRead, savedIds = saved, mostPlayed = most,
         onPlay = vm::play, onMore = onMore, modifier = modifier, bottomInset = bottomInset,
         onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, listening = listening, top = top,
         artists = artists, onOpenArtist = onOpenArtist, onPickArtists = onPickArtists,
-        player = player, onToggle = onToggle, onOpenPlayer = onOpenPlayer, playlists = playlists, covers = covers,
+        player = player, onToggle = onToggle, onPause = onPause, onOpenPlayer = onOpenPlayer, playlists = playlists, covers = covers,
         onOpenPlaylist = onOpenPlaylist, onPlayPlaylist = onPlayPlaylist, onSearch = onSearch, onImport = onImport, onMood = onMood,
     )
 }
@@ -117,7 +117,7 @@ fun HomeContent(
     listening: @Composable () -> Unit = {},
     /** The artists picked on first launch, and their songs. */
     artists: ArtistsHome = ArtistsHome(), onOpenArtist: (com.spotifry.music.data.PickedArtist) -> Unit = {}, onPickArtists: () -> Unit = {},
-    player: PlayerUiState = PlayerUiState(), onToggle: () -> Unit = {}, onOpenPlayer: () -> Unit = {},
+    player: PlayerUiState = PlayerUiState(), onToggle: () -> Unit = {}, onPause: () -> Unit = {}, onOpenPlayer: () -> Unit = {},
     playlists: List<PlaylistWithCounts> = emptyList(), covers: Map<Long, List<SongEntity>> = emptyMap(),
     onOpenPlaylist: (Long) -> Unit = {}, onPlayPlaylist: (PlaylistWithCounts) -> Unit = {},
     onSearch: () -> Unit = {}, onImport: () -> Unit = {}, onMood: (Mood) -> Unit = {},
@@ -143,10 +143,19 @@ fun HomeContent(
         item { top() }
         when {
             heroSong != null -> item {
-                when {
-                    inPlayer == null -> SongHero(heroSong, HeroStatus.LAST_PLAYED, { onPlay(songs, 0, "Recently played") }, { onPlay(songs, 0, "Recently played") })
-                    else -> SongHero(heroSong, if (player.isPlaying) HeroStatus.PLAYING else if (player.wantsPlay) HeroStatus.LOADING else HeroStatus.PAUSED, onOpenPlayer, onToggle)
+                val status = when {
+                    inPlayer == null -> HeroStatus.LAST_PLAYED
+                    player.isPlaying -> HeroStatus.PLAYING
+                    player.failed -> HeroStatus.FAILED
+                    player.wantsPlay && player.buffering -> HeroStatus.LOADING
+                    else -> HeroStatus.PAUSED
                 }
+                val again = { onPlay(songs, 0, "Recently played") }
+                SongHero(heroSong, status, if (inPlayer == null) again else onOpenPlayer, when (status) {
+                    HeroStatus.LAST_PLAYED -> again
+                    HeroStatus.PLAYING, HeroStatus.LOADING -> onPause
+                    else -> onToggle
+                })
             }
             loading -> item { HeroShape() }
             heroList != null -> item {
@@ -194,7 +203,7 @@ fun HomeContent(
             item { SectionTitle("Your playlists") }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(otherLists, key = { it.id }) { p -> PlaylistTile(p, covers[p.id].orEmpty(), { onOpenPlaylist(p.id) }, Modifier.width(132.dp)) }
+                    items(otherLists, key = { it.id }) { p -> PlaylistTile(p, covers[p.id].orEmpty(), { onOpenPlaylist(p.id) }, Modifier.width(132.dp), large = false) }
                 }
             }
         }
@@ -240,7 +249,7 @@ private fun Greeting(modifier: Modifier = Modifier) {
     Text(buildAnnotatedString { append("Good $part"); withStyle(SpanStyle(color = accent)) { append(".") } }, modifier, style = MaterialTheme.typography.displaySmall)
 }
 
-private enum class HeroStatus { PLAYING, LOADING, PAUSED, LAST_PLAYED }
+private enum class HeroStatus { PLAYING, LOADING, PAUSED, FAILED, LAST_PLAYED }
 
 /** A song as the hero. Its tag says what the player is really doing with it; only moving bars while it plays use frames. */
 @Composable
@@ -257,11 +266,12 @@ private fun SongHero(s: Song, status: HeroStatus, onOpen: () -> Unit, onControl:
                 HeroStatus.PLAYING -> HeroTag("Playing", accent = true) { com.spotifry.music.ui.components.PlayingBars(true, Modifier.size(13.dp), MaterialTheme.colorScheme.onPrimary) }
                 HeroStatus.LOADING -> HeroTag("Loading", accent = true)
                 HeroStatus.PAUSED -> HeroTag("Paused") { Icon(Icons.Pause, null, Modifier.size(13.dp), tint = Color.White) }
+                HeroStatus.FAILED -> HeroTag("Couldn't play")
                 HeroStatus.LAST_PLAYED -> HeroTag("Last played")
             }
         },
         if (active) Icons.Pause else Icons.Play,
-        when (status) { HeroStatus.LAST_PLAYED -> "Play again"; HeroStatus.PAUSED -> "Play"; else -> "Pause" },
+        when (status) { HeroStatus.LAST_PLAYED -> "Play again"; HeroStatus.FAILED -> "Try again"; HeroStatus.PAUSED -> "Play"; else -> "Pause" },
         if (status == HeroStatus.LAST_PLAYED) "Play again" else "Open Now playing",
         onOpen, onControl, accent = active,
     )

@@ -59,6 +59,17 @@ class ArtistsHomeViewModelTest {
         assertEquals(ArtistsHome(), vm.state.value)
     }
 
+    @Test fun loadingIsOnWhileThePagesAnswerAndOffAfter() {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val slow = object : MusicSource by source { override suspend fun page(link: PageLink): PageContent { gate.await(); return source.page(link) } }
+        val s = settings(); s.setArtists(listOf(PickedArtist("Raisa", "url/Raisa", null)))
+        val vm = ArtistsHomeViewModel(s, ArtistSongs(slow))
+        assertEquals(true, vm.state.value.loading)
+        gate.complete(Unit)
+        assertEquals(false, vm.state.value.loading)
+        assertEquals(1, vm.state.value.songs.size)
+    }
+
     @Test fun pickingArtistsLaterLoadsThem() {
         val s = settings(); val vm = ArtistsHomeViewModel(s, ArtistSongs(source))
         s.setArtists(listOf(PickedArtist("Hindia", "url/Hindia", null)))

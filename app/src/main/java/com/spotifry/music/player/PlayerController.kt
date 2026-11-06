@@ -27,6 +27,10 @@ data class PlayerUiState(
     val wantsPlay: Boolean = false,
     /** The queue ran out: [current] is still set, but it has finished rather than paused. */
     val ended: Boolean = false,
+    /** Waiting for sound to arrive. [wantsPlay] without this and without [isPlaying] is another app holding the sound, such as a call. */
+    val buffering: Boolean = false,
+    /** The player gave up on the song; [toggle][PlayerController.toggle] tries it again. */
+    val failed: Boolean = false,
     val durationMs: Long = 0,
     val queue: List<Song> = emptyList(),
     val currentIndex: Int = 0,
@@ -132,6 +136,8 @@ class PlayerController(
             // before the first play after a restore the player doesn't know the length yet; the song does
             durationMs = c.duration.takeIf { it > 0 } ?: trim?.keptMs(whole) ?: whole,
             ended = c.playbackState == Player.STATE_ENDED,
+            buffering = c.playbackState == Player.STATE_BUFFERING,
+            failed = c.playerError != null,
             trim = trim,
             // the player's own length is the most exact, but it only covers the whole song when no end is set
             wholeMs = wholeMs,
@@ -181,6 +187,8 @@ class PlayerController(
         if (it.isPlaying) it.pause()
         else { if (needsPrepare(it.playbackState)) it.prepare(); it.play() }
     }
+    /** Unlike [toggle], this also stops a song that is still loading. */
+    fun pause() = run { it.pause() }
     fun next() = run { it.seekToNextMediaItem() }
     fun previous() = run { it.seekToPreviousMediaItem() }
     fun seekTo(ms: Long) = run { it.seekTo(ms) }

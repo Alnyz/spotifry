@@ -101,6 +101,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import java.time.Instant
 import java.time.LocalDate
@@ -126,7 +127,9 @@ class ListeningViewModel(listens: ListenDao) : ViewModel() {
 class ListeningRowViewModel(private val listens: ListenDao, private val zone: () -> ZoneId = ZoneId::systemDefault) : ViewModel() {
     class Week(val hours: List<Long>, val minutes: Int)
 
-    val any = listens.observeAny().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    /** False until [any] has been read, so Home can wait instead of having the row push the page down. */
+    val anyRead = MutableStateFlow(false)
+    val any = listens.observeAny().onEach { anyRead.value = true }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     private val since = MutableStateFlow(weekStartMs())
     @OptIn(ExperimentalCoroutinesApi::class)
     val week = since.flatMapLatest { listens.observeSince(it) }.map { rows ->
