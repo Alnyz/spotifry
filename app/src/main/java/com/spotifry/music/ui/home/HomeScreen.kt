@@ -195,14 +195,11 @@ fun HomeContent(
         }
         // reads not finished: each shelf is a shape of its real size in its real place, and goes if its read comes back empty
         if (loading) {
-            item { SectionTitle("Recently played") }
-            item { CardRowShape(140.dp, 9.dp) }
-            item { SectionTitle("Your playlists") }
-            item { CardRowShape(132.dp, 8.dp) }
+            item { CardRowShape(140.dp, 9.dp, title = "Recently played") }
+            item { CardRowShape(132.dp, 8.dp, title = "Your playlists") }
             artistItems(artists, onOpenArtist, { list, i -> onPlay(list, i, "From your artists") }, onPickArtists)
             mostPlayedShape()
-            item { SectionTitle("Keep listening") }
-            item { LoadingShapes { LoadingBox(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(86.dp), RoundedCornerShape(20.dp)) } }
+            item { LoadingShapes { SectionTitle("Keep listening"); LoadingBox(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(86.dp), RoundedCornerShape(20.dp)) } }
             // the moods depend on how much was played, so they wait for the read
             return@LazyColumn
         }
@@ -266,8 +263,7 @@ fun HomeContent(
 }
 
 private fun LazyListScope.mostPlayedShape() {
-    item { SectionTitle("Most played") }
-    item { LoadingShapes { repeat(5) { LoadingRow(Modifier.padding(start = 48.dp, end = 20.dp)) } } }
+    item { LoadingShapes { SectionTitle("Most played"); repeat(5) { LoadingRow(Modifier.padding(start = 48.dp, end = 20.dp)) } } }
 }
 
 /** Past this many songs in the history, Home has enough of your own to show. */

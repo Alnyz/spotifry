@@ -79,8 +79,10 @@ fun LoadingRow(modifier: Modifier = Modifier, width: Dp = 52.dp, height: Dp = 52
 
 /** A sideways row of cards as in Home's shelves: a [size] cover, then a title line and an artist line. Three, cut off by the screen edge. */
 @Composable
-fun CardRowShape(size: Dp, gapAboveTitle: Dp, modifier: Modifier = Modifier) {
+fun CardRowShape(size: Dp, gapAboveTitle: Dp, modifier: Modifier = Modifier, title: String? = null) {
     LoadingShapes(modifier) {
+        // inside the group, so the heading waits with the shapes: a shelf whose read comes back empty never flashes its name
+        title?.let { SectionTitle(it) }
         androidx.compose.foundation.lazy.LazyRow(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), userScrollEnabled = false,
         ) {
