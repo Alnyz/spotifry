@@ -322,7 +322,7 @@ private fun PeriodTab(p: Period, on: Boolean, modifier: Modifier, onClick: () ->
     }
 }
 
-/** The numbers to show off, in one row so they fit a screenshot: plays, different songs, different artists, then what was new. */
+/** The numbers to show off, in one row so they fit a screenshot: plays, different songs, different artists and days played, then what was new. */
 @Composable
 private fun Tally(p: Period) {
     val scheme = MaterialTheme.colorScheme
@@ -336,6 +336,7 @@ private fun Tally(p: Period) {
             stat(p.plays, "play", "plays")
             stat(p.songs, "song", "songs")
             if (p.artistCount > 0) stat(p.artistCount, "artist", "artists")
+            stat(p.activeDays, "day", "days")
         }
         if (p.newSongs > 0) Text(
             buildAnnotatedString { withStyle(SpanStyle(color = scheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)) { append(count(p.newSongs)) }; append(if (p.newSongs == 1) " song new to you" else " songs new to you") },

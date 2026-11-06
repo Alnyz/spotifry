@@ -105,6 +105,7 @@ class ListeningScreenTest {
         scrollTo("play")
         scrollTo("song")
         scrollTo("artist")
+        scrollTo("day")
         // the tally is one item, so with its lines on screen an absent line is really gone, not just scrolled away
         missing("ads. Not one.")
         missing("skips. Nobody stopped you.")
@@ -143,7 +144,7 @@ class ListeningScreenTest {
         // Wednesday the 3rd of a month that began on a Monday would merge, so: Thursday 11 March, heard only last month and this week
         show(row(at(2027, 2, 2, 23), "a", 600), row(at(2027, 3, 9, 23), "b", 600))
         rule.onNodeWithText("Night listener.").assertIsDisplayed()
-        assertEquals("Nothing yet this month. Play something.", listenerLine(com.spotifry.music.data.Period(com.spotifry.music.data.PeriodId.MONTH, "This month", 0, 0, 0, 0, 0, List(24) { 0L }, List(24) { null }, emptyList(), emptyList()), false))
+        assertEquals("Nothing yet this month. Play something.", listenerLine(com.spotifry.music.data.Period(com.spotifry.music.data.PeriodId.MONTH, "This month", 0, 0, 0, 0, 0, 0, List(24) { 0L }, List(24) { null }, emptyList(), emptyList()), false))
     }
 
     @Test fun talkBackCanStepThroughTheHours() {

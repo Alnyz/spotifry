@@ -59,6 +59,16 @@ class ListeningStatsTest {
         assertEquals(1, p.newSongs)    // "a"; "old" was heard before the week, "b" was a skip
     }
 
+    @Test fun daysAreTheDaysOfThePeriodWithAnyListening() {
+        val s = stats(
+            row(at(2027, 3, 1), "a", 100),    // last week: only in This month and All time
+            row(at(2027, 3, 9), "b", 100), row(at(2027, 3, 9, 20), "c", 100), // two listens, one day
+            row(at(2027, 3, 11), "d", 5),     // a few seconds still make a day, as in the days grid
+        )
+        assertEquals(2, s.period(PeriodId.WEEK).activeDays)
+        assertEquals(3, s.period(PeriodId.ALL).activeDays)
+    }
+
     @Test fun allTimeHasNoNewSongsBecauseEveryOneWas() {
         assertEquals(0, stats(row(now - 1000, "a", 60)).period(PeriodId.ALL).newSongs)
     }

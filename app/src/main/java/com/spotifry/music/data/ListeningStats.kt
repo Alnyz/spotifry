@@ -31,6 +31,8 @@ data class Period(
     val artistCount: Int,
     /** Songs whose first listen is in this period; 0 for All time, where every song is new. */
     val newSongs: Int,
+    /** Days of the period with any listening, as the days grid counts them. */
+    val activeDays: Int,
     /** Seconds by the hour of the day each listen started, 24 of them. */
     val hours: List<Long>,
     /** The song with the most seconds in each hour. */
@@ -100,6 +102,7 @@ fun listeningStats(rows: List<ListenRow>, now: Long = System.currentTimeMillis()
             heard.distinctBy { it.songId }.size, heard.size,
             heard.mapNotNull { it.song?.artist?.let(::cleanArtist)?.takeIf { a -> a.isNotBlank() } }.distinct().size,
             if (from == null) 0 else firstHeard.count { !it.value.isBefore(from) },
+            within.map { it.date }.distinct().size,
             hours, hourSongs,
             named.filter { it.song!!.artist.isNotBlank() }.groupBy { cleanArtist(it.song!!.artist) }
                 .map { (n, l) -> TopArtist(n, l.sumOf { it.secondsHeard.toLong() }) }.sortedByDescending { it.seconds }.take(TOP),
