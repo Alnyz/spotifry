@@ -4,11 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.indication
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -192,17 +187,12 @@ fun FadeBar(
 private fun RowScope.Tab(tab: BarTab, selected: Boolean, still: Boolean, onClick: () -> Unit) {
     val target = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     val color by animateColorAsState(target, if (still) tween(0) else tween(180), label = "tab icon")
-    // icons only: the name is for screen readers. The whole 52 dp column is the tap target; the press ripple is drawn on the pill's
-    // own 56 x 40 dp shape (the click itself shows no indication), so it never flashes as a square behind a round pill
-    val press = remember { MutableInteractionSource() }
+    // icons only: the name is for screen readers. The whole 52 dp column is the tap target and shows no press effect of its own:
+    // the pill moving to the tab is the feedback
     Box(
         Modifier.weight(1f).height(FadeBarSpec.TAB_ROW)
             .semantics { contentDescription = tab.label }
-            .selectable(selected, interactionSource = press, indication = null, role = Role.Tab, onClick = onClick),
+            .selectable(selected, interactionSource = null, indication = null, role = Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) {
-        Box(Modifier.size(FadeBarSpec.PILL_W, FadeBarSpec.PILL_H).clip(CircleShape).indication(press, LocalIndication.current), contentAlignment = Alignment.Center) {
-            Icon(tab.icon, contentDescription = null, tint = color, modifier = Modifier.size(26.dp))
-        }
-    }
+    ) { Icon(tab.icon, contentDescription = null, tint = color, modifier = Modifier.size(26.dp)) }
 }
