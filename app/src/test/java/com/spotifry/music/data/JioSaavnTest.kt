@@ -26,6 +26,7 @@ import com.spotifry.music.data.source.url320
 import com.spotifry.music.player.SongDataSourceResolver
 import com.spotifry.music.player.SourceChangedException
 import com.spotifry.music.player.songFromUri
+import com.spotifry.music.player.sourceChangedOnOtherSong
 import com.spotifry.music.player.toMediaItem
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
@@ -33,6 +34,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
@@ -84,6 +86,29 @@ class JioSaavnMatcherTest {
         assertFalse(same(youtube, result(artists = emptyList())))
         // part of a name is not the name
         assertFalse(same(youtube.copy(artist = "Arijit"), result()))
+    }
+    @Test fun moreVersionWordsDoNotMatch() {
+        for (w in listOf("Extended", "Radio", "Club", "Dub", "Piano", "Orchestral", "Mashup", "Bootleg", "Session")) {
+            assertFalse(w, same(youtube, result(title = "Tum Hi Ho ($w)")))
+            assertFalse(w, same(youtube, result(album = "$w Collection")))
+        }
+    }
+    @Test fun withSomeoneIsTheSameSongButWithAnOrchestraIsNot() {
+        assertTrue(same(youtube.copy(title = "Tum Hi Ho (with Someone)"), result()))
+        assertFalse(same(youtube.copy(title = "Tum Hi Ho (with Orchestra)"), result()))
+    }
+    // ponytail: "Artist - Song" stays YouTube; strip the artist if those turn out to be common among misses
+    @Test fun artistInTheTitleDoesNotMatch() = assertFalse(same(youtube.copy(title = "Arijit Singh - Tum Hi Ho"), result()))
+    @Test fun vevoChannelsCount() {
+        assertTrue(same(youtube.copy(artist = "ArijitSinghVEVO"), result()))
+        assertTrue(same(youtube.copy(artist = "Arijit Singh VEVO"), result()))
+    }
+    @Test fun hindiTitlesKeepTheirVowels() {
+        val hindi = youtube.copy(title = "तुम ही हो")
+        assertTrue(same(hindi, result(title = "तुम ही हो")))
+        // the same letters with other vowel signs: another word
+        assertFalse(same(hindi, result(title = "तम ह ह")))
+        assertFalse(same(hindi.copy(title = "राम"), result(title = "रम")))
     }
     @Test fun threeSecondsApartIsTheLimit() {
         assertTrue(same(youtube, result(sec = 265)))
@@ -155,18 +180,21 @@ class ChoosingSourceTest {
         r.clear()
         assertEquals(stream.url, r.get(song).url)
     }
-    @Test fun aLookupRunningDuringAClearIsNotKept() = runBlocking {
+    @Test fun aLookupRunningDuringAClearIsNeitherSharedNorKept() = runBlocking {
         val gate = CompletableDeferred<Unit>()
         var calls = 0
+        val old = ResolvedStream("old", "audio/mp4", 320, Long.MAX_VALUE)
+        val fresh = ResolvedStream("fresh", "audio/webm", 160, Long.MAX_VALUE)
         val r = StreamResolver(object : MusicSource by yt {
-            override suspend fun resolve(song: Song, low: Boolean): ResolvedStream { calls++; gate.await(); return stream }
-        })
+            override suspend fun resolve(song: Song, low: Boolean): ResolvedStream { if (++calls == 1) { gate.await(); return old }; return fresh }
+        }) { 1_000L }
         val waiting = async { r.get(song) }
         while (calls == 0) delay(5)
         r.clear()
+        assertEquals("fresh", r.get(song).url) // answered while the old lookup still runs
         gate.complete(Unit)
-        waiting.await()
-        r.get(song)
+        assertEquals("old", waiting.await().url)
+        assertEquals("fresh", r.get(song).url) // the late one didn't overwrite it
         assertEquals(2, calls)
     }
 }
@@ -174,6 +202,17 @@ class ChoosingSourceTest {
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class JioSaavnSourceTest {
+    /** The CDN is outside the test's server, so its answers are made up here. */
+    private val requests = mutableListOf<okhttp3.Request>()
+    private fun clientWithFile(code: Int) = OkHttpClient.Builder().addInterceptor { chain ->
+        val r = chain.request()
+        if ("saavncdn.com" !in r.url.host) chain.proceed(r)
+        else {
+            requests += r
+            okhttp3.Response.Builder().request(r).protocol(okhttp3.Protocol.HTTP_1_1).code(code).message("").body(ByteArray(0).toResponseBody()).build()
+        }
+    }.build()
+
     private val answer = """{"results":[
       {"title":"Tum Hi Ho (From &quot;Aashiqui 2&quot;)","more_info":{"music":"Mithoon","album":"Love &amp; Hits","duration":"262","320kbps":"true",
        "encrypted_media_url":"ID2ieOjCrwfgWvL5sXl4B1ImC5QfbsDyRofh8YQPTqjR2tIxTYXqGEQHgqnNfsetouo4rsD0s4RZKObWAyHrEhw7tS9a8Gtq",
@@ -195,17 +234,62 @@ class JioSaavnSourceTest {
 
     @Test fun findsTheStreamAndSendsABrowserName() = runBlocking {
         val server = MockWebServer().apply { enqueue(MockResponse().setBody(answer)); start() }
-        val found = JioSaavnSource(OkHttpClient(), server.url("/").toString()) { 1_000L }.find(youtube)!!
+        val found = JioSaavnSource(clientWithFile(206), server.url("/").toString()) { 1_000L }.find(youtube)!!
         assertTrue(found.url, found.url.endsWith("_320.mp4"))
         assertEquals("audio/mp4", found.mimeType)
         assertEquals(320, found.bitrateKbps)
         assertEquals(1_000L + 3_600_000L, found.expiresAtMs)
+        assertTrue(found.fromSaavn)
+        assertEquals(found.url, requests.single().url.toString())
+        assertEquals("bytes=0-0", requests.single().header("Range"))
         val asked = server.takeRequest()
         assertEquals("search.getResults", asked.requestUrl!!.queryParameter("__call"))
         assertEquals("tum hi ho Arijit Singh", asked.requestUrl!!.queryParameter("q"))
         assertTrue(asked.getHeader("User-Agent")!!.startsWith("Mozilla"))
         server.shutdown()
     }
+    @Test fun a320FileThatIsNotThereIsNoMatch() = runBlocking {
+        for (code in listOf(404, 403, 500)) {
+            val server = MockWebServer().apply { enqueue(MockResponse().setBody(answer)); start() }
+            assertNull(JioSaavnSource(clientWithFile(code), server.url("/").toString()).find(youtube))
+            server.shutdown()
+        }
+        val server = MockWebServer().apply { enqueue(MockResponse().setBody(answer)); start() }
+        assertEquals(320, JioSaavnSource(clientWithFile(200), server.url("/").toString()).find(youtube)!!.bitrateKbps)
+        server.shutdown()
+    }
+
+    @Test fun aDead320FilePlaysAndSavesFromYoutube() = runBlocking {
+        val ctx = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java).allowMainThreadQueries().build()
+        val server = MockWebServer().apply { enqueue(MockResponse().setBody(answer)); enqueue(MockResponse().setBody("audio")); start() }
+        val client = clientWithFile(404)
+        val yt = FakeMusicSource().apply { streamUrl = server.url("/youtube").toString() }
+        val resolver = StreamResolver(ChoosingSource(yt, JioSaavnSource(client, server.url("/").toString())::find, { true })) { 1_000L }
+        val dir = java.io.File(ctx.cacheDir, "dead-320").apply { deleteRecursively(); mkdirs() }
+        val downloads = DownloadRepository(dir, client, resolver, db.songs())
+        downloads.save(youtube)
+        assertEquals(DownloadState.Saved, downloads.state(youtube.id).value)
+        assertEquals("audio", java.io.File(db.songs().get(youtube.id)!!.filePath!!).readText())
+        assertEquals(1, yt.resolveCalls)
+        server.shutdown(); db.close()
+    }
+
+    @Test fun hindiGoesIntoTheSearchWhole() = runBlocking {
+        val server = MockWebServer().apply { enqueue(MockResponse().setBody("{}")); start() }
+        JioSaavnSource(OkHttpClient(), server.url("/").toString()).find(youtube.copy(title = "तुम ही हो"))
+        val asked = server.takeRequest().requestUrl!!.queryParameter("q")!!
+        assertEquals(java.text.Normalizer.normalize("तुम ही हो Arijit Singh", java.text.Normalizer.Form.NFC), java.text.Normalizer.normalize(asked, java.text.Normalizer.Form.NFC).replace("arijit singh", "Arijit Singh"))
+        server.shutdown()
+    }
+
+    @Test fun onlyAnotherSongsSourceChangeIsSetAside() {
+        val wrapped = java.io.IOException("load", SourceChangedException("next"))
+        assertTrue(sourceChangedOnOtherSong(wrapped, "current"))
+        assertFalse(sourceChangedOnOtherSong(wrapped, "next"))
+        assertFalse(sourceChangedOnOtherSong(java.io.IOException("other"), "current"))
+    }
+
     @Test fun aRefusalIsAnError() = runBlocking {
         val server = MockWebServer().apply { enqueue(MockResponse().setResponseCode(403)); start() }
         var failed = false
@@ -230,7 +314,7 @@ class JioSaavnSourceTest {
         val db = Room.inMemoryDatabaseBuilder(ctx, AppDatabase::class.java).allowMainThreadQueries().build()
         var url = "https://rr1.googlevideo.com/a"
         val src = object : MusicSource by FakeMusicSource() {
-            override suspend fun resolve(song: Song, low: Boolean) = ResolvedStream(url, "audio/mp4", 320, Long.MAX_VALUE)
+            override suspend fun resolve(song: Song, low: Boolean) = ResolvedStream(url, "audio/mp4", 320, Long.MAX_VALUE, fromSaavn = "saavncdn" in url)
         }
         val streams = StreamResolver(src)
         val audio = mapOf("https://rr1.googlevideo.com/a" to ByteArray(1_000) { 1 }, "https://aac.saavncdn.com/a_320.mp4" to ByteArray(1_000) { 2 })

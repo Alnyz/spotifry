@@ -164,6 +164,11 @@ class PlaybackService : MediaSessionService() {
 
             override fun onPlayerError(error: PlaybackException) {
                 val id = player.currentMediaItem?.mediaId.orEmpty()
+                // the player stopped all the same, so carry on; the bytes are gone, so the next song loads clean
+                if (sourceChangedOnOtherSong(error, id)) {
+                    player.prepare()
+                    return
+                }
                 c.resolver.invalidate(id)
                 // a link the server refuses (expired, or the phone switched networks): try a fresh one once before giving up on the song
                 val refused = generateSequence(error.cause) { it.cause }.any { it is HttpDataSource.InvalidResponseCodeException || it is SourceChangedException }

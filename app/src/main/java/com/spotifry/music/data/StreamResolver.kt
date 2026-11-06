@@ -30,10 +30,12 @@ class StreamResolver(
         val key = if (low) "${song.id}|low" else song.id
         cache[key]?.let { if (it.expiresAtMs - now() > FRESH_MARGIN_MS) return it }
         // started only once stored, so a lookup that ends at once can't remove itself before it is in the map
-        val job = pending.computeIfAbsent(key) {
-            val asOf = clears
+        // under its clear count, so a lookup from before a clear is neither joined nor kept
+        val asOf = clears
+        val running = "$asOf|$key"
+        val job = pending.computeIfAbsent(running) {
             scope.async(start = CoroutineStart.LAZY) {
-                try { source.resolve(song, low).also { if (asOf == clears) cache[key] = it } } finally { pending.remove(key) }
+                try { source.resolve(song, low).also { if (asOf == clears) cache[key] = it } } finally { pending.remove(running) }
             }
         }
         return job.await()

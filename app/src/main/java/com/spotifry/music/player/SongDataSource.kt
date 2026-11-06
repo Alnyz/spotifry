@@ -48,9 +48,9 @@ class SongDataSourceResolver(
             } else {
                 try {
                     val s = saved?.toSong() ?: songFromUri(id, dataSpec.uri)
-                    val url = resolver.get(s, lowQuality()).url
-                    keepCacheToOneSource(id, url)
-                    dataSpec.withUri(Uri.parse(url))
+                    val stream = resolver.get(s, lowQuality())
+                    keepCacheToOneSource(id, stream.fromSaavn)
+                    dataSpec.withUri(Uri.parse(stream.url))
                 } catch (e: java.io.FileNotFoundException) {
                     throw e // not worth retrying as it is: NoAudioException skips to the next song, SourceChanged starts over
                 } catch (e: Exception) {
@@ -65,9 +65,9 @@ class SongDataSourceResolver(
      * played from one source and now coming from the other (the switch, or a slow lookup) starts over from the new one.
      * Nothing recorded means YouTube: that's all the cache held before there was a choice.
      */
-    private fun keepCacheToOneSource(id: String, url: String) {
+    private fun keepCacheToOneSource(id: String, fromSaavn: Boolean) {
         val c = cache ?: return
-        val from = if ("saavncdn.com" in url) "saavn" else "youtube"
+        val from = if (fromSaavn) "saavn" else "youtube"
         val had = c.getContentMetadata(id).get(SOURCE_KEY, null as String?)
         if ((had ?: "youtube") != from && c.getCachedSpans(id).isNotEmpty()) {
             c.removeResource(id)
@@ -81,4 +81,8 @@ class SongDataSourceResolver(
 }
 
 /** A FileNotFoundException, so the player doesn't retry it from the same position; PlaybackService starts the song's loading over. */
-class SourceChangedException(id: String) : java.io.FileNotFoundException("$id now comes from another source")
+class SourceChangedException(val songId: String) : java.io.FileNotFoundException("$songId now comes from another source")
+
+/** The error is about another song than [currentId], the next one loading ahead: the current song did nothing wrong. */
+fun sourceChangedOnOtherSong(error: Throwable, currentId: String): Boolean =
+    generateSequence(error) { it.cause }.filterIsInstance<SourceChangedException>().any { it.songId != currentId }

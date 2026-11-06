@@ -37,21 +37,26 @@ class JioSaavnSource(
             .addQueryParameter("__call", "search.getResults").addQueryParameter("_format", "json").addQueryParameter("_marker", "0")
             .addQueryParameter("api_version", "4").addQueryParameter("ctx", "web6dot0").addQueryParameter("n", "5").addQueryParameter("p", "1")
             .addQueryParameter("q", "${cleanTitle(song.title)} ${song.artist.removeSuffix(" - Topic")}").build()
-        val body = client.newCall(Request.Builder().url(url).header("User-Agent", OkHttpDownloader.USER_AGENT).build()).text()
+        val body = client.newCall(request(url.toString()).build()).read { r -> if (r.isSuccessful) r.body!!.string() else throw IOException("HTTP ${r.code}") }
         val hit = parseSaavnResults(body).firstOrNull { isSameSong(song, it) } ?: return null
-        return ResolvedStream(url320(decryptMediaUrl(hit.encryptedUrl)) ?: return null, "audio/mp4", 320, now() + LINK_LIFE_MS)
+        val link = url320(decryptMediaUrl(hit.encryptedUrl)) ?: return null
+        // the 320 file's name is worked out, not given: without this a missing one fails the song on every play
+        val exists = client.newCall(request(link).header("Range", "bytes=0-0").build()).read { it.code == 200 || it.code == 206 }
+        return if (exists) ResolvedStream(link, "audio/mp4", 320, now() + LINK_LIFE_MS, fromSaavn = true) else null
     }
+
+    private fun request(url: String) = Request.Builder().url(url).header("User-Agent", OkHttpDownloader.USER_AGENT)
 
     private companion object { const val LINK_LIFE_MS = 60 * 60 * 1000L }
 }
 
 /** Cancelled with the coroutine, so the time cap holds even while a blocking call would still sit in a DNS lookup. */
-private suspend fun Call.text(): String = suspendCancellableCoroutine { waiting ->
+private suspend fun <T> Call.read(answer: (Response) -> T): T = suspendCancellableCoroutine { waiting ->
     waiting.invokeOnCancellation { cancel() }
     enqueue(object : Callback {
         override fun onFailure(call: Call, e: IOException) = waiting.resumeWith(Result.failure(e))
         override fun onResponse(call: Call, response: Response) = response.use { r ->
-            waiting.resumeWith(runCatching { if (r.isSuccessful) r.body!!.string() else throw IOException("HTTP ${r.code}") })
+            waiting.resumeWith(runCatching { answer(r) })
         }
     })
 }
@@ -103,17 +108,18 @@ fun isSameSong(song: Song, r: SaavnResult): Boolean {
 }
 
 /** Another recording or arrangement. A group with one of these words stays in the title, so it never matches the plain song. */
-private val VERSION = Regex("\\b(cover|covers|karaoke|tribute|remix|remixes|instrumental|live|acoustic|unplugged|reprise|lofi|nightcore|slowed|reverb|sped|demo|version|edit|mix|techno|ambient)\\b")
-/** Words on a group that says nothing about the recording: (feat. X), (Official Video), - Remastered 2011, (From "Film"). */
-private val EXTRA = Regex("\\b(feat|ft|featuring|official|lyric|lyrics|visuali[sz]er|remaster|remastered|from)\\b")
+private val VERSION = Regex("\\b(cover|covers|karaoke|tribute|remix|remixes|instrumental|live|acoustic|unplugged|reprise|lofi|nightcore|slowed|reverb|sped|demo|version|edit|mix|techno|ambient|extended|radio|club|dub|piano|orchestra|orchestral|mashup|bootleg|session|sessions)\\b")
+/** Words on a group that says nothing about the recording: (feat. X), (with X), (Official Video), - Remastered 2011, (From "Film"). */
+private val EXTRA = Regex("\\b(feat|ft|featuring|with|official|lyric|lyrics|visuali[sz]er|remaster|remastered|from)\\b")
 private val GROUP = Regex("[(\\[][^)\\]]*[)\\]]|\\s[-–—|]\\s.*$")
 private val TRAILING_FEAT = Regex("\\s(feat\\.?|ft\\.?|featuring)\\s.*$", RegexOption.IGNORE_CASE)
-private val MARKS = Regex("\\p{M}+")
-private val NOT_WORD = Regex("[^\\p{L}\\p{N}]+")
+/** Latin accents only: the vowel signs of Hindi and other scripts are marks too, and without them different words look the same. */
+private val ACCENTS = Regex("[\u0300-\u036f]+")
+private val NOT_WORD = Regex("[^\\p{L}\\p{M}\\p{N}]+")
 private val ARTIST_JOINS = Regex(",|&|/|;|\\s(feat\\.?|ft\\.?|featuring|x|vs\\.?|with)\\s", RegexOption.IGNORE_CASE)
 
 /** Lowercase, no accents, words and digits only. */
-private fun plain(s: String) = NOT_WORD.replace(MARKS.replace(Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD), ""), " ").trim()
+private fun plain(s: String) = NOT_WORD.replace(ACCENTS.replace(Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD), ""), " ").trim()
 
 private fun cleanTitle(title: String): String = plain(
     GROUP.replace(title) { m ->
@@ -122,5 +128,6 @@ private fun cleanTitle(title: String): String = plain(
     }.replace(TRAILING_FEAT, ""),
 )
 
+/** Without spaces, so the channel ArijitSinghVEVO is Arijit Singh. */
 private fun artistNames(artist: String): Set<String> =
-    artist.removeSuffix(" - Topic").removeSuffix("VEVO").split(ARTIST_JOINS).map(::plain).filter { it.isNotEmpty() }.toSet()
+    artist.removeSuffix(" - Topic").removeSuffix("VEVO").split(ARTIST_JOINS).map { plain(it).replace(" ", "") }.filter { it.isNotEmpty() }.toSet()
