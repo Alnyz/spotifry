@@ -399,7 +399,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                     lyrics = lyrics, onRetryLyrics = npVm::retryLyrics, showLyrics = showLyrics, onShowLyrics = { showLyrics = it },
                     position = position,
                     sleep = sleep, sleepLeft = c.sleepTimer::remainingMs, onSleep = { showSleep = true },
-                    speedLabel = speedLabel, onSpeed = { showSpeed = true },
+                    speedLabel = speedLabel, onSpeed = { showSpeed = true }, speed = speed,
                     onSuggestionMore = suggestionMenu, onTrim = { showTrim = true },
                 )
                 // the app's own snackbar sits under Now playing; this one shows the same message on top of it
