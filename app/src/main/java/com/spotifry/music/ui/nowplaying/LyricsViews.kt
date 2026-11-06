@@ -36,6 +36,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
@@ -80,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.withStyle
 import com.spotifry.music.data.LyricLine
+import com.spotifry.music.data.LyricWord
 import com.spotifry.music.data.Lyrics
 import com.spotifry.music.data.indexAt
 import com.spotifry.music.player.PlayerUiState
@@ -212,11 +214,13 @@ private fun blurOf(px: Float): RenderEffect? {
     return blurCache.getOrPut(step) { BlurEffect(step / 2f, step / 2f, TileMode.Decal) }
 }
 
+private fun wholeRise(p: Long, ws: List<LyricWord>, range: IntRange) = riseFraction(p, LyricWord(ws[range.first].startMs, ws[range.last].endMs, ""))
+
 /**
  * The line drawn from the song's position: the words already sung lit, the word being sung lit by a soft edge that
  * sweeps through its letters (and raised a little), the rest dim. A line without word times lights as a whole.
  */
-private fun DrawScope.drawLyric(layout: TextLayoutResult, line: LyricLine, rects: List<Rect>, p: Long, d: Float, calm: Boolean) {
+private fun DrawScope.drawLyric(layout: TextLayoutResult, line: LyricLine, rects: List<Rect>, whole: List<IntRange>, p: Long, d: Float, calm: Boolean) {
     val unlit = Color.White.copy(alpha = unlitAlpha(d)); val lit = Color.White.copy(alpha = litAlpha(d))
     val ws = line.words
     if (rects.isEmpty()) {
@@ -228,7 +232,7 @@ private fun DrawScope.drawLyric(layout: TextLayoutResult, line: LyricLine, rects
     val covered = Path(); val done = Path()
     ws.forEachIndexed { k, w ->
         val f = if (calm) (if (p >= w.startMs) 1f else 0f) else sweepFraction(p, w)
-        val r = if (calm) 0f else riseFraction(p, w)
+        val r = if (calm) 0f else wholeRise(p, ws, whole[k])
         if (f >= 1f && r <= 0f) { done.addRect(rects[k]); covered.addRect(rects[k]) } else if (f > 0f || r > 0f) covered.addRect(rects[k])
     }
     clipPath(covered, ClipOp.Difference) { drawText(layout, color = unlit) }
@@ -236,7 +240,7 @@ private fun DrawScope.drawLyric(layout: TextLayoutResult, line: LyricLine, rects
     val edge = 8.dp.toPx(); val rise = 2.5.dp.toPx()
     ws.forEachIndexed { k, w ->
         val f = if (calm) (if (p >= w.startMs) 1f else 0f) else sweepFraction(p, w)
-        val r = if (calm) 0f else riseFraction(p, w)
+        val r = if (calm) 0f else wholeRise(p, ws, whole[k])
         if ((f >= 1f && r <= 0f) || (f <= 0f && r <= 0f)) return@forEachIndexed
         val box = rects[k]
         val x = box.left - edge + f * (box.width + 2 * edge)
@@ -269,6 +273,7 @@ private fun LyricRow(i: Int, line: LyricLine, focus: State<Float>, pos: State<Lo
     }
     val offsets = remember(line) { wordOffsets(line) }
     val boxes = remember(line) { Boxes() }
+    val whole = remember(line) { wholeWords(line.words) }
     Box(
         Modifier.fillMaxWidth()
             .graphicsLayer {
@@ -284,7 +289,10 @@ private fun LyricRow(i: Int, line: LyricLine, focus: State<Float>, pos: State<Lo
             line.text,
             Modifier.fillMaxWidth(.9f).drawWithContent {
                 val l = boxes.layout ?: return@drawWithContent
-                drawLyric(l, line, boxes.rects, pos.value, i - focus.value, calm)
+                val d = i - focus.value
+                // lines well away from the focus are plainly unsung or sung: they don't watch the clock, so they don't redraw every frame
+                val p = if (abs(d) < 2f) pos.value else if (d > 0) Long.MIN_VALUE else Long.MAX_VALUE
+                drawLyric(l, line, boxes.rects, whole, p, d, calm)
             },
             style = BigLine, onTextLayout = { boxes.set(it, line, offsets) },
         )
@@ -346,15 +354,15 @@ internal fun LyricsScreen(
             delay(SCROLL_DELAY_MS)
             val at = item()
             if (at != null) {
-                val px = list.scrollBy(at.offset - rest)
+                val px = list.scrollBy(at.offset.toFloat())
                 bus.event = Shift(bus.event.id + 1, from, tgt, px, false)
             }
         } else if (!calm && returning && cur != null) {
-            list.animateScrollBy(cur.offset - rest, tween(500, easing = TravelEase))
+            list.animateScrollBy(cur.offset.toFloat(), tween(500, easing = TravelEase))
         } else {
             // the first time, a seek or a skip far away: land there, no chain
             list.scrollToItem(tgt)
-            item()?.let { list.scrollBy(it.offset - rest) }
+            item()?.let { list.scrollBy(it.offset.toFloat()) }
             bus.event = Shift(bus.event.id + 1, from, tgt, 0f, true)
         }
         follow.last = tgt

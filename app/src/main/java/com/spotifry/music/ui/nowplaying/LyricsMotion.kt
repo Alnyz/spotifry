@@ -59,6 +59,19 @@ internal fun riseFraction(pos: Long, w: LyricWord): Float {
     return up * (1 - down)
 }
 
+/**
+ * For each word, the range of words that make up the whole word it belongs to: a word the lyrics site split into
+ * syllables ("e" + "sok") has no space after its first parts. A lit word lifts as one, so its syllables stay level.
+ */
+internal fun wholeWords(words: List<LyricWord>): List<IntRange> {
+    val out = ArrayList<IntRange>(words.size)
+    var from = 0
+    words.forEachIndexed { k, w ->
+        if (w.text.endsWith(' ') || k == words.lastIndex) { repeat(k - from + 1) { out.add(from..k) }; from = k + 1 }
+    }
+    return out
+}
+
 /** A line with no word times lights as a whole, softly, never word by word. */
 internal fun lineLight(pos: Long, line: LyricLine): Float = smooth01((pos - line.atMs).toFloat() / LINE_LIGHT_MS)
 
@@ -93,7 +106,7 @@ internal fun litAlpha(d: Float): Float = if (d >= 0) 1f else table(d, PastAt, Pa
 internal fun focusScale(d: Float): Float = 1f + .1f * (1f - abs(d).coerceAtMost(1f))
 
 /** Blur in dp: none on the focus line, more the further away. */
-internal fun blurDp(d: Float): Float = abs(d).coerceAtMost(4f) * 1.1f
+internal fun blurDp(d: Float): Float = abs(d).coerceAtMost(4f) * .9f
 
 /**
  * Where each word starts in the line's text (one extra entry at the end), or null when the words don't spell the line

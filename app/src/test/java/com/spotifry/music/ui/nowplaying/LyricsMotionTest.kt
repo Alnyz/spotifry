@@ -97,4 +97,9 @@ class LyricsMotionTest {
         assertEquals(0f, blurDp(0f), 0f)
         assertTrue(blurDp(3f) > blurDp(1f))
     }
+
+    @Test fun syllablesOfOneWordLiftTogether() {
+        val ws = listOf(LyricWord(0, 1, "e"), LyricWord(1, 2, "sok "), LyricWord(2, 3, "pagi"))
+        assertEquals(listOf(0..1, 0..1, 2..2), wholeWords(ws))
+    }
 }
