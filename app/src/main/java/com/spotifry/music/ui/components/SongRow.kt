@@ -97,17 +97,22 @@ internal fun marked(text: String, query: String?, color: androidx.compose.ui.gra
         }
     }
 
-/** Three bars bouncing while the song plays, standing still when it is paused. */
+/** Three bars bouncing while the song plays. Paused, they stand still and no animation runs, so they cost no frames. */
 @Composable
-fun PlayingBars(playing: Boolean, modifier: Modifier = Modifier) {
-    val color = MaterialTheme.colorScheme.primary
-    val t = androidx.compose.animation.core.rememberInfiniteTransition("bars")
-    val phase by t.animateFloat(0f, (2 * Math.PI).toFloat(), androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.LinearEasing)), "phase")
-    androidx.compose.foundation.Canvas(modifier.size(18.dp).semantics { contentDescription = if (playing) "Playing now" else "Paused" }) {
+fun PlayingBars(playing: Boolean, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary) {
+    if (playing) {
+        val t = androidx.compose.animation.core.rememberInfiniteTransition("bars")
+        val phase by t.animateFloat(0f, (2 * Math.PI).toFloat(), androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.LinearEasing)), "phase")
+        Bars("Playing now", modifier, color) { i -> .35f + .65f * ((kotlin.math.sin(phase + i * 2.1f) + 1) / 2) }
+    } else Bars("Paused", modifier, color) { .35f }
+}
+
+@Composable
+private fun Bars(description: String, modifier: Modifier, color: androidx.compose.ui.graphics.Color, level: (Int) -> Float) {
+    androidx.compose.foundation.Canvas(modifier.size(18.dp).semantics { contentDescription = description }) {
         val w = size.width / 5
         repeat(3) { i ->
-            val level = if (playing) .35f + .65f * ((kotlin.math.sin(phase + i * 2.1f) + 1) / 2) else .35f
-            val h = size.height * level
+            val h = size.height * level(i)
             drawRoundRect(color, androidx.compose.ui.geometry.Offset(i * 2 * w, size.height - h), androidx.compose.ui.geometry.Size(w, h), androidx.compose.ui.geometry.CornerRadius(w / 2))
         }
     }
