@@ -158,6 +158,15 @@ class SongPillTest {
         assertEquals(tops["with"], tops["without"])
     }
 
+    @Test @Config(fontScale = 2f)
+    fun largeTextCountsEachLinesOwnGrowth() {
+        var growth = 0.dp
+        compose.setContent { growth = androidx.compose.ui.platform.LocalDensity.current.textGrowth() }
+        compose.waitForIdle()
+        // scaling is not linear: 70 sp in one piece would say 3.4 dp here, the three lines really grow about 33
+        assertEquals(33f, growth.value, 3f)
+    }
+
     @Test fun theLineMovesWithTheSong() {
         val at = mutableLongStateOf(0L)
         val position = { at.longValue }

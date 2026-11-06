@@ -237,6 +237,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     val suggestionMenu: (Int) -> Unit = { i -> player.queue.getOrNull(i)?.let { menu = MenuTarget(it, queueIndex = i) } }
     val openMenu: (Song) -> Unit = { menu = MenuTarget(it) }
     val context = LocalContext.current
+    val canPickOutput = remember { hasOutputPicker(context) }
     val pageActions = remember {
         PageActions(
             open = { nav.navigate(Routes.page(it)) },
@@ -339,7 +340,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                 // one handler for the whole player, added each time it opens so it is the newest and outranks the
                 // NavHost's own back handling on every tab: full lyrics close first, then Now playing
                 BackHandler { if (showLyrics) showLyrics = false else showPlayer = false }
-                KeepScreenOn(keepScreenOn && player.isPlaying)
+                KeepScreenOn(keepScreenOn && player.wantsPlay)
                 NowPlayingContent(
                     player, save,
                     onClose = { showPlayer = false }, onToggle = c.player::toggle, onNext = c.player::next, onPrev = c.player::previous,
@@ -379,7 +380,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         SleepState.EndOfSong -> " · after this song"
                         SleepState.Off -> ""
                     }
-                    if (hasOutputPicker(context)) add(MenuAction("Change output", Icons.Output) { showOutputPicker(context) })
+                    if (canPickOutput) add(MenuAction("Change output", Icons.Output) {
+                        if (!showOutputPicker(context)) scope.launch { snackbar.showSnackbar("Can't open the output choice here") }
+                    })
                     add(MenuAction("Keep screen on", Icons.ScreenOn, switch = keepScreenOn) { c.settings.setKeepScreenOn(!keepScreenOn) })
                     add(MenuAction("Sleep timer$left", Icons.Clock) { showSleep = true })
                     add(MenuAction("Speed and pitch" + (speedLabel?.let { " · $it" } ?: ""), Icons.Speed) { showSpeed = true })

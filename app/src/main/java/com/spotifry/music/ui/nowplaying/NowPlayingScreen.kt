@@ -136,8 +136,7 @@ fun NowPlayingContent(
         val pills = sleep != SleepState.Off || speedLabel != null
         // on short screens the cover gives way, so the pill under the controls stays above the gesture bar
         val bars = WindowInsets.systemBars.asPaddingValues()
-        // the title, artist and time lines grow with the text size (30 + 24 + 16 sp of line height); the rest is fixed
-        val textGrowth = with(LocalDensity.current) { 70.sp.toDp() - 70.dp }
+        val textGrowth = LocalDensity.current.textGrowth()
         val around = 360.dp + textGrowth + bars.calculateTopPadding() + bars.calculateBottomPadding() + (if (pills) 34.dp else 0.dp)
         val cover = minOf(maxWidth - 48.dp, screen * 0.44f, screen - around).coerceAtLeast(140.dp)
         // lyrics are timed to the whole song; the player counts from the trim's start
@@ -361,6 +360,12 @@ private fun saveLabel(save: SaveUi) = when (save) {
     SaveUi.Saved -> "Saved on this phone"
     SaveUi.Failed -> "Save failed. Retry"
 }
+
+/**
+ * How much taller the title, artist and time lines are at this text size: 30, 22 and 18 sp of line height, the rest is
+ * fixed. Each is converted on its own, since text scaling isn't linear: small sizes grow more than large ones.
+ */
+internal fun androidx.compose.ui.unit.Density.textGrowth() = 30.sp.toDp() + 22.sp.toDp() + 18.sp.toDp() - 70.dp
 
 internal fun formatTime(ms: Long): String {
     val total = (ms / 1000).coerceAtLeast(0)

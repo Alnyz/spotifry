@@ -23,6 +23,8 @@ import java.io.File
 data class PlayerUiState(
     val current: Song? = null,
     val isPlaying: Boolean = false,
+    /** Playing or about to: also true while it buffers, when [isPlaying] is false. */
+    val wantsPlay: Boolean = false,
     val durationMs: Long = 0,
     val queue: List<Song> = emptyList(),
     val currentIndex: Int = 0,
@@ -129,6 +131,7 @@ class PlayerController(
         _state.value = PlayerUiState(
             current = c.currentMediaItem?.toSong(),
             isPlaying = c.isPlaying,
+            wantsPlay = c.playWhenReady && c.playbackState != Player.STATE_ENDED && c.playbackState != Player.STATE_IDLE,
             // before the first play after a restore the player doesn't know the length yet; the song does
             durationMs = c.duration.takeIf { it > 0 } ?: trim?.keptMs(whole) ?: whole,
             trim = trim,
