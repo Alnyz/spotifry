@@ -41,6 +41,10 @@ private const val STALL_TICKS = 20
 private const val CATCH_UP_UNTIL = .1f
 /** Both voices dip this much at the middle of the overlap, as two loud songs together can pass full level. */
 private const val OVERLAP_CUT = .2f
+/** A new song up later than this after its overlap should have begun fades from where it is, not partway in. */
+private const val LATE_MS = 2 * TICK_MS.toLong()
+/** Ticks the old song takes to come back up to full if the new song fails mid-overlap. */
+private const val RAMP_TICKS = 10
 
 /**
  * Overlaps one song into the next. [main] stays the one player the session, notification, queue and position follow: at
@@ -103,7 +107,7 @@ class BeatJoin(
     private class Priming(val key: String, val plan: JoinPlan, val tail: Player) : Stage { var ran = 0; var inStep = false; val line = Liner() }
     private class Swapping(val plan: JoinPlan, val tail: Player) : Stage { var step = 0; var stalled = 0 }
     private class Settling(val plan: JoinPlan, val tail: Player) : Stage { var ran = 0; var locked = false; var stalled = 0; val line = Liner() }
-    private class Fading(val plan: JoinPlan, val tail: Player, val cue: Long, var locked: Boolean, val line: Liner) : Stage
+    private class Fading(val plan: JoinPlan, val tail: Player, val cue: Long, val lengthMs: Long, var locked: Boolean, val line: Liner) : Stage
 
     private var stage: Stage = Watching
     private val leaving = ArrayDeque<kotlin.Pair<Player, IntArray>>()
@@ -120,7 +124,8 @@ class BeatJoin(
     /** Something here needs a tick every 50 ms; otherwise a slow poll does, so the setting costs little for most of a song. */
     val quick: Boolean
         get() = leaving.isNotEmpty() || when (val s = stage) {
-            is Priming, is Swapping, is Settling, is Fading -> true
+            // paused, nothing moves, and the tail follows the pause by listener: a slow poll will do
+            is Priming, is Swapping, is Settling, is Fading -> main.playWhenReady
             is Waiting -> main.currentPosition >= primeAt(s.plan, wanted().speed) - 1_000
             else -> false
         }
@@ -211,9 +216,13 @@ class BeatJoin(
     }
 
     private fun priming(s: Priming, pos: Long, speed: Float): Float? {
-        if (pairNow()?.key != s.key || s.tail.playerError != null) { Log.i(TAG, "tail voice dropped before the join"); drop(s.tail); stage = Done(s.key); return null }
+        if (pairNow()?.key != s.key || s.tail.playerError != null || main.playerError != null) { Log.i(TAG, "tail voice dropped before the join"); drop(s.tail); stage = Done(s.key); return null }
         follow(s.tail, lining = !s.inStep)
         val handover = s.plan.startMs - s.plan.leadMs
+        if (s.inStep && s.tail.isPlaying && main.isPlaying && abs(s.tail.currentPosition - pos) > SEEK_OVER_MS) {
+            // main buffered or was held: the silent tail ran on and is no longer in step
+            s.inStep = false; s.ran = 0
+        }
         if (!s.inStep && s.tail.isPlaying && main.isPlaying && ++s.ran >= SETTLE_TICKS) {
             val off = s.tail.currentPosition - pos
             if (abs(off) > SEEK_OVER_MS) { s.tail.seekTo(pos + SEEK_START_UP_MS); s.ran = 0 }
@@ -228,6 +237,7 @@ class BeatJoin(
         follow(s.tail)
         val keep = sleepGain()
         if (s.tail.playerError != null) { finish(s.tail, "tail voice failed"); return null }
+        if (s.tail.playbackState == Player.STATE_ENDED) { finish(s.tail, "tail voice ended"); return null }
         if (main.isPlaying && !s.tail.isPlaying) {
             if (++s.stalled >= STALL_TICKS) { finish(s.tail, "tail stalled"); return null }
             return if (s.step == 0) 1f else if (s.step == 1) .5f else 0f
@@ -271,7 +281,11 @@ class BeatJoin(
         }
         if (main.isPlaying && a >= s.plan.startMs) {
             Log.i(TAG, "overlap starts, lined up: ${s.locked}, new song at $pos, old at $a")
-            stage = Fading(s.plan, s.tail, pos - (a - s.plan.startMs), s.locked || !s.plan.onBeat, s.line)
+            // a new song up late fades from here over what's left of the tail, not from partway in, which would jump the gains
+            val late = a - s.plan.startMs
+            val fade = if (late > LATE_MS) Fading(s.plan, s.tail, pos, (s.plan.lengthMs - late).coerceAtLeast(4L * TICK_MS), s.locked || !s.plan.onBeat, s.line)
+            else Fading(s.plan, s.tail, pos - late, s.plan.lengthMs, s.locked || !s.plan.onBeat, s.line)
+            stage = fade
         }
         return 0f
     }
@@ -281,10 +295,11 @@ class BeatJoin(
         if (main.playerError != null) {
             // the new song failed with nothing after it: the old song's end isn't lost with it
             if (s.tail.playerError != null || s.tail.playbackState == Player.STATE_ENDED) { finish(s.tail, "old song played out"); return null }
-            s.tail.volume = sleepGain()
+            val to = sleepGain()
+            s.tail.volume = (s.tail.volume + to / RAMP_TICKS).coerceAtMost(to)
             return 0f
         }
-        val f = ((pos - s.cue).toFloat() / s.plan.lengthMs).coerceIn(0f, 1f)
+        val f = ((pos - s.cue).toFloat() / s.lengthMs).coerceIn(0f, 1f)
         if (!s.locked && main.isPlaying) {
             // still catching up: fine while the new song is hardly heard, then it stays where it is
             val off = (pos - s.plan.cueMs) - (s.tail.currentPosition - s.plan.startMs)

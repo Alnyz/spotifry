@@ -444,4 +444,106 @@ class BeatJoinTest {
         while (tails.isEmpty()) run(50)
         assertTrue(join.quick)
     }
+    /** Ticks with only the tail advancing, as when the main player is held up. */
+    private fun tailRunsOn(ticks: Int, gains: MutableList<Float?>? = null) = repeat(ticks) {
+        tail.pos += 50; tail.changed(); main.changed(); gains?.add(join.tick(true))
+    }
+
+    private fun toPriming() { at(160_000); join.tick(true); while (tails.isEmpty()) run(50) }
+
+    /** Plays on until the handover's first step, the one that halves both voices. */
+    private fun toSwapping() {
+        toPriming()
+        var g: Float?
+        do { run(50); g = join.tick(true) } while (g != .5f && main.index == 0)
+        assertEquals(.5f, g)
+    }
+
+    @Test fun aNewSongUpLateFadesFromWhereItIsWithoutAJump() {
+        toHandover()
+        // the tail is far past where the overlap should have begun by the time the new song is up
+        tail.pos += 6_000; tail.changed()
+        val mainGain = ArrayList<Float>(); val tailGain = ArrayList<Float>()
+        repeat(120) { run(50); join.tick(true)?.let { mainGain += it; tailGain += tail.vol } }
+        assertTrue(mainGain.isNotEmpty())
+        for (i in 1 until mainGain.size) {
+            assertTrue("main stepped ${mainGain[i - 1]} to ${mainGain[i]}", kotlin.math.abs(mainGain[i] - mainGain[i - 1]) < .12f)
+            assertTrue("tail stepped ${tailGain[i - 1]} to ${tailGain[i]}", kotlin.math.abs(tailGain[i] - tailGain[i - 1]) < .12f)
+        }
+        assertTrue("main starts low: ${mainGain.first()}", mainGain.first() < .1f)
+        assertTrue("the fade still completes", tail.released)
+    }
+
+    @Test fun aMainPlayerHeldUpAfterBeingInStepPutsTheTailBackInStep() {
+        toPriming(); run(3_500)
+        val seeks = tail.seeks.size
+        // main buffers for over a second while the silent tail runs on
+        main.play_state = Player.STATE_BUFFERING; main.changed()
+        tailRunsOn(30)
+        main.play_state = Player.STATE_READY; main.changed()
+        run(400)
+        assertEquals("not handed over with the tail ahead", 0, main.index)
+        assertTrue("tail seeked back", tail.seeks.size > seeks)
+        assertTrue("tail near main again, off by ${tail.pos - main.pos}", kotlin.math.abs(tail.pos - main.pos) < 600)
+    }
+
+    @Test fun theMainPlayerFailingBeforeTheHandoverLetsTheTailGo() {
+        toPriming(); run(100)
+        mainFails()
+        repeat(5) { join.tick(true) }
+        assertTrue(tail.released)
+        assertTrue(join.idle)
+    }
+
+    @Test fun theTailEndingDuringTheHandoverBringsTheMainPlayerBack() {
+        toSwapping()
+        tail.play_state = Player.STATE_ENDED; tail.changed(); idle()
+        assertNull(join.tick(true))
+        assertTrue(tail.released)
+    }
+
+    @Test fun theTailFailingDuringTheHandoverBringsTheMainPlayerBack() {
+        toSwapping()
+        tail.error = PlaybackException("x", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+        tail.play_state = Player.STATE_IDLE; tail.changed(); idle()
+        assertNull(join.tick(true))
+        assertTrue(tail.released)
+    }
+
+    @Test fun aTailStallingDuringTheHandoverBringsTheMainPlayerBack() {
+        toSwapping()
+        tail.play_state = Player.STATE_BUFFERING; tail.changed(); idle()
+        val gains = ArrayList<Float?>()
+        repeat(30) { main.pos += 50; main.changed(); gains += join.tick(true) }
+        assertTrue(tail.released)
+        assertNull(gains.last())
+        assertEquals("held until the guard gave up", .5f, gains.first()!!, .01f)
+    }
+
+    @Test fun theNewSongFailingMidOverlapBringsTheOldSongBackUpGently() {
+        toHandover()
+        val gains = ArrayList<Float?>()
+        while (tail.vol > .4f || tail.vol == 0f) run(50)
+        mainFails()
+        val seen = arrayListOf(tail.vol)
+        repeat(20) { join.tick(true); seen += tail.vol }
+        for (i in 1 until seen.size) assertTrue("tail stepped ${seen[i - 1]} to ${seen[i]}", seen[i] >= seen[i - 1] && seen[i] - seen[i - 1] <= .15f)
+        assertEquals(1f, seen.last(), .001f)
+        assertFalse(tail.released)
+    }
+
+    @Test fun pausedMeansSlowTicksUnlessATailIsLeaving() {
+        toPriming()
+        assertTrue(join.quick)
+        main.play = false; main.changed(); idle()
+        assertFalse("nothing moves while paused", join.quick)
+        main.play = true; main.changed(); idle()
+        assertTrue(join.quick)
+        main.play = false; main.changed(); idle()
+        main.seekTo(0, 5_000); idle()
+        join.tick(true)
+        assertTrue("the leaving tail still fades out at full rate", join.quick)
+        repeat(4) { join.tick(true) }
+        assertFalse(join.quick)
+    }
 }
