@@ -650,6 +650,16 @@ class BeatJoinTest {
         assertEquals("once, as it lets go, or the tail's fade out would race", 1, wakes)
     }
 
+    @Test fun theOldSongCountsAsHeardOnlyOnceItsTailVoiceHasTakenOver() {
+        toPriming()
+        // running silently under the song on main, which is what's heard
+        assertEquals(false, join.tailHeard)
+        toMidOverlap()
+        assertEquals(true, join.tailHeard)
+        main.pos = main.duration; repeat(400) { run(50) }
+        assertEquals(false, join.tailHeard)
+    }
+
     private fun toMidOverlap(): Float {
         toHandover()
         while (tail.vol > .35f || tail.vol == 0f) run(50)

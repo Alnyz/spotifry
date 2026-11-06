@@ -123,3 +123,17 @@ abstract class PlayCountDao {
     @Query("SELECT s.* FROM songs s JOIN plays p ON p.songId = s.id ORDER BY p.count DESC, p.lastPlayedAt DESC LIMIT :limit")
     abstract fun observeMostPlayed(limit: Int): Flow<List<SongEntity>>
 }
+
+@Dao
+abstract class ListenDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE) abstract suspend fun insert(e: ListenEntity)
+    /** Only ever an update: after Clear listening history the rest of a song already playing isn't brought back. */
+    @Query("UPDATE listens SET secondsHeard = :seconds, skipped = :skipped WHERE startedAt = :startedAt")
+    abstract suspend fun update(startedAt: Long, seconds: Int, skipped: Boolean)
+    @Query("DELETE FROM listens") abstract suspend fun clear()
+
+    @Query("SELECT l.startedAt, l.songId, l.secondsHeard, l.skipped, s.* FROM listens l LEFT JOIN songs s ON s.id = l.songId ORDER BY l.startedAt")
+    abstract fun observeAll(): Flow<List<ListenRow>>
+    @Query("SELECT * FROM listens WHERE startedAt >= :since") abstract fun observeSince(since: Long): Flow<List<ListenEntity>>
+    @Query("SELECT EXISTS(SELECT 1 FROM listens)") abstract fun observeAny(): Flow<Boolean>
+}

@@ -49,6 +49,9 @@ class PlaybackService : MediaSessionService() {
     private val failures = FailureTracker()
     private val retries = OneRetryPerSong()
     private val plays = PlayCounter()
+    private val listens = ListenTracker()
+    /** The next move on is the service stepping past a song that failed, not the listener skipping it. */
+    private var movedByFailure = false
     /** The song now playing began by running on from the one before, so it fades in. */
     private var fadeIn = false
     /** Smart shuffle is on: one similar song after every three of yours. Turned on only by the Now playing button. */
@@ -131,6 +134,11 @@ class PlaybackService : MediaSessionService() {
                 fadeIn = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
                 // also fires when repeat-one starts the song again, which is a new play
                 plays.restart(mediaItem?.mediaId)
+                c.listenLog.write(listens.moved(
+                    mediaItem?.mediaId, mediaItem?.toSong()?.durationSec ?: 0, again = reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT,
+                    byListener = reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && !movedByFailure,
+                ))
+                movedByFailure = false
                 // keep the level measured for the song that just ended, start the new one at its remembered level
                 levelFor?.let { id -> loudness.lastMeasuredDb?.let { levels.put(id, it) } }
                 levelFor = mediaItem?.mediaId
@@ -167,6 +175,7 @@ class PlaybackService : MediaSessionService() {
                 // a song that cannot load (blocked, removed, offline and unsaved) must not stall the queue
                 player.currentMediaItem?.mediaMetadata?.title?.toString()?.let { c.events.failed.tryEmit(it) }
                 if (failures.onFailure(player.mediaItemCount) && player.hasNextMediaItem()) {
+                    movedByFailure = true
                     player.seekToNextMediaItem()
                     player.prepare()
                     player.play()
@@ -245,10 +254,15 @@ class PlaybackService : MediaSessionService() {
                 .collect { Widget.draw(this@PlaybackService) }
         }
         scope.launch {
+            var last = android.os.SystemClock.elapsedRealtime()
             while (true) {
                 delay(1_000)
                 val id = player.currentMediaItem?.mediaId
                 if (plays.tick(id, player.isPlaying, 1_000) && id != null) launch(Dispatchers.IO) { c.db.plays().count(id, System.currentTimeMillis()) }
+                val at = android.os.SystemClock.elapsedRealtime()
+                // the real time since the last tick, so a busy moment loses nothing; a long gap isn't believed
+                c.listenLog.write(listens.tick(id, player.isPlaying || join?.tailHeard == true, (at - last).coerceAtMost(5_000)) { player.currentMediaItem?.toSong()?.durationSec ?: 0 })
+                last = at
             }
         }
     }
@@ -431,6 +445,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        (application as MusicApp).container.listenLog.write(listens.moved(null, 0, again = false, byListener = false))
         scope.cancel()
         join?.release()
         (application as MusicApp).container.sleepTimer.detach()

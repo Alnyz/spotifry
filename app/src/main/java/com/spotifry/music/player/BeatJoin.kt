@@ -349,6 +349,10 @@ class BeatJoin(
         if (!lining && tail.playbackParameters != wanted()) tail.playbackParameters = wanted()
     }
 
+    /** The old song is what's heard, on the tail voice: [main] may be silent and still loading the new one. */
+    val tailHeard: Boolean
+        get() = when (val s = stage) { is Swapping -> s.tail.isPlaying; is Settling -> s.tail.isPlaying; is Fading -> s.tail.isPlaying; else -> false }
+
     private val tail: Player?
         get() = when (val s = stage) { is Priming -> s.tail; is Swapping -> s.tail; is Settling -> s.tail; is Fading -> s.tail; else -> null }
 

@@ -61,6 +61,7 @@ class AppContainer(private val context: Context) {
     /** One lyrics lookup for Now playing and Share, so a song's lyrics are fetched once. */
     val lyrics = com.spotifry.music.data.LyricsSource(client)
     val historyRecorder = HistoryRecorder(db.history(), db.songs())
+    val listenLog = com.spotifry.music.data.ListenLog(db.listens())
     val events = PlaybackEvents()
     val sleepTimer = com.spotifry.music.player.SleepTimer()
     /** Live picture of the sound, drawn on the Equalizer page. */
