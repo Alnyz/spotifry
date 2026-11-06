@@ -55,6 +55,7 @@ import androidx.compose.ui.semantics.Role
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.ErrorRow
 import com.spotifry.music.ui.components.LoadingRow
+import com.spotifry.music.ui.components.LoadingShapes
 import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.ui.components.SongRow
 
@@ -139,8 +140,7 @@ fun SearchResults(
     Column(modifier) {
         when (search) {
             SearchState.Idle -> Unit
-            // the grey rows take the shape of what's coming
-            SearchState.Loading -> repeat(3) { LoadingRow(width = if (type == SearchType.VIDEOS) 92.dp else 52.dp, round = type == SearchType.ARTISTS) }
+            SearchState.Loading -> LoadingShapes { repeat(3) { LoadingRow(width = if (type == SearchType.VIDEOS) 92.dp else 52.dp, round = type == SearchType.ARTISTS) } }
             is SearchState.Results -> {
                 val t = search.type
                 if (search.songs.isEmpty() && search.pages.isEmpty()) Text(

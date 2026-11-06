@@ -47,7 +47,9 @@ import com.spotifry.music.player.clockText
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.ErrorRow
+import com.spotifry.music.ui.components.LoadingBox
 import com.spotifry.music.ui.components.LoadingRow
+import com.spotifry.music.ui.components.LoadingShapes
 import com.spotifry.music.ui.components.PlayButtons
 import com.spotifry.music.ui.components.SectionTitle
 import com.spotifry.music.ui.components.SongRow
@@ -119,7 +121,17 @@ fun PageScreen(
             if (!p?.songs.isNullOrEmpty()) PlayButtons({ onPlay(p!!.songs, 0, p.name) }, { onShuffle(p!!.songs, p.name) }, Modifier.padding(start = 20.dp, top = 18.dp, bottom = 6.dp))
         }
         when {
-            state == null -> item { Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp)) { repeat(4) { LoadingRow() } } }
+            // what the header and first rows will be, so the rows land where the shapes are
+            state == null -> item {
+                LoadingShapes(Modifier.padding(start = 20.dp, end = 8.dp)) {
+                    Row(Modifier.padding(top = 18.dp, bottom = 6.dp), Arrangement.spacedBy(10.dp)) {
+                        LoadingBox(Modifier.size(93.dp, 48.dp), CircleShape)
+                        LoadingBox(Modifier.size(111.dp, 48.dp), CircleShape)
+                    }
+                    if (artist) LoadingBox(Modifier.padding(top = 28.dp, bottom = 12.dp).size(90.dp, 25.dp), RoundedCornerShape(6.dp))
+                    repeat(5) { if (album) LoadingRow(width = 28.dp, height = 14.dp) else LoadingRow() }
+                }
+            }
             p == null -> item { ErrorRow(link.name, vm::load, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
             else -> {
                 if (artist && p.songs.isNotEmpty()) item { SectionTitle("Songs") }

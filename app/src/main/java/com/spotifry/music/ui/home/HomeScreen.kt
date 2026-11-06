@@ -52,7 +52,8 @@ import com.spotifry.music.data.source.Song
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.CoverArt
 import com.spotifry.music.ui.components.ErrorRow
-import com.spotifry.music.ui.components.LoadingRow
+import com.spotifry.music.ui.components.LoadingBox
+import com.spotifry.music.ui.components.LoadingShapes
 import com.spotifry.music.ui.components.SectionTitle
 import com.spotifry.music.ui.components.SongRow
 import java.time.LocalTime
@@ -63,11 +64,11 @@ fun HomeScreen(
     onOpenSaved: () -> Unit, onOpenPlaylists: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {},
     top: @Composable () -> Unit = {},
 ) {
-    val recent by vm.recent.collectAsStateWithLifecycle()
+    val recent by vm.recentOrNull.collectAsStateWithLifecycle()
     val saved by vm.savedIds.collectAsStateWithLifecycle()
     val most by vm.mostPlayed.collectAsStateWithLifecycle()
     HomeContent(
-        recent = recent, savedIds = saved, mostPlayed = most,
+        recent = recent.orEmpty(), loading = recent == null, savedIds = saved, mostPlayed = most,
         onPlay = vm::play, onMore = onMore, modifier = modifier, bottomInset = bottomInset,
         onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, top = top,
     )
@@ -80,6 +81,8 @@ fun HomeContent(
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     onOpenSaved: () -> Unit = {}, onOpenPlaylists: () -> Unit = {}, onShuffleSaved: () -> Unit = {},
     mostPlayed: List<SongEntity> = emptyList(), onOpenSettings: () -> Unit = {},
+    /** The history isn't read yet, so an empty [recent] says nothing about this person. */
+    loading: Boolean = false,
     /** Shown under the greeting: the update card when there is one. */
     top: @Composable () -> Unit = {},
 ) {
@@ -96,6 +99,9 @@ fun HomeContent(
         item { top() }
         val songs = recent.map { it.toSong() }
         if (recent.isNotEmpty()) item { LastPlayed(recent[0]) { onPlay(songs, 0, "Recently played") } }
+        else if (loading) item {
+            LoadingShapes { LoadingBox(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().height(212.dp), RoundedCornerShape(22.dp)) }
+        }
         item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), Arrangement.spacedBy(10.dp)) {
                 Shortcut(Icons.Download, "Saved", onOpenSaved)
@@ -104,7 +110,7 @@ fun HomeContent(
             }
         }
         if (recent.isEmpty()) {
-            item {
+            if (!loading) item {
                 Text(
                     "Find a song in Search to start. What you play shows up here.",
                     Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp),

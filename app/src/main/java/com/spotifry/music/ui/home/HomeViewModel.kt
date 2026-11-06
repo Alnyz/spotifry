@@ -89,8 +89,9 @@ class HomeViewModel(
         }
     }
 
-    val recent: StateFlow<List<SongEntity>> = history.observeRecent()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** Null until the history has been read. */
+    val recentOrNull: StateFlow<List<SongEntity>?> = history.observeRecent()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val saved: StateFlow<List<SongEntity>> = songs.observeSaved()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

@@ -55,6 +55,8 @@ import com.spotifry.music.data.source.Song
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.EmptyState
+import com.spotifry.music.ui.components.LoadingRow
+import com.spotifry.music.ui.components.LoadingShapes
 import com.spotifry.music.ui.components.PlayButtons
 import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.ui.components.SongRow
@@ -145,7 +147,8 @@ fun PlaylistDetailContent(
             )
             Spacer(Modifier.height(8.dp))
         }
-        if (songs.isEmpty() && !loading) item { EmptyState("Nothing here yet", "Use the three dots next to any song to add one.") }
+        if (loading) item { LoadingShapes(Modifier.padding(start = 20.dp, end = 8.dp)) { repeat(5) { LoadingRow() } } }
+        else if (songs.isEmpty()) item { EmptyState("Nothing here yet", "Use the three dots next to any song to add one.") }
         // a found song plays from its place in the whole playlist, so the rest follows after it
         items(shown.size, key = { songs[shown[it]].id }) { k ->
             val i = shown[k]

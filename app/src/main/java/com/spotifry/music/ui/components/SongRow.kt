@@ -1,9 +1,7 @@
 package com.spotifry.music.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
@@ -11,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +20,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,18 +80,6 @@ fun SongRow(
             }
             if (current) PlayingBars(now!!.playing)
             if (onMore != null) IconButton(onMore, Modifier.size(48.dp)) { Icon(Icons.More, "More options") }
-        }
-    }
-}
-
-@Composable
-fun LoadingRow(modifier: Modifier = Modifier, width: androidx.compose.ui.unit.Dp = 52.dp, round: Boolean = false) {
-    val bar = MaterialTheme.colorScheme.surfaceContainerHigh
-    Row(modifier.fillMaxWidth().defaultMinSize(minHeight = 70.dp).padding(vertical = 9.dp).testTag("loading_row"), Arrangement.spacedBy(14.dp), Alignment.CenterVertically) {
-        Box(Modifier.size(width, 52.dp).clip(if (round) androidx.compose.foundation.shape.CircleShape else RoundedCornerShape(10.dp)).background(bar))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.size(150.dp, 14.dp).clip(RoundedCornerShape(3.dp)).background(bar))
-            Box(Modifier.size(90.dp, 11.dp).clip(RoundedCornerShape(3.dp)).background(bar))
         }
     }
 }
