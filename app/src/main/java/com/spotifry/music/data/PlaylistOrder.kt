@@ -27,5 +27,8 @@ class PlaylistOrders(private val prefs: SharedPreferences?) {
     fun get(id: Long): PlaylistOrder = memory[id]
         ?: runCatching { PlaylistOrder.valueOf(prefs?.getString(key(id), null)!!) }.getOrDefault(PlaylistOrder.CUSTOM)
     fun set(id: Long, order: PlaylistOrder) { memory[id] = order; prefs?.edit()?.putString(key(id), order.name)?.apply() }
-    private fun key(id: Long) = "playlist_order_$id"
+    companion object {
+        const val KEY_PREFIX = "playlist_order_"
+        fun key(id: Long) = "$KEY_PREFIX$id"
+    }
 }

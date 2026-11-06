@@ -124,6 +124,52 @@ abstract class PlayCountDao {
     abstract fun observeMostPlayed(limit: Int): Flow<List<SongEntity>>
 }
 
+/** Reads everything for a backup, and merges one in: never overwrites newer data, and doing it twice changes nothing. */
+@Dao
+abstract class BackupDao {
+    @Query("SELECT * FROM songs") abstract suspend fun songs(): List<SongEntity>
+    @Query("SELECT id FROM songs WHERE filePath IS NOT NULL") abstract suspend fun savedIds(): List<String>
+    @Query("SELECT * FROM playlists ORDER BY id") abstract suspend fun playlists(): List<PlaylistEntity>
+    @Query("SELECT * FROM playlist_songs ORDER BY playlistId, position") abstract suspend fun playlistSongs(): List<PlaylistSongEntity>
+    @Query("SELECT * FROM history") abstract suspend fun history(): List<HistoryEntity>
+    @Query("SELECT * FROM plays") abstract suspend fun plays(): List<PlayCountEntity>
+    @Query("SELECT * FROM listens") abstract suspend fun listens(): List<ListenEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertSong(e: SongEntity)
+    @Insert protected abstract suspend fun insertPlaylist(p: PlaylistEntity): Long
+    @Query(
+        "INSERT OR IGNORE INTO playlist_songs (playlistId, songId, position, addedAt) " +
+            "SELECT :playlistId, :songId, COALESCE(MAX(position), -1) + 1, :addedAt FROM playlist_songs WHERE playlistId = :playlistId"
+    )
+    protected abstract suspend fun appendSong(playlistId: Long, songId: String, addedAt: Long)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertHistory(e: HistoryEntity)
+    @Query("UPDATE history SET playedAt = MAX(playedAt, :at) WHERE songId = :songId") protected abstract suspend fun laterHistory(songId: String, at: Long)
+    @Query("DELETE FROM history WHERE songId NOT IN (SELECT songId FROM history ORDER BY playedAt DESC LIMIT 20)") protected abstract suspend fun pruneHistory()
+    @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertPlays(e: PlayCountEntity)
+    @Query("UPDATE plays SET count = MAX(count, :count), lastPlayedAt = MAX(lastPlayedAt, :at) WHERE songId = :songId")
+    protected abstract suspend fun largerPlays(songId: String, count: Int, at: Long)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertListen(e: ListenEntity)
+
+    /** Returns this phone's id for each of the backup's playlists, in order. */
+    @Transaction
+    open suspend fun merge(b: com.spotifry.music.data.BackupFile): List<Long> {
+        b.songs.forEach { insertSong(it.copy(savedAt = null, filePath = null, thumbPath = null)) }
+        // the nth playlist of a name is the nth one here, so two with the same name stay two
+        val here = playlists().groupBy({ it.name }, { it.id }).mapValues { ArrayDeque(it.value) }
+        val ids = b.playlists.map { p ->
+            val id = here[p.name]?.removeFirstOrNull() ?: insertPlaylist(PlaylistEntity(name = p.name, createdAt = p.createdAt))
+            p.songs.forEach { appendSong(id, it.songId, it.addedAt) }
+            id
+        }
+        b.history.forEach { insertHistory(it); laterHistory(it.songId, it.playedAt) }
+        pruneHistory()
+        // the larger count, not the sum: both phones may hold the same plays
+        b.plays.forEach { insertPlays(it); largerPlays(it.songId, it.count, it.lastPlayedAt) }
+        b.listens.forEach { insertListen(it) }
+        return ids
+    }
+}
+
 @Dao
 abstract class ListenDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE) abstract suspend fun insert(e: ListenEntity)

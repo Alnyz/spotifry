@@ -43,7 +43,7 @@ import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.data.UpdateState
 
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, updates: com.spotifry.music.data.Updates? = null, onOpenEqualizer: () -> Unit = {}) {
+fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, updates: com.spotifry.music.data.Updates? = null, onOpenEqualizer: () -> Unit = {}, backup: BackupActions? = null) {
     val dataSaver by vm.settings.dataSaver.collectAsStateWithLifecycle()
     val saveLow by vm.settings.saveLow.collectAsStateWithLifecycle()
     val theme by vm.settings.theme.collectAsStateWithLifecycle()
@@ -125,6 +125,10 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 Item("Saved songs", storage?.let { "${it.savedCount} ${if (it.savedCount == 1) "song" else "songs"} · ${size(it.savedBytes)}" } ?: "Counting…")
                 Item("Clear played songs kept for replay", storage?.let { "${size(it.songCacheBytes)} of 1 GB · they download again when played" } ?: "Counting…", onClick = vm::clearSongCache)
                 Item("Clear covers kept for speed", storage?.let { "${size(it.coverBytes)} · they load again when shown" } ?: "Counting…", onClick = vm::clearCovers)
+            }
+            if (backup != null) Group("Backup") {
+                Item("Save backup", "Your playlists, song list, history, trims and settings, in one file. No music files.", onClick = backup.save)
+                Item("Restore backup", "Brings a backup into this phone. Saved songs can be downloaded again from Saved.", onClick = backup.restore)
             }
             Group("History") {
                 Item("Clear recent searches", if (searches.isEmpty()) "Nothing to clear" else "${searches.size} saved", onClick = vm::clearSearches)

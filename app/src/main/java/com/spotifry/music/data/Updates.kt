@@ -167,10 +167,10 @@ class Updates(
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
-    private companion object {
-        const val LATEST = "https://api.github.com/repos/Alnyz/spotifry/releases/latest"
+    companion object {
+        private const val LATEST = "https://api.github.com/repos/Alnyz/spotifry/releases/latest"
         const val LAST_CHECK = "update_last_check"
         const val LATER = "update_later"
-        const val DAY_MS = 24 * 60 * 60 * 1000L
+        private const val DAY_MS = 24 * 60 * 60 * 1000L
     }
 }

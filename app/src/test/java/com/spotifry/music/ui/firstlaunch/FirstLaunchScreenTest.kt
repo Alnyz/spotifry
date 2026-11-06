@@ -1,6 +1,9 @@
 package com.spotifry.music.ui.firstlaunch
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -45,6 +48,18 @@ class FirstLaunchScreenTest {
 
     private fun artists(picked: List<PickedArtist>, offline: Boolean = false, onRetry: () -> Unit = {}, onContinue: () -> Unit = {}) = compose.setContent {
         MusicTheme { ArtistsStep(starters, picked, "", {}, ArtistSearch.Idle, offline, "1 of 2", "Skip", "Continue", {}, onRetry, {}, onContinue) }
+    }
+
+    @Test fun restoreLinkShowsOnlyWhenOffered() {
+        var taps = 0
+        var offered by mutableStateOf(false)
+        compose.setContent {
+            MusicTheme { ArtistsStep(starters, emptyList(), "", {}, ArtistSearch.Idle, false, "1 of 2", "Skip", "Continue", {}, {}, {}, {}, onRestore = if (offered) ({ taps++ }) else null) }
+        }
+        compose.onNodeWithText("Restore a backup").assertDoesNotExist()
+        offered = true
+        compose.onNodeWithText("Restore a backup").performClick()
+        assertEquals(1, taps)
     }
 
     @Test fun nothingPickedAsksForThree() {

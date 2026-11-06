@@ -26,7 +26,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import com.spotifry.music.data.RestoreStatus
+import com.spotifry.music.ui.settings.switchColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,10 +68,50 @@ fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Un
     LaunchedEffect(view.filter) { if (view.filter != SavedFilter.Offline) { allowed = vm.allowed(); vm.refreshPhone() } }
     // back from Android's settings with access given
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { val now = vm.allowed(); if (now != allowed) { allowed = now; vm.refreshPhone() } }
+    val left by vm.restoreLeft.collectAsStateWithLifecycle()
+    val queue = vm.restore
     SavedContent(
         view, vm::pick, onFindSong, vm::play, onMore, modifier, bottomInset, onShuffle = vm::shuffle,
         phoneAllowed = allowed, onAllow = { ask.launch(Manifest.permission.READ_MEDIA_AUDIO) },
+        restoreCard = if (queue == null || left == 0) null else ({
+            val status by queue.status.collectAsStateWithLifecycle()
+            RestoreCard(left, status, queue::start, queue::stop, queue::forget)
+        }),
     )
+}
+
+/** After a restore: the songs that were saved on the old phone, waiting to be downloaded again, a few GB at most only if asked. */
+@Composable
+internal fun RestoreCard(left: Int, status: RestoreStatus, onDownload: (wifiOnly: Boolean) -> Unit, onStop: () -> Unit, onForget: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    var wifiOnly by rememberSaveable { mutableStateOf(true) }
+    val songs = "$left ${if (left == 1) "song" else "songs"}"
+    val (title, body) = when (status) {
+        RestoreStatus.Running -> "Downloading your saved songs" to "$songs left. You can keep listening."
+        RestoreStatus.NeedsWifi -> "$songs waiting for Wi-Fi" to "Connect to Wi-Fi, or turn off Wi-Fi only."
+        is RestoreStatus.Failed -> "${status.count} ${if (status.count == 1) "song" else "songs"} didn't download" to "Check your connection, then try again."
+        RestoreStatus.Idle -> "$songs ${if (left == 1) "was" else "were"} saved on your old phone" to "Their music files didn't come with the backup."
+    }
+    Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(scheme.surface).padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+        Text(body, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+        if (status == RestoreStatus.Running) {
+            Row(Modifier.fillMaxWidth(), Arrangement.End) { TextButton(onStop) { Text("Stop") } }
+            return@Column
+        }
+        Row(
+            Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp).toggleable(wifiOnly, role = Role.Switch) { wifiOnly = it },
+            Arrangement.SpaceBetween, Alignment.CenterVertically,
+        ) {
+            Text("Wi-Fi only", style = MaterialTheme.typography.bodyMedium)
+            Switch(wifiOnly, null, colors = switchColors())
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button({ onDownload(wifiOnly) }) { Text("Download $songs") }
+            Spacer(Modifier.weight(1f))
+            TextButton(onForget) { Text("Forget them", color = scheme.onSurfaceVariant) }
+        }
+    }
 }
 
 @Composable
@@ -71,6 +119,7 @@ fun SavedContent(
     view: SavedView, onFilter: (SavedFilter) -> Unit, onFindSong: () -> Unit, onPlay: (List<Song>, Int) -> Unit, onMore: (Song) -> Unit,
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     onShuffle: (List<Song>) -> Unit = {}, phoneAllowed: Boolean = true, onAllow: () -> Unit = {},
+    restoreCard: (@Composable () -> Unit)? = null,
 ) {
     val rows = view.rows
     val songs = remember(rows) { rows.map { it.song } }
@@ -88,6 +137,7 @@ fun SavedContent(
                 SavedFilter.entries.forEach { Chip(it.label, it == view.filter) { onFilter(it) } }
             }
         }
+        if (restoreCard != null && (view.filter == SavedFilter.All || view.filter == SavedFilter.Offline)) item { restoreCard() }
         when {
             view.filter == SavedFilter.Phone && !phoneAllowed -> item { AskCard(onAllow) }
             rows.isEmpty() -> item { Empty(view.filter, phoneAllowed, onFindSong) }

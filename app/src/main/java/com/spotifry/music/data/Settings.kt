@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 
 enum class ThemeMode { PHONE, LIGHT, DARK }
 
+const val FIRST_LAUNCH_SEEN = "first_launch_seen"
+
 /** The few choices on the Settings page, kept on the phone. Each change is saved at once. */
 class Settings(private val prefs: SharedPreferences) {
     private val _dataSaver = MutableStateFlow(prefs.getBoolean(DATA_SAVER, false))
@@ -155,7 +157,6 @@ class Settings(private val prefs: SharedPreferences) {
     }
 
     private companion object {
-        const val FIRST_LAUNCH_SEEN = "first_launch_seen"
         const val JIOSAAVN = "jiosaavn"
         const val ARTISTS = "picked_artists"
         const val DATA_SAVER = "data_saver"

@@ -84,7 +84,7 @@ import com.spotifry.music.ui.playlists.Title
  */
 @Composable
 fun FirstLaunchScreen(
-    vm: FirstLaunchViewModel, importVm: ImportViewModel, covers: Map<Long, List<SongEntity>>, onClose: () -> Unit = {},
+    vm: FirstLaunchViewModel, importVm: ImportViewModel, covers: Map<Long, List<SongEntity>>, onClose: () -> Unit = {}, onRestore: (() -> Unit)? = null,
 ) {
     val step by vm.step.collectAsStateWithLifecycle()
     val importing by importVm.state.collectAsStateWithLifecycle()
@@ -121,7 +121,7 @@ fun FirstLaunchScreen(
                 onToggle = vm::toggle, onRetry = vm::retryPhotos,
                 onSkip = { if (vm.reopen) onClose() else vm.skipArtists() },
                 onContinue = { vm.next(); if (vm.reopen) onClose() },
-                minPicks = vm.minPicks,
+                minPicks = vm.minPicks, onRestore = onRestore,
             )
         } else {
             LinkStep(
@@ -165,7 +165,7 @@ internal fun ArtistsStep(
     starters: List<Starter>, picked: List<PickedArtist>, query: String, onQuery: (String) -> Unit, search: ArtistSearch, offline: Boolean,
     stepLabel: String?, skipLabel: String, continueLabel: String,
     onToggle: (PickedArtist) -> Unit, onRetry: () -> Unit, onSkip: () -> Unit, onContinue: () -> Unit,
-    minPicks: Int = MIN_ARTISTS,
+    minPicks: Int = MIN_ARTISTS, onRestore: (() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val keyboard = LocalSoftwareKeyboardController.current
@@ -201,6 +201,11 @@ internal fun ArtistsStep(
             val n = picked.size
             if (n >= minPicks) Pill(null, if (n == 0) "$continueLabel · none picked" else "$continueLabel · $n picked", scheme.primary, scheme.onPrimary, onContinue, Modifier.fillMaxWidth())
             else Pill(null, if (n == 0) "Pick $MIN_ARTISTS or more" else "Pick ${MIN_ARTISTS - n} more", scheme.surfaceContainerHigh, scheme.onSurfaceVariant, {}, Modifier.fillMaxWidth().semantics { disabled() })
+            if (onRestore != null) Text(
+                "Restore a backup",
+                Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp).clickable(role = Role.Button, onClick = onRestore).heightIn(min = 48.dp).padding(horizontal = 12.dp).wrapContentHeight(Alignment.CenterVertically),
+                style = MaterialTheme.typography.labelLarge, color = scheme.primary,
+            )
         }
     }
 }

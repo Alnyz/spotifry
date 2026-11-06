@@ -19,12 +19,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class SavedViewModel(songs: SongDao, private val downloads: DownloadRepository, private val player: SongPlayer, private val local: LocalMusic, history: HistoryDao) : ViewModel() {
+class SavedViewModel(songs: SongDao, private val downloads: DownloadRepository, private val player: SongPlayer, private val local: LocalMusic, history: HistoryDao, val restore: com.spotifry.music.data.RestoreQueue? = null) : ViewModel() {
     /** Saved songs, plus the ones whose download is still running, so a tap on Save shows up at once. */
     val saved: StateFlow<List<SongEntity>> = combine(songs.observeSaved(), downloads.pending) { done, pending ->
         val doneIds = done.map { it.id }.toSet()
         pending.filter { it.id !in doneIds }.map { it.toEntity() } + done
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** Songs from a backup still without a file. One saved by hand since then no longer counts. */
+    val restoreLeft: StateFlow<Int> = combine(restore?.ids ?: MutableStateFlow(emptyList()), saved) { ids, s -> (ids - s.map { it.id }.toSet()).size }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
     /** Music files already on the phone; also feeds search, so read once at start. */
     val phone: StateFlow<List<Song>> = local.songs
     /** Kept here, not in the screen, so it survives going to another tab and back. */

@@ -176,7 +176,15 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     val route = backEntry?.destination?.route
 
     val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs, c::warm) } })
-    val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic, c.db.history()) } })
+    val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic, c.db.history(), c.restoreQueue) } })
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val backupActions = com.spotifry.music.ui.settings.rememberBackupActions(viewModel(factory = viewModelFactory { initializer {
+        com.spotifry.music.ui.settings.BackupViewModel(c.backups, { appContext.contentResolver.openOutputStream(it, "wt") }, { appContext.contentResolver.openInputStream(it) }) {
+            // Settings reads its values once, so the restored ones need a fresh start
+            appContext.startActivity(android.content.Intent.makeRestartActivityTask(android.content.ComponentName(appContext, MainActivity::class.java)))
+            Runtime.getRuntime().exit(0)
+        }
+    } }))
     val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs)) } })
     val listeningRow: com.spotifry.music.ui.listening.ListeningRowViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.listening.ListeningRowViewModel(c.db.listens()) } })
     val settingsVm: SettingsViewModel = viewModel(factory = viewModelFactory { initializer {
@@ -357,7 +365,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                             val savedIds by home.savedIds.collectAsStateWithLifecycle()
                             com.spotifry.music.ui.listening.ListeningScreen(vm, savedIds, player.isPlaying && !showPlayer, { nav.popBackStack() }, plVm::play, openMenu, { name -> home.onQueryChanged(name); goTo(Routes.SEARCH) }, inset)
                         }
-                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }) }
+                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }, backup = backupActions) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.spectrum, c.autoEq, player.isPlaying, { nav.popBackStack() }, inset) }
                         composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset, pageActions, onMood = { nav.navigate(Routes.mood(it)) { launchSingleTop = true } }) }
                         composable(Routes.MOOD, listOf(navArgument("name") { type = NavType.StringType; defaultValue = "" })) { e ->
@@ -424,7 +432,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             if (!firstSeen && fresh == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
             if (!firstSeen && fresh == true) {
                 val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "first-launch", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings) } })
-                com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers)
+                com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers, onRestore = backupActions.restore)
             } else if (pickArtists > 0 && pickingOpen) {
                 val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "pick-artists-$pickArtists", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings, reopen = true) } })
                 com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers) { pickingOpen = false }

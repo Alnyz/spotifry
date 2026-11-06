@@ -18,6 +18,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun history(): HistoryDao
     abstract fun plays(): PlayCountDao
     abstract fun listens(): ListenDao
+    abstract fun backup(): BackupDao
 
     companion object {
         fun create(context: Context): AppDatabase =
