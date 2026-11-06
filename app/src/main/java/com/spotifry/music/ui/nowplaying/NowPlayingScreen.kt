@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -58,6 +59,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
@@ -81,8 +83,8 @@ internal val Faint = Color.White.copy(alpha = .72f)
 
 /**
  * Layout: the background takes its colour from the cover. Where the music comes from at the top, then the big cover,
- * title with the save button beside it, the progress bar, the controls, and the queue button. Below the fold, the
- * songs coming up, whose top edge peeks in.
+ * title with the save button beside it, the progress bar, the controls, and the pill with the lyric line or next song.
+ * Below the fold, the songs coming up, whose top edge peeks in.
  */
 @Composable
 fun NowPlayingContent(
@@ -129,9 +131,15 @@ fun NowPlayingContent(
     CompositionLocalProvider(LocalContentColor provides Color.White) {
     BoxWithConstraints(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(top, lerp(top, Color.Black, .6f))))) {
         val screen = maxHeight
-        // the cover keeps its size when a pill shows: the free space on the page takes up the pill instead
+        // on normal screens the cover keeps its size when a pill shows: the free space on the page takes up the pill instead
         val pills = sleep != SleepState.Off || speedLabel != null
-        val cover = minOf(maxWidth - 48.dp, screen * 0.44f)
+        // on short screens the cover gives way, so the pill under the controls stays above the gesture bar
+        val bars = WindowInsets.systemBars.asPaddingValues()
+        val around = 360.dp + bars.calculateTopPadding() + bars.calculateBottomPadding() + (if (pills) 34.dp else 0.dp)
+        val cover = minOf(maxWidth - 48.dp, screen * 0.44f, screen - around).coerceAtLeast(140.dp)
+        // lyrics are timed to the whole song; the player counts from the trim's start
+        val trimStart = state.trim?.startMs ?: 0L
+        val sung = remember(trimStart, position) { { position() + trimStart } }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // at least one screen tall (minus the peek of the card below), taller on small screens so nothing is cut off
             Column(
@@ -169,12 +177,10 @@ fun NowPlayingContent(
                 }
                 ProgressBar(state, position, Modifier.padding(horizontal = 24.dp).padding(top = 14.dp), onSeek, onTrim)
                 Controls(state, onToggle, onNext, onPrev, onShuffle, onRepeat, Modifier.padding(horizontal = 14.dp).padding(top = 6.dp))
-                Spacer(Modifier.height(20.dp))
+                SongPill(lyrics, state.nextTitle(), sung, { onShowLyrics(true) }, onQueue)
+                Spacer(Modifier.height(12.dp))
                 }
             }
-            // lyrics are timed to the whole song; the player counts from the trim's start
-            val trimStart = state.trim?.startMs ?: 0L
-            val sung = remember(trimStart) { { position() + trimStart } }
             LyricsCard(lyrics, sung, state.isPlaying, lerp(top, Color.White, .14f), { onShowLyrics(true) }, onRetryLyrics)
             ComingUp(state, saved, lerp(top, Color.Black, .35f), onPick, onQueue, onSuggestionMore)
         }
