@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.spotifry.music.data.MIN_ARTISTS
 import com.spotifry.music.data.db.PlaylistWithCounts
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.db.toEntity
@@ -349,7 +348,7 @@ private fun StartCard(onSearch: () -> Unit, onImport: () -> Unit, onPickArtists:
         HorizontalDivider(color = scheme.outlineVariant)
         ImportWay(onImport)
         HorizontalDivider(color = scheme.outlineVariant)
-        Way(Icons.List, "Pick your artists", "Choose $MIN_ARTISTS or more for Home", onPickArtists)
+        Way(Icons.List, "Pick your artists", "Choose artists for Home", onPickArtists)
     }
 }
 
