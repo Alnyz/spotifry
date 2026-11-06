@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.layout.layout
+import androidx.compose.foundation.layout.RowScope
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -196,8 +199,13 @@ internal fun ListeningContent(
             // the hole in the sun has a fixed size, so text there stops growing past this; the line above says the same in full
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, minOf(density.fontScale, 1.3f))) {
+                val shown = remember(period.hours, period.minutes) { sunHeightFraction(period.hours, sunScale(period.minutes)) }
                 Box(
-                    Modifier.fillMaxWidth().semantics {
+                    // the box is a square, but the rays at the bottom are often short: cut the blank part off the bottom
+                    Modifier.fillMaxWidth().layout { m, c ->
+                        val p = m.measure(c)
+                        layout(p.width, (p.height * shown).roundToInt()) { p.placeRelative(0, 0) }
+                    }.semantics {
                         if (period.seconds > 0) customActions = listOf(
                             CustomAccessibilityAction("Next hour") { hour = ((hour ?: period.peakHour - 1) + 1).mod(24); true },
                             CustomAccessibilityAction("Previous hour") { hour = ((hour ?: period.peakHour + 1) - 1).mod(24); true },
@@ -314,20 +322,25 @@ private fun PeriodTab(p: Period, on: Boolean, modifier: Modifier, onClick: () ->
     }
 }
 
-/** The numbers to show off: what was played, how wide it went, and what was new. */
+/** The numbers to show off, in one row so they fit a screenshot: plays, different songs, different artists, then what was new. */
 @Composable
 private fun Tally(p: Period) {
     val scheme = MaterialTheme.colorScheme
-    val big = MaterialTheme.typography.displayLarge.copy(fontFeatureSettings = Tabular)
-    @Composable fun line(n: Int, one: String, many: String, color: Color = scheme.onSurface) {
-        Text(count(n), style = big, color = color)
-        Text(if (n == 1) one else many, Modifier.padding(bottom = 14.dp), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
+    val big = MaterialTheme.typography.displayMedium.copy(fontFeatureSettings = Tabular, color = scheme.onSurface)
+    @Composable fun RowScope.stat(n: Int, one: String, many: String) = Column(Modifier.weight(1f)) {
+        BasicText(count(n), style = big, maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(minFontSize = 20.sp, maxFontSize = big.fontSize))
+        Text(if (n == 1) one else many, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
-    Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 40.dp)) {
-        line(p.plays, "play", "plays")
-        line(p.songs, "different song", "different songs")
-        if (p.artistCount > 0) line(p.artistCount, "different artist", "different artists")
-        if (p.newSongs > 0) line(p.newSongs, "song new to you", "songs new to you", scheme.primary)
+    Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.Bottom) {
+            stat(p.plays, "play", "plays")
+            stat(p.songs, "song", "songs")
+            if (p.artistCount > 0) stat(p.artistCount, "artist", "artists")
+        }
+        if (p.newSongs > 0) Text(
+            buildAnnotatedString { withStyle(SpanStyle(color = scheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)) { append(count(p.newSongs)) }; append(if (p.newSongs == 1) " song new to you" else " songs new to you") },
+            Modifier.padding(top = 14.dp), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -363,11 +376,14 @@ private fun Soon(text: String) = Text(text, Modifier.padding(start = 20.dp, end 
 private fun DaysGrid(stats: ListeningStats) {
     val scheme = MaterialTheme.colorScheme
     val lead = stats.firstDate.dayOfWeek.value - 1
-    val weeks = (lead + stats.days.size + 6) / 7
+    val realWeeks = (lead + stats.days.size + 6) / 7
+    // a few days alone in one column don't read as a calendar: fill the screen's width with the weeks before the first day, dimmer
+    val pad = max(0, WEEKS_SHOWN - realWeeks)
+    val weeks = realWeeks + pad
+    val gridStart = stats.firstDate.minusDays(lead + pad * 7L)
     val most = max(stats.days.maxOrNull() ?: 1L, 1L).toFloat()
     val labelStyle = MaterialTheme.typography.labelMedium.copy(color = scheme.onSurfaceVariant)
     val measurer = rememberTextMeasurer()
-    val dark = isDark()
     BoxWithConstraints(Modifier.padding(horizontal = 20.dp).fillMaxWidth().semantics { contentDescription = "${stats.daysPlayed} of ${stats.days.size} days with listening" }) {
         val cell = maxWidth / WEEKS_SHOWN
         val scroll = rememberScrollState()
@@ -375,8 +391,10 @@ private fun DaysGrid(stats: ListeningStats) {
         Canvas(Modifier.horizontalScroll(scroll).width(if (weeks > WEEKS_SHOWN) cell * weeks else maxWidth).height(cell * 7 + 24.dp)) {
             val c = cell.toPx(); val top = 22.dp.toPx(); val gap = 3.dp.toPx()
             val base = scheme.background
+            // days before the first one: nothing was played because the app wasn't used yet
+            for (at in 0 until lead + pad * 7) drawCircle(scheme.surfaceContainerHigh, (c - gap) / 2, Offset(at / 7 * c + c / 2, top + at % 7 * c + c / 2), alpha = .45f)
             stats.days.forEachIndexed { i, s ->
-                val at = i + lead
+                val at = i + lead + pad * 7
                 val x = at / 7 * c; val y = top + at % 7 * c
                 val centre = Offset(x + c / 2, y + c / 2)
                 val color = if (s == 0L) scheme.surfaceContainerHigh else lerp(base, scheme.primary, .28f + .72f * sqrt(s / most))
@@ -385,12 +403,14 @@ private fun DaysGrid(stats: ListeningStats) {
                 drawCircle(color, (c - gap) / 2 - if (today) 2.dp.toPx() else 0f, centre)
                 if (today) drawCircle(scheme.onSurface, c / 2 - 1.5.dp.toPx(), centre, style = Stroke(2.dp.toPx()))
             }
-            var d = stats.firstDate; var last = 0
+            // a month's name above the week that holds its first day, when the last name is 3 weeks back
+            var last = -3
+            // the first month shown is the first one that starts inside the grid: the grid's first week can be mostly the next month
+            var d = gridStart.withDayOfMonth(1).let { if (it.isBefore(gridStart)) it.plusMonths(1) else it }
             while (!d.isAfter(stats.firstDate.plusDays(stats.days.size - 1L))) {
-                val i = ChronoUnit.DAYS.between(stats.firstDate, d).toInt()
-                val col = (i + lead) / 7
-                if (i == 0 || col >= last + 3) { drawText(measurer, d.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.ENGLISH), Offset(col * c, 0f), labelStyle); last = col }
-                d = d.withDayOfMonth(1).plusMonths(1)
+                val col = (ChronoUnit.DAYS.between(gridStart, d) / 7).toInt()
+                if (col >= last + 3) { drawText(measurer, d.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.ENGLISH), Offset(col * c, 0f), labelStyle); last = col }
+                d = d.plusMonths(1)
             }
         }
     }

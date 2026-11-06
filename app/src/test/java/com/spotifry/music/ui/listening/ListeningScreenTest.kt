@@ -100,10 +100,11 @@ class ListeningScreenTest {
         scrollTo("Song old1")
     }
 
-    @Test fun theTallyShowsPlaysSongsAndArtistsButNoJokes() {
+    @Test fun theTallyShowsPlaysSongsAndArtistsInOneRowButNoJokes() {
         show(row(now - 3000, "a", 60), row(now - 2000, "b", 10, skipped = true), row(now - 1000, "c", 10, skipped = true))
-        scrollTo("different song")
-        scrollTo("different artist")
+        scrollTo("play")
+        scrollTo("song")
+        scrollTo("artist")
         // the tally is one item, so with its lines on screen an absent line is really gone, not just scrolled away
         missing("ads. Not one.")
         missing("skips. Nobody stopped you.")

@@ -123,8 +123,8 @@ fun Sun(
         if (dark) arrayOf(0f to deeper(hot), .35f to hot, .72f to lerp(hot, Color.White, .45f), 1f to lerp(hot, Color.White, .85f))
         else arrayOf(0f to lerp(line, Color.Black, .37f), .45f to line, 1f to hot)
     }
-    val inner = if (small) .17f else .205f
-    val reach = if (small) .31f else .285f
+    val inner = if (small) .17f else SUN_INNER
+    val reach = if (small) .31f else SUN_REACH
     val rayCount = if (small) RAYS_SMALL else RAYS
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val labelStyle = MaterialTheme.typography.labelSmall
@@ -183,6 +183,29 @@ fun Sun(
             }
         }
     }
+}
+
+private const val SUN_INNER = .205f
+private const val SUN_REACH = .285f
+/** The glow past the rays that is still worth showing. */
+private const val SUN_GLOW = .06f
+
+/**
+ * How much of the sun's square holds anything, from the top. The rays at the bottom are often short, and the rest of the
+ * square would be a blank gap above what follows. Works from the longest the rays can be (their random spread only
+ * shortens them), so nothing is ever cut.
+ */
+internal fun sunHeightFraction(hours: List<Long>, scale: Float): Float {
+    val peak = (hours.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
+    val now = FloatArray(24) { hours[it] / peak }
+    var down = SUN_INNER
+    for (k in 0 until 96) {
+        val a = k / 96f * 2 * PI.toFloat()
+        val below = -cos(a) // 1 straight down at noon, negative in the top half
+        if (below <= 0f) continue
+        down = maxOf(down, (SUN_INNER + SUN_REACH * valueAt(now, a).pow(.7f) * scale) * below)
+    }
+    return minOf(1f, .5f + down + SUN_GLOW)
 }
 
 /** Between two hours the length eases from one to the other, so an hour with listening shows as one round tongue. */
