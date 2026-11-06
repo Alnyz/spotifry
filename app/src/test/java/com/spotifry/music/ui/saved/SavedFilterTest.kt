@@ -40,6 +40,11 @@ class SavedFilterTest {
     @Test fun theSameSongIsFoundWhateverTheCaseAndSpaces() =
         assertEquals(listOf("y1", "y2"), ids(SavedFilter.All, s, listOf(file(9, "  oNe ", " a "))))
 
+    @Test fun lettersWithTwoCasesCountAsTheSame() {
+        val saved = listOf(saved("y1", "ΣΟΦΙΑΣ", "Kırık"), saved("y2", "İki", "A"))
+        assertEquals(listOf("y1", "y2"), ids(SavedFilter.All, saved, listOf(file(8, "σοφιας", "KIRIK"), file(9, "iki", "A"))))
+    }
+
     @Test fun anotherArtistIsAnotherSong() = assertEquals(listOf("y1", "y2", "local:9"), ids(SavedFilter.All, s, listOf(file(9, "One", "B"))))
 
     @Test fun threeSecondsApartIsTheSameSongAndFourIsNot() =

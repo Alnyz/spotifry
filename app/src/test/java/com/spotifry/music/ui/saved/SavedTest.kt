@@ -163,4 +163,29 @@ class SavedTest {
         vm.saved.await { l -> l.firstOrNull()?.filePath != null }
         server.shutdown()
     }
+
+    @Test fun accessGivenInAndroidsSettingsShowsOnReturn() = runBlocking<Unit> {
+        val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
+        org.robolectric.Shadows.shadowOf(app).denyPermissions(android.Manifest.permission.READ_MEDIA_AUDIO)
+        val downloads = DownloadRepository(dir, OkHttpClient(), StreamResolver(FakeMusicSource()), db.songs())
+        val vm = SavedViewModel(db.songs(), downloads, NoopPlayer(), com.spotifry.music.data.LocalMusic(app), db.history())
+        vm.pick(SavedFilter.Phone)
+        vm.view.await { it.filter == SavedFilter.Phone }
+        val owner = object : androidx.lifecycle.LifecycleOwner {
+            val registry = androidx.lifecycle.LifecycleRegistry.createUnsafe(this)
+            override val lifecycle get() = registry
+        }
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+        compose.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.lifecycle.compose.LocalLifecycleOwner provides owner) {
+                MusicTheme { SavedScreen(vm, {}, {}, androidx.compose.ui.unit.Dp(0f)) }
+            }
+        }
+        compose.onNodeWithText("Allow access to music").assertIsDisplayed()
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.CREATED }
+        org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.READ_MEDIA_AUDIO)
+        compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
+        compose.waitForIdle()
+        compose.onNodeWithText("Allow access to music").assertDoesNotExist()
+    }
 }

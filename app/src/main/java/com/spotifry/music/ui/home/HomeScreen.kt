@@ -102,7 +102,8 @@ fun HomeContent(
         else if (loading) item {
             LoadingShapes { LoadingBox(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().height(212.dp), RoundedCornerShape(22.dp)) }
         }
-        item {
+        // with nothing played they'd jump up when the shape goes, so they wait for the read
+        if (!loading) item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), Arrangement.spacedBy(10.dp)) {
                 Shortcut(Icons.Download, "Saved", onOpenSaved)
                 Shortcut(Icons.List, "Playlists", onOpenPlaylists)

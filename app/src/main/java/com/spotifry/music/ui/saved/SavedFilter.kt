@@ -18,7 +18,9 @@ data class SavedRow(val song: Song, val saved: Boolean)
 /** The rows for one [filter], so the page never shows a list under the wrong chip. */
 data class SavedView(val filter: SavedFilter = SavedFilter.All, val rows: List<SavedRow> = emptyList())
 
-private fun Song.nameKey() = title.trim().lowercase() + '\u0000' + artist.trim().lowercase()
+/** Case folded the way equalsIgnoreCase does, one letter at a time, so ı and I, or σ and ς, count as the same. */
+private fun String.folded() = trim().map { it.uppercaseChar().lowercaseChar() }.joinToString("")
+private fun Song.nameKey() = title.folded() + '\u0000' + artist.folded()
 
 /**
  * [saved] newest first, then [phone] in its order, left as they come. [recent] is the play history, newest first; only

@@ -10,10 +10,12 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import com.spotifry.music.data.FakeMusicSource
+import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.MusicSource
 import com.spotifry.music.data.source.PageContent
 import com.spotifry.music.data.source.PageLink
@@ -98,4 +100,54 @@ class LoadingShapesTest {
         compose.onNodeWithText(words).assertIsDisplayed()
     }
 
+
+    @Test fun theShortcutsWaitForTheRead() {
+        var loading by androidx.compose.runtime.mutableStateOf(true)
+        compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, loading = loading) } }
+        compose.onNodeWithText("Playlists").assertDoesNotExist()
+        loading = false
+        compose.onNodeWithText("Playlists").assertIsDisplayed()
+    }
+
+    @Test fun onAnArtistPageTheFirstSongLandsWhereTheFirstShapeWas() {
+        val vm = page(SearchType.ARTISTS)
+        show(vm)
+        val shape = compose.onAllNodesWithTag("loading_row").onFirst().getUnclippedBoundsInRoot()
+        gate.complete(PageContent("Name", "", "Artist", null, listOf(testSong), emptyList()))
+        compose.waitForIdle()
+        assertEquals(shape.top.value, compose.onNodeWithText(testSong.title).getUnclippedBoundsInRoot().top.value, 1f)
+    }
+
+    @Test fun onYourOwnPlaylistTheFirstSongLandsWhereTheFirstShapeWas() {
+        var songs by androidx.compose.runtime.mutableStateOf<List<com.spotifry.music.data.db.SongEntity>?>(null)
+        compose.setContent {
+            MusicTheme {
+                com.spotifry.music.ui.playlists.PlaylistDetailContent(
+                    "Mine", songs.orEmpty(), "", {}, com.spotifry.music.data.PlaylistOrder.CUSTOM, {}, {}, {}, { _, _ -> }, {}, {}, {}, loading = songs == null,
+                )
+            }
+        }
+        val shape = compose.onAllNodesWithTag("loading_row").onFirst().getUnclippedBoundsInRoot()
+        songs = listOf(testSong.toEntity(), com.spotifry.music.data.source.Song("b", "Other", "X", 100, null).toEntity())
+        compose.waitForIdle()
+        assertEquals(shape.top.value, compose.onNodeWithText(testSong.title).getUnclippedBoundsInRoot().top.value, 1f)
+    }
+
+    @Test fun retryBringsTheShapesBackAndTheyLeaveAgain() {
+        var attempt = CompletableDeferred<PageContent>()
+        val vm = PageViewModel(object : MusicSource by FakeMusicSource() {
+            override suspend fun page(link: PageLink) = attempt.await()
+        }, PageLink(SearchType.PLAYLISTS, "u", "Name", "", null))
+        show(vm)
+        attempt.completeExceptionally(RuntimeException("no network"))
+        compose.waitForIdle()
+        attempt = CompletableDeferred()
+        compose.onNodeWithText("Retry").performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("loading_row").assertCountEquals(5)
+        attempt.complete(PageContent("Name", "", "Playlist", null, listOf(testSong), emptyList()))
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("loading_row").assertCountEquals(0)
+        compose.onNodeWithText(testSong.title).assertIsDisplayed()
+    }
 }

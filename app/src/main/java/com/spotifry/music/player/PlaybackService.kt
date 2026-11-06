@@ -100,7 +100,8 @@ class PlaybackService : MediaSessionService() {
         scope.launch {
             kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels) { on, l -> if (on) l else null }.collect { equalizer.set(it); tailEqualizer?.set(it) }
         }
-        scope.launch {
+        // not immediate: a wake must run after the listener that sent it has finished, never inside it
+        scope.launch(Dispatchers.Main) {
             // ponytail: polls the position 20 times a second while a fade is set and music plays; a timer per song end if battery shows it
             while (true) {
                 val fadeMs = c.settings.fadeSeconds.value * 1000L

@@ -75,15 +75,18 @@ class BeatJoinTest {
     private var sleep = 1f
     private var setting = PlaybackParameters.DEFAULT
     private var wakes = 0
+    /** A wake that runs the loop before it returns, the worst a dispatcher could do. */
+    private var tickInsideWake = false
 
     private val join = BeatJoin(
         main,
         { item, at -> FakePlayer(listOf(item)).also { it.pos = at; it.play = false; it.vol = 0f; tails += it } },
         { item, _, _ -> if (item.mediaId == "a") oldGrid ?: grid else grid },
         CoroutineScope(Dispatchers.Unconfined),
-        { fade }, { beatsOn }, { stopsAfter }, { sleep }, { setting }, { wakes++ },
+        { fade }, { beatsOn }, { stopsAfter }, { sleep }, { setting }, { wakes++; if (tickInsideWake) tickNow() },
     )
     private val tail get() = tails.last()
+    private fun tickNow() { join.tick(true) }
 
     private fun at(ms: Long) { main.pos = ms; main.changed() }
 
@@ -602,7 +605,7 @@ class BeatJoinTest {
         val seeks = tail.seeks.size
         tail.pos += 300; tail.changed()
         // a reading in progress, a clean one, the wait to settle and one more
-        run(1_100)
+        run(1_500)
         assertTrue("slowed, unheard: ${tail.params.speed}", tail.params.speed < 1f)
         assertEquals(0f, tail.vol, .001f)
         run(1_500)
@@ -645,5 +648,69 @@ class BeatJoinTest {
         toHandover(); run(1_000); wakes = 0
         repeat(5) { join.tick(false) }
         assertEquals("once, as it lets go, or the tail's fade out would race", 1, wakes)
+    }
+
+    private fun toMidOverlap(): Float {
+        toHandover()
+        while (tail.vol > .35f || tail.vol == 0f) run(50)
+        return tail.vol
+    }
+
+    @Test fun aSeekMidOverlapOnlyEverTakesTheOldSongDown() {
+        tickInsideWake = true
+        val before = toMidOverlap()
+        val seen = arrayListOf(before)
+        // back to the start of the new song, the case where the overlap would read as not begun
+        main.seekTo(1, 0); idle()
+        seen += tail.vol
+        repeat(4) { join.tick(true); seen += tail.vol }
+        for (i in 1 until seen.size) assertTrue("rose ${seen[i - 1]} to ${seen[i]}", seen[i] <= seen[i - 1])
+        assertTrue(tail.released)
+    }
+
+    @Test fun aSeekPastTheOverlapStillFadesTheOldSongOut() {
+        tickInsideWake = true
+        toMidOverlap()
+        main.seekTo(1, 180_000); idle()
+        assertFalse("not cut off", tail.released)
+        repeat(4) { join.tick(true) }
+        assertTrue(tail.released)
+    }
+
+    @Test fun nextMidOverlapOnlyEverTakesTheOldSongDown() {
+        tickInsideWake = true
+        main.items += MediaItem.Builder().setMediaId("c").setUri("music://c").build(); main.changed()
+        val before = toMidOverlap()
+        main.seekTo(2, 0); idle()
+        assertTrue("rose $before to ${tail.vol}", tail.vol <= before)
+        repeat(4) { join.tick(true) }
+        assertTrue(tail.released)
+    }
+
+    @Test fun aStutterWhileMeasuringStartsTheMeasureAgain() {
+        // close enough to the handover that the slower drift check can't save it
+        toPriming(); run(5_500)
+        // stops once, so it's measuring: three ticks to settle and five of the six readings
+        main.play_state = Player.STATE_BUFFERING; main.changed(); tailRunsOn(1); tail.pos -= 50
+        main.play_state = Player.STATE_READY; main.changed(); run(350)
+        // 200 ms lost right at the end: one such reading in six would average to about 33 ms and pass
+        main.play_state = Player.STATE_BUFFERING; main.changed(); tailRunsOn(4)
+        main.play_state = Player.STATE_READY; main.changed()
+        while (main.index == 0 && main.pos < 193_000) {
+            val before = tail.pos - main.pos
+            run(50)
+            if (main.index == 1) assertTrue("handed over off by $before", kotlin.math.abs(before) <= 40)
+        }
+        run(200)
+        assertTrue("joined in step or called off", main.index == 1 || tail.released)
+    }
+
+    @Test fun anUnevenSwingInThePositionDoesntSetItHuntingEither() {
+        toPriming(); run(2_500)
+        val seeks = tail.seeks.size
+        // 0 then 250 ms ahead: six ticks can read 208 ms, while the middle of it is 125
+        var up = true
+        repeat(10) { tail.pos += if (up) 250 else -250; up = !up; tail.changed(); run(250); assertEquals(1f, tail.params.speed, .001f) }
+        assertEquals(seeks, tail.seeks.size)
     }
 }

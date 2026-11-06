@@ -114,4 +114,12 @@ class HomeViewModelTest {
         vm.play(listOf(testSong), 0, "Recently played")
         assertEquals(listOf(listOf(testSong) to 0), player.played)
     }
+
+    @Test fun theHistoryIsNullUntilReadThenAListEvenIfEmpty() = runTest {
+        val vm = vm()
+        assertEquals(null, vm.recentOrNull.value)
+        var waited = 0
+        while (vm.recentOrNull.value == null && waited++ < 200) { advanceUntilIdle(); withContext(Dispatchers.Default) { kotlinx.coroutines.delay(10) } }
+        assertEquals(emptyList<Any>(), vm.recentOrNull.value)
+    }
 }

@@ -34,6 +34,8 @@ private const val CATCH_UP = .25f
 private const val SEEK_OVER_MS = 600L
 /** An averaged drift past this while priming gets lined up again: at the handover it would be heard as an echo and a jump. */
 private const val RELINE_MS = 150L
+/** Ticks that drift is averaged over: half a second, a whole number of the quarter-second steps a position can move in. */
+private const val DRIFT_TICKS = 10
 private const val SEEK_START_UP_MS = 350L
 private const val LEAVING_TICKS = 3
 private const val TICK_MS = 50
@@ -105,7 +107,7 @@ class BeatJoin(
         /** Fed while in step: whether the average of these readings has moved past [limit]. */
         fun drifted(off: Long, limit: Long): Boolean {
             readings += off
-            if (readings.size < AVERAGE_TICKS) return false
+            if (readings.size < DRIFT_TICKS) return false
             last = readings.average().toLong()
             readings.clear()
             return abs(last) > limit
@@ -234,15 +236,13 @@ class BeatJoin(
         if (pairNow()?.key != s.key || s.tail.playerError != null || main.playerError != null) { Log.i(TAG, "tail voice dropped before the join"); drop(s.tail); stage = Done(s.key); return null }
         follow(s.tail, lining = !s.inStep)
         val handover = s.plan.startMs - s.plan.leadMs
-        if (s.inStep) {
-            // one reading can be a quarter second out: only a big one or the average counts. Either player stopping means the
-            // silent tail may have run on, so it's measured again before any handover. This can't go round for long: not in step
-            // by the slack below, the join is called off.
-            val off = s.tail.currentPosition - pos
-            if (!s.tail.isPlaying || !main.isPlaying || abs(off) > SEEK_OVER_MS || s.line.drifted(off, RELINE_MS)) { s.inStep = false; s.ran = 0; s.line.forget() }
-        }
-        if (!s.inStep && s.tail.isPlaying && main.isPlaying && ++s.ran >= SETTLE_TICKS) {
-            val off = s.tail.currentPosition - pos
+        // Either player stopping means the silent tail may have run on, so it's measured afresh before any handover, also if it was
+        // measuring already. One reading can be a quarter second out: only a big one or the average counts. This can't go round
+        // for long: not in step by the slack below, the join is called off.
+        val running = s.tail.isPlaying && main.isPlaying
+        val off = s.tail.currentPosition - pos
+        if (!running || (s.inStep && (abs(off) > SEEK_OVER_MS || s.line.drifted(off, RELINE_MS)))) { s.inStep = false; s.ran = 0; s.line.forget() }
+        if (!s.inStep && running && ++s.ran >= SETTLE_TICKS) {
             if (abs(off) > SEEK_OVER_MS) { s.tail.seekTo(pos + SEEK_START_UP_MS); s.ran = 0 }
             else if (s.line.step(s.tail, off, IN_STEP_MS, wanted)) { s.inStep = true; Log.i(TAG, "tail voice in step, off by ${s.line.last} ms") }
         }
@@ -364,11 +364,12 @@ class BeatJoin(
     }
 
     private fun letGo(why: String) {
-        if (stage !== Watching && stage !is Done) wake()
+        val busy = stage !== Watching && stage !is Done
         (stage as? Looking)?.job?.cancel()
         tail?.let { Log.i(TAG, "let go: $why"); drop(it) }
         restoreMain()
         stage = Watching
+        if (busy) wake()
     }
 
     private fun finish(tail: Player, why: String) {

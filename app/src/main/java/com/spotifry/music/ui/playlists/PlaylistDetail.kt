@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -55,6 +56,7 @@ import com.spotifry.music.data.source.Song
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.EmptyState
+import com.spotifry.music.ui.components.LoadingBox
 import com.spotifry.music.ui.components.LoadingRow
 import com.spotifry.music.ui.components.LoadingShapes
 import com.spotifry.music.ui.components.PlayButtons
@@ -147,7 +149,20 @@ fun PlaylistDetailContent(
             )
             Spacer(Modifier.height(8.dp))
         }
-        if (loading) item { LoadingShapes(Modifier.padding(start = 20.dp, end = 8.dp)) { repeat(5) { LoadingRow() } } }
+        if (loading) item {
+            // Play and Shuffle, then the search box and order button, as they'll be with songs in the list
+            LoadingShapes(Modifier.padding(start = 20.dp, end = 8.dp)) {
+                Row(Modifier.padding(top = 8.dp), Arrangement.spacedBy(10.dp)) {
+                    LoadingBox(Modifier.size(93.dp, 48.dp), CircleShape)
+                    LoadingBox(Modifier.size(111.dp, 48.dp), CircleShape)
+                }
+                Row(Modifier.padding(end = 12.dp, top = 14.dp, bottom = 8.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+                    LoadingBox(Modifier.weight(1f).height(52.dp), CircleShape)
+                    LoadingBox(Modifier.size(48.dp), CircleShape)
+                }
+                repeat(5) { LoadingRow() }
+            }
+        }
         else if (songs.isEmpty()) item { EmptyState("Nothing here yet", "Use the three dots next to any song to add one.") }
         // a found song plays from its place in the whole playlist, so the rest follows after it
         items(shown.size, key = { songs[shown[it]].id }) { k ->

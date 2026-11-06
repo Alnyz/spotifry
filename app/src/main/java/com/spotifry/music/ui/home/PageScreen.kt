@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -128,7 +130,11 @@ fun PageScreen(
                         LoadingBox(Modifier.size(93.dp, 48.dp), CircleShape)
                         LoadingBox(Modifier.size(111.dp, 48.dp), CircleShape)
                     }
-                    if (artist) LoadingBox(Modifier.padding(top = 28.dp, bottom = 12.dp).size(90.dp, 25.dp), RoundedCornerShape(6.dp))
+                    if (artist) Box(Modifier.padding(top = 28.dp, bottom = 12.dp)) {
+                        // the real words, unseen, so it's the real height at any text size
+                        LoadingBox(Modifier.matchParentSize(), RoundedCornerShape(6.dp))
+                        Text("Songs", Modifier.clearAndSetSemantics {}, Color.Transparent, style = MaterialTheme.typography.headlineSmall)
+                    }
                     repeat(5) { if (album) LoadingRow(width = 28.dp, height = 14.dp) else LoadingRow() }
                 }
             }
