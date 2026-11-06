@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /** What Home shows for the picked artists: the artists at once, their songs when the pages have answered. */
-data class ArtistsHome(val artists: List<PickedArtist> = emptyList(), val songs: List<Song> = emptyList())
+data class ArtistsHome(val artists: List<PickedArtist> = emptyList(), val songs: List<Song> = emptyList(), val loading: Boolean = false)
 
 class ArtistsHomeViewModel(private val settings: Settings, private val loader: ArtistSongs) : ViewModel() {
     private val _state = MutableStateFlow(ArtistsHome(settings.artists.value))
@@ -31,6 +31,7 @@ class ArtistsHomeViewModel(private val settings: Settings, private val loader: A
     private fun load(list: List<PickedArtist>) {
         job?.cancel()
         if (list.isEmpty()) return
+        if (_state.value.songs.isEmpty()) _state.value = _state.value.copy(loading = true)
         job = viewModelScope.launch {
             val got = loader.load(list)
             // an artist picked offline now has its page: keep it, so it isn't looked up again

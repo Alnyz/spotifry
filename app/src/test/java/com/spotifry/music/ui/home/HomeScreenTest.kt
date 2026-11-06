@@ -1,5 +1,8 @@
 package com.spotifry.music.ui.home
 
+import com.spotifry.music.data.db.PlaylistWithCounts
+import com.spotifry.music.player.PlayerUiState
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -65,5 +68,84 @@ class HomeScreenTest {
         list.performScrollToNode(hasText("Mix from Title"))
         compose.onNodeWithText("Mix from Title").performClick()
         assertEquals(listOf("abc"), played?.map { it.id })
+    }
+
+    private val first = testSong.toEntity()
+    private val second = Song("def", "Second", "Other", 100, null)
+    private val history = listOf(first, second.toEntity())
+    private fun home(player: PlayerUiState, toggled: () -> Unit = {}, opened: () -> Unit = {}, played: (List<Song>) -> Unit = {}) = compose.setContent {
+        MusicTheme { HomeContent(history, emptySet(), { l, _, _ -> played(l) }, {}, player = player, onToggle = toggled, onOpenPlayer = opened) }
+    }
+
+    @Test fun playingSaysSoWithBarsAndTheButtonPauses() {
+        var toggled = 0; var opened = 0
+        home(PlayerUiState(current = testSong, isPlaying = true, wantsPlay = true), { toggled++ }, { opened++ })
+        compose.onNodeWithText("Playing").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Playing now").assertExists()
+        compose.onAllNodesWithText("Last played").assertCountEquals(0)
+        compose.onNodeWithContentDescription("Pause").performClick()
+        assertEquals(1, toggled)
+        compose.onNodeWithText("Title").performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test fun pausedSaysSoWithNoBarsAndTheButtonPlays() {
+        var toggled = 0
+        home(PlayerUiState(current = testSong, isPlaying = false, wantsPlay = false), { toggled++ })
+        compose.onNodeWithText("Paused").assertIsDisplayed()
+        compose.onAllNodesWithText("Playing").assertCountEquals(0)
+        compose.onAllNodesWithText("Last played").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("Playing now").assertCountEquals(0)
+        compose.onNodeWithContentDescription("Play").performClick()
+        assertEquals(1, toggled)
+    }
+
+    @Test fun bufferingSaysLoadingWithNoBarsAndTheButtonPauses() {
+        home(PlayerUiState(current = testSong, isPlaying = false, wantsPlay = true))
+        compose.onNodeWithText("Loading").assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Playing now").assertCountEquals(0)
+        compose.onNodeWithContentDescription("Pause").assertExists()
+    }
+
+    @Test fun aFinishedSongIsLastPlayedAgainAndPlaysAgain() {
+        var played: List<Song>? = null
+        home(PlayerUiState(current = testSong, ended = true), played = { played = it })
+        compose.onNodeWithText("Last played").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Play again").performClick()
+        assertEquals(listOf("abc", "def"), played?.map { it.id })
+    }
+
+    @Test fun anotherSongInThePlayerTakesTheHeroAndTheLastOneMovesToTheRow() {
+        home(PlayerUiState(current = second, isPlaying = true, wantsPlay = true))
+        compose.onNodeWithText("Playing").assertIsDisplayed()
+        compose.onAllNodesWithText("Second").assertCountEquals(1)
+        compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Recently played"))
+        compose.onAllNodesWithText("Title").assertCountEquals(1)
+    }
+
+    @Test fun theNewestPlaylistWithSongsIsTheHeroWhenNothingWasPlayedAndNotInTheRow() {
+        var open: Long? = null; var play: PlaylistWithCounts? = null
+        val lists = listOf(PlaylistWithCounts(1, "Older", 3, 0, 1), PlaylistWithCounts(2, "Road trip", 48, 0, 2), PlaylistWithCounts(3, "Empty new", 0, 0, 3))
+        compose.setContent {
+            MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, playlists = lists, onOpenPlaylist = { open = it }, onPlayPlaylist = { play = it }) }
+        }
+        compose.onNodeWithText("Your playlist").assertIsDisplayed()
+        compose.onNodeWithText("48 songs").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Play").performClick()
+        assertEquals(2L, play?.id)
+        compose.onNodeWithText("Road trip").performClick()
+        assertEquals(2L, open)
+        compose.onNodeWithText("Saved").assertIsDisplayed() // there is a playlist now, so the shortcuts return
+        compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Your playlists"))
+        compose.onAllNodesWithText("Road trip").assertCountEquals(1)
+        compose.onAllNodesWithText("Older").assertCountEquals(1)
+    }
+
+    @Test fun moodsLeaveOnceThereIsEnoughHistory() {
+        val five = (1..5).map { Song("s$it", "Song $it", "A", 100, null).toEntity() }
+        compose.setContent { MusicTheme { HomeContent(five, emptySet(), { _, _, _ -> }, {}) } }
+        val list = compose.onAllNodes(hasScrollToNodeAction()).onFirst()
+        list.performScrollToNode(hasText("Mix from Song 1"))
+        compose.onAllNodesWithText("Moods and genres").assertCountEquals(0)
     }
 }

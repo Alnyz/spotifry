@@ -25,6 +25,8 @@ data class PlayerUiState(
     val isPlaying: Boolean = false,
     /** Playing or about to: also true while it buffers, when [isPlaying] is false. */
     val wantsPlay: Boolean = false,
+    /** The queue ran out: [current] is still set, but it has finished rather than paused. */
+    val ended: Boolean = false,
     val durationMs: Long = 0,
     val queue: List<Song> = emptyList(),
     val currentIndex: Int = 0,
@@ -129,6 +131,7 @@ class PlayerController(
             wantsPlay = c.playWhenReady && c.playbackState != Player.STATE_ENDED && c.playbackState != Player.STATE_IDLE,
             // before the first play after a restore the player doesn't know the length yet; the song does
             durationMs = c.duration.takeIf { it > 0 } ?: trim?.keptMs(whole) ?: whole,
+            ended = c.playbackState == Player.STATE_ENDED,
             trim = trim,
             // the player's own length is the most exact, but it only covers the whole song when no end is set
             wholeMs = wholeMs,

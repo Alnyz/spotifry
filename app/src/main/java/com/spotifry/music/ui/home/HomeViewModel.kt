@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 
 sealed interface SearchState {
@@ -95,7 +96,9 @@ class HomeViewModel(
     val recentOrNull: StateFlow<List<SongEntity>?> = history.observeRecent()
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val saved: StateFlow<List<SongEntity>> = songs.observeSaved()
+    /** False until the saved songs have been read, so an empty [saved] says nothing yet. */
+    val savedRead = MutableStateFlow(false)
+    val saved: StateFlow<List<SongEntity>> = songs.observeSaved().onEach { savedRead.value = true }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val savedIds: StateFlow<Set<String>> = saved.map { list -> list.map { it.id }.toSet() }

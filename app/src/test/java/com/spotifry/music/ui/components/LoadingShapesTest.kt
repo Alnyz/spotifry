@@ -94,7 +94,7 @@ class LoadingShapesTest {
     @Test fun homeOnlySaysItsEmptyOnceTheHistoryIsRead() {
         var loading by androidx.compose.runtime.mutableStateOf(true)
         compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, loading = loading) } }
-        val words = "Find a song in Search to start. What you play shows up here."
+        val words = "Nothing played yet"
         compose.onNodeWithText(words).assertDoesNotExist()
         loading = false
         compose.onNodeWithText(words).assertIsDisplayed()
@@ -103,7 +103,7 @@ class LoadingShapesTest {
 
     @Test fun theShortcutsWaitForTheRead() {
         var loading by androidx.compose.runtime.mutableStateOf(true)
-        compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { _, _, _ -> }, {}, loading = loading) } }
+        compose.setContent { MusicTheme { HomeContent(emptyList(), setOf("a saved song"), { _, _, _ -> }, {}, loading = loading) } }
         compose.onNodeWithText("Playlists").assertDoesNotExist()
         loading = false
         compose.onNodeWithText("Playlists").assertIsDisplayed()

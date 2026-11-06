@@ -330,7 +330,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         composable(Routes.LISTEN) {
                             LaunchedEffect(Unit) { artistsVm.refresh() }
                             val artistsHome by artistsVm.state.collectAsStateWithLifecycle()
-                            HomeScreen(home, openMenu, inset, artists = artistsHome, onOpenArtist = { nav.navigate(Routes.page(it.link)) }, onPickArtists = { pickArtists++ }, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, listening = {
+                            val homePlaylists by plVm.playlists.collectAsStateWithLifecycle()
+                            val homePlaylistsRead by plVm.playlistsRead.collectAsStateWithLifecycle()
+                            HomeScreen(home, openMenu, inset, player = player, onToggle = c.player::toggle, onOpenPlayer = { showPlayer = true }, playlists = homePlaylists, playlistsRead = homePlaylistsRead, covers = plCovers, onOpenPlaylist = { nav.navigate(Routes.playlist(it)) }, onPlayPlaylist = plVm::playAll, onSearch = { goTo(Routes.SEARCH) }, onImport = { importVm.open(); goTo(Routes.PLAYLISTS) }, onMood = { nav.navigate(Routes.mood(it)) { launchSingleTop = true } }, artists = artistsHome, onOpenArtist = { nav.navigate(Routes.page(it.link)) }, onPickArtists = { pickArtists++ }, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, listening = {
                                 com.spotifry.music.ui.listening.ListeningRow(listeningRow, player.isPlaying && !showPlayer, { nav.navigate(Routes.LISTENING) { launchSingleTop = true } }, Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp))
                             }, top = {
                                 val update by c.updates.state.collectAsStateWithLifecycle()

@@ -147,7 +147,11 @@ class MoodViewModel(
 /** Two tiles a row, as rows of the page's own list, so Back finds the page where it was. */
 internal fun LazyListScope.moodGrid(onOpen: (Mood) -> Unit) {
     item { SectionTitle("Moods and genres") }
-    items(MOODS.chunked(2)) { row ->
+    moodTiles(MOODS, onOpen)
+}
+
+internal fun LazyListScope.moodTiles(moods: List<Mood>, onOpen: (Mood) -> Unit) {
+    items(moods.chunked(2)) { row ->
         // as tall as the taller of the two when big text wraps a name
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(start = 20.dp, end = 20.dp, bottom = 10.dp), Arrangement.spacedBy(10.dp)) {
             row.forEach { MoodTile(it, onOpen, Modifier.weight(1f)) }

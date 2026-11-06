@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import com.spotifry.music.data.PlaylistOrder
 import com.spotifry.music.data.PlaylistOrders
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -24,7 +26,9 @@ class PlaylistsViewModel(
     private val dao: PlaylistDao, private val songs: SongDao, private val player: SongPlayer,
     private val orders: PlaylistOrders = PlaylistOrders(null),
 ) : ViewModel() {
-    val playlists: StateFlow<List<PlaylistWithCounts>> = dao.observePlaylists().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** False until the list has been read, so an empty [playlists] says nothing yet. */
+    val playlistsRead = MutableStateFlow(false)
+    val playlists: StateFlow<List<PlaylistWithCounts>> = dao.observePlaylists().onEach { playlistsRead.value = true }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** First four songs of each playlist, keyed by playlist id. */
     val covers: StateFlow<Map<Long, List<SongEntity>>> = dao.observeCoverRows()
@@ -84,6 +88,14 @@ class PlaylistsViewModel(
     /** Undo for [takeOut]: the song goes back at the same spot. */
     suspend fun putBack(row: PlaylistSongEntity) = dao.putBack(row)
     fun play(list: List<Song>, index: Int, from: String? = null) = player.playList(list, index, from)
+
+    /** From the start, in the order the playlist's own page shows. */
+    fun playAll(p: PlaylistWithCounts) {
+        viewModelScope.launch {
+            val list = songsOf(p.id, orderOf(p.id)).first().map { it.toSong() }
+            if (list.isNotEmpty()) play(list, 0, p.name)
+        }
+    }
     fun shuffle(list: List<Song>, from: String) = player.shuffleList(list, from)
 
     private suspend fun addSongNow(playlistId: Long, song: Song) {
