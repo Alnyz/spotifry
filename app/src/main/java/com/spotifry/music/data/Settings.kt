@@ -133,7 +133,25 @@ class Settings(private val prefs: SharedPreferences) {
     fun setKeepScreenOn(on: Boolean) { _keepScreenOn.value = on; prefs.edit().putBoolean(KEEP_SCREEN_ON, on).apply() }
     fun setTheme(mode: ThemeMode) { _theme.value = mode; prefs.edit().putString(THEME, mode.name).apply() }
 
+    private val _firstLaunchSeen = MutableStateFlow(prefs.getBoolean(FIRST_LAUNCH_SEEN, false))
+    /** The first-launch screens were finished, skipped, or never needed (the app was updated, not installed). */
+    val firstLaunchSeen: StateFlow<Boolean> = _firstLaunchSeen
+    fun markFirstLaunchSeen() { _firstLaunchSeen.value = true; prefs.edit().putBoolean(FIRST_LAUNCH_SEEN, true).apply() }
+
+    private val _artists = MutableStateFlow(readArtists())
+    /** Artists picked for Home, in the order picked. */
+    val artists: StateFlow<List<PickedArtist>> = _artists
+    fun setArtists(list: List<PickedArtist>) {
+        _artists.value = list
+        prefs.edit().putString(ARTISTS, list.joinToString("\n") { listOf(it.name, it.url, it.thumbnailUrl.orEmpty()).joinToString("\t") }).apply()
+    }
+    private fun readArtists() = prefs.getString(ARTISTS, "").orEmpty().lines().mapNotNull { line ->
+        line.split('\t').takeIf { it.size == 3 && it[0].isNotBlank() }?.let { PickedArtist(it[0], it[1], it[2].ifEmpty { null }) }
+    }
+
     private companion object {
+        const val FIRST_LAUNCH_SEEN = "first_launch_seen"
+        const val ARTISTS = "picked_artists"
         const val DATA_SAVER = "data_saver"
         const val SAVE_LOW = "save_low"
         const val KEEP_SCREEN_ON = "keep_screen_on"

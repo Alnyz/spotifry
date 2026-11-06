@@ -63,6 +63,7 @@ fun HomeScreen(
     vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp,
     onOpenSaved: () -> Unit, onOpenPlaylists: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {},
     top: @Composable () -> Unit = {},
+    artists: ArtistsHome = ArtistsHome(), onOpenArtist: (com.spotifry.music.data.PickedArtist) -> Unit = {}, onPickArtists: () -> Unit = {},
 ) {
     val recent by vm.recentOrNull.collectAsStateWithLifecycle()
     val saved by vm.savedIds.collectAsStateWithLifecycle()
@@ -71,6 +72,7 @@ fun HomeScreen(
         recent = recent.orEmpty(), loading = recent == null, savedIds = saved, mostPlayed = most,
         onPlay = vm::play, onMore = onMore, modifier = modifier, bottomInset = bottomInset,
         onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, top = top,
+        artists = artists, onOpenArtist = onOpenArtist, onPickArtists = onPickArtists,
     )
 }
 
@@ -85,6 +87,8 @@ fun HomeContent(
     loading: Boolean = false,
     /** Shown under the greeting: the update card when there is one. */
     top: @Composable () -> Unit = {},
+    /** The artists picked on first launch, and their songs. */
+    artists: ArtistsHome = ArtistsHome(), onOpenArtist: (com.spotifry.music.data.PickedArtist) -> Unit = {}, onPickArtists: () -> Unit = {},
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 20.dp)) {
         item {
@@ -110,14 +114,16 @@ fun HomeContent(
                 if (savedIds.isNotEmpty()) Shortcut(Icons.Shuffle, "Shuffle", onShuffleSaved)
             }
         }
+        artistItems(artists, onOpenArtist) { list, i -> onPlay(list, i, "From your artists") }
         if (recent.isEmpty()) {
-            if (!loading) item {
+            if (!loading && artists.artists.isEmpty()) item {
                 Text(
                     "Find a song in Search to start. What you play shows up here.",
                     Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp),
                     style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (!loading && artists.artists.isEmpty()) pickArtistsItem(onPickArtists)
             return@LazyColumn
         }
         if (recent.size > 1) {

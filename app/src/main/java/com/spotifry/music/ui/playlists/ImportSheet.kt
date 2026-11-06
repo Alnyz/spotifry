@@ -68,7 +68,7 @@ fun ImportSheet(
 }
 
 @Composable
-private fun Title(text: String, sub: String?) {
+internal fun Title(text: String, sub: String?) {
     Text(text, style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
     if (sub != null) Text(sub, Modifier.padding(top = 4.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
@@ -106,7 +106,7 @@ private fun Opening() {
 }
 
 @Composable
-private fun Running(s: ImportState.Running) {
+internal fun Running(s: ImportState.Running) {
     Title(s.name, "Finding each song on YouTube")
     LinearProgressIndicator(
         { s.done / s.total.toFloat() }, Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 6.dp).height(6.dp),
