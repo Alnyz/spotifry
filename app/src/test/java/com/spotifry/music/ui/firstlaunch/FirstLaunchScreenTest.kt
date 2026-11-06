@@ -50,8 +50,7 @@ class FirstLaunchScreenTest {
     @Test fun nothingPickedAsksForThree() {
         artists(emptyList())
         compose.onNodeWithText("Pick 3 or more").assertIsDisplayed()
-        compose.onNodeWithTag("starters").performScrollToNode(hasText("not based on you", substring = true))
-        compose.onNodeWithText("Where these come from:", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Where these come from:", substring = true).assertDoesNotExist()
     }
 
     @Test fun twoPickedAsksForOneMoreAndDoesNothing() {

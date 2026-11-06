@@ -184,10 +184,9 @@ internal fun ArtistsStep(
                     horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     items(starters, key = { it.name }) { s -> ArtistTile(s.name, s.photo, on(s.picked())) { onToggle(s.picked()) } }
-                    item(span = { GridItemSpan(maxLineSpan) }) {
+                    if (offline) item(span = { GridItemSpan(maxLineSpan) }) {
                         Column(Modifier.padding(vertical = 6.dp), Arrangement.spacedBy(10.dp)) {
-                            if (offline) Note("No connection.", "Photos and search need internet. You can still pick from the list, or skip and do this later.", "Try again", onRetry)
-                            else Note("Where these come from:", "a short list that comes with the app. It is not based on you.")
+                            Note("No connection.", "Photos and search need internet. You can still pick from the list, or skip and do this later.", "Try again", onRetry)
                         }
                     }
                 }
