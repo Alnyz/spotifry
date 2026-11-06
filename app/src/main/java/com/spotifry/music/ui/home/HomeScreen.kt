@@ -2,7 +2,6 @@ package com.spotifry.music.ui.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -145,15 +144,15 @@ fun HomeContent(
             heroSong != null -> item {
                 val status = when {
                     inPlayer == null -> HeroStatus.LAST_PLAYED
-                    player.isPlaying -> HeroStatus.PLAYING
+                    player.isPlaying -> HeroStatus.ACTIVE
                     player.failed -> HeroStatus.FAILED
-                    player.wantsPlay && player.buffering -> HeroStatus.LOADING
+                    player.wantsPlay && player.buffering -> HeroStatus.ACTIVE
                     else -> HeroStatus.PAUSED
                 }
                 val again = { onPlay(songs, 0, "Recently played") }
                 SongHero(heroSong, status, if (inPlayer == null) again else onOpenPlayer, when (status) {
                     HeroStatus.LAST_PLAYED -> again
-                    HeroStatus.PLAYING, HeroStatus.LOADING -> onPause
+                    HeroStatus.ACTIVE -> onPause
                     else -> onToggle
                 })
             }
@@ -162,7 +161,7 @@ fun HomeContent(
                 Hero(
                     heroList.name, "${heroList.songCount} ${if (heroList.songCount == 1) "song" else "songs"}",
                     { CoverMosaic(covers[heroList.id].orEmpty(), Modifier.fillMaxSize()) },
-                    { HeroTag("Your playlist") }, Icons.Play, "Play", "Open playlist", { onOpenPlaylist(heroList.id) }, { onPlayPlaylist(heroList) },
+                    "Your playlist", Icons.Play, "Play", "Open playlist", { onOpenPlaylist(heroList.id) }, { onPlayPlaylist(heroList) },
                 )
             }
             artists.songs.isNotEmpty() -> item {
@@ -172,7 +171,7 @@ fun HomeContent(
                 Hero(
                     "Songs from your artists", "${list.size} ${if (list.size == 1) "song" else "songs"}, $who ${if (who == 1) "artist" else "artists"}",
                     { CoverMosaic(remember(list) { list.take(4).map { it.toEntity() } }, Modifier.fillMaxSize()) },
-                    { HeroTag("Start here") }, Icons.Play, "Play", "Play", play, play,
+                    "Start here", Icons.Play, "Play", "Play", play, play,
                 )
             }
             artists.loading -> item { HeroShape() }
@@ -249,27 +248,20 @@ private fun Greeting(modifier: Modifier = Modifier) {
     Text(buildAnnotatedString { append("Good $part"); withStyle(SpanStyle(color = accent)) { append(".") } }, modifier, style = MaterialTheme.typography.displaySmall)
 }
 
-private enum class HeroStatus { PLAYING, LOADING, PAUSED, FAILED, LAST_PLAYED }
+/** [ACTIVE] is playing, or loading with the intent to play: either way the button must be able to stop it. */
+private enum class HeroStatus { ACTIVE, PAUSED, FAILED, LAST_PLAYED }
 
-/** A song as the hero. Its tag says what the player is really doing with it; only moving bars while it plays use frames. */
+/** A song as the hero. The button and the picture say what the player is doing; a failed song says so in place of the artist. */
 @Composable
 private fun SongHero(s: Song, status: HeroStatus, onOpen: () -> Unit, onControl: () -> Unit) {
-    val active = status == HeroStatus.PLAYING || status == HeroStatus.LOADING
+    val active = status == HeroStatus.ACTIVE
     Hero(
-        s.title, s.artist,
+        s.title, if (status == HeroStatus.FAILED) "Couldn't play" else s.artist,
         {
             CoverArt(s.id, s.thumbnailUrl, s.localThumbPath, Modifier.fillMaxSize().then(if (status == HeroStatus.PAUSED) Modifier.greyed() else Modifier))
             if (status == HeroStatus.PAUSED) Box(Modifier.fillMaxSize().background(Color(0x47000000)))
         },
-        {
-            when (status) {
-                HeroStatus.PLAYING -> HeroTag("Playing", accent = true) { com.spotifry.music.ui.components.PlayingBars(true, Modifier.size(13.dp), MaterialTheme.colorScheme.onPrimary) }
-                HeroStatus.LOADING -> HeroTag("Loading", accent = true)
-                HeroStatus.PAUSED -> HeroTag("Paused") { Icon(Icons.Pause, null, Modifier.size(13.dp), tint = Color.White) }
-                HeroStatus.FAILED -> HeroTag("Couldn't play")
-                HeroStatus.LAST_PLAYED -> HeroTag("Last played")
-            }
-        },
+        "Last played",
         if (active) Icons.Pause else Icons.Play,
         when (status) { HeroStatus.LAST_PLAYED -> "Play again"; HeroStatus.FAILED -> "Try again"; HeroStatus.PAUSED -> "Play"; else -> "Pause" },
         if (status == HeroStatus.LAST_PLAYED) "Play again" else "Open Now playing",
@@ -286,7 +278,7 @@ private fun Modifier.greyed() = drawWithCache {
 /** One shape in every state: a picture, a tag at the top, the words and one round button at the bottom. Grows with very large text. */
 @Composable
 private fun Hero(
-    title: String, subtitle: String, art: @Composable () -> Unit, tag: @Composable () -> Unit,
+    title: String, subtitle: String, art: @Composable () -> Unit, tag: String,
     controlIcon: ImageVector, controlLabel: String, openLabel: String, onOpen: () -> Unit, onControl: () -> Unit, accent: Boolean = false,
 ) {
     val shape = RoundedCornerShape(22.dp)
@@ -302,9 +294,8 @@ private fun Hero(
                 Brush.verticalGradient(0f to Color(0x6108090C), .34f to Color(0x1408090C), .64f to Color(0xB808090C), 1f to Color(0xEB08090C)),
             ),
         )
-        if (accent) Box(Modifier.matchParentSize().border(2.dp, scheme.primary, shape))
         Column(Modifier.fillMaxWidth().heightIn(min = 212.dp).padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 16.dp), Arrangement.SpaceBetween) {
-            tag()
+            HeroTag(tag)
             Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 12.dp), Arrangement.spacedBy(14.dp), Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.headlineMedium.copy(fontSize = 26.sp, lineHeight = 30.sp), color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -321,14 +312,9 @@ private fun Hero(
 }
 
 @Composable
-private fun HeroTag(label: String, accent: Boolean = false, icon: @Composable () -> Unit = {}) {
-    val scheme = MaterialTheme.colorScheme
-    Row(
-        Modifier.clip(RoundedCornerShape(14.dp)).background(if (accent) scheme.primary else Color(0x9E08090C)).heightIn(min = 28.dp).padding(horizontal = 11.dp),
-        Arrangement.spacedBy(7.dp), Alignment.CenterVertically,
-    ) {
-        icon()
-        Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = if (accent) scheme.onPrimary else Color.White)
+private fun HeroTag(label: String) {
+    Box(Modifier.clip(RoundedCornerShape(14.dp)).background(Color(0x9E08090C)).heightIn(min = 28.dp).padding(horizontal = 11.dp), Alignment.Center) {
+        Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
     }
 }
 

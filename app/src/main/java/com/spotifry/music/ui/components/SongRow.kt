@@ -99,7 +99,7 @@ internal fun marked(text: String, query: String?, color: androidx.compose.ui.gra
 
 /** Three bars bouncing while the song plays. Paused, they stand still and no animation runs, so they cost no frames. */
 @Composable
-fun PlayingBars(playing: Boolean, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary) {
+fun PlayingBars(playing: Boolean) {
     if (playing) {
         // redrawn about 30 times a second: three small bars gain nothing from a phone's full 120, and each redraw costs battery
         val phase by androidx.compose.runtime.produceState(0f) {
@@ -111,13 +111,14 @@ fun PlayingBars(playing: Boolean, modifier: Modifier = Modifier, color: androidx
                 if (t - drawn >= BARS_FRAME_NS) { drawn = t; value = (t - start) / BARS_CYCLE_NS * (2 * Math.PI).toFloat() }
             }
         }
-        Bars("Playing now", modifier, color) { i -> .35f + .65f * ((kotlin.math.sin(phase + i * 2.1f) + 1) / 2) }
-    } else Bars("Paused", modifier, color) { .35f }
+        Bars("Playing now") { i -> .35f + .65f * ((kotlin.math.sin(phase + i * 2.1f) + 1) / 2) }
+    } else Bars("Paused") { .35f }
 }
 
 @Composable
-private fun Bars(description: String, modifier: Modifier, color: androidx.compose.ui.graphics.Color, level: (Int) -> Float) {
-    androidx.compose.foundation.Canvas(modifier.size(18.dp).semantics { contentDescription = description }) {
+private fun Bars(description: String, level: (Int) -> Float) {
+    val color = MaterialTheme.colorScheme.primary
+    androidx.compose.foundation.Canvas(Modifier.size(18.dp).semantics { contentDescription = description }) {
         val w = size.width / 5
         repeat(3) { i ->
             val h = size.height * level(i)

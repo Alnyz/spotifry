@@ -77,49 +77,47 @@ class HomeScreenTest {
         MusicTheme { HomeContent(history, emptySet(), { l, _, _ -> played(l) }, {}, player = player, onToggle = toggled, onPause = paused, onOpenPlayer = opened) }
     }
 
-    @Test fun playingSaysSoWithBarsAndTheButtonPauses() {
+    @Test fun playingKeepsThePlainPillAndTheButtonPauses() {
         var stopped = 0; var opened = 0
         home(PlayerUiState(current = testSong, isPlaying = true, wantsPlay = true), opened = { opened++ }, paused = { stopped++ })
-        compose.onNodeWithText("Playing").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Playing now").assertExists()
-        compose.onAllNodesWithText("Last played").assertCountEquals(0)
+        compose.onNodeWithText("Last played").assertIsDisplayed()
+        compose.onAllNodesWithText("Playing").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("Playing now").assertCountEquals(0)
         compose.onNodeWithContentDescription("Pause").performClick()
         assertEquals(1, stopped)
         compose.onNodeWithText("Title").performClick()
         assertEquals(1, opened)
     }
 
-    @Test fun pausedSaysSoWithNoBarsAndTheButtonPlays() {
+    @Test fun pausedKeepsThePlainPillAndTheButtonPlays() {
         var toggled = 0
         home(PlayerUiState(current = testSong, isPlaying = false, wantsPlay = false), { toggled++ })
-        compose.onNodeWithText("Paused").assertIsDisplayed()
-        compose.onAllNodesWithText("Playing").assertCountEquals(0)
-        compose.onAllNodesWithText("Last played").assertCountEquals(0)
-        compose.onAllNodesWithContentDescription("Playing now").assertCountEquals(0)
+        compose.onNodeWithText("Last played").assertIsDisplayed()
+        compose.onAllNodesWithText("Paused").assertCountEquals(0)
         compose.onNodeWithContentDescription("Play").performClick()
         assertEquals(1, toggled)
     }
 
-    @Test fun bufferingSaysLoadingWithNoBarsAndTheButtonPauses() {
+    @Test fun bufferingKeepsThePlainPillAndTheButtonPauses() {
         var stopped = 0
         home(PlayerUiState(current = testSong, isPlaying = false, wantsPlay = true, buffering = true), paused = { stopped++ })
-        compose.onNodeWithText("Loading").assertIsDisplayed()
-        compose.onAllNodesWithContentDescription("Playing now").assertCountEquals(0)
+        compose.onNodeWithText("Last played").assertIsDisplayed()
+        compose.onAllNodesWithText("Loading").assertCountEquals(0)
         compose.onNodeWithContentDescription("Pause").performClick() // must stop it even before sound starts
         assertEquals(1, stopped)
     }
 
-    @Test fun anotherAppHoldingTheSoundIsNotLoading() {
+    @Test fun anotherAppHoldingTheSoundShowsPlayNotPause() {
         home(PlayerUiState(current = testSong, isPlaying = false, wantsPlay = true, buffering = false))
-        compose.onNodeWithText("Paused").assertIsDisplayed()
-        compose.onAllNodesWithText("Loading").assertCountEquals(0)
+        compose.onNodeWithContentDescription("Play").assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Pause").assertCountEquals(0)
     }
 
-    @Test fun aFailedSongSaysSoAndTheButtonTriesAgain() {
+    @Test fun aFailedSongSaysSoUnderTheTitleAndTheButtonTriesAgain() {
         var toggled = 0
         home(PlayerUiState(current = testSong, failed = true), { toggled++ })
         compose.onNodeWithText("Couldn't play").assertIsDisplayed()
-        compose.onAllNodesWithText("Paused").assertCountEquals(0)
+        compose.onNodeWithText("Last played").assertIsDisplayed()
         compose.onNodeWithContentDescription("Try again").performClick()
         assertEquals(1, toggled)
     }
@@ -134,7 +132,6 @@ class HomeScreenTest {
 
     @Test fun anotherSongInThePlayerTakesTheHeroAndTheLastOneMovesToTheRow() {
         home(PlayerUiState(current = second, isPlaying = true, wantsPlay = true))
-        compose.onNodeWithText("Playing").assertIsDisplayed()
         compose.onAllNodesWithText("Second").assertCountEquals(1)
         compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Recently played"))
         compose.onAllNodesWithText("Title").assertCountEquals(1)
