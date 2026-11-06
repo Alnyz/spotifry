@@ -4,7 +4,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,8 +67,8 @@ object FadeBarSpec {
     val MINI_GAP = 4.dp
     /** Never shorter than 32 dp: a shorter fade brings back a hard edge. */
     val FADE = 36.dp
-    /** Opacity of the page colour at the top of the tab row. Never below 0.88: a heading behind the tabs ghosts through below that. */
-    const val TAB_ROW_ALPHA = 0.96f
+    /** Opacity of the page colour at the top of the tab row. Never below 0.88, and not above about 0.98 or the see-through is lost: at 0.96 a big heading behind the tabs still showed as a faint shape. */
+    const val TAB_ROW_ALPHA = 0.98f
     val PILL_W = 56.dp
     val PILL_H = 40.dp
 
@@ -186,11 +190,17 @@ fun FadeBar(
 private fun RowScope.Tab(tab: BarTab, selected: Boolean, still: Boolean, onClick: () -> Unit) {
     val target = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     val color by animateColorAsState(target, if (still) tween(0) else tween(180), label = "tab icon")
-    // icons only: the name is for screen readers. The whole 52 dp column is the tap target, the pill is just its look
+    // icons only: the name is for screen readers. The whole 52 dp column is the tap target; the press ripple is drawn on the pill's
+    // own 56 x 40 dp shape (the click itself shows no indication), so it never flashes as a square behind a round pill
+    val press = remember { MutableInteractionSource() }
     Box(
         Modifier.weight(1f).height(FadeBarSpec.TAB_ROW)
             .semantics { contentDescription = tab.label }
-            .selectable(selected, role = Role.Tab, onClick = onClick),
+            .selectable(selected, interactionSource = press, indication = null, role = Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(tab.icon, contentDescription = null, tint = color, modifier = Modifier.size(26.dp)) }
+    ) {
+        Box(Modifier.size(FadeBarSpec.PILL_W, FadeBarSpec.PILL_H).clip(CircleShape).indication(press, LocalIndication.current), contentAlignment = Alignment.Center) {
+            Icon(tab.icon, contentDescription = null, tint = color, modifier = Modifier.size(26.dp))
+        }
+    }
 }
