@@ -101,8 +101,16 @@ internal fun marked(text: String, query: String?, color: androidx.compose.ui.gra
 @Composable
 fun PlayingBars(playing: Boolean, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary) {
     if (playing) {
-        val t = androidx.compose.animation.core.rememberInfiniteTransition("bars")
-        val phase by t.animateFloat(0f, (2 * Math.PI).toFloat(), androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.LinearEasing)), "phase")
+        // redrawn about 30 times a second: three small bars gain nothing from a phone's full 120, and each redraw costs battery
+        val phase by androidx.compose.runtime.produceState(0f) {
+            if ((coroutineContext[androidx.compose.ui.MotionDurationScale]?.scaleFactor ?: 1f) == 0f) return@produceState
+            var start = -1L
+            var drawn = 0L
+            while (true) androidx.compose.animation.core.withInfiniteAnimationFrameNanos { t ->
+                if (start < 0) start = t
+                if (t - drawn >= BARS_FRAME_NS) { drawn = t; value = (t - start) / BARS_CYCLE_NS * (2 * Math.PI).toFloat() }
+            }
+        }
         Bars("Playing now", modifier, color) { i -> .35f + .65f * ((kotlin.math.sin(phase + i * 2.1f) + 1) / 2) }
     } else Bars("Paused", modifier, color) { .35f }
 }
@@ -117,3 +125,6 @@ private fun Bars(description: String, modifier: Modifier, color: androidx.compos
         }
     }
 }
+
+private const val BARS_FRAME_NS = 33_000_000L
+private const val BARS_CYCLE_NS = 900_000_000f

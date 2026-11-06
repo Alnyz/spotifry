@@ -167,9 +167,9 @@ class PlaybackService : MediaSessionService() {
                 c.resolver.invalidate(id)
                 // a link the server refuses (expired, or the phone switched networks): try a fresh one once before giving up on the song
                 val refused = generateSequence(error.cause) { it.cause }.any { it is HttpDataSource.InvalidResponseCodeException }
+                // prepare only: the player keeps wanting to play or not, so a Pause tapped while the song loaded still holds
                 if (refused && retries.allow(id)) {
                     player.prepare()
-                    player.play()
                     return
                 }
                 // a song that cannot load (blocked, removed, offline and unsaved) must not stall the queue
@@ -178,7 +178,6 @@ class PlaybackService : MediaSessionService() {
                     movedByFailure = true
                     player.seekToNextMediaItem()
                     player.prepare()
-                    player.play()
                 }
             }
         })
