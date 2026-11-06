@@ -101,6 +101,8 @@ fun NowPlayingContent(
     sleep: SleepState = SleepState.Off, sleepLeft: () -> Long? = { null }, onSleep: () -> Unit = {},
     /** "1.25× · +2" when speed or pitch isn't normal, else null. */
     speedLabel: String? = null, onSpeed: () -> Unit = {},
+    /** The playback speed, so lyrics count along at the same pace. */
+    speed: Float = 1f,
     /** The ⋮ of a suggested song in Coming up, with its queue position. */
     onSuggestionMore: (Int) -> Unit = {},
     /** The scissors by the length of a trimmed song: opens the Trim sheet. */
@@ -188,7 +190,7 @@ fun NowPlayingContent(
         }
         val ready = (lyrics as? LyricsUi.Ready)?.lyrics
         // back is handled by the app shell, which closes these lyrics first and Now playing after
-        if (showLyrics && ready != null) LyricsScreen(state, position, ready, lerp(top, Color.White, .14f), { onShowLyrics(false) }, onSeek, onToggle)
+        if (showLyrics && ready != null) LyricsScreen(state, position, ready, lerp(top, Color.White, .14f), { onShowLyrics(false) }, onSeek, onToggle, speed)
     }
     }
     }
