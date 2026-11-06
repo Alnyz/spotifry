@@ -50,6 +50,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val sameLoudness by vm.settings.sameLoudness.collectAsStateWithLifecycle()
     val skipSilence by vm.settings.skipSilence.collectAsStateWithLifecycle()
     val smartTrim by vm.settings.smartTrim.collectAsStateWithLifecycle()
+    val jioSaavn by vm.settings.jioSaavn.collectAsStateWithLifecycle()
     val fade by vm.settings.fadeSeconds.collectAsStateWithLifecycle()
     val eqOn by vm.settings.eqOn.collectAsStateWithLifecycle()
     val eqPreset by vm.settings.eqPreset.collectAsStateWithLifecycle()
@@ -70,6 +71,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
             Group("Sound") {
                 Item("Data saver", "Lower quality on mobile data, about a third of the data. Wi-Fi stays high.", onClick = { vm.settings.setDataSaver(!dataSaver) }, role = Role.Switch) {
                     Switch(dataSaver, null, colors = switchColors())
+                }
+                Item(
+                    "JioSaavn 320 kbps", "Unofficial, may not work outside India. Falls back to YouTube.",
+                    onClick = { vm.setJioSaavn(!jioSaavn) }, role = Role.Switch,
+                ) {
+                    Switch(jioSaavn, null, colors = switchColors())
                 }
                 Item(
                     "Same loudness for every song", "Quiet songs are turned up and loud ones down, so you don't reach for the volume between songs.",

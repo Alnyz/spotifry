@@ -38,7 +38,7 @@ class AppContainer(private val context: Context) {
     val trims = com.spotifry.music.player.Trims(context.getSharedPreferences("trims", Context.MODE_PRIVATE))
     /** Talking skipped at the start and end of music videos, when the user's own trim doesn't say otherwise. */
     val smartTrims = com.spotifry.music.player.SmartTrims(context.getSharedPreferences("smart_trims", Context.MODE_PRIVATE), client)
-    val source: MusicSource = NewPipeSource()
+    val source: MusicSource = com.spotifry.music.data.source.ChoosingSource(NewPipeSource(), com.spotifry.music.data.source.JioSaavnSource(client)::find) { settings.jioSaavn.value }
     val resolver = StreamResolver(source)
     // "Play the whole song" means whole: the smart trim is turned off for that song too
     val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, knownKbps = ::streamKbps, saveTrim = { id, t -> trims[id] = t; if (t == null) smartTrims.turnOff(id) }) }

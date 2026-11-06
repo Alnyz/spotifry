@@ -133,6 +133,11 @@ class Settings(private val prefs: SharedPreferences) {
     fun setKeepScreenOn(on: Boolean) { _keepScreenOn.value = on; prefs.edit().putBoolean(KEEP_SCREEN_ON, on).apply() }
     fun setTheme(mode: ThemeMode) { _theme.value = mode; prefs.edit().putString(THEME, mode.name).apply() }
 
+    private val _jioSaavn = MutableStateFlow(prefs.getBoolean(JIOSAAVN, false))
+    /** Songs play from JioSaavn at 320 kbps when it surely has the same one. Off until chosen. */
+    val jioSaavn: StateFlow<Boolean> = _jioSaavn
+    fun setJioSaavn(on: Boolean) { _jioSaavn.value = on; prefs.edit().putBoolean(JIOSAAVN, on).apply() }
+
     private val _firstLaunchSeen = MutableStateFlow(prefs.getBoolean(FIRST_LAUNCH_SEEN, false))
     /** The first-launch screens were finished, skipped, or never needed (the app was updated, not installed). */
     val firstLaunchSeen: StateFlow<Boolean> = _firstLaunchSeen
@@ -151,6 +156,7 @@ class Settings(private val prefs: SharedPreferences) {
 
     private companion object {
         const val FIRST_LAUNCH_SEEN = "first_launch_seen"
+        const val JIOSAAVN = "jiosaavn"
         const val ARTISTS = "picked_artists"
         const val DATA_SAVER = "data_saver"
         const val SAVE_LOW = "save_low"

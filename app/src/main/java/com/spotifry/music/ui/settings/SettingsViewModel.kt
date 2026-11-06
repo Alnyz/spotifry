@@ -27,6 +27,7 @@ class SettingsViewModel(
     private val songsDir: File,
     private val covers: Cache?,
     private val songCache: androidx.media3.datasource.cache.Cache? = null,
+    private val forgetLinks: () -> Unit = {},
 ) : ViewModel() {
     private val _storage = MutableStateFlow<Storage?>(null)
     /** Null while counting. Counted each time the page opens and after clearing covers. */
@@ -51,6 +52,8 @@ class SettingsViewModel(
         songCache?.let { c -> runCatching { c.keys.toList().forEach(c::removeResource) } }
         count()
     }
+
+    fun setJioSaavn(on: Boolean) { settings.setJioSaavn(on); forgetLinks() }
 
     fun clearSearches() = recentSearches.clear()
 
