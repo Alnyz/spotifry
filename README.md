@@ -34,7 +34,7 @@
 | Playlists | Search, sort, put in your own order, or shuffle. Songs already in a playlist carry a small mark. Bring in a public Spotify playlist from its link. |
 | Queue | Drag songs to reorder, swipe to remove. Shuffle spreads artists out; smart shuffle mixes in similar songs. |
 | Share | Send a song or a playlist as a link, a list or a picture. |
-| Lyrics | Light up word by word as they're sung when [BetterLyrics](https://github.com/better-lyrics/better-lyrics) has the song, else line by line from [LRCLIB](https://lrclib.net). |
+| Lyrics | Light up word by word as they're sung when [BetterLyrics](https://github.com/better-lyrics/better-lyrics) has the song, else line by line from [LRCLIB](https://lrclib.net). Now playing shows the line before, the one being sung and the next one; tap them for all lyrics. |
 | Keeps playing | With the screen off, controlled from the lock screen, the notification and a home screen widget. Similar songs play when the queue ends, and a song that can't play is skipped at once. |
 | Data saver | Lower quality on mobile data. Wi-Fi stays high. |
 | Look | Light or dark or follow the phone, pure black, and any accent colour, including your wallpaper's. |

@@ -84,8 +84,8 @@ internal val Faint = Color.White.copy(alpha = .72f)
 
 /**
  * Layout: the background takes its colour from the cover. Where the music comes from at the top, then the big cover,
- * title with the save button beside it, the progress bar, the controls, and the pill with the lyric line or next song.
- * Below the fold, the songs coming up, whose top edge peeks in.
+ * the quality label, three lines of lyrics (before, now, next), title with the save button beside it, the progress bar
+ * and the controls. Below the fold, the songs coming up, whose top edge peeks in.
  */
 @Composable
 fun NowPlayingContent(
@@ -134,10 +134,10 @@ fun NowPlayingContent(
         val screen = maxHeight
         // on normal screens the cover keeps its size when a pill shows: the free space on the page takes up the pill instead
         val pills = sleep != SleepState.Off || speedLabel != null
-        // on short screens the cover gives way, so the pill under the controls stays above the gesture bar
+        // on short screens the cover gives way, so the controls stay above the gesture bar
         val bars = WindowInsets.systemBars.asPaddingValues()
         val textGrowth = LocalDensity.current.textGrowth()
-        val around = 360.dp + textGrowth + bars.calculateTopPadding() + bars.calculateBottomPadding() + (if (pills) 34.dp else 0.dp)
+        val around = 378.dp + textGrowth + bars.calculateTopPadding() + bars.calculateBottomPadding() + (if (pills) 34.dp else 0.dp)
         val cover = minOf(maxWidth - 48.dp, screen * 0.44f, screen - around).coerceAtLeast(140.dp)
         // lyrics are timed to the whole song; the player counts from the trim's start
         val trimStart = state.trim?.startMs ?: 0L
@@ -167,6 +167,7 @@ fun NowPlayingContent(
                         )
                     }
                 }
+                LyricsPeek(lyrics, sung, { onShowLyrics(true) })
                 }
                 Column(Modifier.padding(top = 20.dp)) {
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -179,7 +180,6 @@ fun NowPlayingContent(
                 }
                 ProgressBar(state, position, Modifier.padding(horizontal = 24.dp).padding(top = 14.dp), onSeek, onTrim)
                 Controls(state, onToggle, onNext, onPrev, onShuffle, onRepeat, Modifier.padding(horizontal = 14.dp).padding(top = 6.dp))
-                SongPill(lyrics, state.nextTitle(), sung, { onShowLyrics(true) }, onQueue)
                 Spacer(Modifier.height(12.dp))
                 }
             }
@@ -362,10 +362,10 @@ private fun saveLabel(save: SaveUi) = when (save) {
 }
 
 /**
- * How much taller the title, artist and time lines are at this text size: 30, 22 and 18 sp of line height, the rest is
- * fixed. Each is converted on its own, since text scaling isn't linear: small sizes grow more than large ones.
+ * How much taller the title, artist, time and three lyric lines are at this text size: 30, 22, 18 and 3 x 22 sp of line
+ * height, the rest is fixed. Each is converted on its own, since text scaling isn't linear: small sizes grow more than large ones.
  */
-internal fun androidx.compose.ui.unit.Density.textGrowth() = 30.sp.toDp() + 22.sp.toDp() + 18.sp.toDp() - 70.dp
+internal fun androidx.compose.ui.unit.Density.textGrowth() = 30.sp.toDp() + 22.sp.toDp() + 18.sp.toDp() + PEEK_LINE.toDp() * 3 - 136.dp
 
 internal fun formatTime(ms: Long): String {
     val total = (ms / 1000).coerceAtLeast(0)
