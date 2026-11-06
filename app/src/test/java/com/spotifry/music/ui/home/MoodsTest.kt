@@ -1,5 +1,8 @@
 package com.spotifry.music.ui.home
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.getValue
@@ -296,5 +299,11 @@ class MoodsTest {
     @Test fun fewerListsThanEnoughAreKeptWhenNothingFailed() = runBlocking {
         val s = Source().apply { next().complete(many(3)) }
         assertTrue(moodLists(s, mood).keep)
+    }
+
+    @Test fun whiteNameStaysReadableOverEveryPicture() {
+        fun ratio(a: Float, b: Float) = (maxOf(a, b) + .05f) / (minOf(a, b) + .05f)
+        val bad = MOODS.filter { ratio(1f, Color.White.copy(alpha = ART_ALPHA).compositeOver(it.color).luminance()) < 4.5f }
+        assertTrue("too light: ${bad.map { it.name }}", bad.isEmpty())
     }
 }

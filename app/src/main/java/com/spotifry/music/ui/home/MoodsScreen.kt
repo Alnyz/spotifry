@@ -26,6 +26,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,26 +56,26 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
 /** A tile under the empty search box. Its playlists come from a fixed search for [query]; words with "hits" find fewer stray personal lists. */
-data class Mood(val name: String, val line: String, val query: String)
+data class Mood(val name: String, val line: String, val query: String, val color: Color, val art: DrawScope.() -> Unit)
 
 /** Short names keep their full size at normal text. At very large text on a narrow screen [MoodTile] shrinks them to fit. */
 val MOODS = listOf(
-    Mood("Chill", "Easy songs that keep things slow and quiet.", "chill hits"),
-    Mood("Focus", "Mostly wordless music for reading or work.", "focus instrumental"),
-    Mood("Workout", "Fast, hard songs to keep you moving.", "workout music playlist"),
-    Mood("Party", "Loud songs everyone can dance and sing to.", "party hits"),
-    Mood("Sad", "Slow songs for when you need to feel it.", "sad songs playlist"),
-    Mood("Sleep", "Soft, slow songs for falling asleep.", "soft songs for sleeping"),
-    Mood("Feel good", "Bright songs to lift your day.", "feel good hits"),
-    Mood("Love songs", "Slow songs about falling for someone.", "love songs hits"),
-    Mood("Indo pop", "New hits and old favourites from Indonesia.", "top hits indonesia"),
-    Mood("Dangdut", "Indonesia's own drum-led dance music, old and new.", "dangdut hits"),
-    Mood("Indie", "Guitars and small bands away from the big charts.", "indie hits"),
-    Mood("Hip-hop", "Rap and beats, from the classics to now.", "hip hop hits"),
-    Mood("R&B", "Smooth voices over soft, soulful grooves.", "r&b hits"),
-    Mood("Rock", "Loud guitars and big choruses, old and new.", "rock hits"),
-    Mood("Jazz", "Swing, horns and piano to sit back with.", "jazz classics"),
-    Mood("Dance", "House, techno and other club music.", "electronic dance hits"),
+    Mood("Chill", "Easy songs that keep things slow and quiet.", "chill hits", Color(0xFF15594C), { waves() }),
+    Mood("Focus", "Mostly wordless music for reading or work.", "focus instrumental", Color(0xFF2F4A7A), { target() }),
+    Mood("Workout", "Fast, hard songs to keep you moving.", "workout music playlist", Color(0xFFA32A1E), { dumbbell() }),
+    Mood("Party", "Loud songs everyone can dance and sing to.", "party hits", Color(0xFFA8186A), { confetti() }),
+    Mood("Sad", "Slow songs for when you need to feel it.", "sad songs playlist", Color(0xFF3F4C63), { rain() }),
+    Mood("Sleep", "Soft, slow songs for falling asleep.", "soft songs for sleeping", Color(0xFF27235E), { moon() }),
+    Mood("Feel good", "Bright songs to lift your day.", "feel good hits", Color(0xFF7A4200), { sun() }),
+    Mood("Love songs", "Slow songs about falling for someone.", "love songs hits", Color(0xFF99204C), { heart() }),
+    Mood("Indo pop", "New hits and old favourites from Indonesia.", "top hits indonesia", Color(0xFF74298A), { microphone() }),
+    Mood("Dangdut", "Indonesia's own drum-led dance music, old and new.", "dangdut hits", Color(0xFF195B27), { drum() }),
+    Mood("Indie", "Guitars and small bands away from the big charts.", "indie hits", Color(0xFF5A4C18), { cassette() }),
+    Mood("Hip-hop", "Rap and beats, from the classics to now.", "hip hop hits", Color(0xFF4A3F9A), { speaker() }),
+    Mood("R&B", "Smooth voices over soft, soulful grooves.", "r&b hits", Color(0xFF5C2A63), { vinyl() }),
+    Mood("Rock", "Loud guitars and big choruses, old and new.", "rock hits", Color(0xFF2C2F36), { bolt() }),
+    Mood("Jazz", "Swing, horns and piano to sit back with.", "jazz classics", Color(0xFF724510), { pianoKeys() }),
+    Mood("Dance", "House, techno and other club music.", "electronic dance hits", Color(0xFF005A68), { levelBars() }),
 )
 
 /** A list with fewer songs than this isn't worth a row. */
@@ -154,16 +157,15 @@ internal fun LazyListScope.moodGrid(onOpen: (Mood) -> Unit) {
 
 @Composable
 private fun MoodTile(mood: Mood, onOpen: (Mood) -> Unit, modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
     Box(
-        modifier.fillMaxHeight().heightIn(min = 84.dp).clip(RoundedCornerShape(16.dp)).background(scheme.surfaceContainerHigh)
+        modifier.fillMaxHeight().heightIn(min = 96.dp).clip(RoundedCornerShape(16.dp)).background(mood.color).drawBehind { moodArt(mood.art) }
             .clickable(role = Role.Button) { onOpen(mood) }.padding(12.dp),
         Alignment.BottomStart,
     ) {
         // one line, a little smaller if it must be, so a long word never breaks in the middle
         val style = MaterialTheme.typography.titleLarge
         BasicText(
-            mood.name, style = style.copy(fontWeight = FontWeight.Bold, color = scheme.onSurface), maxLines = 1, softWrap = false,
+            mood.name, style = style.copy(fontWeight = FontWeight.Bold, color = Color.White), maxLines = 1, softWrap = false,
             overflow = TextOverflow.Ellipsis, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = style.fontSize),
         )
     }
