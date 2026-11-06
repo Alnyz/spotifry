@@ -75,7 +75,7 @@ internal fun LyricsPeek(lyrics: LyricsUi, sung: () -> Long, onShowAll: () -> Uni
 private fun Slot(text: String?, color: Color, weight: FontWeight) {
     Crossfade(text, animationSpec = tween(150), label = "lyric peek") { t ->
         Text(
-            t ?: " ", Modifier.fillMaxWidth(), color = color, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            t ?: " ", Modifier.fillMaxWidth(), color = color, textAlign = TextAlign.Start, maxLines = 1, overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, lineHeight = PEEK_LINE, fontWeight = weight),
         )
     }

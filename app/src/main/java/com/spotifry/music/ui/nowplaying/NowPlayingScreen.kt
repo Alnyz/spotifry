@@ -137,8 +137,7 @@ fun NowPlayingContent(
         // on short screens the cover gives way, so the controls stay above the gesture bar
         val bars = WindowInsets.systemBars.asPaddingValues()
         val textGrowth = LocalDensity.current.textGrowth()
-        val around = 378.dp + textGrowth + bars.calculateTopPadding() + bars.calculateBottomPadding() + (if (pills) 34.dp else 0.dp)
-        val cover = minOf(maxWidth - 48.dp, screen * 0.44f, screen - around).coerceAtLeast(140.dp)
+        val cover = coverSize(maxWidth, screen, textGrowth, bars.calculateTopPadding() + bars.calculateBottomPadding(), pills)
         // lyrics are timed to the whole song; the player counts from the trim's start
         val trimStart = state.trim?.startMs ?: 0L
         val sung = remember(trimStart, position) { { position() + trimStart } }
@@ -167,8 +166,9 @@ fun NowPlayingContent(
                         )
                     }
                 }
-                LyricsPeek(lyrics, sung, { onShowLyrics(true) })
                 }
+                // its own place in the spread, so free space on a tall screen falls above and below it
+                LyricsPeek(lyrics, sung, { onShowLyrics(true) })
                 Column(Modifier.padding(top = 20.dp)) {
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -193,6 +193,14 @@ fun NowPlayingContent(
     }
     }
 }
+
+/**
+ * The cover's side: as big as the page allows, but on a short screen it gives way so the controls end above the gesture
+ * bar. 378 dp is everything else on the page at normal text size (top bar, quality label, three lyric lines, title,
+ * progress, controls, margins); [textGrowth], the system [bars] and the info pills row come on top.
+ */
+internal fun coverSize(width: androidx.compose.ui.unit.Dp, screen: androidx.compose.ui.unit.Dp, textGrowth: androidx.compose.ui.unit.Dp, bars: androidx.compose.ui.unit.Dp, pills: Boolean) =
+    minOf(width - 48.dp, screen * 0.44f, screen - (378.dp + textGrowth + bars + (if (pills) 34.dp else 0.dp))).coerceAtLeast(140.dp)
 
 /**
  * Keeps the screen awake while this is in the composition and [on]. Meant to sit inside Now playing, so leaving it lets

@@ -17,6 +17,8 @@ import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -103,6 +105,12 @@ private val TABS = listOf("Graph", "Bands", "Headphone")
 private const val STEP_MB = 50
 private val MAX_GRAPH = 300.dp
 private val MIN_GRAPH = 180.dp
+/** The graph's height on a page [page] tall with [bottomInset] taken by the mini player: all it can have, between the limits. */
+internal fun graphHeight(page: Dp, bottomInset: Dp) = (page - bottomInset - ABOVE_GRAPH).coerceIn(MIN_GRAPH, MAX_GRAPH)
+
+/** The preset chips in order: the presets, then Custom last, only while none is picked, so no chip ever moves. */
+internal fun presetChips(preset: String?) = EQ_PRESETS.map { it.first } + listOfNotNull("Custom".takeIf { EQ_PRESETS.none { p -> p.first == preset } })
+
 /** Everything above the graph's drawing at normal text size: header, switch, tabs, presets, the point's label. */
 private val ABOVE_GRAPH = 440.dp
 /** How close to a point a press has to land to grab it. Further off, the touch scrolls the page instead. */
@@ -159,9 +167,9 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
     // on a short screen the graph gives a little height, so it ends above the mini player instead of under it
-    val graphHeight = (maxHeight - bottomInset - ABOVE_GRAPH).coerceIn(MIN_GRAPH, MAX_GRAPH)
-    // with the keyboard up the page is shorter, so the field being typed in scrolls into view
-    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(bottom = bottomInset + 24.dp)) {
+    val graphHeight = graphHeight(maxHeight, bottomInset)
+    // the app shell makes room for the keyboard, so the field being typed in scrolls into view
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = bottomInset + 24.dp)) {
         ScreenHeader("Equalizer", onBack = onBack)
         Column(Modifier.padding(horizontal = 16.dp).padding(top = 12.dp)) {
             Card {
@@ -187,9 +195,17 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                     )
                 }
                 Row(Modifier.fillMaxWidth().selectableGroup().horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
-                    EQ_PRESETS.forEach { (name, l) -> Chip(name, preset == name) { settings.setEq(name, l); settings.setEqOn(true) } }
-                    // last, so it showing up or going never moves the presets under a finger
-                    if (EQ_PRESETS.none { it.first == preset }) Chip("Custom", true) { }
+                    val selectedChip = remember { BringIntoViewRequester() }
+                    // opening the page shows the picked chip, even when it's far along the row
+                    LaunchedEffect(Unit) { withFrameNanos { }; selectedChip.bringIntoView() }
+                    presetChips(preset).forEach { name ->
+                        val l = EQ_PRESETS.firstOrNull { it.first == name }?.second
+                        // Custom is only in the row while it's the one picked
+                        val picked = l == null || preset == name
+                        Box(if (picked) Modifier.bringIntoViewRequester(selectedChip) else Modifier) {
+                            Chip(name, picked) { if (l != null) { settings.setEq(name, l); settings.setEqOn(true) } }
+                        }
+                    }
                 }
                 }
                 Spacer(Modifier.height(18.dp))
@@ -199,7 +215,7 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                         when (page) {
                             0 -> GraphTab(tap, isPlaying, on, levels, shape, settings::saveEq, graphHeight)
                             1 -> BandsTab(levels, shape, settings::saveEq)
-                            else -> AutoEqTab(settings, autoEq, preset)
+                            else -> AutoEqTab(settings, autoEq, preset, on)
                         }
                     }
                 }

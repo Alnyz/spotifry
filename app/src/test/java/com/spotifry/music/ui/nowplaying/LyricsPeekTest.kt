@@ -179,4 +179,18 @@ class LyricsPeekTest {
         compose.waitForIdle()
         assertTrue(compose.onNodeWithTag("lyrics peek").getUnclippedBoundsInRoot().height > 90.dp)
     }
+
+    // Robolectric's text metrics differ from a phone's (the controls measured 95 dp lower than on the emulator), so the real
+    // layout can't be asserted here; the rule's numbers are, and they were checked by eye on 360x640 (see the commit)
+    @Test fun theCoverRuleKeepsRoomForEverythingElseOnAShortPhone() {
+        // 360x640 with 24 dp bars at both ends: 640 - (378 + 48) = 214 dp, the size seen on the emulator
+        assertEquals(214.dp, coverSize(360.dp, 640.dp, 0.dp, 48.dp, false))
+        // a tall phone is held to its width, and a wide, short window to 44% of the height
+        assertEquals(364.dp, coverSize(412.dp, 914.dp, 0.dp, 48.dp, false))
+        assertEquals(.44f * 914, coverSize(800.dp, 914.dp, 0.dp, 48.dp, false).value, .1f)
+        // larger text and the pills row take more
+        assertTrue(coverSize(360.dp, 640.dp, 33.dp, 48.dp, true) < coverSize(360.dp, 640.dp, 0.dp, 48.dp, false) - 60.dp)
+        // never smaller than 140 dp
+        assertEquals(140.dp, coverSize(360.dp, 300.dp, 0.dp, 0.dp, false))
+    }
 }

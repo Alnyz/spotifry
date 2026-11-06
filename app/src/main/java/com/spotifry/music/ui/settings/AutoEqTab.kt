@@ -59,7 +59,7 @@ private sealed interface Step {
 
 /** Pick a headphone, and the ten bands are set to bend its measured sound toward the target curve. */
 @Composable
-internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?) {
+internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?, on: Boolean) {
     val scheme = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     val focus = LocalFocusManager.current
@@ -119,8 +119,10 @@ internal fun AutoEqTab(settings: Settings, source: AutoEqSource, preset: String?
     Card {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), Arrangement.spacedBy(10.dp)) {
             if (active != null) {
-                Text("Correcting for", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
-                Text(active, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
+                if (on) {
+                    Text("Correcting for", style = MaterialTheme.typography.labelMedium, color = scheme.onSurfaceVariant)
+                    Text(active, style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
+                } else Text("Equalizer is off. Turn it on to correct for $active.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
                 Chip(if (before) "Back to my curve" else "Turn off correction", false, Role.Button) { settings.restoreEqBefore() }
             }
             when (val s = step) {

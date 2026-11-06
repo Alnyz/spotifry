@@ -8,6 +8,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -287,13 +289,13 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                 },
             ) { pad ->
                 TopGlow()
-                Box(Modifier.padding(pad).fillMaxSize()) {
+                Box(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
                     val inLists by remember { c.db.playlists().observeSongIdsInPlaylists().map { it.toSet() } }.collectAsStateWithLifecycle(emptySet())
                     CompositionLocalProvider(
                         com.spotifry.music.ui.components.LocalNowPlaying provides com.spotifry.music.ui.components.NowPlayingMark(player.current?.id, player.isPlaying) { showPlayer = true },
                         com.spotifry.music.ui.components.LocalInPlaylist provides inLists,
                     ) {
-                    NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().fadeTop().hazeSource(haze)) {
+                    NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().imePadding().fadeTop().hazeSource(haze)) {
                         composable(Routes.LISTEN) {
                             HomeScreen(home, openMenu, inset, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, top = {
                                 val update by c.updates.state.collectAsStateWithLifecycle()
