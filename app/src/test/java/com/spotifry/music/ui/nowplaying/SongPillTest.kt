@@ -26,7 +26,9 @@ import androidx.compose.ui.unit.dp
 import com.spotifry.music.data.LyricLine
 import com.spotifry.music.data.Lyrics
 import com.spotifry.music.data.testSong
+import androidx.media3.common.Player
 import com.spotifry.music.player.PlayerUiState
+import com.spotifry.music.player.Trim
 import com.spotifry.music.ui.theme.MusicTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -64,11 +66,17 @@ class SongPillTest {
         assertNull(pillLabel(LyricsUi.Loading, "Other", { 0L }))
     }
 
-    @Test fun theNextSongFollowsThePlayOrder() {
+    @Test fun theNextSongIsWhereNextGoes() {
         val a = testSong.copy(id = "a", title = "A"); val b = testSong.copy(id = "b", title = "B"); val c = testSong.copy(id = "c", title = "C")
-        assertEquals("B", PlayerUiState(queue = listOf(a, b, c), currentIndex = 0).nextTitle())
-        assertEquals("C", PlayerUiState(queue = listOf(a, b, c), currentIndex = 0, order = listOf(0, 2, 1)).nextTitle())
-        assertNull(PlayerUiState(queue = listOf(a, b, c), currentIndex = 2).nextTitle())
+        val q = listOf(a, b, c)
+        assertEquals("B", PlayerUiState(queue = q, currentIndex = 0, nextIndex = 1).nextTitle())
+        // shuffle: the player's own pick, not list order
+        assertEquals("C", PlayerUiState(queue = q, currentIndex = 0, nextIndex = 2, order = listOf(0, 2, 1)).nextTitle())
+        // repeat all on the last song wraps to the first
+        assertEquals("A", PlayerUiState(queue = q, currentIndex = 2, nextIndex = 0, repeatMode = Player.REPEAT_MODE_ALL).nextTitle())
+        // the end of the queue, and a lone song on repeat all, have nothing next
+        assertNull(PlayerUiState(queue = q, currentIndex = 2).nextTitle())
+        assertNull(PlayerUiState(queue = listOf(a), currentIndex = 0, nextIndex = 0, repeatMode = Player.REPEAT_MODE_ALL).nextTitle())
     }
 
     private var lyricsOpened = 0
@@ -157,5 +165,20 @@ class SongPillTest {
         compose.onNodeWithText("first").assertIsDisplayed()
         at.longValue = 6_000
         compose.onNodeWithText("second").assertIsDisplayed()
+    }
+
+    /** Eight lines a minute apart, so the line sung at any time is easy to tell. */
+    private val longSong = LyricsUi.Ready(Lyrics.Timed(List(8) { LyricLine(it * 60_000L, "line $it") }))
+
+    // the lyrics are timed to the whole song, the player's position to the kept part: both pill and card must add the trim's start
+    @Test @Config(qualifiers = "w411dp-h914dp")
+    fun theLyricsFollowTheWholeSongNotTheTrimmedPart() {
+        compose.mainClock.autoAdvance = false
+        val state = PlayerUiState(current = testSong, isPlaying = true, durationMs = 200_000, queue = listOf(testSong), trim = Trim(startMs = 5 * 60_000L))
+        compose.setContent { MusicTheme { NowPlayingContent(state, SaveUi.Unsaved, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, lyrics = longSong, position = { 2_000L }) } }
+        repeat(3) { compose.mainClock.advanceTimeByFrame() }
+        // 2 s into a song cut at 5:00 is 5:02: line 5, in the pill and in the card. Position alone would say line 0.
+        assertEquals(2, compose.onAllNodesWithText("line 5").fetchSemanticsNodes().size)
+        assertTrue(compose.onAllNodesWithText("line 0").fetchSemanticsNodes().isEmpty())
     }
 }

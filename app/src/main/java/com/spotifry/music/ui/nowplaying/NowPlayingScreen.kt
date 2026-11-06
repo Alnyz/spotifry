@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -135,7 +136,9 @@ fun NowPlayingContent(
         val pills = sleep != SleepState.Off || speedLabel != null
         // on short screens the cover gives way, so the pill under the controls stays above the gesture bar
         val bars = WindowInsets.systemBars.asPaddingValues()
-        val around = 360.dp + bars.calculateTopPadding() + bars.calculateBottomPadding() + (if (pills) 34.dp else 0.dp)
+        // the title, artist and time lines grow with the text size (30 + 24 + 16 sp of line height); the rest is fixed
+        val textGrowth = with(LocalDensity.current) { 70.sp.toDp() - 70.dp }
+        val around = 360.dp + textGrowth + bars.calculateTopPadding() + bars.calculateBottomPadding() + (if (pills) 34.dp else 0.dp)
         val cover = minOf(maxWidth - 48.dp, screen * 0.44f, screen - around).coerceAtLeast(140.dp)
         // lyrics are timed to the whole song; the player counts from the trim's start
         val trimStart = state.trim?.startMs ?: 0L

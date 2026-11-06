@@ -30,6 +30,11 @@ data class PlayerUiState(
     /** Shuffle with a similar song from YouTube after every three of yours. Only while [shuffle] is on. */
     val smart: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
+    /**
+     * The song the player goes to on Next: follows shuffle and wraps with repeat all, and repeat one counts as off.
+     * [C.INDEX_UNSET] at the end of the queue.
+     */
+    val nextIndex: Int = C.INDEX_UNSET,
     /** Queue positions in the order they will play, starting at the current song. Null means plain list order. */
     val order: List<Int>? = null,
     /** Where the queue came from, e.g. "Saved" or a playlist name. Null after the app restarts. */
@@ -134,6 +139,7 @@ class PlayerController(
             shuffle = c.shuffleModeEnabled,
             smart = smart,
             repeatMode = c.repeatMode,
+            nextIndex = c.nextMediaItemIndex,
             order = playOrder(c),
             from = from,
             quality = c.currentMediaItem?.let { qualityLabel(audioFormat(c), knownKbps(it.mediaId, wholeMs)) },

@@ -25,11 +25,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.C
 import com.spotifry.music.data.Lyrics
 import com.spotifry.music.data.indexAt
 import com.spotifry.music.player.PlayerUiState
@@ -45,7 +47,8 @@ internal fun pillLabel(lyrics: LyricsUi, next: String?, at: () -> Long): String?
     null -> if (lyrics == LyricsUi.Loading) null else next?.let { "Next: $it" }
 }
 
-internal fun PlayerUiState.nextTitle(): String? = upNextIndices().getOrNull(1)?.let { queue.getOrNull(it)?.title }
+/** The song Next goes to, so repeat all and shuffle are followed; nothing when Next would stay on this one. */
+internal fun PlayerUiState.nextTitle(): String? = nextIndex.takeIf { it != C.INDEX_UNSET && it != currentIndex }?.let { queue.getOrNull(it)?.title }
 
 /** Under the controls: tap for the lyrics (the queue when there are none), swipe sideways for the queue. */
 @Composable
@@ -70,7 +73,7 @@ internal fun SongPill(lyrics: LyricsUi, next: String?, position: () -> Long, onL
                     }
                 }
                 .semantics { if (hasLyrics) customActions = listOf(CustomAccessibilityAction("Open queue") { onQueue(); true }) }
-                .clickable(onClickLabel = if (hasLyrics) "Show all lyrics" else "Open queue", onClick = if (hasLyrics) onLyrics else onQueue)
+                .clickable(role = Role.Button, onClickLabel = if (hasLyrics) "Show all lyrics" else "Open queue", onClick = if (hasLyrics) onLyrics else onQueue)
                 // the visible pill is a little slimmer than the place to touch it
                 .padding(vertical = 4.dp).background(Color.White.copy(alpha = .12f), CircleShape).padding(horizontal = 16.dp),
             Alignment.Center,
