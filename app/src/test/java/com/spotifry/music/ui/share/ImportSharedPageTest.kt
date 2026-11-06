@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
@@ -24,16 +25,25 @@ import org.robolectric.annotation.Config
 class ImportSharedPageTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun inAVeryShortWindowTheButtonsStayAndEverythingElseScrolls() {
-        val songs = List(30) { Song("id$it", "Song $it", "Ann", 100, null) }
-        compose.setContent {
-            MusicTheme { Box(Modifier.size(640.dp, 180.dp)) { ImportSharedPage(ShareText.Shared("Mine", songs, 0), { _, _, _ -> }, {}, {}) } }
-        }
+    private val songs = List(30) { Song("id$it", "Song $it", "Ann", 100, null) }
+
+    private fun open(height: Int) = compose.setContent {
+        MusicTheme { Box(Modifier.size(640.dp, height.dp)) { ImportSharedPage(ShareText.Shared("Mine", songs, 0), { _, _, _ -> }, {}, {}) } }
+    }
+
+    @Test fun inAShortWindowTheButtonsStayAndEverythingElseScrolls() {
+        open(240)
         compose.onNodeWithText("Play now").assertIsDisplayed()
         compose.onNodeWithText("Add to my playlists").assertIsDisplayed()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasSetTextAction())
         compose.onNode(hasSetTextAction()).assertIsDisplayed()
-        compose.onNode(hasScrollToNodeAction()).performScrollToNode(androidx.compose.ui.test.hasText("Song 29"))
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Song 29"))
         compose.onNodeWithText("Song 29").assertIsDisplayed()
+    }
+
+    @Test fun whenOnlyTheNameCanFitTheButtonsStepAside() {
+        // what's left in landscape with the keyboard up: the page's header and a little more
+        open(108)
+        compose.onNodeWithText("Play now").assertDoesNotExist()
+        compose.onNode(hasSetTextAction()).assertIsDisplayed()
     }
 }

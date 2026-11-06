@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -287,11 +288,14 @@ fun ImportSharedPage(shared: ShareText.Shared, onPlay: (List<Song>, Int, String)
     var name by remember(shared) { mutableStateOf(shared.title) }
     val scheme = MaterialTheme.colorScheme
     Page("Import playlist", onBack) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
-            // the name scrolls with the songs and the buttons stay: with a keyboard up in landscape, little else fits
+        BoxWithConstraints {
+        // with a keyboard up in landscape there's only room for the name being typed: the buttons come back with the keyboard's Done
+        val roomy = maxHeight >= 160.dp
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = if (roomy) 16.dp else 0.dp)) {
+            // the name scrolls with the songs and the buttons stay
             LazyColumn(Modifier.weight(1f)) {
                 item {
-                    Label("Name", Modifier.padding(top = 0.dp))
+                    if (roomy) Label("Name", Modifier.padding(top = 0.dp))
                     OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
                     val n = shared.songs.size
                     val files = shared.phoneFiles
@@ -305,10 +309,11 @@ fun ImportSharedPage(shared: ShareText.Shared, onPlay: (List<Song>, Int, String)
                 }
                 itemsIndexed(shared.songs, key = { _, s -> s.id }) { i, s -> SongRow(s, false, { onPlay(shared.songs, i, name.ifBlank { shared.title }) }, null) }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 10.dp), Arrangement.spacedBy(10.dp)) {
+            if (roomy) Row(Modifier.fillMaxWidth().padding(top = 10.dp), Arrangement.spacedBy(10.dp)) {
                 Pill(null, "Play now", scheme.surfaceContainerHigh, scheme.onSurface, { onPlay(shared.songs, 0, name.ifBlank { shared.title }) }, Modifier.weight(1f))
                 Pill(null, "Add to my playlists", scheme.primary, scheme.onPrimary, { onAdd(name.ifBlank { shared.title }) }, Modifier.weight(1.6f))
             }
+        }
         }
     }
 }
