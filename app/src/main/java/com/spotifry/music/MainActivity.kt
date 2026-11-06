@@ -78,7 +78,10 @@ import com.spotifry.music.ui.home.SearchScreen
 import com.spotifry.music.ui.settings.SettingsScreen
 import com.spotifry.music.ui.settings.SettingsViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.spotifry.music.ui.nowplaying.KeepScreenOn
 import com.spotifry.music.ui.nowplaying.NowPlayingContent
+import com.spotifry.music.player.hasOutputPicker
+import com.spotifry.music.player.showOutputPicker
 import com.spotifry.music.ui.nowplaying.NowPlayingViewModel
 import com.spotifry.music.ui.playlists.NameDialog
 import com.spotifry.music.ui.playlists.PlaylistDetailScreen
@@ -177,6 +180,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     val saved by savedVm.saved.collectAsStateWithLifecycle()
     val playlists by plVm.playlists.collectAsStateWithLifecycle()
     val save by npVm.save.collectAsStateWithLifecycle()
+    val keepScreenOn by c.settings.keepScreenOn.collectAsStateWithLifecycle()
     val lyrics by npVm.lyrics.collectAsStateWithLifecycle()
     val sleep by c.sleepTimer.state.collectAsStateWithLifecycle()
     var showSleep by remember { mutableStateOf(false) }
@@ -335,6 +339,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                 // one handler for the whole player, added each time it opens so it is the newest and outranks the
                 // NavHost's own back handling on every tab: full lyrics close first, then Now playing
                 BackHandler { if (showLyrics) showLyrics = false else showPlayer = false }
+                KeepScreenOn(keepScreenOn && player.isPlaying)
                 NowPlayingContent(
                     player, save,
                     onClose = { showPlayer = false }, onToggle = c.player::toggle, onNext = c.player::next, onPrev = c.player::previous,
@@ -374,6 +379,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         SleepState.EndOfSong -> " · after this song"
                         SleepState.Off -> ""
                     }
+                    if (hasOutputPicker(context)) add(MenuAction("Change output", Icons.Output) { showOutputPicker(context) })
+                    add(MenuAction("Keep screen on", Icons.ScreenOn, switch = keepScreenOn) { c.settings.setKeepScreenOn(!keepScreenOn) })
                     add(MenuAction("Sleep timer$left", Icons.Clock) { showSleep = true })
                     add(MenuAction("Speed and pitch" + (speedLabel?.let { " · $it" } ?: ""), Icons.Speed) { showSpeed = true })
                     // Trim: only here, as setting a point needs the song playing. Once trimmed, the sheet moves the points.

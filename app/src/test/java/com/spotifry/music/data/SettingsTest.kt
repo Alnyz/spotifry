@@ -26,6 +26,13 @@ class SettingsTest {
         assertEquals(ThemeMode.DARK, again.theme.value)
     }
 
+    @Test fun keepScreenOnIsOffUntilChosenAndSurvivesARestart() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("keep-on", 0)
+        assertFalse(Settings(prefs).keepScreenOn.value)
+        Settings(prefs).setKeepScreenOn(true)
+        assertTrue(Settings(prefs).keepScreenOn.value)
+    }
+
     @Test fun theOwnCurveComesBackAfterAHeadphoneCorrection() {
         val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("eq-before", 0)
         val own = listOf(100, 0, 0, 0, 0, 0, 0, 0, 0, -50)

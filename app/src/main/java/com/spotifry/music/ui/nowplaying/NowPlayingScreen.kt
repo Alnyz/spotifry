@@ -195,6 +195,19 @@ fun NowPlayingContent(
     }
 }
 
+/**
+ * Keeps the screen awake while this is in the composition and [on]. Meant to sit inside Now playing, so leaving it lets
+ * the screen sleep again; the caller passes "playing" too, since a paused song gives no reason to keep it lit.
+ */
+@Composable
+internal fun KeepScreenOn(on: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(view, on) {
+        view.keepScreenOn = on
+        onDispose { view.keepScreenOn = false }
+    }
+}
+
 @Composable
 private fun TopBar(from: String?, onClose: () -> Unit, onMore: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {

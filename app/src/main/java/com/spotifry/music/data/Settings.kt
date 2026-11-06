@@ -21,6 +21,9 @@ class Settings(private val prefs: SharedPreferences) {
     /** Songs saved to the phone in low quality instead of high. */
     val saveLow: StateFlow<Boolean> = _saveLow
     val theme: StateFlow<ThemeMode> = _theme
+    private val _keepScreenOn = MutableStateFlow(prefs.getBoolean(KEEP_SCREEN_ON, false))
+    /** The screen stays on while Now playing is open and a song plays. Off until chosen in the song menu. */
+    val keepScreenOn: StateFlow<Boolean> = _keepScreenOn
     private val _sameLoudness = MutableStateFlow(prefs.getBoolean(SAME_LOUDNESS, true))
     /** Quiet songs turned up, loud ones down. On unless turned off. */
     val sameLoudness: StateFlow<Boolean> = _sameLoudness
@@ -126,11 +129,13 @@ class Settings(private val prefs: SharedPreferences) {
 
     fun setDataSaver(on: Boolean) { _dataSaver.value = on; prefs.edit().putBoolean(DATA_SAVER, on).apply() }
     fun setSaveLow(on: Boolean) { _saveLow.value = on; prefs.edit().putBoolean(SAVE_LOW, on).apply() }
+    fun setKeepScreenOn(on: Boolean) { _keepScreenOn.value = on; prefs.edit().putBoolean(KEEP_SCREEN_ON, on).apply() }
     fun setTheme(mode: ThemeMode) { _theme.value = mode; prefs.edit().putString(THEME, mode.name).apply() }
 
     private companion object {
         const val DATA_SAVER = "data_saver"
         const val SAVE_LOW = "save_low"
+        const val KEEP_SCREEN_ON = "keep_screen_on"
         const val THEME = "theme"
         const val SAME_LOUDNESS = "same_loudness"
         const val SKIP_SILENCE = "skip_silence"

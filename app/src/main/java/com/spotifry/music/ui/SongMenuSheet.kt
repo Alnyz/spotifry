@@ -1,6 +1,10 @@
 package com.spotifry.music.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Switch
+import androidx.compose.ui.semantics.Role
+import com.spotifry.music.ui.settings.switchColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -76,17 +80,21 @@ import androidx.compose.ui.draw.clip
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
-data class MenuAction(val label: String, val icon: ImageVector? = null, val lineAbove: Boolean = false, val onClick: () -> Unit)
+/** [switch] makes the row a switch showing that state: a tap flips it and the menu stays open. */
+data class MenuAction(val label: String, val icon: ImageVector? = null, val lineAbove: Boolean = false, val switch: Boolean? = null, val onClick: () -> Unit)
 
 @Composable
-private fun ActionRow(label: String, icon: ImageVector? = null, color: Color = Color.Unspecified, tick: Boolean = false, onClick: () -> Unit) {
+private fun ActionRow(label: String, icon: ImageVector? = null, color: Color = Color.Unspecified, tick: Boolean = false, switch: Boolean? = null, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp).clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().defaultMinSize(minHeight = 56.dp)
+            .let { if (switch != null) it.toggleable(switch, role = Role.Switch) { onClick() } else it.clickable(onClick = onClick) }
+            .padding(horizontal = 24.dp, vertical = 12.dp),
         Arrangement.spacedBy(16.dp), Alignment.CenterVertically,
     ) {
         if (icon != null) Icon(icon, null, Modifier.size(24.dp), tint = color.takeOrElse { LocalContentColor.current }) else Spacer(Modifier.size(24.dp))
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = color, fontWeight = if (color.isSpecified) FontWeight.SemiBold else null)
         if (tick) Icon(Icons.Check, "Already in this playlist", Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+        if (switch != null) Switch(switch, null, colors = switchColors())
     }
 }
 
@@ -98,7 +106,8 @@ private fun ActionRow(label: String, icon: ImageVector? = null, color: Color = C
 @Composable
 fun SongMenuSheet(song: Song, actions: List<MenuAction>, trimNote: String? = null, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismiss, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
-        Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
+        // scrolls: on a short phone the longer Now playing menu would otherwise run off the bottom
+        Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             Text(song.title, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Row(Modifier.padding(horizontal = 24.dp, vertical = 2.dp), Arrangement.spacedBy(5.dp), Alignment.CenterVertically) {
                 if (song.suggested) Icon(Icons.Sparkle, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.primary)
@@ -111,7 +120,7 @@ fun SongMenuSheet(song: Song, actions: List<MenuAction>, trimNote: String? = nul
             }
             actions.forEach { a ->
                 if (a.lineAbove) HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                ActionRow(a.label, a.icon) { a.onClick(); onDismiss() }
+                ActionRow(a.label, a.icon, switch = a.switch) { a.onClick(); if (a.switch == null) onDismiss() }
             }
         }
     }
