@@ -23,8 +23,7 @@
 | Artists and albums | An artist's songs and albums on one page, and full albums to play or save as a playlist. |
 | Music on your phone | Plays the music files already on your phone, from Saved and in search. |
 | Equalizer | Ready-made sounds or your own curve, drawn on a graph, with a live picture of the music. |
-| Fade between songs | The end of a song fades out and the next fades in, from 2 to 12 seconds. |
-| Match the beat | An optional switch: songs overlap and the change lands on a beat of each. The first 3 seconds or so of the next song are skipped to line it up. It needs a clear beat in both songs, and the overlap is usually at least 6 seconds, even with the fade off. Pitch never changes; tempo only for a moment, while the new song is still almost silent. With skip quiet parts or data saver on, or when the beat isn't clear, the fade above is used instead. |
+| Crossfade | Songs overlap for 2 to 12 seconds as one runs into the next. When both have a clear, similar beat they line up on it, and the first 3 seconds or so of the next song are skipped to do that. |
 | Speed and pitch | Each set on its own, kept for every song. |
 | Same loudness | Quiet songs are turned up and loud ones down. |
 | Skip quiet parts | Jumps over long silent intros and endings. |

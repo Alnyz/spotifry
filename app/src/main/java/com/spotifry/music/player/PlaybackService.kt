@@ -105,7 +105,7 @@ class PlaybackService : MediaSessionService() {
             // ponytail: polls the position 20 times a second while a fade is set and music plays; a timer per song end if battery shows it
             while (true) {
                 val fadeMs = c.settings.fadeSeconds.value * 1000L
-                val matching = c.settings.beatMatch.value
+                val matching = fadeMs > 0
                 if (matching && join == null) join = newJoin(player, dataSource, equalizer, loudness)
                 // null with the setting off, and whenever no join is under way: the fade below goes on as always
                 val joined = join?.tick(matching)

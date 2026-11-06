@@ -207,7 +207,7 @@ private fun beatJoin(out: BeatGrid, inn: BeatGrid, end: Long, inMs: Long, fadeMs
     while (bars > 0 && slip * bars * 2 > MAX_SLIP_MS) bars--
     if (bars == 0) return null
     val length = bars * 4 * out.periodMs
-    if (length < 1_500) return null
+    if (length < wanted / 2) return null
     val start = out.beatAtOrBefore(end - length)
     if (start < out.firstBeatMs) return null
     // the two run on the same clock, so with tempos apart they only meet once: this puts that at the middle

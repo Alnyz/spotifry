@@ -154,6 +154,12 @@ class BeatAnalysisTest {
         assertTrue(p.lengthMs < 12_000)
     }
 
+    @Test fun tooShortOnTheBeatGetsThePlainOverlapAtTheChosenLength() {
+        val p = planJoin(beats(120.0), beats(116.0), 200_000, 180_000, 12_000, 1_500)!!
+        assertFalse(p.onBeat)
+        assertEquals(12_000, p.lengthMs)
+    }
+
     @Test fun tempoAPartMeetAtTheMiddleNotTheStart() {
         val out = beats(120.0, 113.0); val inn = beats(122.0, 47.0)
         val p = planJoin(out, inn, 200_000, 180_000, 8_000, 1_500)!!
