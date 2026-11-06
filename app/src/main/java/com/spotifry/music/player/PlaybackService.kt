@@ -52,6 +52,10 @@ class PlaybackService : MediaSessionService() {
     /** Smart shuffle is on: one similar song after every three of yours. Turned on only by the Now playing button. */
     private var smart = false
     private var filling = false
+    /** Overlapping songs on the beat; null while that setting is off. */
+    private var join: BeatJoin? = null
+    private var tailEqualizer: EqualizerProcessor? = null
+    private var tailLoudness: LoudnessProcessor? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -81,7 +85,7 @@ class PlaybackService : MediaSessionService() {
             .build()
         player.preloadConfiguration = ExoPlayer.PreloadConfiguration(10_000_000L)
         c.sleepTimer.attach(player)
-        scope.launch { c.settings.sameLoudness.collect { loudness.enabled = it } }
+        scope.launch { c.settings.sameLoudness.collect { loudness.enabled = it; tailLoudness?.enabled = it } }
         scope.launch { c.settings.skipSilence.collect { player.skipSilenceEnabled = it } }
         scope.launch {
             kotlinx.coroutines.flow.combine(c.settings.speed, c.settings.pitch) { s, p -> s to p }.collect { (s, p) ->
@@ -91,15 +95,20 @@ class PlaybackService : MediaSessionService() {
         }
 
         scope.launch {
-            kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels) { on, l -> if (on) l else null }.collect(equalizer::set)
+            kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels) { on, l -> if (on) l else null }.collect { equalizer.set(it); tailEqualizer?.set(it) }
         }
         scope.launch {
             // ponytail: polls the position 20 times a second while a fade is set and music plays; a timer per song end if battery shows it
             while (true) {
                 val fadeMs = c.settings.fadeSeconds.value * 1000L
-                val g = if (fadeMs > 0) fadeGain(player.currentPosition, player.duration, fadeMs, fadeIn) else 1f
+                val matching = c.settings.beatMatch.value
+                if (matching && join == null) join = newJoin(player, dataSource, equalizer, loudness, levels)
+                // null with the setting off, and whenever no join is under way: the fade below goes on as always
+                val joined = join?.tick(matching)
+                if (!matching && join?.idle == true) { join?.release(); join = null }
+                val g = joined ?: if (fadeMs > 0) fadeGain(player.currentPosition, player.duration, fadeMs, fadeIn) else 1f
                 if (g != c.sleepTimer.songGain) c.sleepTimer.songGain = g
-                delay(if (fadeMs > 0 && player.isPlaying) 50 else 500)
+                delay(if ((fadeMs > 0 || join != null) && player.isPlaying) 50 else 500)
             }
         }
 
@@ -240,6 +249,56 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    /** Built only when the setting is on, so with it off nothing of this exists. */
+    private fun newJoin(player: ExoPlayer, dataSource: androidx.media3.datasource.DataSource.Factory, equalizer: EqualizerProcessor, loudness: LoudnessProcessor, levels: LoudnessMemory): BeatJoin {
+        val c = (application as MusicApp).container
+        val quiet = Dispatchers.IO.limitedParallelism(1)
+        return BeatJoin(
+            player,
+            newTail = { item, at ->
+                // its own sound chain, as a chain can't serve two players. It holds the level the song was at and remembers nothing.
+                val eq = EqualizerProcessor().apply { set(if (c.settings.eqOn.value) c.settings.eqLevels.value else null) }
+                val level = LoudnessProcessor().apply { enabled = c.settings.sameLoudness.value; startSong(loudness.lastMeasuredDb ?: levels.get(item.mediaId)) }
+                tailEqualizer = eq; tailLoudness = level
+                val renderers = object : DefaultRenderersFactory(this@PlaybackService) {
+                    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+                        DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(eq, level)).build()
+                }
+                ExoPlayer.Builder(this, renderers)
+                    .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
+                    // no audio focus and no session: to the system and the user there's one player
+                    .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), false)
+                    .setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(5_000, 20_000, 250, 1_000).build())
+                    .build().apply {
+                        skipSilenceEnabled = player.skipSilenceEnabled
+                        playbackParameters = player.playbackParameters
+                        volume = 0f
+                        setMediaItem(item, at)
+                        prepare()
+                    }
+            },
+            look = { item, from, to ->
+                val uri = item.localConfiguration?.uri
+                if (uri == null) null else kotlinx.coroutines.withContext(quiet) {
+                    // never in the way of the song playing; this thread is shared, so it's put back after
+                    val was = android.os.Process.getThreadPriority(android.os.Process.myTid())
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                    try {
+                        kotlinx.coroutines.withTimeoutOrNull(30_000) { decodeStretch(dataSource, uri, item.mediaId, from, to) }
+                            ?.let { (mono, n, at) -> analyseBeats(mono, n, at) }
+                    } finally { android.os.Process.setThreadPriority(was) }
+                }
+            },
+            scope = scope,
+            fadeMs = { c.settings.fadeSeconds.value * 1000L },
+            // skipping silence moves the music against the clock, so beats can't stay lined up: a plain overlap then
+            beatsAllowed = { !player.skipSilenceEnabled },
+            stopsAfterSong = { player.pauseAtEndOfMediaItems },
+            sleepGain = { c.sleepTimer.sleepGain },
+        )
+    }
+
     private fun appendSimilarIfNeeded(player: ExoPlayer) {
         val size = player.mediaItemCount
         if (size == 0) return
@@ -366,6 +425,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         scope.cancel()
+        join?.release()
         (application as MusicApp).container.sleepTimer.detach()
         session?.run { player.release(); release() }
         session = null

@@ -41,7 +41,9 @@ class SleepTimer(private val now: () -> Long = SystemClock::elapsedRealtime) {
     val state: StateFlow<SleepState> = _state.asStateFlow()
     private var player: ExoPlayer? = null
     private var job: Job? = null
-    private var sleepGain = 1f
+    /** The sleep fade alone, so a second voice can follow it too. */
+    var sleepGain = 1f
+        private set
     /** The fade between songs, multiplied with the sleep fade so the two never fight over the volume. */
     var songGain = 1f
         set(v) { field = v; player?.volume = sleepGain * v }

@@ -51,6 +51,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val skipSilence by vm.settings.skipSilence.collectAsStateWithLifecycle()
     val smartTrim by vm.settings.smartTrim.collectAsStateWithLifecycle()
     val fade by vm.settings.fadeSeconds.collectAsStateWithLifecycle()
+    val beatMatch by vm.settings.beatMatch.collectAsStateWithLifecycle()
     val eqOn by vm.settings.eqOn.collectAsStateWithLifecycle()
     val eqPreset by vm.settings.eqPreset.collectAsStateWithLifecycle()
     val storage by vm.storage.collectAsStateWithLifecycle()
@@ -91,6 +92,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 }
                 Item("Fade between songs", "The end of a song fades out and the next one fades in.", below = true) {
                     Segments(FADES.map { if (it == 0) "Off" else "$it s" }, FADES.indexOf(fade).coerceAtLeast(0)) { vm.settings.setFadeSeconds(FADES[it]) }
+                }
+                Item(
+                    "Match the beat between songs", "Songs overlap and the change lands on a beat of each. When the beat isn't clear, the fade above is used.",
+                    onClick = { vm.settings.setBeatMatch(!beatMatch) }, role = Role.Switch,
+                ) {
+                    Switch(beatMatch, null, colors = switchColors())
                 }
                 Item("Equalizer", if (!eqOn) "Off" else eqPreset ?: "Custom", onClick = onOpenEqualizer) {
                     androidx.compose.material3.Icon(com.spotifry.music.ui.Icons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)

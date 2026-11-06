@@ -52,6 +52,11 @@ class Settings(private val prefs: SharedPreferences) {
     val fadeSeconds: StateFlow<Int> = _fadeSeconds
     fun setFadeSeconds(s: Int) { _fadeSeconds.value = s; prefs.edit().putInt(FADE, s).apply() }
 
+    private val _beatMatch = MutableStateFlow(prefs.getBoolean(BEAT_MATCH, false))
+    /** Songs overlap and the change lands on a beat of each. Off by default; off, nothing about playback changes. */
+    val beatMatch: StateFlow<Boolean> = _beatMatch
+    fun setBeatMatch(on: Boolean) { _beatMatch.value = on; prefs.edit().putBoolean(BEAT_MATCH, on).apply() }
+
     private val _eqOn = MutableStateFlow(prefs.getBoolean(EQ_ON, false))
     val eqOn: StateFlow<Boolean> = _eqOn
     // until something is set on the ten bands, what the phone's own equalizer left behind counts, converted
@@ -143,6 +148,7 @@ class Settings(private val prefs: SharedPreferences) {
         const val SPEED = "speed"
         const val PITCH = "pitch"
         const val FADE = "fade_seconds"
+        const val BEAT_MATCH = "beat_match"
         const val EQ_ON = "eq_on"
         const val EQ_PRESET = "eq_preset"
         /** The bars of the phone's own equalizer, read only to carry them over. */

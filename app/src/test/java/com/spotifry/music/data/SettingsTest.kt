@@ -26,6 +26,13 @@ class SettingsTest {
         assertEquals(ThemeMode.DARK, again.theme.value)
     }
 
+    @Test fun matchingTheBeatIsOffUntilChosenAndSurvivesARestart() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("beat", 0)
+        assertFalse(Settings(prefs).beatMatch.value)
+        Settings(prefs).setBeatMatch(true)
+        assertEquals(true, Settings(prefs).beatMatch.value)
+    }
+
     @Test fun keepScreenOnIsOffUntilChosenAndSurvivesARestart() {
         val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("keep-on", 0)
         assertFalse(Settings(prefs).keepScreenOn.value)

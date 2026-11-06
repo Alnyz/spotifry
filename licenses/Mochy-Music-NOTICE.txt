@@ -16,6 +16,10 @@ Spotifry's equalizer page and filters are adapted from Mochy Music
   ui/screens/equalizer/AutoEqTab.kt: pick a headphone from the AutoEq list, fit a correction.
 - app/src/main/java/com/spotifry/music/ui/nowplaying/SongPill.kt follows the idea of
   ui/player/flagship/PagesPill.kt: lyrics and the queue reached from one pill.
+- app/src/main/java/com/spotifry/music/player/BeatAnalysis.kt adapts the onset measure, tempo search
+  and beat grid fit from crossmix/CrossmixAnalysis.kt.
+- app/src/main/java/com/spotifry/music/player/BeatDecode.kt adapts the decode loop and reading through
+  the player's data source from playback/audio/StreamPcmDecoder.kt.
 
 The headphone measurements are read at run time from the AutoEq project
 (https://github.com/jaakkopasanen/AutoEq, MIT licence). None of its files are in this repository.
