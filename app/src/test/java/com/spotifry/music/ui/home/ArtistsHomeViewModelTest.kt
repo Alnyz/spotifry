@@ -91,4 +91,15 @@ class ArtistsHomeViewModelTest {
         s.setArtists(listOf(PickedArtist("Tulus", "url/Tulus", null)))
         assertEquals(4, pages.get())
     }
+
+    @Test fun aLateLookupDoesNotOverwriteAnEditSavedMeanwhile() {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val slow = object : MusicSource by source { override suspend fun searchPages(query: String, type: SearchType): List<PageLink> { gate.await(); return source.searchPages(query, type) } }
+        val s = settings(); s.setArtists(listOf(PickedArtist("Tulus", "", null)))
+        ArtistsHomeViewModel(s, ArtistSongs(slow))
+        val edited = listOf(PickedArtist("Raisa", "url/Raisa", null))
+        s.setArtists(edited)
+        gate.complete(Unit)
+        assertEquals(edited, s.artists.value)
+    }
 }

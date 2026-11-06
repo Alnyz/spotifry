@@ -4,7 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -36,10 +39,10 @@ fun LazyListScope.artistItems(a: ArtistsHome, onOpen: (PickedArtist) -> Unit, on
     item {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Bottom) {
             SectionTitle("Your artists", Modifier.weight(1f))
-            Text(
-                "Edit", Modifier.padding(end = 12.dp, bottom = 4.dp).clip(CircleShape).clickable(onClickLabel = "Edit your artists", onClick = onEdit).padding(horizontal = 14.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
-            )
+            Box(
+                Modifier.padding(end = 6.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Edit your artists", onClick = onEdit).defaultMinSize(minWidth = 48.dp, minHeight = 48.dp).padding(horizontal = 14.dp),
+                Alignment.Center,
+            ) { Text("Edit", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary) }
         }
     }
     item {
