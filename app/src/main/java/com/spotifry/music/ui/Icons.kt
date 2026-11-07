@@ -3,12 +3,48 @@ package com.spotifry.music.ui
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathNode
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
 private fun icon(name: String, path: String) = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(
-    pathData = addPathNodes(path), fill = SolidColor(Color.Black),
+    pathData = absoluteMovesAfterClose(addPathNodes(path)), fill = SolidColor(Color.Black),
 ).build()
+
+/**
+ * Before Android 12 a relative move ("m") right after a closed shape starts from the wrong point, so a second shape in
+ * the same icon landed off to the side (Pause drew one bar and a stray square, Next lost its bar). Every such move is
+ * turned into an absolute one, which every Android version draws the same.
+ */
+private fun absoluteMovesAfterClose(nodes: List<PathNode>): List<PathNode> {
+    var x = 0f; var y = 0f; var startX = 0f; var startY = 0f; var closed = false
+    return nodes.map { n ->
+        val node = if (closed && n is PathNode.RelativeMoveTo) PathNode.MoveTo(startX + n.dx, startY + n.dy) else n
+        closed = node is PathNode.Close
+        when (node) {
+            is PathNode.MoveTo -> { x = node.x; y = node.y; startX = x; startY = y }
+            is PathNode.RelativeMoveTo -> { x += node.dx; y += node.dy; startX = x; startY = y }
+            is PathNode.LineTo -> { x = node.x; y = node.y }
+            is PathNode.RelativeLineTo -> { x += node.dx; y += node.dy }
+            is PathNode.HorizontalTo -> x = node.x
+            is PathNode.RelativeHorizontalTo -> x += node.dx
+            is PathNode.VerticalTo -> y = node.y
+            is PathNode.RelativeVerticalTo -> y += node.dy
+            is PathNode.CurveTo -> { x = node.x3; y = node.y3 }
+            is PathNode.RelativeCurveTo -> { x += node.dx3; y += node.dy3 }
+            is PathNode.ReflectiveCurveTo -> { x = node.x2; y = node.y2 }
+            is PathNode.RelativeReflectiveCurveTo -> { x += node.dx2; y += node.dy2 }
+            is PathNode.QuadTo -> { x = node.x2; y = node.y2 }
+            is PathNode.RelativeQuadTo -> { x += node.dx2; y += node.dy2 }
+            is PathNode.ReflectiveQuadTo -> { x = node.x; y = node.y }
+            is PathNode.RelativeReflectiveQuadTo -> { x += node.dx; y += node.dy }
+            is PathNode.ArcTo -> { x = node.arcStartX; y = node.arcStartY }
+            is PathNode.RelativeArcTo -> { x += node.arcStartDx; y += node.arcStartDy }
+            PathNode.Close -> { x = startX; y = startY }
+        }
+        node
+    }
+}
 
 private const val SHUFFLE = "M10.59 9.17 6.12 4.7a.996.996 0 1 0-1.41 1.41l4.46 4.46 1.42-1.4zm4.76-4.32 1.19 1.19L4.7 17.88a.996.996 0 1 0 1.41 1.41L17.96 7.46l1.19 1.19a.5.5 0 0 0 .85-.36V4.5c0-.28-.22-.5-.5-.5h-3.79a.5.5 0 0 0-.36.85zm-.52 8.56-1.41 1.41 3.13 3.13-1.2 1.2a.5.5 0 0 0 .36.85h3.79c.28 0 .5-.22.5-.5v-3.79c0-.45-.54-.67-.85-.35l-1.19 1.19-3.13-3.14z"
 
