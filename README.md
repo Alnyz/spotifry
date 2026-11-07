@@ -3,7 +3,7 @@
 <img src=".github/assets/banner.jpg" alt="Spotifry: a simple, clean and modern music player for Android" width="100%">
 
 [![Latest release](https://img.shields.io/github/v/release/Alnyz/spotifry?style=for-the-badge&label=download&color=FF8A3D&labelColor=2B1408)](../../releases/latest)
-[![Android 13 or newer](https://img.shields.io/badge/Android-13%2B-FF8A3D?style=for-the-badge&labelColor=2B1408)](#download)
+[![Android 8 or newer](https://img.shields.io/badge/Android-8%2B-FF8A3D?style=for-the-badge&labelColor=2B1408)](#download)
 [![GPL-3.0 license](https://img.shields.io/badge/license-GPL--3.0-FF8A3D?style=for-the-badge&labelColor=2B1408)](LICENSE)
 
 [**Website**](https://alnyz.github.io/spotifry/) · [**Download**](#download) · [**Features**](#features) · [**Disclaimer**](#disclaimer) · [**Build**](#build)
@@ -50,7 +50,7 @@
 2. Open the file. Android will ask whether your browser or file manager may install apps. Allow it once.
 3. From version 0.2.0 on, the app tells you when an update is out and installs it for you. Your songs and playlists stay.
 
-Needs Android 13 or newer.
+Needs Android 8 or newer.
 
 > [!NOTE]
 > YouTube changes its site from time to time. When that breaks search or playback, it stays broken until NewPipe Extractor is fixed and a new Spotifry release comes out.

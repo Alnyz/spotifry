@@ -1,6 +1,7 @@
 package com.spotifry.music.ui.theme
 
 import android.content.Context
+import android.os.Build
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.Color
@@ -27,7 +28,7 @@ enum class AccentChoice(val label: String, val accent: Accent?) {
 
 /** The accent the app shows for [choice]; [custom] is the colour picked by hand (ARGB). */
 fun accentFor(choice: AccentChoice, custom: Int, context: Context): Accent = when (choice) {
-    AccentChoice.PHONE -> Accent(dynamicDarkColorScheme(context).primary, dynamicLightColorScheme(context).primary)
+    AccentChoice.PHONE -> if (Build.VERSION.SDK_INT < 31) AccentChoice.EMBER.accent!! else Accent(dynamicDarkColorScheme(context).primary, dynamicLightColorScheme(context).primary)
     AccentChoice.CUSTOM -> readableAccent(Color(custom))
     else -> choice.accent!!
 }

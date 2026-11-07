@@ -249,7 +249,7 @@ class PlaybackService : MediaSessionService() {
                     f.addListener({
                         val b = runCatching { f.get() }.getOrNull() ?: return@addListener
                         if (p.currentMediaItem?.mediaId == item.mediaId) Widget.show(this@PlaybackService, item.mediaId, m.title?.toString().orEmpty(), m.artist?.toString().orEmpty(), p.isPlaying, b)
-                    }, mainExecutor)
+                    }, androidx.core.content.ContextCompat.getMainExecutor(this@PlaybackService))
                 }
             }
         })

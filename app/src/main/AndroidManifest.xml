@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- "On this phone": plays the music files already on the phone; asked for only when that tab is opened -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+    <!-- Android 12 and older have no separate music permission -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <!-- in-app updates: hands a downloaded new version to Android's installer, which asks the user first -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- to see whether the phone has the volume panel, which carries the output choice on Android 13 -->
@@ -48,7 +50,7 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON"/>
             </intent-filter>
         </receiver>
-        <receiver android:name=".player.MusicWidget" android:exported="true" android:label="Spotifry">
+        <receiver android:name=".player.MusicWidget" android:exported="true" android:enabled="@bool/widget_enabled" android:label="Spotifry">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>

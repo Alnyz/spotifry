@@ -10,6 +10,7 @@ import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.util.SizeF
 import android.view.KeyEvent
 import android.widget.RemoteViews
@@ -52,6 +53,8 @@ object Widget {
     }
 
     fun draw(c: Context) {
+        // the widget draws with Android 12 features; older phones never show it (see bool/widget_enabled)
+        if (Build.VERSION.SDK_INT < 31) return
         val manager = AppWidgetManager.getInstance(c)
         val ids = manager.getAppWidgetIds(ComponentName(c, MusicWidget::class.java))
         if (ids.isEmpty()) return

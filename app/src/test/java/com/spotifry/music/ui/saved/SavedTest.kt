@@ -166,7 +166,7 @@ class SavedTest {
 
     @Test fun accessGivenInAndroidsSettingsShowsOnReturn() = runBlocking<Unit> {
         val app = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.app.Application>()
-        org.robolectric.Shadows.shadowOf(app).denyPermissions(android.Manifest.permission.READ_MEDIA_AUDIO)
+        org.robolectric.Shadows.shadowOf(app).denyPermissions(com.spotifry.music.data.AUDIO_PERMISSION)
         val downloads = DownloadRepository(dir, OkHttpClient(), StreamResolver(FakeMusicSource()), db.songs())
         val vm = SavedViewModel(db.songs(), downloads, NoopPlayer(), com.spotifry.music.data.LocalMusic(app), db.history())
         vm.pick(SavedFilter.Phone)
@@ -183,7 +183,7 @@ class SavedTest {
         }
         compose.onNodeWithText("Allow access to music").assertIsDisplayed()
         compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.CREATED }
-        org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.READ_MEDIA_AUDIO)
+        org.robolectric.Shadows.shadowOf(app).grantPermissions(com.spotifry.music.data.AUDIO_PERMISSION)
         compose.runOnUiThread { owner.registry.currentState = androidx.lifecycle.Lifecycle.State.RESUMED }
         compose.waitForIdle()
         compose.onNodeWithText("Allow access to music").assertDoesNotExist()

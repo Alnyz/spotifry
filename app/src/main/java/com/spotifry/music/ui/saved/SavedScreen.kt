@@ -2,6 +2,7 @@ package com.spotifry.music.ui.saved
 
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.spotifry.music.data.AUDIO_PERMISSION
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -72,7 +73,7 @@ fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Un
     val queue = vm.restore
     SavedContent(
         view, vm::pick, onFindSong, vm::play, onMore, modifier, bottomInset, onShuffle = vm::shuffle,
-        phoneAllowed = allowed, onAllow = { ask.launch(Manifest.permission.READ_MEDIA_AUDIO) },
+        phoneAllowed = allowed, onAllow = { ask.launch(AUDIO_PERMISSION) },
         restoreCard = if (queue == null || left == 0) null else ({
             val status by queue.status.collectAsStateWithLifecycle()
             RestoreCard(left, status, queue::start, queue::stop, queue::forget)

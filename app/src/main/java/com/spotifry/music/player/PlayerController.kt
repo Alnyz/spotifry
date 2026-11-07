@@ -94,7 +94,7 @@ class PlayerController(
             pending.forEach { it(c) }
             pending.clear()
             publish(c)
-        }, context.mainExecutor)
+        }, androidx.core.content.ContextCompat.getMainExecutor(context))
         scope.launch {
             var ticks = 0
             while (true) {

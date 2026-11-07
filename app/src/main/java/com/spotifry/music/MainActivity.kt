@@ -2,6 +2,7 @@ package com.spotifry.music
 
 import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -259,7 +260,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
 
     // the first time something plays, ask once for permission to show the lock-screen controls
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    LaunchedEffect(player.current != null) { if (player.current != null) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    LaunchedEffect(player.current != null) { if (player.current != null && Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) }
     LaunchedEffect(player.current == null) { if (player.current == null) showPlayer = false }
 
     // the bar fades over the page, so every list keeps this much clear at its end (164 dp playing, 104 dp not, on a 16 dp gesture area)

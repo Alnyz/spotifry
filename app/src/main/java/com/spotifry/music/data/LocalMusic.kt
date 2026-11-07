@@ -1,6 +1,7 @@
 package com.spotifry.music.data
 
 import android.Manifest
+import android.os.Build
 import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
@@ -12,6 +13,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 
+/** The permission that lets the app read music files: its own on Android 13+, general storage before that. */
+val AUDIO_PERMISSION: String =
+    if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+
 /**
  * The music files already on the phone, read from Android's media list (MediaStore), A to Z by song name.
  * Empty until the user allows access to music.
@@ -21,7 +26,7 @@ class LocalMusic(private val context: Context) {
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
     val songs: StateFlow<List<Song>> = _songs
 
-    fun allowed() = context.checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+    fun allowed() = context.checkSelfPermission(AUDIO_PERMISSION) == PackageManager.PERMISSION_GRANTED
 
     suspend fun refresh() {
         if (!allowed()) return

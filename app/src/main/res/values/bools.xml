@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the home screen widget needs Android 12 -->
+    <bool name="widget_enabled">false</bool>
+</resources>

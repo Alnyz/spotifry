@@ -125,7 +125,7 @@ fun AccentPicker(choice: String, color: Int, onDone: (String, Int) -> Unit, onDi
                     },
             ) { Knob(hueColor, maxWidth.value * h / 360f, maxHeight.value / 2) }
             Row(Modifier.padding(top = 16.dp), Arrangement.spacedBy(10.dp)) {
-                listOf(AccentChoice.PHONE, AccentChoice.EMBER, AccentChoice.BLUE, AccentChoice.GOLDEN, AccentChoice.CHILI).forEach { c ->
+                listOfNotNull(AccentChoice.PHONE.takeIf { android.os.Build.VERSION.SDK_INT >= 31 }, AccentChoice.EMBER, AccentChoice.BLUE, AccentChoice.GOLDEN, AccentChoice.CHILI).forEach { c ->
                     val on = picked == c
                     Column(
                         Modifier.clip(RoundedCornerShape(12.dp)).clickable(role = Role.RadioButton, onClickLabel = c.label) { pick(c) }.padding(4.dp),

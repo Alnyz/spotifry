@@ -155,7 +155,7 @@ fun writeBackup(backup: BackupFile, out: OutputStream) = ZipOutputStream(out).us
 /** The backup in a zip file; [BackupError] with a message to show for anything else. Changes nothing. */
 fun readBackup(input: InputStream): BackupFile = try {
     ZipInputStream(input).use { zip ->
-        val text = generateSequence { zip.nextEntry }.firstOrNull { it.name == ENTRY }?.let { zip.readNBytes(MAX_JSON_BYTES + 1) } ?: throw BackupError(NOT_A_BACKUP)
+        val text = generateSequence { zip.nextEntry }.firstOrNull { it.name == ENTRY }?.let { zip.readUpTo(MAX_JSON_BYTES + 1) } ?: throw BackupError(NOT_A_BACKUP)
         if (text.size > MAX_JSON_BYTES) throw BackupError(NOT_A_BACKUP)
         decodeBackup(String(text))
     }
@@ -294,4 +294,12 @@ class RestoreQueue(
         const val KEY = "restore_pending"
         const val MAX_FAILS_IN_A_ROW = 3
     }
+}
+
+// InputStream.readNBytes needs Android 13
+private fun InputStream.readUpTo(max: Int): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buf = ByteArray(8192)
+    while (out.size() < max) { val n = read(buf, 0, minOf(buf.size, max - out.size())); if (n < 0) break; out.write(buf, 0, n) }
+    return out.toByteArray()
 }

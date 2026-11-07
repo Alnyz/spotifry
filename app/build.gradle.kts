@@ -1,7 +1,9 @@
+import com.android.build.api.instrumentation.FramesComputationMode
+import com.android.build.api.instrumentation.InstrumentationScope
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.android.application)
+    id("com.android.application")
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
@@ -16,7 +18,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.spotifry.music"
-        minSdk = 33
+        minSdk = 26
         targetSdk = 36
         versionCode = 13
         versionName = "0.10.0"
@@ -42,10 +44,18 @@ android {
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
     testOptions { unitTests { isReturnDefaultValues = true; isIncludeAndroidResources = true; all { it.systemProperty("live", project.findProperty("live")?.toString() ?: "") } } }
+}
+
+androidComponents {
+    onVariants { v ->
+        v.instrumentation.transformClassesWith(OldAndroidCompat::class.java, InstrumentationScope.ALL) {}
+        v.instrumentation.setAsmFramesComputationMode(FramesComputationMode.COPY_FRAMES)
+    }
 }
 
 dependencies {
@@ -66,6 +76,7 @@ dependencies {
     implementation(libs.media3.okhttp)
     implementation(libs.okhttp)
     implementation(libs.newpipe)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(libs.coroutines.android)
     implementation(libs.haze)
     // drag to change a playlist's order, with the list scrolling near the edges

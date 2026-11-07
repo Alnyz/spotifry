@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 4 x 2: cover, song, artist, back / play-pause / next -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" tools:targetApi="31"
     android:id="@id/widget_root" android:theme="@android:style/Theme.DeviceDefault.DayNight"
     android:layout_width="match_parent" android:layout_height="match_parent"
     android:background="@drawable/widget_bg" android:orientation="horizontal" android:gravity="center_vertical" android:padding="14dp"
