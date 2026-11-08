@@ -51,6 +51,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val skipSilence by vm.settings.skipSilence.collectAsStateWithLifecycle()
     val smartTrim by vm.settings.smartTrim.collectAsStateWithLifecycle()
     val jioSaavn by vm.settings.jioSaavn.collectAsStateWithLifecycle()
+    val cacheMb by vm.settings.cacheMb.collectAsStateWithLifecycle()
+
+    val hideNonMusic by vm.settings.hideNonMusic.collectAsStateWithLifecycle()
     val fade by vm.settings.fadeSeconds.collectAsStateWithLifecycle()
     val eqOn by vm.settings.eqOn.collectAsStateWithLifecycle()
     val eqPreset by vm.settings.eqPreset.collectAsStateWithLifecycle()
@@ -121,9 +124,18 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     )
                 }
             }
+            Group("Music on your phone") {
+                Item(
+                    "Hide non-music audio", "Clips under 30 seconds, WAV files, voice notes, recordings and system sounds.",
+                    onClick = { vm.settings.setHideNonMusic(!hideNonMusic) }, role = Role.Switch,
+                ) { Switch(hideNonMusic, null, colors = switchColors()) }
+            }
             Group("Storage") {
                 Item("Saved songs", storage?.let { "${it.savedCount} ${if (it.savedCount == 1) "song" else "songs"} · ${size(it.savedBytes)}" } ?: "Counting…")
-                Item("Clear played songs kept for replay", storage?.let { "${size(it.songCacheBytes)} of 1 GB · they download again when played" } ?: "Counting…", onClick = vm::clearSongCache)
+                Item("Replay storage", "Most space for played songs kept for replay. ∞ keeps them until Android needs the space. Saved songs are not touched. Takes effect when the app is next opened.", below = true) {
+                    Segments(CACHE_MB.map(::cacheLabel), CACHE_MB.indexOf(cacheMb).coerceAtLeast(0), Modifier.fillMaxWidth(), fill = true) { vm.settings.setCacheMb(CACHE_MB[it]) }
+                }
+                Item("Clear played songs kept for replay", storage?.let { "${size(it.songCacheBytes)} of ${if (cacheMb == 0) "no limit" else cacheLabel(cacheMb)} · they download again when played" } ?: "Counting…", onClick = vm::clearSongCache)
                 Item("Clear covers kept for speed", storage?.let { "${size(it.coverBytes)} · they load again when shown" } ?: "Counting…", onClick = vm::clearCovers)
             }
             if (backup != null) Group("Backup") {
@@ -218,14 +230,16 @@ internal fun Segments(options: List<String>, selected: Int, modifier: Modifier =
                 label,
                 // the picked one is filled with the accent, so it reads at a glance in light and dark
                 (if (fill) Modifier.weight(1f) else Modifier).clip(CircleShape).background(if (on) scheme.primary else scheme.surfaceContainerHigh)
-                    .clickable(role = Role.RadioButton, onClickLabel = label) { onPick(i) }.padding(horizontal = 12.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.labelLarge, color = if (on) scheme.onPrimary else scheme.onSurfaceVariant,
+                    .clickable(role = Role.RadioButton, onClickLabel = label) { onPick(i) }.padding(horizontal = if (fill) 8.dp else 12.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.labelLarge, color = if (on) scheme.onPrimary else scheme.onSurfaceVariant, maxLines = 1,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
     }
 }
 
+private fun cacheLabel(mb: Int) = when { mb == 0 -> "∞"; mb >= 1024 -> "${mb / 1024} GB"; else -> "$mb MB" }
+private val CACHE_MB = listOf(512, 1024, 2048, 5120, 0) // 0 = no limit
 private val FADES = listOf(0, 2, 5, 8, 12)
 
 // off must still read as a switch on the dark card: a lighter track, an outline and a pale knob

@@ -43,4 +43,16 @@ class LocalMusicTest {
         assertNull(LocalMusic.uriOf("dQw4w9WgXcQ"))
         assertNull(LocalMusic.uriOf("local:abc"))
     }
+
+    @Test fun nonMusicIsTold() {
+        val song = AudioRow(200_000, "audio/mpeg", "/storage/emulated/0/Music/a.mp3", system = false, recording = false)
+        assertTrue(!song.isNonMusic())
+        assertTrue(song.copy(durationMs = 29_999).isNonMusic())
+        assertTrue(song.copy(mime = "audio/x-wav").isNonMusic())
+        assertTrue(song.copy(mime = null, path = "/sdcard/Music/a.WAV").isNonMusic())
+        assertTrue(song.copy(system = true).isNonMusic())
+        assertTrue(song.copy(recording = true).isNonMusic())
+        assertTrue(song.copy(path = "/storage/emulated/0/Recordings/Voice Recorder/x.m4a").isNonMusic())
+        assertTrue(!song.copy(path = "/storage/emulated/0/Music/Voices of Spring.mp3").isNonMusic())
+    }
 }

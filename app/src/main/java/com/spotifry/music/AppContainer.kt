@@ -24,12 +24,14 @@ class AppContainer(private val context: Context) {
     val client: OkHttpClient = OkHttpClient.Builder().connectionPool(okhttp3.ConnectionPool(5, 10, java.util.concurrent.TimeUnit.SECONDS)).build()
     /** Covers only: keeps up to 50 MB on disk, so a cover seen once loads instantly next time, even offline. */
     val imageClient: OkHttpClient = client.newBuilder().cache(okhttp3.Cache(java.io.File(context.cacheDir, "covers"), 50L * 1024 * 1024)).build()
-    /** Songs played but not saved: up to 1 GB, least recently played go first. Replays start at once and use no data. */
+    /** Songs played but not saved: up to the size chosen in Settings (1 GB at first), least recently played go first. Replays start at once and use no data. */
     @get:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     val songCache by lazy {
         androidx.media3.datasource.cache.SimpleCache(
             java.io.File(context.cacheDir, "songs"),
-            androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(1024L * 1024 * 1024),
+            settings.cacheMb.value.let { mb ->
+                if (mb == 0) androidx.media3.datasource.cache.NoOpCacheEvictor() else androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(mb * 1024L * 1024)
+            },
             androidx.media3.database.StandaloneDatabaseProvider(context),
         )
     }
@@ -71,7 +73,7 @@ class AppContainer(private val context: Context) {
     val settings = Settings(prefs)
         .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
     val updates = com.spotifry.music.data.Updates(context.applicationContext, client, prefs, BuildConfig.VERSION_NAME)
-    val localMusic = com.spotifry.music.data.LocalMusic(context.applicationContext)
+    val localMusic = com.spotifry.music.data.LocalMusic(context.applicationContext, settings.hideNonMusic)
     val downloads = DownloadRepository(context.filesDir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })
     private val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
     val restoreQueue = com.spotifry.music.data.RestoreQueue(context.getSharedPreferences("restore_pending", Context.MODE_PRIVATE), db.songs(), downloads::save, { connectivity.isActiveNetworkMetered })

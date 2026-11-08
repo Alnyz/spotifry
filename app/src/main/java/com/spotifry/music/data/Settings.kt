@@ -140,6 +140,16 @@ class Settings(private val prefs: SharedPreferences) {
     val jioSaavn: StateFlow<Boolean> = _jioSaavn
     fun setJioSaavn(on: Boolean) { _jioSaavn.value = on; prefs.edit().putBoolean(JIOSAAVN, on).apply() }
 
+    private val _cacheMb = MutableStateFlow(prefs.getInt(CACHE_MB, 1024))
+    /** Most megabytes of played songs kept for replay. Read when the app starts, so a change counts from the next start. */
+    val cacheMb: StateFlow<Int> = _cacheMb
+    fun setCacheMb(mb: Int) { _cacheMb.value = mb; prefs.edit().putInt(CACHE_MB, mb).apply() }
+
+    private val _hideNonMusic = MutableStateFlow(prefs.getBoolean(HIDE_NON_MUSIC, true))
+    /** Short clips, WAV files, recordings and system sounds are left out of the music on the phone. On unless turned off. */
+    val hideNonMusic: StateFlow<Boolean> = _hideNonMusic
+    fun setHideNonMusic(on: Boolean) { _hideNonMusic.value = on; prefs.edit().putBoolean(HIDE_NON_MUSIC, on).apply() }
+
     private val _firstLaunchSeen = MutableStateFlow(prefs.getBoolean(FIRST_LAUNCH_SEEN, false))
     /** The first-launch screens were finished, skipped, or never needed (the app was updated, not installed). */
     val firstLaunchSeen: StateFlow<Boolean> = _firstLaunchSeen
@@ -157,7 +167,9 @@ class Settings(private val prefs: SharedPreferences) {
     }
 
     companion object {
+        const val CACHE_MB = "cache_mb"
         const val JIOSAAVN = "jiosaavn"
+        const val HIDE_NON_MUSIC = "hide_non_music"
         const val ARTISTS = "picked_artists"
         const val DATA_SAVER = "data_saver"
         const val SAVE_LOW = "save_low"

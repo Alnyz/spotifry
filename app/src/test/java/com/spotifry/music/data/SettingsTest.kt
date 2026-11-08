@@ -26,6 +26,13 @@ class SettingsTest {
         assertEquals(ThemeMode.DARK, again.theme.value)
     }
 
+    @Test fun replayStorageIsOneGbUntilChosenAndSurvivesARestart() {
+        val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("cache-mb", 0)
+        assertEquals(1024, Settings(prefs).cacheMb.value)
+        Settings(prefs).setCacheMb(256)
+        assertEquals(256, Settings(prefs).cacheMb.value)
+    }
+
     @Test fun keepScreenOnIsOffUntilChosenAndSurvivesARestart() {
         val prefs = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("keep-on", 0)
         assertFalse(Settings(prefs).keepScreenOn.value)

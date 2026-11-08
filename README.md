@@ -21,7 +21,7 @@
 |---|---|
 | Search and play | Songs, music videos, albums, artists or playlists from YouTube. The top results are made ready while you look, so a tap plays in under a second. |
 | Artists and albums | An artist's songs and albums on one page, and full albums to play or save as a playlist. |
-| Music on your phone | Plays the music files already on your phone, from Saved and in search. |
+| Music on your phone | Plays the music files already on your phone, from Saved and in search. Short clips, WAV files, voice notes, recordings and ringtones are left out; a switch in Settings shows them again. |
 | Equalizer | Ready-made sounds or your own curve, drawn on a graph, with a live picture of the music. |
 | Crossfade | Songs overlap for 2 to 12 seconds as one runs into the next. When both have a clear, similar beat they line up on it, and the first 3 seconds or so of the next song are skipped to do that. |
 | Speed and pitch | Each set on its own, kept for every song. |
@@ -29,7 +29,7 @@
 | Skip quiet parts | Jumps over long silent intros and endings. |
 | Trim | Cut a song's start and end yourself. Talking at the start and end of music videos is cut by itself, from [SponsorBlock](https://sponsor.ajay.app)'s shared list. |
 | Sleep timer | Fades the music out and stops after a set time or at the end of the song. |
-| Offline | Save songs to the phone. Recently played songs (up to 1 GB) replay without using data. |
+| Offline | Save songs to the phone. Recently played songs (up to 1 GB by default, 512 MB to 5 GB or no limit in Settings) replay without using data. |
 | Playlists | Search, sort, put in your own order, or shuffle. Songs already in a playlist carry a small mark. Bring in a public Spotify playlist from its link. |
 | Queue | Drag songs to reorder, swipe to remove. Shuffle spreads artists out; smart shuffle mixes in similar songs. |
 | Share | Send a song or a playlist as a link, a list or a picture. |
