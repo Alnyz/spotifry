@@ -369,7 +369,7 @@ private fun StartCard(onSearch: () -> Unit, onImport: () -> Unit, onPickArtists:
 }
 
 @Composable
-private fun ImportWay(onImport: () -> Unit) = Way(Icons.Link, "Import a Spotify playlist", "Public link, up to 100 songs", onImport)
+private fun ImportWay(onImport: () -> Unit) = Way(Icons.Link, "Import a Spotify playlist", "Public link", onImport)
 
 @Composable
 private fun Way(icon: ImageVector, title: String, line: String, onClick: () -> Unit) {

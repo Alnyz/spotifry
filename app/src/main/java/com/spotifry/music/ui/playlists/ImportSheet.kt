@@ -89,7 +89,7 @@ private fun LinkStep(error: String?, onImport: (String) -> Unit, onShared: (com.
         link, { link = it }, Modifier.fillMaxWidth().padding(top = 18.dp), singleLine = true,
         placeholder = { Text("open.spotify.com/playlist/…") }, leadingIcon = { Icon(Icons.Link, null) },
         isError = err != null, shape = RoundedCornerShape(16.dp),
-        supportingText = { Text(err ?: "Public playlists only, up to 100 songs.") },
+        supportingText = { Text(err ?: "Public playlists only.") },
     )
     val scheme = MaterialTheme.colorScheme
     Pill(null, "Import", scheme.primary, scheme.onPrimary, { keyboard?.hide(); onImport(link) }, Modifier.fillMaxWidth().padding(top = 12.dp))

@@ -61,10 +61,11 @@ fun PlaylistsScreen(vm: PlaylistsViewModel, importVm: ImportViewModel, onOpen: (
     var creating by remember { mutableStateOf(false) }
     val covers by vm.covers.collectAsStateWithLifecycle()
     val importing by importVm.state.collectAsStateWithLifecycle()
-    PlaylistsContent(playlists, onOpen, { creating = true }, modifier, bottomInset, covers, onImport = importVm::open)
+    val left by importVm.leftover.collectAsStateWithLifecycle()
+    PlaylistsContent(playlists, onOpen, { creating = true }, modifier, bottomInset, covers, onImport = importVm::open, notFound = left?.missing?.size ?: 0, onReview = importVm::review)
     ImportSheet(
         importing, (importing as? ImportState.Done)?.let { covers[it.playlistId] }.orEmpty(), importVm::start,
-        onOpen = { importVm.close(); onOpen(it) }, onSearch = { importVm.close(); onSearch("${it.title} ${it.artist}") },
+        onOpen = { importVm.close(); onOpen(it) }, onSearch = { importVm.searchFor(it); onSearch("${it.title} ${it.artist}") },
         onRetry = importVm::retry, onClose = importVm::close, onCancel = importVm::cancel,
         onShared = { importVm.close(); onShared(it) },
     )
@@ -72,7 +73,7 @@ fun PlaylistsScreen(vm: PlaylistsViewModel, importVm: ImportViewModel, onOpen: (
 }
 
 @Composable
-fun PlaylistsContent(playlists: List<PlaylistWithCounts>, onOpen: (Long) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier, bottomInset: Dp = 0.dp, covers: Map<Long, List<SongEntity>> = emptyMap(), onImport: () -> Unit = {}) {
+fun PlaylistsContent(playlists: List<PlaylistWithCounts>, onOpen: (Long) -> Unit, onNew: () -> Unit, modifier: Modifier = Modifier, bottomInset: Dp = 0.dp, covers: Map<Long, List<SongEntity>> = emptyMap(), onImport: () -> Unit = {}, notFound: Int = 0, onReview: () -> Unit = {}) {
     Box(modifier.fillMaxSize()) {
         LazyVerticalGrid(
             GridCells.Fixed(2), Modifier.fillMaxSize(),
@@ -83,6 +84,7 @@ fun PlaylistsContent(playlists: List<PlaylistWithCounts>, onOpen: (Long) -> Unit
                 Column {
                     ScreenHeader("Playlists", Modifier.offset(x = (-20).dp), subtitle = if (playlists.isEmpty()) null else "${playlists.size} ${if (playlists.size == 1) "playlist" else "playlists"}")
                     Pill(Icons.Download, "Import from Spotify", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface, onImport, Modifier.padding(top = 16.dp, bottom = 4.dp))
+                    if (notFound > 0) Pill(null, "$notFound not found from the import · search them", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface, onReview, Modifier.padding(top = 6.dp, bottom = 4.dp))
                 }
             }
             // the floating button is the one way to make a playlist, so the empty state does not repeat it

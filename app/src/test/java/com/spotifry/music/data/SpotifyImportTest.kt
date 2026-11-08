@@ -4,7 +4,12 @@ import com.spotifry.music.data.source.Song
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class SpotifyImportTest {
     private fun song(id: String, title: String, sec: Long) = Song(id, title, "YOASOBI", sec, null)
 
@@ -17,6 +22,19 @@ class SpotifyImportTest {
         val t = SpotifyTrack("Into The Night", "YOASOBI", 259)
         val results = listOf(song("jp", "夜に駆ける", 262), song("en", "Into The Night", 260), song("long", "Into The Night (Extended)", 400))
         assertEquals("en", SpotifyImport.pick(t, results)?.id)
+    }
+
+    @Test fun readsLaterPage() {
+        val body = """{"data":{"playlistV2":{"content":{"totalCount":250,"items":[
+            {"itemV2":{"data":{"name":"A","artists":{"items":[{"profile":{"name":"X"}},{"profile":{"name":"Y"}}]},"trackDuration":{"totalMilliseconds":200000}}}},
+            {"itemV2":{"data":{"name":"B","artists":{"items":[]}}}}]}}}}"""
+        val (tracks, total) = SpotifyImport.parsePage(body)
+        assertEquals(250, total)
+        assertEquals(listOf(SpotifyTrack("A", "X, Y", 200), SpotifyTrack("B", "", 0)), tracks)
+    }
+
+    @Test fun unknownLengthStillMatches() {
+        assertEquals("x", SpotifyImport.pick(SpotifyTrack("A", "B", 0), listOf(song("x", "A", 260)))?.id)
     }
 
     @Test fun noMatchWhenLengthIsOff() {

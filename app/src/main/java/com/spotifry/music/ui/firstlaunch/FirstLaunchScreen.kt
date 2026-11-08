@@ -329,7 +329,7 @@ internal fun LinkStep(
                     // an error belongs to the link that caused it; typing clears it
                     var shownFor by remember(state) { mutableStateOf(link) }
                     val err = error?.takeIf { link == shownFor }
-                    Heading("Bring a playlist", "Paste a link from Spotify. Songs are found on YouTube Music. Public playlists only, first 100 songs.")
+                    Heading("Bring a playlist", "Paste a link from Spotify. Songs are found on YouTube Music. Public playlists only.")
                     OutlinedTextField(
                         link, { link = it }, Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp), singleLine = true,
                         placeholder = { Text("open.spotify.com/playlist/…") }, leadingIcon = { Icon(Icons.Link, null) },

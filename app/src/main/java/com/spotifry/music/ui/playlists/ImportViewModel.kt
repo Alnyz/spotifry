@@ -45,7 +45,20 @@ class ImportViewModel(
     fun open() { if (_state.value == ImportState.Closed) _state.value = ImportState.Input() }
 
     /** Closing while it runs stops it; the songs found so far stay in the playlist. */
-    fun close() { job?.cancel(); job = null; _state.value = ImportState.Closed }
+    fun close() { job?.cancel(); job = null; _state.value = ImportState.Closed; _leftover.value = null }
+
+    private val _leftover = MutableStateFlow<ImportState.Done?>(null)
+    /** The finished import, minus the songs already sent to Search, so the rest can be searched later. */
+    val leftover: StateFlow<ImportState.Done?> = _leftover
+
+    /** Search for one not-found song: the sheet hides, the others stay on the Playlists page (see [review]). */
+    fun searchFor(track: SpotifyTrack) {
+        val done = _state.value as? ImportState.Done
+        close()
+        _leftover.value = done?.copy(missing = done.missing - track)?.takeIf { it.missing.isNotEmpty() }
+    }
+
+    fun review() { _leftover.value?.let { _state.value = it } }
 
     /** Stops and removes the playlist it was filling, as if the import never happened. */
     fun cancel() {
