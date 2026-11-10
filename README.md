@@ -84,6 +84,7 @@ Without a release key, the build is signed with your debug key. The release key 
 - [LRCLIB](https://lrclib.net) for lyrics
 - [SponsorBlock](https://sponsor.ajay.app) for the parts of music videos that aren't music
 - [JioSaavn](https://www.jiosaavn.com), only if you turn on the 320 kbps switch: Spotifry reads its public website, unofficially, and is not affiliated with it
+- [MusicBrainz](https://musicbrainz.org) for song years
 - [Haze](https://github.com/chrisbanes/haze) for the glass effect
 - [Mochy Music](https://github.com/realidkroo/Mochy-Music) (GPL-3.0), which the equalizer page and filters and the beat analysis were adapted from (see `licenses/`)
 - [AutoEq](https://github.com/jaakkopasanen/AutoEq) (MIT), whose headphone measurements the Headphone tab on the equalizer page reads
