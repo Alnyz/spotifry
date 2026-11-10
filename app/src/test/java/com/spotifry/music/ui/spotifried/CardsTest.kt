@@ -193,6 +193,32 @@ class CardsTest {
         rule.onNodeWithText("Your listening age", substring = true).assertDoesNotExist()
     }
 
+    @Test fun ageCardReplaysWhenTheAgeArrives() {
+        val years = List(25) { 1990 + it % 15 }
+        var a by mutableStateOf(ageOf(years.take(5), null).copy(songsTotal = 25, unchecked = 20))
+        show { AgeCard(stats(plays = 400, age = a), 25 - a.unchecked, a.unchecked) }
+        rule.waitForIdle()
+        rule.onNodeWithText("Checking song years", substring = true).assertIsDisplayed()
+        rule.mainClock.autoAdvance = false
+        a = ageOf(years, 1997)
+        androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
+        rule.mainClock.advanceTimeBy(500)
+        rule.onNodeWithText("You listen like someone who was 14 in 1997.").assertIsDisplayed()
+        rule.onNodeWithText("0").assertIsDisplayed() // counting up from the start, not already at the end
+        rule.mainClock.advanceTimeBy(6000)
+        rule.onNodeWithText("43").assertIsDisplayed()
+    }
+
+    @Test fun oneYearWithHundredsOfSongsStaysInItsArea() {
+        val room = 120.dp
+        assertTrue(stackStep(399, room) * 399 <= room)
+        assertEquals(10.dp, stackStep(3, room))
+        assertEquals(10.dp, stackStep(0, room))
+        rule.setContent { MusicTheme { Box(Modifier.size(360.dp, 460.dp)) { AgeCard(stats(plays = 400, age = ageOf(List(400) { 2023 } + List(20) { 1999 }, 2023)), 420, 0, still = true) } } }
+        rule.onNodeWithText("You listen like someone who was 14 in 2023.").assertIsDisplayed()
+        assertTrue(rule.onNodeWithText("Song years from MusicBrainz").getBoundsInRoot().bottom <= 460.dp)
+    }
+
     @Test fun ageCardCreditsMusicBrainz() {
         show { AgeCard(stats(plays = 400, age = ageOf(List(20) { 2000 + it % 7 }, 2003)), 20, 0, still = true) }
         rule.onNodeWithText("Song years from MusicBrainz").assertIsDisplayed()
@@ -233,6 +259,7 @@ class CardsTest {
         assertEquals("Paper Lanterns", shortTitle("Paper Lanterns"))
         val cut = shortTitle("word ".repeat(30).trim())
         assertTrue(cut.length <= 61 && cut.endsWith("\u2026") && !cut.contains(" \u2026"))
+        assertEquals("A " + "x".repeat(58) + "\u2026", shortTitle("A " + "x".repeat(80)))
     }
 
     private fun monthsOf(n: Int) = List(n) { MonthTop(YearMonth.of(2026, it + 1), song.copy(title = "Song number ${it + 1} with a title long enough to need cutting short"), 30 - it) }

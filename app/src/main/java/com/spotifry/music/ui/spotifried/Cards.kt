@@ -357,11 +357,15 @@ internal fun topDecade(years: List<Int>): Int? = years.groupingBy { it / 10 * 10
 /** "90s", "2000s"; the 1900s keep all four digits. */
 internal fun decadeName(d: Int) = if (d in 1910..1990) "${d % 100}s" else "${d}s"
 
+/** Space between dots in a stack: 10 dp at most, squeezed so the tallest stack ([levels] above its first dot) stays within [room]. */
+internal fun stackStep(levels: Int, room: Dp): Dp = if (levels == 0) 10.dp else minOf(10.dp, room.coerceAtLeast(0.dp) / levels)
+
 /** Card 4: a dot per song falls onto its release year, the typical year is marked, then the listening age counts up. */
 @Composable
 internal fun AgeCard(s: SpotifriedStats, checked: Int, unchecked: Int, still: Boolean = false) {
     val calm = still || rememberNoMotion()
-    key(s.period, calm) { Age(s, checked, unchecked, calm) }
+    // the age can arrive while the card is open, mid-lookup; it starts again then, so the age still counts up
+    key(s.period, calm, s.age.age != null) { Age(s, checked, unchecked, calm) }
 }
 
 @Composable
@@ -370,7 +374,7 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
     val ink = MaterialTheme.colorScheme.onBackground
     val faint = ink.copy(alpha = .14f)
     val a = s.age
-    // an age only once the lookup has given one; never a guess from part of the songs
+    // the stats give an age once 20 songs have a year, even while others are still being looked up
     val typical = a.typicalYear.takeIf { a.age != null }
     val dots = remember(a.years) { yearStacks(a.years) }
     val lo = minOf(1960, (a.years.minOrNull() ?: 1960) / 10 * 10)
@@ -384,12 +388,10 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
             Text(buildAnnotatedString { append("How old is "); withStyle(SpanStyle(color = accent)) { append("your music?") } }, style = head)
             Text("Checking song years: ${count(checked)} of ${count(checked + unchecked)}", Modifier.padding(top = 10.dp), soft(), style = Sub)
         }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
             val axis = maxHeight - 22.dp
             fun xOf(y: Int) = 4.dp + (maxWidth - 8.dp) * ((y - lo).toFloat() / (hi - lo))
-            val levels = dots.maxOfOrNull { it.second } ?: 0
-            // stacks squeeze rather than spill: 10 dp apart at most, down to a solid column for a year with many songs
-            val step = if (levels == 0) 10.dp else minOf(10.dp, (axis - 12.dp - 44.dp) / levels).coerceAtLeast(.5.dp)
+            val step = stackStep(dots.maxOfOrNull { it.second } ?: 0, axis - 12.dp - 44.dp)
             val dot = (step * .8f).coerceIn(3.dp, 8.dp)
             val lift = with(LocalDensity.current) { 18.dp.toPx() }
             Canvas(Modifier.fillMaxSize()) {
@@ -429,7 +431,7 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
         }
         val shown = if (typical != null) count((a.age!! * stepAt(t.value, 3100f, 1500f)).roundToInt()) else "?"
         val line = if (typical != null) "Your listening age." + (topDecade(a.years)?.let { " Most of your songs are from the ${decadeName(it)}." } ?: "")
-            else "Ready once every song has its year."
+            else "Needs 20 songs with a year."
         Row(Modifier.padding(top = 6.dp), Arrangement.spacedBy(10.dp)) {
             Text(
                 shown, Modifier.alignByBaseline(), accent,
@@ -444,7 +446,12 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
 internal fun dayText(d: LocalDate, withYear: Boolean): String = d.format(DateTimeFormatter.ofPattern(if (withYear) "d MMMM yyyy" else "d MMMM", english))
 
 /** At most about [max] characters, cut at a word, so the title stays within two lines of the sentence. */
-internal fun shortTitle(t: String, max: Int = 60) = if (t.length <= max) t else t.take(max).substringBeforeLast(' ').trimEnd(',', ' ', '-') + "…"
+internal fun shortTitle(t: String, max: Int = 60): String {
+    if (t.length <= max) return t
+    val word = t.take(max).substringBeforeLast(' ').trimEnd(',', ' ', '-')
+    // a cut at a word that loses a third or more is cut mid-word instead
+    return (if (word.length >= max * 2 / 3) word else t.take(max).trimEnd()) + "\u2026"
+}
 
 /** Card 5: the day one song was played the most, one tick per play across the 24 hours, each taller than the one before. */
 @Composable
@@ -502,7 +509,7 @@ internal fun shownMonths(m: List<MonthTop>, change: YearMonth?): List<MonthTop> 
     return m.drop(minOf(m.size - 12, i).coerceAtLeast(0)).take(12)
 }
 
-/** Card 6: each month's top song, one line each, the month the taste changed most in the accent. */
+/** Card 6: each month's top song, one line each (no play counts, as in the mockup), the month the taste changed most in the accent. */
 @Composable
 internal fun MonthsCard(s: SpotifriedStats, still: Boolean = false) {
     if (s.months.isEmpty()) return
@@ -515,7 +522,8 @@ private fun Months(s: SpotifriedStats, calm: Boolean) {
     val accent = MaterialTheme.colorScheme.primary
     val faint = MaterialTheme.colorScheme.onBackground.copy(alpha = .14f)
     val rows = shownMonths(s.months, s.changeMonth)
-    val fmt = DateTimeFormatter.ofPattern(if (rows.first().month.year != rows.last().month.year) "MMM ''yy" else "MMM", english)
+    val years = rows.first().month.year != rows.last().month.year
+    val fmt = DateTimeFormatter.ofPattern(if (years) "MMM ''yy" else "MMM", english)
     val year = s.period.label.length == 4 && s.period.label.all { it.isDigit() }
     val slide = with(LocalDensity.current) { 14.dp.toPx() }
     CardColumn {
@@ -535,10 +543,9 @@ private fun Months(s: SpotifriedStats, calm: Boolean) {
                             .drawBehind { drawRect(faint, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) },
                         Arrangement.spacedBy(12.dp), Alignment.CenterVertically,
                     ) {
-                        Text(m.month.format(fmt), Modifier.widthIn(min = 30.dp), soft(), style = small)
+                        Text(m.month.format(fmt), Modifier.width(if (years) 52.dp else 32.dp), soft(), maxLines = 1, style = small)
                         Text(m.song.title, Modifier.weight(1f), if (turn) accent else Color.Unspecified, maxLines = 1, overflow = TextOverflow.Ellipsis, style = title)
                         if (turn) Text("taste changed", color = accent, style = small.copy(fontSize = 11.sp))
-                        Text(count(m.plays), color = soft(), style = small.copy(fontFeatureSettings = TABULAR))
                     }
                 }
             }
