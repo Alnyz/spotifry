@@ -99,6 +99,9 @@ private fun stripes(seed: String): Brush {
 private fun key(url: String?, localPath: String?, large: Boolean) = if (url == null && localPath == null) null else "$localPath|$url|$large"
 private fun cached(url: String?, localPath: String?, large: Boolean) = key(url, localPath, large)?.let { cache.get(it) }
 
+/** Puts a song's big cover in memory, so a [CoverArt] composed next shows it at once. Null when there is none to get. */
+internal suspend fun loadCover(client: OkHttpClient?, url: String?, localPath: String?, files: ContentResolver?) = load(client, url, localPath, true, files)
+
 private suspend fun load(client: OkHttpClient?, url: String?, localPath: String?, large: Boolean = true, files: ContentResolver? = null): ImageBitmap? = withContext(Dispatchers.IO) {
     val key = key(url, localPath, large) ?: return@withContext null
     cache.get(key)?.let { return@withContext it }

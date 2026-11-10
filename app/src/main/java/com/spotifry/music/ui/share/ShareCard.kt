@@ -10,6 +10,7 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.Typeface
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -81,18 +82,7 @@ fun drawCard(
     val bottom = h - 1.5f * em
     val inner = w - 2 * side
 
-    // watermark: three bars, then the name
-    val wm = paint(.78f, ink.text.copy(alpha = ink.text.alpha * .88f), tight = -.01f)
-    val wmEm = .78f * em
-    val fm = wm.fontMetrics
-    val mid = top + (fm.descent - fm.ascent) / 2
-    val bars = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink.bars.copy(alpha = .88f).toArgb() }
-    listOf(.55f, 1f, .7f).forEachIndexed { i, k ->
-        val x = side + i * .34f * wmEm
-        c.drawRoundRect(x, mid + .45f * wmEm - .9f * wmEm * k, x + .2f * wmEm, mid + .45f * wmEm, .1f * wmEm, .1f * wmEm, bars)
-    }
-    c.drawText("Spotifry", side + 3 * .2f * wmEm + 2 * .14f * wmEm + .4f * wmEm, top - fm.ascent, wm)
-    val wmBottom = top + fm.descent - fm.ascent
+    val wmBottom = drawWatermark(c, font, em, side, top, ink)
 
     // the art and the names, from the bottom up
     val artTop: Float
@@ -130,6 +120,23 @@ fun drawCard(
         }
     }
     return out
+}
+
+/** The watermark at ([side], [top]): three bars, then the name. Returns its bottom. */
+internal fun drawWatermark(c: Canvas, font: Typeface?, em: Float, side: Float, top: Float, ink: CardInk): Float {
+    val wm = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = font; textSize = .78f * em; color = ink.text.copy(alpha = ink.text.alpha * .88f).toArgb(); fontVariationSettings = "'wght' 700"; letterSpacing = -.01f
+    }
+    val wmEm = .78f * em
+    val fm = wm.fontMetrics
+    val mid = top + (fm.descent - fm.ascent) / 2
+    val bars = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink.bars.copy(alpha = .88f).toArgb() }
+    listOf(.55f, 1f, .7f).forEachIndexed { i, k ->
+        val x = side + i * .34f * wmEm
+        c.drawRoundRect(x, mid + .45f * wmEm - .9f * wmEm * k, x + .2f * wmEm, mid + .45f * wmEm, .1f * wmEm, .1f * wmEm, bars)
+    }
+    c.drawText("Spotifry", side + 3 * .2f * wmEm + 2 * .14f * wmEm + .4f * wmEm, top - fm.ascent, wm)
+    return top + fm.descent - fm.ascent
 }
 
 /** One cover, or four in a 2 by 2 grid, with rounded corners and a soft shadow. No cover: a plain tile. */

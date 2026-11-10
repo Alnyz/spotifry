@@ -119,16 +119,16 @@ internal fun NotEnough(more: Int) {
 }
 
 @Composable
-internal fun StoryCard(id: CardId, state: SpotifriedState, onShare: () -> Unit) {
+internal fun StoryCard(id: CardId, state: SpotifriedState, still: Boolean = false, onShare: () -> Unit) {
     when (id) {
-        CardId.INTRO -> IntroCard(state.stats)
-        CardId.TOP_SONG -> TopSongCard(state.stats)
-        CardId.HOURS -> HoursCard(state.stats)
-        CardId.AGE -> AgeCard(state.stats, state.checked, state.unchecked)
-        CardId.DAY -> DayCard(state.stats)
-        CardId.MONTHS -> MonthsCard(state.stats)
-        CardId.SUN -> SunCard(state.stats)
-        CardId.TYPE -> TypeCard(state.stats, onShare)
+        CardId.INTRO -> IntroCard(state.stats, still)
+        CardId.TOP_SONG -> TopSongCard(state.stats, still)
+        CardId.HOURS -> HoursCard(state.stats, still)
+        CardId.AGE -> AgeCard(state.stats, state.checked, state.unchecked, still)
+        CardId.DAY -> DayCard(state.stats, still)
+        CardId.MONTHS -> MonthsCard(state.stats, still)
+        CardId.SUN -> SunCard(state.stats, still)
+        CardId.TYPE -> TypeCard(state.stats, onShare, still)
     }
 }
 
