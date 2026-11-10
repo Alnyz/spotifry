@@ -131,4 +131,42 @@ class SpotifriedStatsTest {
         assertEquals("X", s.topArtist!!.name); assertEquals(0.5f, s.topArtist!!.share, 0.001f)
         assertEquals(0.5f, s.earlyShare, 0.001f); assertEquals(0.25f, s.nightShare, 0.001f)
     }
+
+    private fun songRows(n: Int) = (1..n).map { row(at(2026, 3, 1 + it % 28), "s$it", 60) }
+    private fun aged(n: Int, years: Map<String, Int>, checked: Set<String> = years.keys) =
+        spotifriedStats(songRows(n), years, year, testZone, checked).age
+
+    @Test fun medianOfOddAndEvenCounts() {
+        assertEquals(2000, typicalYear(listOf(1990, 2000, 2010)))
+        assertEquals(2000, typicalYear(listOf(2010, 1990, 2005, 2000)))
+    }
+
+    @Test fun ageIsEndYearMinusTypicalPlus14() = assertEquals(42, listeningAge(1998, 2026))
+
+    @Test fun noAgeUnder20SongsWithAYear() {
+        val a = aged(25, (1..19).associate { "s$it" to 1998 })!!
+        assertEquals(19, a.songsWithYear)
+        assertNull(a.typicalYear); assertNull(a.age)
+    }
+
+    @Test fun ageUsesTheMedianOfSongsWithAYear() {
+        val a = aged(20, (1..20).associate { "s$it" to 1998 })!!
+        assertEquals(1998, a.typicalYear); assertEquals(42, a.age)
+    }
+
+    @Test fun songsWithoutAYearAreCountedInTotalButNotInYears() {
+        val a = aged(25, (1..5).associate { "s$it" to 2000 })!!
+        assertEquals(25, a.songsTotal); assertEquals(5, a.songsWithYear); assertEquals(5, a.years.size)
+    }
+
+    @Test fun uncheckedCountsSongsWithoutAnyLookupRow() {
+        val years = (1..5).associate { "s$it" to 2000 }
+        val a = aged(25, years, years.keys + (6..15).map { "s$it" })!!
+        assertEquals(10, a.unchecked); assertEquals(5, a.songsWithYear)
+    }
+
+    @Test fun oldestIsTheEarliestYear() {
+        val a = aged(25, mapOf("s1" to 1985, "s2" to 1971, "s3" to 2001))!!
+        assertEquals(1971, a.oldestYear); assertEquals("s2", a.oldestSong?.id)
+    }
 }

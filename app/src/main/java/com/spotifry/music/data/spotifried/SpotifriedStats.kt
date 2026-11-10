@@ -28,6 +28,17 @@ data class ObsessionDay(val song: SongEntity, val date: LocalDate, val plays: In
 data class MonthTop(val month: YearMonth, val song: SongEntity, val plays: Int)
 data class ArtistShare(val name: String, val share: Float)
 
+/** Median, the lower middle for an even count. */
+fun typicalYear(years: List<Int>): Int = years.sorted()[(years.size - 1) / 2]
+
+fun listeningAge(typicalYear: Int, periodEndYear: Int): Int = periodEndYear - typicalYear + 14
+
+/** [songsTotal] and [unchecked] count distinct songs played in the period; [years] has one entry per song with a year. */
+data class AgeStats(
+    val songsWithYear: Int, val songsTotal: Int, val unchecked: Int, val years: List<Int>,
+    val typicalYear: Int?, val age: Int?, val oldestYear: Int?, val oldestSong: SongEntity?,
+)
+
 data class SpotifriedStats(
     val period: WrappedPeriod,
     /** The later of the period's start and the first listen, so a short history isn't padded with empty days. */
@@ -52,9 +63,9 @@ data class SpotifriedStats(
     val topArtist: ArtistShare?,
     val earlyShare: Float,
     val nightShare: Float,
+    val age: AgeStats,
 )
 
-// `checked` is for Task 3
 fun spotifriedStats(
     rows: List<ListenRow>, years: Map<String, Int>, period: WrappedPeriod,
     zone: ZoneId = ZoneId.systemDefault(), checked: Set<String> = years.keys,
@@ -104,12 +115,24 @@ fun spotifriedStats(
         ?.takeIf { totalSeconds > 0 }?.let { ArtistShare(it.key, it.value.toFloat() / totalSeconds) }
     fun share(n: Int) = if (heard.isEmpty()) 0f else n.toFloat() / heard.size
 
+    val songIds = heard.map { it.row.songId }.distinct()
+    val yearOf = songIds.filter { it in years }
+    val songYears = yearOf.map { years.getValue(it) }
+    val oldestId = yearOf.minByOrNull { years.getValue(it) }
+    val enough = songYears.size >= 20
+    val ageStats = AgeStats(
+        songYears.size, songIds.size, songIds.count { it !in checked }, songYears.sorted(),
+        if (enough) typicalYear(songYears) else null,
+        if (enough) listeningAge(typicalYear(songYears), period.to.year) else null,
+        oldestId?.let { years.getValue(it) }, oldestId?.let { id -> heard.last { it.row.songId == id }.row.song },
+    )
+
     return SpotifriedStats(
         period, start, heard.size, lines.sumOf { it.row.secondsHeard.toLong() },
         heard.distinctBy { it.row.songId }.size, topSong,
         days.toList(), days.indices.maxByOrNull { days[it] }?.takeIf { days[it] > 0 }?.let { start.plusDays(it.toLong()) },
         hours.toList(),
         obsession, months, changeMonth, streak, newSongs, replayed, topArtist,
-        share(heard.count { it.hour < 9 }), share(heard.count { it.hour < 5 }),
+        share(heard.count { it.hour < 9 }), share(heard.count { it.hour < 5 }), ageStats,
     )
 }
