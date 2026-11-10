@@ -118,13 +118,16 @@ internal fun NotEnough(more: Int) {
     }
 }
 
-/** Tasks 11-12 draw the cards still shown by name. */
+/** Task 12 draws the cards still shown by name. */
 @Composable
 internal fun StoryCard(id: CardId, state: SpotifriedState, onShare: () -> Unit) {
     when (id) {
         CardId.INTRO -> IntroCard(state.stats)
         CardId.TOP_SONG -> TopSongCard(state.stats)
         CardId.HOURS -> HoursCard(state.stats)
+        CardId.AGE -> AgeCard(state.stats, state.checked, state.unchecked)
+        CardId.DAY -> DayCard(state.stats)
+        CardId.MONTHS -> MonthsCard(state.stats)
         else -> Text(id.name)
     }
 }

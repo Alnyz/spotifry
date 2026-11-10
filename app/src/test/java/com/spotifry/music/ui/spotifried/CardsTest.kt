@@ -37,6 +37,14 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.LocalDate
+import java.time.YearMonth
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.assert
+import com.spotifry.music.data.spotifried.MonthTop
+import com.spotifry.music.data.spotifried.ObsessionDay
+import com.spotifry.music.data.spotifried.ageStats
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
@@ -164,5 +172,94 @@ class CardsTest {
         rule.waitForIdle()
         assertTrue(bars.isAppearanceLightStatusBars)
         assertTrue(bars.isAppearanceLightNavigationBars)
+    }
+
+    private fun ageOf(years: List<Int>, typical: Int?) =
+        ageStats(typical, years.minOrNull(), years.size, years.size).copy(years = years.sorted())
+
+    @Test fun ageCardShowsAgeAndTypicalYear() {
+        val years = List(30) { 1975 + it } + List(10) { 1998 }
+        show { AgeCard(stats(plays = 400, age = ageOf(years, 1998)), 40, 0, still = true) }
+        rule.onNodeWithText("You listen like someone who was 14 in 1998.").assertIsDisplayed()
+        rule.onNodeWithText("42").assertIsDisplayed()
+        rule.onNodeWithText("1975, your oldest").assertIsDisplayed()
+        rule.onNodeWithText("Most of your songs are from the 90s.", substring = true).assertIsDisplayed()
+    }
+
+    @Test fun ageCardShowsProgressWhileYearsAreMissing() {
+        show { AgeCard(stats(plays = 400, age = ageOf(listOf(1990, 1991, 1999, 2004, 2020), null).copy(songsTotal = 25, unchecked = 20)), 5, 20, still = true) }
+        rule.onNodeWithText("Checking song years: 5 of 25").assertIsDisplayed()
+        rule.onNodeWithText("You listen like", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("Your listening age", substring = true).assertDoesNotExist()
+    }
+
+    @Test fun ageCardCreditsMusicBrainz() {
+        show { AgeCard(stats(plays = 400, age = ageOf(List(20) { 2000 + it % 7 }, 2003)), 20, 0, still = true) }
+        rule.onNodeWithText("Song years from MusicBrainz").assertIsDisplayed()
+    }
+
+    @Test fun ageCardWithExactlyTwentySongs() {
+        val years = List(20) { 2010 + it % 5 }
+        // the share of a phone with music playing, as in topSongCoverKeepsItsSizeOnAPhone
+        rule.setContent { MusicTheme { Box(Modifier.size(360.dp, 460.dp)) { AgeCard(stats(plays = 400, age = ageOf(years, 2012)), 20, 0, still = true) } } }
+        rule.onNodeWithText("You listen like someone who was 14 in 2012.").assertIsDisplayed()
+        rule.onNodeWithText("28").assertIsDisplayed()
+        assertTrue(rule.onNodeWithText("Song years from MusicBrainz").getBoundsInRoot().bottom <= 460.dp)
+    }
+
+    @Test fun dotsStackPerYear() {
+        assertEquals(listOf(1975 to 0, 1998 to 0, 1998 to 1, 1998 to 2), yearStacks(listOf(1998, 1975, 1998, 1998)))
+        assertEquals("90s", decadeName(1990)); assertEquals("2000s", decadeName(2000)); assertEquals("1890s", decadeName(1890))
+        assertEquals(1990, topDecade(listOf(1975, 1991, 1995, 2001)))
+    }
+
+    @Test fun dayCardShowsDateSongAndCount() {
+        val day = ObsessionDay(song, LocalDate.of(2026, 3, 14), 8, List(8) { 20f + it * .1f })
+        show { DayCard(stats(plays = 400, obsession = day), still = true) }
+        rule.onNodeWithText("On 14 March, something happened.").assertIsDisplayed()
+        rule.onNodeWithText("You played \u201cPaper Lanterns\u201d 8 times in one day. We won't ask.").assertIsDisplayed()
+    }
+
+    @Test fun dayCardSingularAndLongTitle() {
+        val long = song.copy(title = "A very long song title that goes on and on and on, then some more words, and then even more")
+        show { DayCard(stats(plays = 400, obsession = ObsessionDay(long, LocalDate.of(2026, 3, 14), 1, listOf(9f))), still = true) }
+        rule.onNodeWithText("1 time in one day", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("\u2026\u201d", substring = true).assertIsDisplayed()
+    }
+
+    @Test fun dayTextAndShortTitles() {
+        assertEquals("14 March", dayText(LocalDate.of(2026, 3, 14), withYear = false))
+        assertEquals("14 March 2025", dayText(LocalDate.of(2025, 3, 14), withYear = true))
+        assertEquals("Paper Lanterns", shortTitle("Paper Lanterns"))
+        val cut = shortTitle("word ".repeat(30).trim())
+        assertTrue(cut.length <= 61 && cut.endsWith("\u2026") && !cut.contains(" \u2026"))
+    }
+
+    private fun monthsOf(n: Int) = List(n) { MonthTop(YearMonth.of(2026, it + 1), song.copy(title = "Song number ${it + 1} with a title long enough to need cutting short"), 30 - it) }
+
+    @Test fun monthsCardHighlightsTheChangeMonth() {
+        val s = stats(plays = 400, months = monthsOf(3)).copy(changeMonth = YearMonth.of(2026, 2))
+        show { MonthsCard(s, still = true) }
+        rule.onNodeWithText("Your year,\nin order.").assertIsDisplayed()
+        rule.onNodeWithTag("change_month").assert(hasAnyDescendant(hasText("Feb")))
+        rule.onNodeWithText("Jan").assertIsDisplayed()
+        rule.onNodeWithText("Mar").assertIsDisplayed()
+    }
+
+    @Test fun monthsCardFitsTwelveRows() {
+        val s = stats(plays = 400, months = monthsOf(12)).copy(changeMonth = YearMonth.of(2026, 6))
+        // 460 dp is the card's share of a 360 x 780 dp phone with music playing; the full 780 is roomier
+        rule.setContent { MusicTheme { Box(Modifier.size(360.dp, 460.dp)) { MonthsCard(s, still = true) } } }
+        listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec").forEach {
+            rule.onNodeWithText(it).assertIsDisplayed()
+            assertTrue(it, rule.onNodeWithText(it).getBoundsInRoot().bottom <= 460.dp)
+        }
+    }
+
+    @Test fun moreThanTwelveMonthsKeepTheChangeMonth() {
+        val m = List(20) { MonthTop(YearMonth.of(2025, 1).plusMonths(it.toLong()), song, 5) }
+        assertEquals(m.takeLast(12), shownMonths(m, null))
+        assertEquals(m.subList(3, 15), shownMonths(m, m[3].month))
+        assertEquals(m.take(3), shownMonths(m.take(3), m[1].month))
     }
 }
