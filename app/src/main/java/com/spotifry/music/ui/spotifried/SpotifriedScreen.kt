@@ -88,30 +88,35 @@ fun SpotifriedScreen(vm: SpotifriedViewModel, onBack: () -> Unit, bottomInset: D
     val state = loaded ?: return
     // a new period starts again from the first card
     var index by rememberSaveable(state.stats.period) { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().padding(bottom = bottomInset)) {
         IconButton(onBack, Modifier.padding(start = 8.dp, top = 4.dp)) { Icon(Icons.Back, "Back") }
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.choices, key = { it.label }) { p ->
                 FilterChip(p == state.stats.period, { vm.pick(p) }, { Text(p.label) })
             }
         }
-        if (state.cards.isEmpty()) NotEnough(morePlaysNeeded(state.stats), bottomInset)
+        if (state.cards.isEmpty()) NotEnough(morePlaysNeeded(state.stats))
         else StoryShell(state.cards, index, { index = it }) { StoryCard(it, state) {} }
     }
 }
 
 @Composable
-internal fun NotEnough(more: Int, bottomInset: Dp) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(bottom = bottomInset), Arrangement.Center) {
+internal fun NotEnough(more: Int) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp), Arrangement.Center) {
         Text("Not enough listening yet", style = MaterialTheme.typography.headlineMedium)
         Text("$more more plays to go", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
-/** Tasks 10-12 draw the cards here. */
+/** Tasks 11-12 draw the cards still shown by name. */
 @Composable
 internal fun StoryCard(id: CardId, state: SpotifriedState, onShare: () -> Unit) {
-    Text(id.name)
+    when (id) {
+        CardId.INTRO -> IntroCard(state.stats)
+        CardId.TOP_SONG -> TopSongCard(state.stats)
+        CardId.HOURS -> HoursCard(state.stats)
+        else -> Text(id.name)
+    }
 }
 
 @Composable

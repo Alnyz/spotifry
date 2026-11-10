@@ -90,7 +90,7 @@ internal fun rememberNoMotion(): Boolean {
 @Composable
 fun Sun(
     hours: List<Long>, scale: Float, live: Boolean, motion: SunMotion, modifier: Modifier = Modifier, small: Boolean = false,
-    selected: Int? = null, onTap: ((Int?) -> Unit)? = null, description: String? = null,
+    selected: Int? = null, onTap: ((Int?) -> Unit)? = null, description: String? = null, labels: Boolean = true,
 ) {
     val noMotion = rememberNoMotion()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -182,7 +182,7 @@ fun Sun(
                 val e = spread[i * (RAYS / rayCount)]
                 drawLine(brush, point(i, r0 + 1), point(i, r0 + 1 + maxOf(length(i, moving) * mx, w * .0033f)), w * (if (small) .012f else .0058f), StrokeCap.Round, alpha = dim * (.55f + .45f * e))
             }
-            if (!small) {
+            if (!small && labels) {
                 val rl = r0 - 12 * density
                 drawText(midnight, labelColor, Offset(c - midnight.size.width / 2f, c - rl - midnight.size.height / 2f))
                 drawText(noon, labelColor, Offset(c - noon.size.width / 2f, c + rl - noon.size.height / 2f))

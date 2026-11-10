@@ -104,7 +104,7 @@ class SpotifriedScreenTest {
         rule.waitUntil(5_000) { rule.onAllNodesWithText("2025").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("10 more plays to go").assertIsDisplayed()
         rule.onNodeWithText("2025").performClick()
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("INTRO").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("2025,", substring = true).fetchSemanticsNodes().isNotEmpty() }
         rule.onAllNodesWithTag("segment").assertCountEquals(5)
     }
 }
