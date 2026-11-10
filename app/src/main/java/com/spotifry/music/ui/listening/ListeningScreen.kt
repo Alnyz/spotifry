@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -165,20 +166,20 @@ internal fun listenerLine(p: Period, firstDay: Boolean) = when {
 @Composable
 fun ListeningScreen(
     vm: ListeningViewModel, savedIds: Set<String>, playing: Boolean, onBack: () -> Unit, onPlay: (List<Song>, Int, String) -> Unit,
-    onMore: (Song) -> Unit, onArtist: (String) -> Unit, bottomInset: Dp,
+    onMore: (Song) -> Unit, onArtist: (String) -> Unit, onSpotifried: () -> Unit, bottomInset: Dp,
 ) {
     val stats by vm.stats.collectAsStateWithLifecycle()
     // emptied from elsewhere (Clear listening history): there's no page to show. Waits for a first read that found something.
     var seen by remember { mutableStateOf(false) }
     if (stats != null) seen = true
     LaunchedEffect(seen, stats == null) { if (seen && stats == null) onBack() }
-    stats?.let { ListeningContent(it, savedIds, playing, onBack, onPlay, onMore, onArtist, bottomInset) }
+    stats?.let { ListeningContent(it, savedIds, playing, onBack, onPlay, onMore, onArtist, onSpotifried, bottomInset) }
 }
 
 @Composable
 internal fun ListeningContent(
     stats: ListeningStats, savedIds: Set<String>, playing: Boolean, onBack: () -> Unit, onPlay: (List<Song>, Int, String) -> Unit,
-    onMore: (Song) -> Unit, onArtist: (String) -> Unit, bottomInset: Dp,
+    onMore: (Song) -> Unit, onArtist: (String) -> Unit, onSpotifried: () -> Unit, bottomInset: Dp,
 ) {
     var picked by rememberSaveable { mutableStateOf<PeriodId?>(null) }
     val period = stats.periods.firstOrNull { it.id == picked } ?: stats.periods.first { it.id == stats.opensOn }
@@ -222,6 +223,9 @@ internal fun ListeningContent(
                     Centre(period, hour, Modifier.fillMaxWidth(.37f).semantics { liveRegion = LiveRegionMode.Polite })
                 }
             }
+        }
+        item("spotifried") {
+            Button(onSpotifried, Modifier.padding(horizontal = 20.dp, vertical = 8.dp).fillMaxWidth()) { Text("Spotifried") }
         }
         if (stats.periods.size > 1) item("tabs") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).selectableGroup(), Arrangement.spacedBy(6.dp)) {

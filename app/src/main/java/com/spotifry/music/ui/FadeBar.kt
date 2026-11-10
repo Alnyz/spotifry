@@ -93,7 +93,7 @@ object FadeBarSpec {
 fun tabSelected(tab: String, route: String?): Boolean = route == tab ||
     (tab == Routes.PLAYLISTS && route == Routes.PLAYLIST) ||
     (tab == Routes.SEARCH && (route == Routes.PAGE || route == Routes.MOOD)) ||
-    (tab == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER || route == Routes.LISTENING))
+    (tab == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER || route == Routes.LISTENING || route == Routes.SPOTIFRIED))
 
 /**
  * Where the selection pill is, as its two edges in pixels. They move on their own springs, the edge the pill is travelling

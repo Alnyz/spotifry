@@ -1,0 +1,136 @@
+package com.spotifry.music.ui.spotifried
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import com.spotifry.music.data.db.ListenRow
+import com.spotifry.music.data.db.SongYearEntity
+import com.spotifry.music.data.spotifried.CardId
+import com.spotifry.music.data.spotifried.SpotifriedStats
+import com.spotifry.music.data.spotifried.WrappedPeriod
+import com.spotifry.music.data.spotifried.calendarYear
+import com.spotifry.music.data.spotifried.morePlaysNeeded
+import com.spotifry.music.data.spotifried.periodChoices
+import com.spotifry.music.data.spotifried.shownCards
+import com.spotifry.music.data.spotifried.spotifriedStats
+import com.spotifry.music.ui.Icons
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+
+data class SpotifriedState(
+    val stats: SpotifriedStats, val cards: List<CardId>, val choices: List<WrappedPeriod>,
+    /** Songs of the period with / without a year lookup done yet. */
+    val checked: Int, val unchecked: Int,
+)
+
+class SpotifriedViewModel(listens: Flow<List<ListenRow>>, years: Flow<List<SongYearEntity>>, private val today: () -> LocalDate = LocalDate::now) : ViewModel() {
+    private val picked = MutableStateFlow<WrappedPeriod?>(null)
+    private val zone = ZoneId.systemDefault()
+
+    private fun build(rows: List<ListenRow>, rowsWithYear: List<SongYearEntity>, pick: WrappedPeriod?): SpotifriedState {
+        val now = today()
+        val first = rows.minOfOrNull { it.startedAt }?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: now
+        val period = pick ?: calendarYear(now.year, now)
+        val stats = spotifriedStats(rows, rowsWithYear.mapNotNull { r -> r.year?.let { r.songId to it } }.toMap(), period, zone, rowsWithYear.map { it.songId }.toSet())
+        return SpotifriedState(stats, shownCards(stats), periodChoices(first, now), stats.age.songsTotal - stats.age.unchecked, stats.age.unchecked)
+    }
+
+    val state: StateFlow<SpotifriedState> = combine(listens, years, picked, ::build).flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), build(emptyList(), emptyList(), null))
+
+    fun pick(p: WrappedPeriod) { picked.value = p }
+}
+
+@Composable
+fun SpotifriedScreen(vm: SpotifriedViewModel, onBack: () -> Unit, bottomInset: Dp) {
+    val state by vm.state.collectAsStateWithLifecycle()
+    // a new period starts again from the first card
+    var index by remember(state.stats.period) { mutableIntStateOf(0) }
+    Column(Modifier.fillMaxSize()) {
+        IconButton(onBack, Modifier.padding(start = 8.dp, top = 4.dp)) { Icon(Icons.Back, "Back") }
+        LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(state.choices, key = { it.label }) { p ->
+                FilterChip(p == state.stats.period, { vm.pick(p) }, { Text(p.label) })
+            }
+        }
+        if (state.cards.isEmpty()) NotEnough(morePlaysNeeded(state.stats), bottomInset)
+        else StoryShell(state.cards, index, { index = it }) { StoryCard(it, state) {} }
+    }
+}
+
+@Composable
+internal fun NotEnough(more: Int, bottomInset: Dp) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(bottom = bottomInset), Arrangement.Center) {
+        Text("Not enough listening yet", style = MaterialTheme.typography.headlineMedium)
+        Text("$more more plays to go", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Tasks 10-12 draw the cards here. */
+@Composable
+internal fun StoryCard(id: CardId, state: SpotifriedState, onShare: () -> Unit) {
+    Text(id.name)
+}
+
+@Composable
+internal fun StoryShell(cards: List<CardId>, index: Int, onIndex: (Int) -> Unit, card: @Composable (CardId) -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), Arrangement.spacedBy(4.dp)) {
+            cards.indices.forEach { i ->
+                Box(
+                    Modifier.weight(1f).height(3.dp).testTag("segment").clip(RoundedCornerShape(2.dp))
+                        .background(if (i <= index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                )
+            }
+        }
+        Box(
+            Modifier.weight(1f).fillMaxWidth().testTag("tap").pointerInput(cards, index) {
+                detectTapGestures { at ->
+                    val next = if (at.x > size.width / 2) index + 1 else index - 1
+                    if (next in cards.indices) onIndex(next)
+                }
+            },
+            Alignment.Center,
+        ) { card(cards[index.coerceIn(cards.indices)]) }
+    }
+}

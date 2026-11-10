@@ -39,17 +39,24 @@ class ListeningScreenTest {
     private fun row(w: Long, id: String, s: Int, artist: String = "Artist $id", skipped: Boolean = false) = ListenRow(w, id, s, skipped, SongEntity(id, "Song $id", artist, 200, null, null, null, null))
     private var artist: String? = null
     private var played: List<String>? = null
+    private var opened = false
 
     private fun show(vararg r: ListenRow) {
         val stats: ListeningStats = listeningStats(r.toList(), now, zone)!!
         rule.setContent {
             MusicTheme {
-                ListeningContent(stats, emptySet(), false, {}, { l, _, _ -> played = l.map { it.id } }, {}, { artist = it }, 0.dp)
+                ListeningContent(stats, emptySet(), false, {}, { l, _, _ -> played = l.map { it.id } }, {}, { artist = it }, { opened = true }, 0.dp)
             }
         }
     }
     private fun scrollTo(text: String) { rule.onNode(hasScrollToNodeAction()).performScrollToNode(hasText(text)); rule.onNodeWithText(text).assertIsDisplayed() }
     private fun missing(text: String) = rule.onNodeWithText(text).assertDoesNotExist()
+
+    @Test fun tasteHasASpotifriedButton() {
+        show(row(now - 240_000, "a", 240))
+        rule.onNodeWithText("Spotifried").performClick()
+        assertEquals(true, opened)
+    }
 
     @Test fun firstDayIsASparkWithNoTabsNoDaysAndOneFirstSong() {
         show(row(now - 240_000, "a", 240))
@@ -164,7 +171,7 @@ class ListeningScreenTest {
         db.listens().insert(com.spotifry.music.data.db.ListenEntity(now, "a", 60))
         var backs = 0
         val vm = ListeningViewModel(db.listens())
-        rule.setContent { MusicTheme { ListeningScreen(vm, emptySet(), false, { backs++ }, { _, _, _ -> }, {}, {}, 0.dp) } }
+        rule.setContent { MusicTheme { ListeningScreen(vm, emptySet(), false, { backs++ }, { _, _, _ -> }, {}, {}, {}, 0.dp) } }
         rule.waitUntil(5_000) { vm.stats.value != null }
         rule.waitForIdle()
         assertEquals(0, backs)

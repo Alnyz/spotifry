@@ -76,6 +76,13 @@ internal fun hourAt(x: Float, y: Float, width: Float): Int? {
     return (a / (2 * PI) * 24).roundToInt() % 24
 }
 
+/** True when the system's animations are switched off. */
+@Composable
+internal fun rememberNoMotion(): Boolean {
+    val context = LocalContext.current
+    return remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+}
+
 /**
  * The 24 hours of the day as a burning sun. Each ray's direction is a time and its length follows the minutes heard at
  * that hour; the unevenness between neighbours is only the look of fire. [live]: the flames move, while music plays.
@@ -85,8 +92,7 @@ fun Sun(
     hours: List<Long>, scale: Float, live: Boolean, motion: SunMotion, modifier: Modifier = Modifier, small: Boolean = false,
     selected: Int? = null, onTap: ((Int?) -> Unit)? = null, description: String? = null,
 ) {
-    val context = LocalContext.current
-    val noMotion = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+    val noMotion = rememberNoMotion()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val state by lifecycle.currentStateFlow.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.CREATED)
     val shown = state.isAtLeast(Lifecycle.State.RESUMED)

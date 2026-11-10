@@ -130,6 +130,7 @@ object Routes {
     fun page(l: PageLink) = "page?type=${l.type.name}&url=${Uri.encode(l.url)}&name=${Uri.encode(l.name)}&by=${Uri.encode(l.by)}&art=${Uri.encode(l.thumbnailUrl.orEmpty())}"
     const val MOOD = "mood?name={name}"
     const val LISTENING = "listening"
+    const val SPOTIFRIED = "spotifried"
     fun mood(m: Mood) = "mood?name=${Uri.encode(m.name)}"
 }
 
@@ -348,7 +349,12 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         composable(Routes.LISTENING) {
                             val vm: com.spotifry.music.ui.listening.ListeningViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.listening.ListeningViewModel(c.db.listens()) } })
                             val savedIds by home.savedIds.collectAsStateWithLifecycle()
-                            com.spotifry.music.ui.listening.ListeningScreen(vm, savedIds, player.isPlaying && !showPlayer, { nav.popBackStack() }, plVm::play, openMenu, { name -> home.onQueryChanged(name); goTo(Routes.SEARCH) }, inset)
+                            com.spotifry.music.ui.listening.ListeningScreen(vm, savedIds, player.isPlaying && !showPlayer, { nav.popBackStack() }, plVm::play, openMenu, { name -> home.onQueryChanged(name); goTo(Routes.SEARCH) }, { nav.navigate(Routes.SPOTIFRIED) { launchSingleTop = true } }, inset)
+                        }
+                        composable(Routes.SPOTIFRIED) {
+                            val vm: com.spotifry.music.ui.spotifried.SpotifriedViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.spotifried.SpotifriedViewModel(c.db.listens().observeAll(), c.db.songYears().observeAll()) } })
+                            LaunchedEffect(Unit) { com.spotifry.music.data.spotifried.enqueueYearLookup(context) }
+                            com.spotifry.music.ui.spotifried.SpotifriedScreen(vm, { nav.popBackStack() }, inset)
                         }
                         composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }, backup = backupActions) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.spectrum, c.autoEq, player.isPlaying, { nav.popBackStack() }, inset) }
