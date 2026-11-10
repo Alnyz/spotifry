@@ -16,10 +16,11 @@ fun stats(
     hours: List<Long> = List(24) { 0L }, longestStreak: Int = 0, newSongs: Int = 0, replayedSongs: Int = 0,
     topArtist: ArtistShare? = null, earlyShare: Float = 0f, nightShare: Float = 0f, age: AgeStats = ageStats(),
     period: WrappedPeriod = calendarYear(2026, java.time.LocalDate.of(2026, 12, 31)),
+    obsession: ObsessionDay? = null, months: List<MonthTop> = emptyList(),
 ) = SpotifriedStats(
-    period, period.from, plays, seconds, songs, null, daySeconds, null, hours, null, emptyList(), null,
+    period, period.from, plays, seconds, songs, null, daySeconds, null, hours, obsession, months, null,
     longestStreak, newSongs, replayedSongs, topArtist, earlyShare, nightShare, age,
 )
 
-fun ageStats(typicalYear: Int? = null, oldestYear: Int? = null, songsWithYear: Int = 0, songsTotal: Int = 0) =
-    AgeStats(songsWithYear, songsTotal, 0, emptyList(), typicalYear, typicalYear?.let { 2026 - it + 14 }, oldestYear, null)
+fun ageStats(typicalYear: Int? = null, oldestYear: Int? = null, songsWithYear: Int = 0, songsTotal: Int = 0, unchecked: Int = 0) =
+    AgeStats(songsWithYear, songsTotal, unchecked, emptyList(), typicalYear, typicalYear?.let { 2026 - it + 14 }, oldestYear, null)
