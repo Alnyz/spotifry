@@ -104,7 +104,8 @@ fun shownCards(s: SpotifriedStats): List<CardId> {
     val shown = CardId.entries.filter {
         when (it) {
             CardId.INTRO, CardId.SUN, CardId.TYPE -> s.plays >= 1
-            CardId.TOP_SONG, CardId.HOURS -> s.plays >= 10
+            CardId.TOP_SONG -> s.plays >= 10 && s.topSong != null
+            CardId.HOURS -> s.plays >= 10
             CardId.AGE -> ageShown
             CardId.DAY -> (s.obsession?.plays ?: 0) >= 8
             CardId.MONTHS -> s.months.size >= 3

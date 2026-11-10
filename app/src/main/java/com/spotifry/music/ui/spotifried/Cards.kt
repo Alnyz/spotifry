@@ -33,7 +33,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.key
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
+import android.os.Build
+import java.time.LocalDate
+import com.spotifry.music.ui.listening.count
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -81,11 +90,31 @@ internal fun introLead(p: WrappedPeriod): String = when {
     else -> "Your ${p.label.replaceFirstChar { it.lowercase() }},"
 }
 
-/** "You gave 2026", "You gave the last 12 months", "You gave music" (all time). */
-private fun gaveLead(p: WrappedPeriod): String = when {
-    p.label.length == 4 && p.label.all { it.isDigit() } -> "You gave ${p.label}"
-    p.label == "All time" -> "You gave music"
-    else -> "You gave the ${p.label.replaceFirstChar { it.lowercase() }}"
+/** Before the hours: "You gave 2026 ", "Twelve months, ", "All told, "; as short as the mockup's line. */
+internal fun hoursLead(p: WrappedPeriod): String = when {
+    p.label.length == 4 && p.label.all { it.isDigit() } -> "You gave ${p.label} "
+    p.label == "Last 12 months" -> "Twelve months, "
+    p.label == "All time" -> "All told, "
+    else -> "${p.label}, "
+}
+
+private val MAX_SLOT = 6.dp
+
+/** How many bars fit [width], and each one's slot: about 2.5 dp a bar, but never wider than [MAX_SLOT], so a few days stay thin. */
+internal fun barLayout(days: Int, width: Dp): Pair<Int, Dp> {
+    val n = minOf(days, (width / 2.5.dp).toInt()).coerceAtLeast(1)
+    return n to minOf(width / n, MAX_SLOT)
+}
+
+/**
+ * The dates under the bars, each different. [full]: the bars span the width, so start, middle and end spread across it;
+ * otherwise one line from the first day to the last.
+ */
+internal fun dateLabels(start: LocalDate, days: Int, full: Boolean): List<String> {
+    val end = start.plusDays(days - 1L)
+    val fmt = DateTimeFormatter.ofPattern(when { start.year != end.year -> "MMM yyyy"; days > 62 -> "MMM"; else -> "d MMM" }, english)
+    val all = listOf(start, start.plusDays(days / 2L), end).map { it.format(fmt) }.distinct()
+    return if (full) all else listOf(listOf(all.first(), all.last()).distinct().joinToString(" – "))
 }
 
 /** Which of [bars] bars day [day] of [days] falls in. */
@@ -111,7 +140,7 @@ private fun amount(seconds: Long): String {
     return if (h >= 1) plural(h, "hour") else plural(minutesOf(seconds), "minute")
 }
 
-/** 0 to 1, after [delayMs], on [Ease]; already 1 when [calm]. Restarts each time the card is shown. */
+/** 0 to 1, after [delayMs], on [Ease]; already 1 when [calm]. Restarts each time the card is shown, or its period changes (see `key` in the cards). */
 @Composable
 private fun progress(calm: Boolean, delayMs: Int, durationMs: Int): Animatable<Float, *> {
     val p = remember { Animatable(if (calm) 1f else 0f) }
@@ -120,7 +149,7 @@ private fun progress(calm: Boolean, delayMs: Int, durationMs: Int): Animatable<F
 }
 
 @Composable
-private fun countUp(to: Int, calm: Boolean): Int = (to * progress(calm, 500, 1500).value).roundToInt()
+private fun countUp(to: Int, calm: Boolean): String = count((to * progress(calm, 500, 1500).value).roundToInt())
 
 /** Fades in and lifts into place; [order] staggers the lines of a card one after another. */
 @Composable
@@ -141,6 +170,11 @@ private fun soft() = MaterialTheme.colorScheme.onBackground.copy(alpha = .64f)
 @Composable
 internal fun IntroCard(s: SpotifriedStats, still: Boolean = false) {
     val calm = still || rememberNoMotion()
+    key(s.period, calm) { Intro(s, calm) }
+}
+
+@Composable
+private fun Intro(s: SpotifriedStats, calm: Boolean) {
     val accent = MaterialTheme.colorScheme.primary
     val scale = sunScale(minutesOf(s.seconds))
     val motion = remember {
@@ -178,17 +212,28 @@ internal fun IntroCard(s: SpotifriedStats, still: Boolean = false) {
 internal fun TopSongCard(s: SpotifriedStats, still: Boolean = false) {
     val top = s.topSong ?: return
     val calm = still || rememberNoMotion()
+    key(s.period, calm) { TopSong(top, calm) }
+}
+
+@Composable
+private fun TopSong(top: com.spotifry.music.data.TopSong, calm: Boolean) {
     val accent = MaterialTheme.colorScheme.primary
     val plays = countUp(top.plays, calm)
     val ring = if (calm) null else rememberInfiniteTransition("rings").animateFloat(0f, 1f, infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart), "ring")
     val shape = RoundedCornerShape(18.dp)
     CardColumn {
         Column(Modifier.weight(1f)) {
-            Text("You couldn't leave this one alone.", Modifier.rise(0, calm), style = Headline)
+            // smaller than the other headlines and three lines at most, so the cover keeps about 200 dp on a 780 dp phone
+            Text("You couldn't leave this one alone.", Modifier.rise(0, calm), maxLines = 3, overflow = TextOverflow.Ellipsis, style = Headline.copy(fontSize = 38.sp, lineHeight = 37.sp, letterSpacing = (-1.3).sp))
             Box(
-                Modifier.padding(top = 26.dp).weight(1f, fill = false).widthIn(max = 230.dp).aspectRatio(1f, matchHeightConstraintsFirst = true)
-                    .rise(1, calm).shadow(28.dp, shape, ambientColor = accent, spotColor = accent),
+                Modifier.padding(top = 20.dp).weight(1f, fill = false).widthIn(max = 230.dp).aspectRatio(1f, matchHeightConstraintsFirst = true)
+                    .testTag("top_cover").rise(1, calm),
             ) {
+                // a soft accent glow under the cover: inset 18 dp, 24 dp lower, blurred. The blur needs Android 12.
+                if (Build.VERSION.SDK_INT >= 31) Box(
+                    Modifier.matchParentSize().offset(y = 24.dp).padding(horizontal = 18.dp, vertical = 18.dp)
+                        .blur(20.dp, BlurredEdgeTreatment.Unbounded).background(accent.copy(alpha = .45f), shape),
+                )
                 CoverArt(
                     top.song.id, top.song.thumbnailUrl, top.song.thumbPath,
                     Modifier.fillMaxSize().drawWithContent {
@@ -205,14 +250,14 @@ internal fun TopSongCard(s: SpotifriedStats, still: Boolean = false) {
                 )
             }
             Text(
-                top.song.title, Modifier.padding(top = 22.dp).rise(2, calm), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                top.song.title, Modifier.padding(top = 20.dp).rise(2, calm), maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp, lineHeight = 27.sp, letterSpacing = (-.65).sp),
             )
             Text(cleanArtist(top.song.artist), Modifier.padding(top = 4.dp).rise(2, calm), soft(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = Sub.copy(fontSize = 14.sp))
         }
         Row(Modifier.rise(3, calm), Arrangement.spacedBy(8.dp)) {
             Text(
-                "$plays", Modifier.alignByBaseline(), accent,
+                plays, Modifier.alignByBaseline(), accent,
                 style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 64.sp, lineHeight = 58.sp, letterSpacing = (-3.2).sp, fontFeatureSettings = TABULAR),
             )
             Text(if (top.plays == 1) "play" else "plays", Modifier.alignByBaseline(), soft(), style = Sub)
@@ -224,6 +269,11 @@ internal fun TopSongCard(s: SpotifriedStats, still: Boolean = false) {
 @Composable
 internal fun HoursCard(s: SpotifriedStats, still: Boolean = false) {
     val calm = still || rememberNoMotion()
+    key(s.period, calm) { Hours(s, calm) }
+}
+
+@Composable
+private fun Hours(s: SpotifriedStats, calm: Boolean) {
     val accent = MaterialTheme.colorScheme.primary
     val faint = MaterialTheme.colorScheme.onBackground.copy(alpha = .2f)
     val hours = (s.seconds / 3600.0).roundToInt()
@@ -237,37 +287,35 @@ internal fun HoursCard(s: SpotifriedStats, still: Boolean = false) {
     LaunchedEffect(clock) { clock.animateTo(end, tween(end.toInt(), easing = LinearEasing)) }
     CardColumn {
         Text(
-            buildAnnotatedString { append(gaveLead(s.period)); append(" "); withStyle(SpanStyle(color = accent, fontFeatureSettings = TABULAR)) { append("$shown $unit") } },
+            buildAnnotatedString { append(hoursLead(s.period)); withStyle(SpanStyle(color = accent, fontFeatureSettings = TABULAR)) { append("$shown $unit") } },
             Modifier.rise(0, calm), style = Headline,
         )
         if (s.seconds >= 86_400) {
             Text("That is ${longDuration(minutesOf(s.seconds))}, with no break.", Modifier.padding(top = 14.dp).rise(1, calm), soft(), style = Sub)
         }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), Alignment.BottomCenter) {
-            // about a mockup's worth of bars on a phone; a year of days on a narrow screen would be hairlines
-            val bars = remember(s.daySeconds, maxWidth) { barHeights(s.daySeconds, (maxWidth / 2.5.dp).toInt().coerceAtLeast(1)) }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), Alignment.BottomStart) {
+            val (n, slotDp) = barLayout(days, maxWidth)
+            val bars = remember(s.daySeconds, n) { barHeights(s.daySeconds, n) }
             val lit = longest?.let { barOf(it, days, bars.size) }
-            Canvas(Modifier.fillMaxWidth().height(minOf(maxHeight, 270.dp))) {
-                if (bars.isEmpty()) return@Canvas
-                val slot = size.width / bars.size
-                val gap = minOf(1.dp.toPx(), slot * .4f)
-                val stub = 1.5.dp.toPx()
-                bars.forEachIndexed { i, h ->
-                    val p = Ease.transform(((clock.value - 400 - i * sweep / bars.size) / grow).coerceIn(0f, 1f))
-                    val tall = maxOf(h * size.height, stub) * p
-                    drawRoundRect(
-                        if (i == lit) accent else faint, Offset(i * slot, size.height - tall), Size(slot - gap, tall),
-                        CornerRadius(minOf(1.dp.toPx(), (slot - gap) / 2)),
-                    )
+            val full = slotDp * n >= maxWidth - 1.dp
+            val tallest = minOf(maxHeight - 30.dp, 270.dp).coerceAtLeast(40.dp)
+            if (days > 0) Column {
+                Canvas(Modifier.width(slotDp * n).height(tallest)) {
+                    val slot = slotDp.toPx()
+                    val gap = minOf(1.dp.toPx(), slot * .4f)
+                    val stub = 1.5.dp.toPx()
+                    bars.forEachIndexed { i, h ->
+                        val p = Ease.transform(((clock.value - 400 - i * sweep / bars.size) / grow).coerceIn(0f, 1f))
+                        val tall = maxOf(h * size.height, stub) * p
+                        drawRoundRect(
+                            if (i == lit) accent else faint, Offset(i * slot, size.height - tall), Size(slot - gap, tall),
+                            CornerRadius(minOf(1.dp.toPx(), (slot - gap) / 2)),
+                        )
+                    }
                 }
-            }
-        }
-        if (days > 0) {
-            val fmt = DateTimeFormatter.ofPattern(
-                when { s.start.year != s.period.to.year -> "MMM yyyy"; days > 62 -> "MMM"; else -> "d MMM" }, english,
-            )
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), Arrangement.SpaceBetween) {
-                listOf(0, days / 2, days - 1).forEach { Text(s.start.plusDays(it.toLong()).format(fmt), color = soft(), style = Sub.copy(fontSize = 11.sp, lineHeight = 14.sp)) }
+                Row(Modifier.then(if (full) Modifier.fillMaxWidth() else Modifier).padding(top = 8.dp), Arrangement.SpaceBetween) {
+                    dateLabels(s.start, days, full).forEach { Text(it, color = soft(), style = Sub.copy(fontSize = 11.sp, lineHeight = 14.sp)) }
+                }
             }
         }
         if (longest != null) {

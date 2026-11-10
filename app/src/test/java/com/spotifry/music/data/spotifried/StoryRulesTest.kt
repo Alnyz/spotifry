@@ -52,7 +52,7 @@ class StoryRulesTest {
     private fun month(m: Int) = MonthTop(java.time.YearMonth.of(2026, m), song("a"), 1)
     private val threeMonths = listOf(month(1), month(2), month(3))
     private val rich = stats(
-        plays = 500, songs = 100, obsession = obs(9), months = threeMonths,
+        plays = 500, songs = 100, obsession = obs(9), months = threeMonths, topSong = com.spotifry.music.data.TopSong(song("a"), 4000, 20),
         age = ageStats(songsWithYear = 30, songsTotal = 40),
     )
 
@@ -87,6 +87,8 @@ class StoryRulesTest {
         assertFalse(CardId.TOP_SONG in nine); assertFalse(CardId.HOURS in nine)
         assertTrue(CardId.TOP_SONG in shownCards(rich.copy(plays = 10)))
     }
+
+    @Test fun topSongNeedsASong() = assertFalse(CardId.TOP_SONG in shownCards(rich.copy(topSong = null)))
 
     private fun ageShown(w: Int, total: Int, unchecked: Int) =
         CardId.AGE in shownCards(rich.copy(age = ageStats(songsWithYear = w, songsTotal = total, unchecked = unchecked)))

@@ -5,8 +5,10 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.spotifry.music.data.ThemeMode
@@ -31,5 +33,22 @@ fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, accent: Accent = AccentChoice.
     }
     CompositionLocalProvider(LocalDark provides dark, LocalAccent provides accent) {
         MaterialTheme(colorScheme = if (dark) darkColors(accent, black) else lightColors(accent), typography = MusicTypography, content = content)
+    }
+}
+
+/**
+ * The dark theme on [background] whatever the app's theme, with the user's accent. While shown on the light theme, the
+ * status bar icons turn light so they stay visible.
+ */
+@Composable
+fun AlwaysDark(background: Color, content: @Composable () -> Unit) {
+    val view = LocalView.current
+    if (!isDark() && !view.isInEditMode) DisposableEffect(view) {
+        val bars = (view.context as? Activity)?.window?.let { WindowCompat.getInsetsController(it, view) }
+        bars?.isAppearanceLightStatusBars = false
+        onDispose { bars?.isAppearanceLightStatusBars = true }
+    }
+    CompositionLocalProvider(LocalDark provides true) {
+        MaterialTheme(colorScheme = darkColors(LocalAccent.current).copy(background = background, surface = background), typography = MusicTypography, content = content)
     }
 }

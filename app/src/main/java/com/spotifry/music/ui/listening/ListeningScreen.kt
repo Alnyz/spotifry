@@ -117,7 +117,7 @@ import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.sqrt
 
-private fun count(n: Int) = "%,d".format(Locale.US, n)
+internal fun count(n: Int) = "%,d".format(Locale.US, n)
 private val Tabular = "tnum"
 /** Weeks that fit across a phone; more than that and the days scroll sideways, today in view. */
 private const val WEEKS_SHOWN = 19

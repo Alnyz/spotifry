@@ -309,11 +309,12 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
         Box(Modifier.fillMaxSize()) {
             // under the first-launch screens the app is not drawn, so touches and screen readers can't reach it
             if (!covered) Scaffold(
-                containerColor = MaterialTheme.colorScheme.background,
+                // the Spotifried story is dark on either theme, up under the status bar too
+                containerColor = if (route == Routes.SPOTIFRIED) com.spotifry.music.ui.theme.StoryBlack else MaterialTheme.colorScheme.background,
                 snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = FadeBarSpec.solid(player.current != null, navInset))) },
                 contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
             ) { pad ->
-                TopGlow()
+                if (route != Routes.SPOTIFRIED) TopGlow()
                 Box(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
                     val inLists by remember { c.db.playlists().observeSongIdsInPlaylists().map { it.toSet() } }.collectAsStateWithLifecycle(emptySet())
                     CompositionLocalProvider(

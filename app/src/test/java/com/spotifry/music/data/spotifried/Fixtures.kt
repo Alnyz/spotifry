@@ -16,9 +16,9 @@ fun stats(
     hours: List<Long> = List(24) { 0L }, longestStreak: Int = 0, newSongs: Int = 0, replayedSongs: Int = 0,
     topArtist: ArtistShare? = null, earlyShare: Float = 0f, nightShare: Float = 0f, age: AgeStats = ageStats(),
     period: WrappedPeriod = calendarYear(2026, java.time.LocalDate.of(2026, 12, 31)),
-    obsession: ObsessionDay? = null, months: List<MonthTop> = emptyList(),
+    obsession: ObsessionDay? = null, months: List<MonthTop> = emptyList(), topSong: com.spotifry.music.data.TopSong? = null,
 ) = SpotifriedStats(
-    period, period.from, plays, seconds, songs, null, daySeconds, null, hours, obsession, months, null,
+    period, period.from, plays, seconds, songs, topSong, daySeconds, null, hours, obsession, months, null,
     longestStreak, newSongs, replayedSongs, topArtist, earlyShare, nightShare, age,
 )
 

@@ -8,6 +8,8 @@ import androidx.compose.ui.graphics.Color
 /** Ember orange, the flame under the pan: the one accent. Buttons, the selected tab, progress, the saved mark and the glow at the top of each screen. */
 val Ember = Color(0xFFFF8A3D)
 val EmberDeep = Color(0xFFC2410C)
+/** The background of the Spotifried story, on either theme. */
+val StoryBlack = Color(0xFF0B0B0C)
 
 /** Muted tones for covers that have no image yet. Not part of the interface palette. */
 val placeholderTones = listOf(Color(0xFF6D8FB0), Color(0xFF4F6D63), Color(0xFF8A4A5A), Color(0xFF5D5785), Color(0xFF7A5B37))

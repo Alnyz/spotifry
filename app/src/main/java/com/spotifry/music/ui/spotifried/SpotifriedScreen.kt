@@ -18,6 +18,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +46,8 @@ import com.spotifry.music.data.spotifried.periodChoices
 import com.spotifry.music.data.spotifried.shownCards
 import com.spotifry.music.data.spotifried.spotifriedStats
 import com.spotifry.music.ui.Icons
+import com.spotifry.music.ui.theme.AlwaysDark
+import com.spotifry.music.ui.theme.StoryBlack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -88,7 +91,7 @@ fun SpotifriedScreen(vm: SpotifriedViewModel, onBack: () -> Unit, bottomInset: D
     val state = loaded ?: return
     // a new period starts again from the first card
     var index by rememberSaveable(state.stats.period) { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize().padding(bottom = bottomInset)) {
+    StoryTheme { Column(Modifier.fillMaxSize().padding(bottom = bottomInset)) {
         IconButton(onBack, Modifier.padding(start = 8.dp, top = 4.dp)) { Icon(Icons.Back, "Back") }
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.choices, key = { it.label }) { p ->
@@ -97,7 +100,14 @@ fun SpotifriedScreen(vm: SpotifriedViewModel, onBack: () -> Unit, bottomInset: D
         }
         if (state.cards.isEmpty()) NotEnough(morePlaysNeeded(state.stats))
         else StoryShell(state.cards, index, { index = it }) { StoryCard(it, state) {} }
-    }
+    } }
+}
+
+/** The story is always the dark screen, whatever the app's theme; the accent stays the user's. */
+@Composable
+internal fun StoryTheme(content: @Composable () -> Unit) = AlwaysDark(StoryBlack) {
+    // a Surface, so plain text takes the light ink rather than the app's dark one
+    Surface(Modifier.fillMaxSize(), color = StoryBlack) { content() }
 }
 
 @Composable
@@ -126,7 +136,7 @@ internal fun StoryShell(cards: List<CardId>, index: Int, onIndex: (Int) -> Unit,
             cards.indices.forEach { i ->
                 Box(
                     Modifier.weight(1f).height(3.dp).testTag("segment").clip(RoundedCornerShape(2.dp))
-                        .background(if (i <= index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = if (i <= index) 1f else .18f)),
                 )
             }
         }
