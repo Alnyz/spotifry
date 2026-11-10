@@ -49,7 +49,7 @@ class SongDataSourceResolver(
                 try {
                     val s = saved?.toSong() ?: songFromUri(id, dataSpec.uri)
                     val stream = resolver.get(s, lowQuality())
-                    keepCacheToOneSource(id, stream.fromSaavn)
+                    keepCacheToOneSource(id, stream.origin)
                     dataSpec.withUri(Uri.parse(stream.url))
                 } catch (e: java.io.FileNotFoundException) {
                     throw e // not worth retrying as it is: NoAudioException skips to the next song, SourceChanged starts over
@@ -65,9 +65,8 @@ class SongDataSourceResolver(
      * played from one source and now coming from the other (the switch, or a slow lookup) starts over from the new one.
      * Nothing recorded means YouTube: that's all the cache held before there was a choice.
      */
-    private fun keepCacheToOneSource(id: String, fromSaavn: Boolean) {
+    private fun keepCacheToOneSource(id: String, from: String) {
         val c = cache ?: return
-        val from = if (fromSaavn) "saavn" else "youtube"
         val had = c.getContentMetadata(id).get(SOURCE_KEY, null as String?)
         if ((had ?: "youtube") != from && c.getCachedSpans(id).isNotEmpty()) {
             c.removeResource(id)

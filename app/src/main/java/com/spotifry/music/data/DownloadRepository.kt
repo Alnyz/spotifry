@@ -101,7 +101,7 @@ class DownloadRepository(
                 // ponytail: a response with no Content-Length cannot be length-checked; YouTube audio always sends one
                 if (total > 0 && written != total) throw IOException("incomplete download")
             }
-            val final = File(songsDir, "${song.id}.${if (stream.mimeType.contains("webm")) "webm" else "m4a"}")
+            val final = File(songsDir, "${song.id}.${when { stream.mimeType.contains("webm") -> "webm"; stream.mimeType.contains("flac") -> "flac"; else -> "m4a" }}")
             if (!part.renameTo(final)) throw IOException("could not finish file")
             if (song.id in cancelled) { // the person removed it while it was downloading
                 final.delete()

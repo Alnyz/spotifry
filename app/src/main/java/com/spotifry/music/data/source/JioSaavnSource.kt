@@ -51,7 +51,7 @@ class JioSaavnSource(
 }
 
 /** Cancelled with the coroutine, so the time cap holds even while a blocking call would still sit in a DNS lookup. */
-private suspend fun <T> Call.read(answer: (Response) -> T): T = suspendCancellableCoroutine { waiting ->
+internal suspend fun <T> Call.read(answer: (Response) -> T): T = suspendCancellableCoroutine { waiting ->
     waiting.invokeOnCancellation { cancel() }
     enqueue(object : Callback {
         override fun onFailure(call: Call, e: IOException) = waiting.resumeWith(Result.failure(e))
@@ -98,13 +98,17 @@ private const val MAX_LENGTH_DIFF_SEC = 3
  * Only a sure match, because a wrong song is worse than a lower bitrate: 320 kbps exists, same title once the extras are
  * gone, a performer in common, length within 3 s, and nothing marks it as another version unless our title says so too.
  */
-fun isSameSong(song: Song, r: SaavnResult): Boolean {
-    if (!r.has320 || song.durationSec <= 0 || abs(song.durationSec - r.durationSec) > MAX_LENGTH_DIFF_SEC) return false
-    val title = cleanTitle(song.title)
-    if (title.isEmpty() || title != cleanTitle(r.title)) return false
-    if (artistNames(song.artist).intersect(r.artists.flatMap(::artistNames).toSet()).isEmpty()) return false
-    val own = VERSION.findAll(plain(song.title)).map { it.value }.toSet()
-    return VERSION.findAll(plain("${r.artists.joinToString(" ")} ${r.album}")).all { it.value in own }
+fun isSameSong(song: Song, r: SaavnResult): Boolean =
+    r.has320 && isSameRecording(song, r.title, r.artists, r.album, r.durationSec)
+
+/** The same checks for any service's result; Monochrome uses them too. */
+fun isSameRecording(song: Song, title: String, artists: List<String>, album: String, durationSec: Long): Boolean {
+    if (song.durationSec <= 0 || abs(song.durationSec - durationSec) > MAX_LENGTH_DIFF_SEC) return false
+    val own = cleanTitle(song.title)
+    if (own.isEmpty() || own != cleanTitle(title)) return false
+    if (artistNames(song.artist).intersect(artists.flatMap(::artistNames).toSet()).isEmpty()) return false
+    val ownVersions = VERSION.findAll(plain(song.title)).map { it.value }.toSet()
+    return VERSION.findAll(plain("${artists.joinToString(" ")} $album")).all { it.value in ownVersions }
 }
 
 /** Another recording or arrangement. A group with one of these words stays in the title, so it never matches the plain song. */
@@ -121,7 +125,7 @@ private val ARTIST_JOINS = Regex(",|&|/|;|\\s(feat\\.?|ft\\.?|featuring|x|vs\\.?
 /** Lowercase, no accents, words and digits only. */
 private fun plain(s: String) = NOT_WORD.replace(ACCENTS.replace(Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD), ""), " ").trim()
 
-private fun cleanTitle(title: String): String = plain(
+internal fun cleanTitle(title: String): String = plain(
     GROUP.replace(title) { m ->
         val group = plain(m.value)
         if (EXTRA.containsMatchIn(group) && !VERSION.containsMatchIn(group)) "" else m.value
@@ -129,5 +133,5 @@ private fun cleanTitle(title: String): String = plain(
 )
 
 /** Without spaces, so the channel ArijitSinghVEVO is Arijit Singh. */
-private fun artistNames(artist: String): Set<String> =
+internal fun artistNames(artist: String): Set<String> =
     artist.removeSuffix(" - Topic").removeSuffix("VEVO").split(ARTIST_JOINS).map { plain(it).replace(" ", "") }.filter { it.isNotEmpty() }.toSet()

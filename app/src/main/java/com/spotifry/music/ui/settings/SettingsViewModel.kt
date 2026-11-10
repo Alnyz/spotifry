@@ -54,6 +54,7 @@ class SettingsViewModel(
     }
 
     fun setJioSaavn(on: Boolean) { settings.setJioSaavn(on); forgetLinks() }
+    fun setMonochrome(on: Boolean) { settings.setMonochrome(on); forgetLinks() }
 
     fun clearSearches() = recentSearches.clear()
 

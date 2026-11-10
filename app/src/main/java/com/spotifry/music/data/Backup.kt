@@ -67,7 +67,7 @@ private fun aboutThisPhone(key: String) = key == FIRST_LAUNCH_SEEN || key == Upd
  * checked against this phone's value; add it here.
  */
 internal val SETTING_TYPES: Map<String, String> =
-    listOf(Settings.JIOSAAVN, Settings.DATA_SAVER, Settings.SAVE_LOW, Settings.KEEP_SCREEN_ON, Settings.SAME_LOUDNESS, Settings.SKIP_SILENCE, Settings.SMART_TRIM, Settings.EQ_ON, Settings.PURE_BLACK).associateWith { "boolean" } +
+    listOf(Settings.JIOSAAVN, Settings.MONOCHROME, Settings.DATA_SAVER, Settings.SAVE_LOW, Settings.KEEP_SCREEN_ON, Settings.SAME_LOUDNESS, Settings.SKIP_SILENCE, Settings.SMART_TRIM, Settings.EQ_ON, Settings.PURE_BLACK).associateWith { "boolean" } +
         listOf(Settings.PITCH, Settings.FADE, Settings.ACCENT_COLOR).associateWith { "int" } +
         (Settings.SPEED to "float") +
         listOf(Settings.ARTISTS, Settings.THEME, Settings.EQ_PRESET, Settings.EQ_LEVELS, Settings.EQ_BANDS_KEY, Settings.EQ_BEFORE, Settings.ACCENT, "recent_searches").associateWith { "string" } +

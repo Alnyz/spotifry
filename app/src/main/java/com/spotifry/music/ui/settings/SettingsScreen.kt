@@ -51,6 +51,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val skipSilence by vm.settings.skipSilence.collectAsStateWithLifecycle()
     val smartTrim by vm.settings.smartTrim.collectAsStateWithLifecycle()
     val jioSaavn by vm.settings.jioSaavn.collectAsStateWithLifecycle()
+    val monochrome by vm.settings.monochrome.collectAsStateWithLifecycle()
     val cacheMb by vm.settings.cacheMb.collectAsStateWithLifecycle()
 
     val hideNonMusic by vm.settings.hideNonMusic.collectAsStateWithLifecycle()
@@ -75,6 +76,12 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
             Group("Sound") {
                 Item("Data saver", "Lower quality on mobile data, about a third of the data. Wi-Fi stays high.", onClick = { vm.settings.setDataSaver(!dataSaver) }, role = Role.Switch) {
                     Switch(dataSaver, null, colors = switchColors())
+                }
+                Item(
+                    "Lossless (Monochrome)", "FLAC, about 1000 kbps and 5–10× the data. Unofficial: the server can stop working any day. Falls back to JioSaavn, then YouTube.",
+                    onClick = { vm.setMonochrome(!monochrome) }, role = Role.Switch,
+                ) {
+                    Switch(monochrome, null, colors = switchColors())
                 }
                 Item(
                     "JioSaavn 320 kbps", "Unofficial, may not work outside India. Falls back to YouTube.",

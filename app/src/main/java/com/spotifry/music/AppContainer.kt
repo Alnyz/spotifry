@@ -40,7 +40,10 @@ class AppContainer(private val context: Context) {
     val trims = com.spotifry.music.player.Trims(context.getSharedPreferences("trims", Context.MODE_PRIVATE))
     /** Talking skipped at the start and end of music videos, when the user's own trim doesn't say otherwise. */
     val smartTrims = com.spotifry.music.player.SmartTrims(context.getSharedPreferences("smart_trims", Context.MODE_PRIVATE), client)
-    val source: MusicSource = com.spotifry.music.data.source.ChoosingSource(NewPipeSource(), com.spotifry.music.data.source.JioSaavnSource(client)::find) { settings.jioSaavn.value }
+    val source: MusicSource = com.spotifry.music.data.source.ChoosingSource(
+        NewPipeSource(), com.spotifry.music.data.source.JioSaavnSource(client)::find, { settings.jioSaavn.value },
+        com.spotifry.music.data.source.MonochromeSource(client)::find, { settings.monochrome.value },
+    )
     val resolver = StreamResolver(source)
     // "Play the whole song" means whole: the smart trim is turned off for that song too
     val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, knownKbps = ::streamKbps, saveTrim = { id, t -> trims[id] = t; if (t == null) smartTrims.turnOff(id) }) }
@@ -53,7 +56,7 @@ class AppContainer(private val context: Context) {
         resolver.knownKbps(id)?.let { return it }
         if (wholeMs <= 0) return null
         val songs = java.io.File(context.filesDir, "songs")
-        val bytes = listOf("webm", "m4a").map { java.io.File(songs, "$id.$it") }.firstOrNull { it.exists() }?.length()
+        val bytes = listOf("webm", "m4a", "flac").map { java.io.File(songs, "$id.$it") }.firstOrNull { it.exists() }?.length()
             ?: androidx.media3.datasource.cache.ContentMetadata.getContentLength(songCache.getContentMetadata(id)).takeIf { it > 0 }
         return bytes?.let { (it * 8 / wholeMs).toInt() } // bits per millisecond is kbps
     }

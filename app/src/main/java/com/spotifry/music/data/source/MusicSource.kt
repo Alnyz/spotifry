@@ -1,6 +1,12 @@
 package com.spotifry.music.data.source
 
-data class ResolvedStream(val url: String, val mimeType: String, val bitrateKbps: Int, val expiresAtMs: Long, val fromSaavn: Boolean = false)
+data class ResolvedStream(
+    val url: String, val mimeType: String, val bitrateKbps: Int, val expiresAtMs: Long,
+    val fromSaavn: Boolean = false, val fromMonochrome: Boolean = false,
+) {
+    /** Which service the file is from; the song cache keeps one origin per song. */
+    val origin get() = when { fromSaavn -> "saavn"; fromMonochrome -> "monochrome"; else -> "youtube" }
+}
 
 /** What a search looks for. The choice lasts while the app is open; recent searches don't keep it. */
 enum class SearchType(val label: String) {

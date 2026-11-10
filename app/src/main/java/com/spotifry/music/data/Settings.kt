@@ -135,6 +135,11 @@ class Settings(private val prefs: SharedPreferences) {
     fun setKeepScreenOn(on: Boolean) { _keepScreenOn.value = on; prefs.edit().putBoolean(KEEP_SCREEN_ON, on).apply() }
     fun setTheme(mode: ThemeMode) { _theme.value = mode; prefs.edit().putString(THEME, mode.name).apply() }
 
+    private val _monochrome = MutableStateFlow(prefs.getBoolean(MONOCHROME, false))
+    /** Songs play as lossless FLAC from Monochrome when it surely has the same one. Off until chosen. */
+    val monochrome: StateFlow<Boolean> = _monochrome
+    fun setMonochrome(on: Boolean) { _monochrome.value = on; prefs.edit().putBoolean(MONOCHROME, on).apply() }
+
     private val _jioSaavn = MutableStateFlow(prefs.getBoolean(JIOSAAVN, false))
     /** Songs play from JioSaavn at 320 kbps when it surely has the same one. Off until chosen. */
     val jioSaavn: StateFlow<Boolean> = _jioSaavn
@@ -177,6 +182,7 @@ class Settings(private val prefs: SharedPreferences) {
     companion object {
         const val CACHE_MB = "cache_mb"
         const val JIOSAAVN = "jiosaavn"
+        const val MONOCHROME = "monochrome"
         const val HIDE_NON_MUSIC = "hide_non_music"
         const val LYRICS_OFF = "lyrics_off"
         const val ARTISTS = "picked_artists"
