@@ -3,7 +3,7 @@ package com.spotifry.music.data
 import com.spotifry.music.data.source.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -37,7 +37,7 @@ sealed interface Lyrics {
 
 /**
  * Lyrics timed word by word from BetterLyrics (lyrics-api.boidu.dev) or lrc.red, both Apple Music's timings, asked at
- * the same time; the first in [Lyrics.SOURCES] order that has the song wins. Else LRCLIB (lrclib.net), timed by line.
+ * the same time; a word-timed answer beats a line-timed one, then the earlier in [Lyrics.SOURCES] wins. LRCLIB is asked only if none has the song, and (lrclib.net), timed by line.
  * All free, no account; all get the song's title, artist and length. [off] names the sources the listener turned off.
  * Null means no source has lyrics for the song; an exception means LRCLIB couldn't be asked (offline, busy).
  */
@@ -52,17 +52,18 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         val key = song.id + skip.sorted()
         if (key in known) return known[key]
         val found = withContext(Dispatchers.IO) {
-            wordTimedFirst(song, skip) ?: if (Lyrics.LRCLIB in skip) null else tries { exact(song) } ?: tries { closest(song) }
+            fromSources(song, skip) ?: if (Lyrics.LRCLIB in skip) null else tries { exact(song) } ?: tries { closest(song) }
         }
         known[key] = found
         return found
     }
 
-    private suspend fun wordTimedFirst(song: Song, skip: Set<String>): Lyrics? = coroutineScope {
+    /** Word-timed beats line-timed whatever the source; within each, the better source (earlier in [Lyrics.SOURCES]) wins. */
+    private suspend fun fromSources(song: Song, skip: Set<String>): Lyrics? = coroutineScope {
         val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed)
             .filter { it.first !in skip }.map { (_, ask) -> async { ask(song) } }
-        // waits in priority order, but all are already running; a miss moves on to the next
-        asked.firstNotNullOfOrNull { it.await() }.also { coroutineContext.cancelChildren() }
+        val answers = asked.awaitAll().filterNotNull() // all run together, each capped at 4 seconds
+        answers.firstOrNull { a -> a is Lyrics.Timed && a.lines.any { it.words.isNotEmpty() } } ?: answers.firstOrNull()
     }
 
     /** lrc.red's search is free text, so a hit counts only when [bestHit] is sure it is this recording. */
@@ -75,8 +76,7 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         val isrc = bestHit(hits, song.title, song.artist, song.durationSec) ?: return null
         quick.newCall(Request.Builder().url("https://lrc.red/s/$isrc.ttml").header("User-Agent", UA).build()).execute().use {
             if (!it.isSuccessful) return null
-            // many lrc.red entries are timed by line only (lrc:timing="Line"); those are no better than LRCLIB, so a miss
-            parseTtml(it.body!!.string()).takeIf { l -> l.any { line -> line.words.isNotEmpty() } }?.let { l -> Lyrics.Timed(l, Lyrics.LRC_RED) }
+            parseTtml(it.body!!.string()).takeIf { l -> l.isNotEmpty() }?.let { l -> Lyrics.Timed(l, Lyrics.LRC_RED) }
         }
     }.getOrNull()
 
