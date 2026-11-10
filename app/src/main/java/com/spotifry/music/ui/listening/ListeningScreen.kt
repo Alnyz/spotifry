@@ -439,7 +439,7 @@ fun ListeningRow(vm: ListeningRowViewModel, playing: Boolean, onOpen: () -> Unit
     ) {
         Sun(week.hours, sunScale(minutes), playing, vm.motion, Modifier.size(64.dp), small = true)
         Column(Modifier.weight(1f)) {
-            Text("Your listening", style = MaterialTheme.typography.labelLarge)
+            Text("Taste", style = MaterialTheme.typography.labelLarge)
             if (minutes > 0) Text("${count(minutes)} min this week", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Icon(Icons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)

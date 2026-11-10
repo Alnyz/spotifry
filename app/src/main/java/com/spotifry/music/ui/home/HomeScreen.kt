@@ -122,7 +122,7 @@ fun HomeContent(
     loading: Boolean = false,
     /** Shown under the greeting: the update card when there is one. */
     top: @Composable () -> Unit = {},
-    /** Shown under the shortcuts: the way into Your listening. */
+    /** Shown under the shortcuts: the way into Taste. */
     listening: @Composable () -> Unit = {},
     /** The artists picked on first launch, and their songs. */
     artists: ArtistsHome = ArtistsHome(), onOpenArtist: (com.spotifry.music.data.PickedArtist) -> Unit = {}, onPickArtists: () -> Unit = {},

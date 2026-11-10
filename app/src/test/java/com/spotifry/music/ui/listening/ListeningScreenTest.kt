@@ -178,9 +178,9 @@ class ListeningScreenTest {
         val vm = ListeningRowViewModel(db.listens())
         rule.setContent { MusicTheme { ListeningRow(vm, false, {}) } }
         rule.waitForIdle()
-        missing("Your listening")
+        missing("Taste")
         db.listens().insert(com.spotifry.music.data.db.ListenEntity(1_000, "a", 60)) // long ago
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("Your listening").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Taste").fetchSemanticsNodes().isNotEmpty() }
         missing("1 min this week")
         db.listens().insert(com.spotifry.music.data.db.ListenEntity(System.currentTimeMillis(), "a", 120))
         rule.waitUntil(5_000) { rule.onAllNodesWithText("2 min this week").fetchSemanticsNodes().isNotEmpty() }

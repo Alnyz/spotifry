@@ -37,7 +37,7 @@
 | Keeps playing | With the screen off, controlled from the lock screen, the notification and a home screen widget. Similar songs play when the queue ends, and a song that can't play is skipped at once. |
 | Data saver | Lower quality on mobile data. Wi-Fi stays high. |
 | 320 kbps from JioSaavn | Off by default; a switch in Settings. When on, a song JioSaavn also has, matched by title, artist and length, plays at 320 kbps instead of YouTube's roughly 160 kbps. Unofficial: it reads JioSaavn's public website, mostly has Indian music, and may not work outside India. A song without a sure match plays from YouTube. |
-| Your listening | A page with your minutes, plays, songs, artists and days, your top songs and artists, and a calendar of the days you played. It stays on your phone. |
+| Taste | A page with your minutes, plays, songs, artists and days, your top songs and artists, and a calendar of the days you played. It stays on your phone. |
 | Backup | Save your playlists, saved songs list, history, listening, settings and trims into one `.zip` on your phone, and restore it on a new phone or after a reinstall. The audio files are not in it; saved songs download again. |
 | Look | Light or dark or follow the phone, pure black, and any accent colour, including your wallpaper's. |
 | Updates | The app tells you when a new version is out and installs it for you. |
