@@ -41,7 +41,10 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import com.spotifry.music.data.hourName
 import com.spotifry.music.data.spotifried.listenerType
@@ -653,13 +656,13 @@ internal fun factFigure(f: String): IntRange? =
 
 /** Card 8: who the person is as a listener, three true facts one after another, and Share ([onShare] null: no button, as in the shared picture). */
 @Composable
-internal fun TypeCard(s: SpotifriedStats, onShare: (() -> Unit)?, still: Boolean = false) {
+internal fun TypeCard(s: SpotifriedStats, onShare: (() -> Unit)?, still: Boolean = false, working: Boolean = false, failed: Boolean = false) {
     val calm = still || rememberNoMotion()
-    key(s.period, calm) { Type(s, onShare, calm) }
+    key(s.period, calm) { Type(s, onShare, calm, working, failed) }
 }
 
 @Composable
-private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean) {
+private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean, working: Boolean, failed: Boolean) {
     val accent = MaterialTheme.colorScheme.primary
     val ink = MaterialTheme.colorScheme.onBackground
     val title = typeTitle(s) + "."
@@ -729,13 +732,16 @@ private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean) {
                 { val now = SystemClock.uptimeMillis(); if (now - sharedAt >= 1000) { sharedAt = now; onShare() } },
                 Modifier.padding(top = 12.dp).heightIn(min = 48.dp).graphicsLayer { alpha = button.value; translationY = (1 - button.value) * lift }
                     .then(if (ready) Modifier else Modifier.clearAndSetSemantics {}),
-                enabled = ready,
+                enabled = ready && !working,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = accent, contentColor = MaterialTheme.colorScheme.onPrimary,
                     disabledContainerColor = accent, disabledContentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
                 contentPadding = PaddingValues(horizontal = 22.dp),
-            ) { Text("Share your story", style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)) }
+            ) {
+                Text(if (working) "Making pictures…" else "Share your story", style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp))
+            }
+            if (failed) Text("Couldn't make the pictures. Try again.", Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }, ink, style = Sub)
         }
     }
 }

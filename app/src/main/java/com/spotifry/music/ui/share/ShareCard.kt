@@ -1,5 +1,6 @@
 package com.spotifry.music.ui.share
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -177,6 +178,26 @@ suspend fun sharePicture(context: Context, card: Bitmap) {
     }
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
     val send = Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    context.startActivity(Intent.createChooser(send, null))
+}
+
+/**
+ * Hands [count] pictures to Android's share list in one go. [draw] makes picture n; it is written as a PNG and recycled
+ * before the next is drawn, so only one bitmap is alive at a time. Anything thrown by [draw] shares nothing.
+ */
+suspend fun sharePictures(context: Context, count: Int, draw: suspend (Int) -> Bitmap) {
+    val dir = withContext(Dispatchers.IO) { File(context.cacheDir, "shares").apply { mkdirs(); listFiles()?.forEach { it.delete() } } }
+    val uris = (0 until count).map { n ->
+        val bitmap = draw(n)
+        val file = try {
+            withContext(Dispatchers.IO) { File(dir, "spotifried-${n + 1}.png").also { f -> f.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } }
+        } finally { bitmap.recycle() }
+        FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
+    }
+    val send = Intent(Intent.ACTION_SEND_MULTIPLE).setType("image/png").putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    // the clip is what makes the read permission cover every uri, not only the first
+    send.clipData = ClipData.newRawUri(null, uris.first()).also { clip -> uris.drop(1).forEach { clip.addItem(ClipData.Item(it)) } }
     context.startActivity(Intent.createChooser(send, null))
 }
 

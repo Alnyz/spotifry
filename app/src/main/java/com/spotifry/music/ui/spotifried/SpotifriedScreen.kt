@@ -1,5 +1,8 @@
 package com.spotifry.music.ui.spotifried
 
+import android.app.Activity
+import android.content.ContextWrapper
+import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.spotifry.music.ui.share.sharePictures
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -86,11 +96,32 @@ class SpotifriedViewModel(listens: Flow<List<ListenRow>>, years: Flow<List<SongY
 }
 
 @Composable
-fun SpotifriedScreen(vm: SpotifriedViewModel, onBack: () -> Unit, bottomInset: Dp) {
+fun SpotifriedScreen(
+    vm: SpotifriedViewModel, onBack: () -> Unit, bottomInset: Dp,
+    capture: suspend (Activity, CardId, SpotifriedState) -> Bitmap = { a, id, s -> captureStoryCard(a, id, s) },
+) {
     val loaded by vm.state.collectAsStateWithLifecycle()
     val state = loaded ?: return
     // a new period starts again from the first card
     var index by rememberSaveable(state.stats.period) { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var working by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    val share = {
+        if (!working) {
+            working = true; failed = false
+            // tied to the screen: leaving it cancels the work and nothing is shared
+            scope.launch {
+                try {
+                    val activity = generateSequence(context) { (it as? ContextWrapper)?.baseContext }.filterIsInstance<Activity>().first()
+                    sharePictures(context, state.cards.size) { capture(activity, state.cards[it], state) }
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) { failed = true }
+                finally { working = false }
+            }
+        }
+    }
     StoryTheme { Column(Modifier.fillMaxSize().padding(bottom = bottomInset)) {
         IconButton(onBack, Modifier.padding(start = 8.dp, top = 4.dp)) { Icon(Icons.Back, "Back") }
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -99,7 +130,7 @@ fun SpotifriedScreen(vm: SpotifriedViewModel, onBack: () -> Unit, bottomInset: D
             }
         }
         if (state.cards.isEmpty()) NotEnough(morePlaysNeeded(state.stats))
-        else StoryShell(state.cards, index, { index = it }) { StoryCard(it, state) {} }
+        else StoryShell(state.cards, index, { index = it }) { StoryCard(it, state, onShare = share, working = working, failed = failed) }
     } }
 }
 
@@ -119,7 +150,7 @@ internal fun NotEnough(more: Int) {
 }
 
 @Composable
-internal fun StoryCard(id: CardId, state: SpotifriedState, still: Boolean = false, onShare: (() -> Unit)?) {
+internal fun StoryCard(id: CardId, state: SpotifriedState, still: Boolean = false, onShare: (() -> Unit)?, working: Boolean = false, failed: Boolean = false) {
     when (id) {
         CardId.INTRO -> IntroCard(state.stats, still)
         CardId.TOP_SONG -> TopSongCard(state.stats, still)
@@ -128,7 +159,7 @@ internal fun StoryCard(id: CardId, state: SpotifriedState, still: Boolean = fals
         CardId.DAY -> DayCard(state.stats, still)
         CardId.MONTHS -> MonthsCard(state.stats, still)
         CardId.SUN -> SunCard(state.stats, still)
-        CardId.TYPE -> TypeCard(state.stats, onShare, still)
+        CardId.TYPE -> TypeCard(state.stats, onShare, still, working, failed)
     }
 }
 

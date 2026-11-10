@@ -1,6 +1,8 @@
 package com.spotifry.music.ui.spotifried
 
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.graphics.Canvas
 import android.os.Looper
 import android.os.SystemClock
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.content.FileProvider
 import androidx.test.core.app.ApplicationProvider
 import com.spotifry.music.data.TopSong
 import com.spotifry.music.data.db.SongEntity
@@ -24,6 +27,8 @@ import com.spotifry.music.data.spotifried.stats
 import com.spotifry.music.ui.components.loadCover
 import com.spotifry.music.ui.share.CardBackground
 import com.spotifry.music.ui.share.drawCard
+import com.spotifry.music.ui.share.sharePictures
+import kotlinx.coroutines.runBlocking
 import com.spotifry.music.ui.theme.AccentChoice
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +36,7 @@ import kotlinx.coroutines.async
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -176,5 +182,45 @@ class PicturesTest {
         repeat(5) { System.gc(); Thread.sleep(20) }
         assertNull(first.get())
         assertNull(second.get())
+    }
+
+    // FileProvider keeps its folders per authority for the whole JVM; every Robolectric test has a new cache folder
+    @Before fun forgetProviderFolders() {
+        val cache = FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST") (cache.get(null) as MutableMap<*, *>).clear()
+    }
+
+    private fun small() = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
+    private val shares get() = File(activity.cacheDir, "shares")
+
+    @Test fun sharePicturesWritesOneFilePerCardAndClearsTheOldOnes() {
+        runBlocking { sharePictures(activity, 3) { small() } }
+        assertEquals(listOf("spotifried-1.png", "spotifried-2.png", "spotifried-3.png"), shares.list()!!.sorted())
+        runBlocking { sharePictures(activity, 2) { small() } }
+        assertEquals(listOf("spotifried-1.png", "spotifried-2.png"), shares.list()!!.sorted())
+        val sent = shadowOf(activity).nextStartedActivity.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
+        assertEquals(Intent.ACTION_SEND_MULTIPLE, sent.action)
+        assertEquals("image/png", sent.type)
+        assertEquals(2, sent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)!!.size)
+        assertEquals(2, sent.clipData!!.itemCount)
+    }
+
+    @Test fun bitmapsAreDrawnOneAtATime() {
+        val drawn = mutableListOf<Bitmap>()
+        runBlocking {
+            sharePictures(activity, 3) { n ->
+                // by now the previous picture is on disk and let go
+                assertEquals(n, shares.list()!!.size)
+                if (n > 0) assertTrue(drawn[n - 1].isRecycled)
+                small().also { drawn += it }
+            }
+        }
+        assertTrue(drawn.all { it.isRecycled })
+    }
+
+    @Test fun aFailingDrawSharesNothing() {
+        while (shadowOf(activity).nextStartedActivity != null) Unit
+        runCatching { runBlocking { sharePictures(activity, 3) { if (it == 1) error("no") else small() } } }
+        assertNull(shadowOf(activity).nextStartedActivity)
     }
 }
