@@ -119,6 +119,11 @@ class SpotifriedStatsTest {
         assertEquals(1, s.replayedSongs)
     }
 
+    @Test fun firstListenEverLooksAtEveryRowNotJustThePeriod() {
+        assertEquals(LocalDate.of(2025, 6, 1), stats(row(at(2025, 6, 1), "old", 60), row(at(2026, 2, 1), "x", 60)).firstListenEver)
+        assertNull(stats().firstListenEver)
+    }
+
     @Test fun shareFiguresAreZeroNotNaNWhenThereAreNoPlays() {
         val s = stats(row(at(2026, 2, 1), "a", 10))
         assertEquals(0f, s.earlyShare, 0f); assertEquals(0f, s.nightShare, 0f)

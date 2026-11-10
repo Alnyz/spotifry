@@ -64,6 +64,8 @@ data class SpotifriedStats(
     val earlyShare: Float,
     val nightShare: Float,
     val age: AgeStats,
+    /** Date of the earliest row in the whole log (null with no rows): what "new" can be judged against. */
+    val firstListenEver: LocalDate? = null,
 )
 
 fun spotifriedStats(
@@ -134,5 +136,6 @@ fun spotifriedStats(
         hours.toList(),
         obsession, months, changeMonth, streak, newSongs, replayed, topArtist,
         share(heard.count { it.hour < 9 }), share(heard.count { it.hour < 5 }), ageStats,
+        all.minOfOrNull { it.date },
     )
 }

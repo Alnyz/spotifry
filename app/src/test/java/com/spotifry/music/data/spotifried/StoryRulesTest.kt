@@ -15,6 +15,14 @@ class StoryRulesTest {
     @Test fun streakKeeper() = assertEquals(ListenerType.STREAK_KEEPER, type(stats(longestStreak = 30)))
     @Test fun explorer() = assertEquals(ListenerType.EXPLORER, type(stats(songs = 10, newSongs = 6)))
     @Test fun halfNewIsNotAnExplorer() = assertEquals(ListenerType.REGULAR, type(stats(songs = 10, newSongs = 5)))
+    @Test fun explorerIsSkippedWhenTheLogStartsInsideThePeriod() =
+        assertEquals(ListenerType.REGULAR, type(stats(songs = 10, newSongs = 10, firstListenEver = java.time.LocalDate.of(2026, 3, 1))))
+    @Test fun explorerIsSkippedWithoutAnyListens() = assertEquals(ListenerType.REGULAR, type(stats(songs = 10, newSongs = 10, firstListenEver = null)))
+    @Test fun explorerNeeds30DaysOfHistoryBeforeThePeriod() {
+        val from = stats().period.from
+        assertEquals(ListenerType.EXPLORER, type(stats(songs = 10, newSongs = 10, firstListenEver = from.minusDays(30))))
+        assertEquals(ListenerType.REGULAR, type(stats(songs = 10, newSongs = 10, firstListenEver = from.minusDays(29))))
+    }
     @Test fun loyalist() = assertEquals(ListenerType.LOYALIST, type(stats(topArtist = ArtistShare("A", 0.34f))))
     @Test fun marathoner() = assertEquals(ListenerType.MARATHONER, type(stats(daySeconds = listOf(0, 8 * 3600L + 1))))
     @Test fun earlyBird() = assertEquals(ListenerType.EARLY_BIRD, type(stats(earlyShare = 0.51f)))

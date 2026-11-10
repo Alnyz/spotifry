@@ -25,7 +25,8 @@ fun listenerType(s: SpotifriedStats): ListenerType = when {
     s.nightShare >= 1f / 3 && s.replayedSongs >= 5 -> ListenerType.NIGHT_REPLAYER
     s.age.typicalYear?.let { s.period.to.year - it >= 25 } == true -> ListenerType.TIME_TRAVELLER
     s.longestStreak >= 30 -> ListenerType.STREAK_KEEPER
-    s.newSongs * 2 > s.songs -> ListenerType.EXPLORER
+    // the log has a start of its own, so "new" only means something with history before the period
+    s.firstListenEver?.let { it <= s.period.from.minusDays(30) } == true && s.newSongs * 2 > s.songs -> ListenerType.EXPLORER
     (s.topArtist?.share ?: 0f) >= 1f / 3 -> ListenerType.LOYALIST
     longestDayHours(s) > 8 -> ListenerType.MARATHONER
     s.earlyShare > 0.5f -> ListenerType.EARLY_BIRD
