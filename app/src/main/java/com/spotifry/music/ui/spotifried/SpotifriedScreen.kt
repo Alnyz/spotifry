@@ -22,7 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,17 +75,19 @@ class SpotifriedViewModel(listens: Flow<List<ListenRow>>, years: Flow<List<SongY
         return SpotifriedState(stats, shownCards(stats), periodChoices(first, now), stats.age.songsTotal - stats.age.unchecked, stats.age.unchecked)
     }
 
-    val state: StateFlow<SpotifriedState> = combine(listens, years, picked, ::build).flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), build(emptyList(), emptyList(), null))
+    /** Null until the log and the years have both been read. */
+    val state: StateFlow<SpotifriedState?> = combine(listens, years, picked, ::build).flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun pick(p: WrappedPeriod) { picked.value = p }
 }
 
 @Composable
 fun SpotifriedScreen(vm: SpotifriedViewModel, onBack: () -> Unit, bottomInset: Dp) {
-    val state by vm.state.collectAsStateWithLifecycle()
+    val loaded by vm.state.collectAsStateWithLifecycle()
+    val state = loaded ?: return
     // a new period starts again from the first card
-    var index by remember(state.stats.period) { mutableIntStateOf(0) }
+    var index by rememberSaveable(state.stats.period) { mutableIntStateOf(0) }
     Column(Modifier.fillMaxSize()) {
         IconButton(onBack, Modifier.padding(start = 8.dp, top = 4.dp)) { Icon(Icons.Back, "Back") }
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

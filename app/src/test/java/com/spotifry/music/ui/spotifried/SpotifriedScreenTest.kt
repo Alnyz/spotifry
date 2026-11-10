@@ -22,7 +22,9 @@ import com.spotifry.music.data.db.ListenRow
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.spotifried.CardId
 import com.spotifry.music.ui.theme.MusicTheme
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -84,6 +86,16 @@ class SpotifriedScreenTest {
         screen((1..3).map { row(ms(2026, 5, it), "a$it") })
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Not enough listening yet").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("7 more plays to go").assertIsDisplayed()
+    }
+
+    @Test fun nothingIsDecidedBeforeTheDataArrives() {
+        val rows = MutableSharedFlow<List<ListenRow>>()
+        val vm = SpotifriedViewModel(rows, flowOf(emptyList()), { today })
+        rule.setContent { MusicTheme { SpotifriedScreen(vm, {}, 0.dp) } }
+        rule.waitForIdle()
+        rule.onNodeWithText("Not enough listening yet").assertDoesNotExist()
+        rule.runOnIdle { runBlocking { rows.emit(emptyList()) } }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Not enough listening yet").fetchSemanticsNodes().isNotEmpty() }
     }
 
     @Test fun pickingAnotherPeriodChangesTheCards() {
