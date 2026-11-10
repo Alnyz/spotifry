@@ -74,7 +74,7 @@ class PlaylistOrderTest {
             old.version = 2
         }
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, file.absolutePath)
-            .addMigrations(AppDatabase.ADD_PLAYS, AppDatabase.ADD_ADDED_AT, AppDatabase.ADD_LISTENS).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.ADD_PLAYS, AppDatabase.ADD_ADDED_AT, AppDatabase.ADD_LISTENS, AppDatabase.ADD_SONG_YEARS).allowMainThreadQueries().build()
         assertEquals(listOf("a", "b", "c"), db.playlists().observeSongs(1).first().map { it.id })
         assertEquals(listOf("c", "b", "a"), db.playlists().observeSongsNewestFirst(1).first().map { it.id })
         db.close()
