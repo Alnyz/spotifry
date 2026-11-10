@@ -33,6 +33,11 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.centerLeft
 import androidx.compose.ui.test.centerRight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import com.spotifry.music.data.db.ListenRow
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.spotifried.CardId
@@ -118,13 +123,54 @@ class SpotifriedScreenTest {
     }
 
     @Test fun pickingAnotherPeriodChangesTheCards() {
-        screen((1..12).map { row(ms(2025, 5, it), "a$it") })
+        screen((1..12).map { row(ms(2025, 5, it), "a$it") } + (1..3).map { row(ms(2026, 5, it), "b$it") })
+        // the newest period with a story is the default, so 2026 (3 plays) is passed over for 2025
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("segment").fetchSemanticsNodes().size == 5 }
+        rule.onNodeWithText("2026").performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Not enough listening yet").fetchSemanticsNodes().isNotEmpty() }
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("2025").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithText("10 more plays to go").assertIsDisplayed()
+        rule.onNodeWithText("7 more plays to go").assertIsDisplayed()
+        // a pick always wins, back to 2025 and its story
         rule.onNodeWithText("2025").performClick()
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("2025,", substring = true).fetchSemanticsNodes().isNotEmpty() }
-        rule.onAllNodesWithTag("segment").assertCountEquals(5)
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("segment").fetchSemanticsNodes().size == 5 }
+    }
+
+    @Test fun inJanuaryTheStoryOpensOnLastYear() {
+        val vm = SpotifriedViewModel(flowOf((1..12).map { row(ms(2026, 5, it), "a$it") } + row(ms(2027, 1, 1), "n")), flowOf(emptyList()), { LocalDate.of(2027, 1, 2) })
+        rule.setContent { MusicTheme { SpotifriedScreen(vm, {}, 0.dp) } }
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("segment").fetchSemanticsNodes().size == 5 }
+        rule.onNodeWithText("Not enough listening yet").assertDoesNotExist()
+    }
+
+    @Test fun oneMorePlayIsSingular() {
+        screen((1..9).map { row(ms(2026, 5, it), "a$it") })
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("1 more play to go").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test fun anEndedPeriodDoesNotPromiseMorePlays() {
+        screen((1..3).map { row(ms(2025, 5, it), "a$it") })
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("2025").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("2025").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Not enough listening yet").assertIsDisplayed()
+        rule.onAllNodesWithText("more play", substring = true).assertCountEquals(0)
+    }
+
+    private fun tapActions() = rule.onNodeWithTag("tap").fetchSemanticsNode().config.getOrNull(SemanticsActions.CustomActions).orEmpty()
+    private fun perform(label: String) = rule.runOnUiThread { assertTrue(tapActions().first { it.label == label }.action()) }
+
+    @Test fun talkBackCanMoveBetweenCards() {
+        shell(CardId.INTRO, CardId.TOP_SONG, CardId.SUN)
+        assertEquals(listOf("Next card"), tapActions().map { it.label })
+        rule.onNodeWithTag("tap").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Card 1 of 3"))
+        perform("Next card")
+        rule.waitForIdle()
+        rule.onNodeWithText("TOP_SONG").assertIsDisplayed()
+        assertEquals(listOf("Next card", "Previous card"), tapActions().map { it.label })
+        rule.onNodeWithTag("tap").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Card 2 of 3"))
+        perform("Previous card")
+        rule.waitForIdle()
+        rule.onNodeWithText("INTRO").assertIsDisplayed()
+        assertEquals(listOf("Next card"), tapActions().map { it.label })
     }
 
     // 20 different songs over two months: intro, top song, hours, age, sun and type; no day, no months

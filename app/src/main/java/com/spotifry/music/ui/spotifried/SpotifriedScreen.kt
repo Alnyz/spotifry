@@ -41,6 +41,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -75,6 +79,8 @@ data class SpotifriedState(
     val stats: SpotifriedStats, val cards: List<CardId>, val choices: List<WrappedPeriod>,
     /** Songs of the period with / without a year lookup done yet. */
     val checked: Int, val unchecked: Int,
+    /** Plays missing for a story; null when the period is over and nothing can be added to it. */
+    val morePlays: Int? = null,
 )
 
 class SpotifriedViewModel(listens: Flow<List<ListenRow>>, years: Flow<List<SongYearEntity>>, private val today: () -> LocalDate = LocalDate::now) : ViewModel() {
@@ -84,9 +90,17 @@ class SpotifriedViewModel(listens: Flow<List<ListenRow>>, years: Flow<List<SongY
     private fun build(rows: List<ListenRow>, rowsWithYear: List<SongYearEntity>, pick: WrappedPeriod?): SpotifriedState {
         val now = today()
         val first = rows.minOfOrNull { it.startedAt }?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: now
-        val period = pick ?: calendarYear(now.year, now)
-        val stats = spotifriedStats(rows, rowsWithYear.mapNotNull { r -> r.year?.let { r.songId to it } }.toMap(), period, zone, rowsWithYear.map { it.songId }.toSet())
-        return SpotifriedState(stats, shownCards(stats), periodChoices(first, now), stats.age.songsTotal - stats.age.unchecked, stats.age.unchecked)
+        val choices = periodChoices(first, now)
+        val yearMap = rowsWithYear.mapNotNull { r -> r.year?.let { r.songId to it } }.toMap()
+        val checkedIds = rowsWithYear.map { it.songId }.toSet()
+        fun statsOf(p: WrappedPeriod) = spotifriedStats(rows, yearMap, p, zone, checkedIds)
+        // without a pick: the newest period that has a story (January starts with a nearly empty new year)
+        val stats = if (pick != null) statsOf(pick) else choices.asSequence().map(::statsOf).firstOrNull { shownCards(it).isNotEmpty() }
+            ?: statsOf(calendarYear(now.year, now))
+        return SpotifriedState(
+            stats, shownCards(stats), choices, stats.age.songsTotal - stats.age.unchecked, stats.age.unchecked,
+            if (stats.period.to < now) null else morePlaysNeeded(stats),
+        )
     }
 
     /** Null until the log and the years have both been read. */
@@ -131,7 +145,7 @@ fun SpotifriedScreen(
                 FilterChip(p == state.stats.period, { vm.pick(p) }, { Text(p.label) })
             }
         }
-        if (state.cards.isEmpty()) NotEnough(morePlaysNeeded(state.stats))
+        if (state.cards.isEmpty()) NotEnough(state.morePlays)
         else StoryShell(state.cards, index, { index = it }) { StoryCard(it, state, onShare = share, working = working, failed = failed) }
     } }
 }
@@ -144,10 +158,10 @@ internal fun StoryTheme(content: @Composable () -> Unit) = AlwaysDark(StoryBlack
 }
 
 @Composable
-internal fun NotEnough(more: Int) {
+internal fun NotEnough(more: Int?) {
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp), Arrangement.Center) {
         Text("Not enough listening yet", style = MaterialTheme.typography.headlineMedium)
-        Text("$more more plays to go", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (more != null) Text("$more more ${if (more == 1) "play" else "plays"} to go", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -177,7 +191,14 @@ internal fun StoryShell(cards: List<CardId>, index: Int, onIndex: (Int) -> Unit,
             }
         }
         Box(
-            Modifier.weight(1f).fillMaxWidth().testTag("tap").pointerInput(cards, index) {
+            Modifier.weight(1f).fillMaxWidth().testTag("tap").semantics {
+                // taps are no use to TalkBack, so the same moves are offered as actions
+                stateDescription = "Card ${index + 1} of ${cards.size}"
+                customActions = listOfNotNull(
+                    if (index + 1 in cards.indices) CustomAccessibilityAction("Next card") { onIndex(index + 1); true } else null,
+                    if (index - 1 in cards.indices) CustomAccessibilityAction("Previous card") { onIndex(index - 1); true } else null,
+                )
+            }.pointerInput(cards, index) {
                 detectTapGestures { at ->
                     val next = if (at.x > size.width / 2) index + 1 else index - 1
                     if (next in cards.indices) onIndex(next)
