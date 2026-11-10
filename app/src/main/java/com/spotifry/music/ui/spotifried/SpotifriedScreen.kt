@@ -118,7 +118,6 @@ internal fun NotEnough(more: Int) {
     }
 }
 
-/** Task 12 draws the cards still shown by name. */
 @Composable
 internal fun StoryCard(id: CardId, state: SpotifriedState, onShare: () -> Unit) {
     when (id) {
@@ -128,7 +127,8 @@ internal fun StoryCard(id: CardId, state: SpotifriedState, onShare: () -> Unit) 
         CardId.AGE -> AgeCard(state.stats, state.checked, state.unchecked)
         CardId.DAY -> DayCard(state.stats)
         CardId.MONTHS -> MonthsCard(state.stats)
-        else -> Text(id.name)
+        CardId.SUN -> SunCard(state.stats)
+        CardId.TYPE -> TypeCard(state.stats, onShare)
     }
 }
 

@@ -45,6 +45,12 @@ import androidx.compose.ui.test.assert
 import com.spotifry.music.data.spotifried.MonthTop
 import com.spotifry.music.data.spotifried.ObsessionDay
 import com.spotifry.music.data.spotifried.ageStats
+import com.spotifry.music.data.spotifried.listenerType
+import com.spotifry.music.data.spotifried.typeFacts
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.TextLayoutResult
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
@@ -97,10 +103,10 @@ class CardsTest {
     }
 
     @Test fun storyIsDarkOnTheLightTheme() {
-        var bg = Color.Unspecified; var ink = Color.Unspecified; var accent = Color.Unspecified
+        var bg = Color.Unspecified; var ink = Color.Unspecified; var accent = Color.Unspecified; var onAccent = Color.Unspecified
         rule.setContent {
             MusicTheme(ThemeMode.LIGHT) {
-                StoryTheme { MaterialTheme.colorScheme.let { bg = it.background; ink = LocalContentColor.current; accent = it.primary } }
+                StoryTheme { MaterialTheme.colorScheme.let { bg = it.background; ink = LocalContentColor.current; accent = it.primary; onAccent = it.onPrimary } }
             }
         }
         rule.waitForIdle()
@@ -108,6 +114,7 @@ class CardsTest {
         assertTrue(contrast(ink, bg) >= 4.5f)
         assertTrue(contrast(ink.copy(alpha = .64f).compositeOver(bg), bg) >= 4.5f)
         assertTrue(contrast(accent, bg) >= 4.5f)
+        assertTrue(contrast(onAccent, accent) >= 4.5f) // the Share button's label
     }
 
     @Test fun bigCountsHaveThousandsSeparators() {
@@ -288,5 +295,98 @@ class CardsTest {
         assertEquals(m.takeLast(12), shownMonths(m, null))
         assertEquals(m.subList(3, 15), shownMonths(m, m[3].month))
         assertEquals(m.take(3), shownMonths(m.take(3), m[1].month))
+    }
+
+    private val night = List(24) { if (it in 0..4) 600L else 60L }
+
+    @Test fun sunCardLabelsTheHours() {
+        show { SunCard(stats(plays = 40, seconds = 9000, hours = night), still = true) }
+        rule.onNodeWithText("This is your year as a sun.").assertIsDisplayed()
+        rule.onNodeWithText("Nobody else has this one.", substring = true).assertIsDisplayed()
+        val at = listOf("12 a.m.", "6 a.m.", "12 p.m.", "6 p.m.").associateWith { rule.onNodeWithText(it).assertIsDisplayed().getBoundsInRoot() }
+        // midnight at the top, going clockwise, as on a clock
+        assertTrue(at.getValue("12 a.m.").bottom < at.getValue("12 p.m.").top)
+        assertTrue(at.getValue("6 a.m.").left > at.getValue("6 p.m.").right)
+    }
+
+    @Test fun sunLeadFollowsThePeriod() {
+        val d = LocalDate.of(2026, 1, 1)
+        assertEquals("This is your year as ", sunLead(WrappedPeriod(d, d, "2026")))
+        assertEquals("This is your twelve months as ", sunLead(WrappedPeriod(d, d, "Last 12 months")))
+        assertEquals("This is all your listening as ", sunLead(WrappedPeriod(d, d, "All time")))
+    }
+
+    /** Listening only around 6 a.m. lights the right side of the sun: it is not turned to point the busiest hour up, as the intro's is. */
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test fun sunCardDoesNotTurn() {
+        var view: android.view.View? = null
+        rule.setContent { MusicTheme { view = LocalView.current; StoryTheme { SunCard(stats(plays = 40, seconds = 9000, hours = List(24) { if (it == 6) 3600L else 0L }), still = true) } } }
+        rule.waitForIdle()
+        val v = view!!
+        val shot = android.graphics.Bitmap.createBitmap(v.width, v.height, android.graphics.Bitmap.Config.ARGB_8888)
+        rule.runOnIdle { v.draw(android.graphics.Canvas(shot)) }
+        val box = rule.onNodeWithTag("sun").fetchSemanticsNode().boundsInRoot
+        fun lit(fx: ClosedFloatingPointRange<Float>, fy: ClosedFloatingPointRange<Float>): Int {
+            var n = 0
+            for (x in (box.left + box.width * fx.start).toInt() until (box.left + box.width * fx.endInclusive).toInt())
+                for (y in (box.top + box.height * fy.start).toInt() until (box.top + box.height * fy.endInclusive).toInt())
+                    if (Color(shot.getPixel(x, y)).luminance() > .2f) n++
+            return n
+        }
+        val right = lit(.75f..1f, 0f..1f)
+        assertTrue("right $right", right > 500)
+        assertTrue(right > 4 * lit(0f..0.25f, 0f..1f))
+        assertTrue(right > 4 * lit(0f..1f, 0f..0.25f))
+    }
+
+    private fun nightReplayer() = stats(plays = 300, songs = 80, seconds = 60_000, hours = List(24) { if (it == 3) 900L else 100L }, nightShare = .4f, replayedSongs = 12)
+
+    @Test fun typeCardShowsTitleThreeFactsAndShare() {
+        val s = nightReplayer()
+        show { TypeCard(s, onShare = {}, still = true) }
+        rule.onNodeWithText("You are").assertIsDisplayed()
+        rule.onNodeWithText("The 3 a.m. Replayer.").assertIsDisplayed()
+        val facts = typeFacts(s, listenerType(s))
+        assertEquals(3, facts.size)
+        facts.forEach { rule.onNodeWithText(it).assertIsDisplayed() }
+        rule.onNodeWithText("Share your story").assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test fun shareButtonCallsOnShare() {
+        var shared = 0
+        show { TypeCard(nightReplayer(), onShare = { shared++ }, still = true) }
+        rule.onNodeWithText("Share your story").performClick()
+        assertEquals(1, shared)
+    }
+
+    @Test fun typeCardWithOnePlay() {
+        val s = stats(plays = 1, songs = 1, seconds = 180, daySeconds = listOf(180L), hours = List(24) { if (it == 14) 180L else 0L })
+        // the card's share of a 360 x 780 dp phone with music playing, as in topSongCoverKeepsItsSizeOnAPhone
+        rule.setContent { MusicTheme { Box(Modifier.size(360.dp, 460.dp)) { TypeCard(s, onShare = {}, still = true) } } }
+        rule.onNodeWithText("The Afternoon Regular.").assertIsDisplayed()
+        rule.onNodeWithText("You played 1 song.").assertIsDisplayed()
+        assertTrue(rule.onNodeWithText("Share your story").assertIsDisplayed().getBoundsInRoot().bottom <= 460.dp)
+    }
+
+    @Test fun typeCardLongTitle() {
+        val s = stats(plays = 40, songs = 30, seconds = 9000, hours = List(24) { if (it == 14) 900L else 0L })
+        // a narrow phone: the longest title still breaks between words, in three lines at most
+        rule.setContent { MusicTheme { Box(Modifier.size(320.dp, 460.dp)) { TypeCard(s, onShare = {}, still = true) } } }
+        val results = mutableListOf<TextLayoutResult>()
+        rule.onNodeWithText("The Afternoon Regular.").assertIsDisplayed().fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+        val t = results.single()
+        assertTrue(t.lineCount <= 3)
+        repeat(t.lineCount) { i -> val end = t.getLineEnd(i); assertTrue("line $i breaks a word", end == t.layoutInput.text.length || t.layoutInput.text[end - 1] == ' ') }
+        assertTrue(rule.onNodeWithText("Share your story").getBoundsInRoot().bottom <= 460.dp)
+    }
+
+    @Test fun factFigureMarksTheNumberThatMatters() {
+        fun fig(f: String) = factFigure(f)?.let { f.substring(it) }
+        assertEquals("38%", fig("38% of your plays started between midnight and 5 a.m."))
+        assertEquals("3 a.m.", fig("Your busiest hour was 3 a.m."))
+        assertEquals("1998", fig("A typical song of yours came out in 1998."))
+        assertEquals("9.5", fig("Your longest day was 9.5 hours of music."))
+        assertEquals("40%", fig("Blink 182 took 40% of your listening."))
+        assertEquals(null, fig("You never replayed a song."))
     }
 }

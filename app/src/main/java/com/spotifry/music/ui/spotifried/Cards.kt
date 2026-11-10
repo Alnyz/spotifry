@@ -24,7 +24,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.text.rememberTextMeasurer
+import com.spotifry.music.data.hourName
+import com.spotifry.music.data.spotifried.listenerType
+import com.spotifry.music.data.spotifried.typeFacts
+import com.spotifry.music.data.spotifried.typeTitle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -157,10 +170,21 @@ private fun countUp(to: Int, calm: Boolean): String = count((to * progress(calm,
 
 /** Fades in and lifts into place; [order] staggers the lines of a card one after another. */
 @Composable
-private fun Modifier.rise(order: Int, calm: Boolean): Modifier {
-    val p = progress(calm, order * 180, 900)
+private fun Modifier.rise(order: Int, calm: Boolean): Modifier = riseAt(order * 180, calm)
+
+@Composable
+private fun Modifier.riseAt(delayMs: Int, calm: Boolean, durationMs: Int = 900): Modifier {
+    val p = progress(calm, delayMs, durationMs)
     val lift = with(LocalDensity.current) { 18.dp.toPx() }
     return graphicsLayer { alpha = p.value; translationY = (1 - p.value) * lift }
+}
+
+/** A sun that grows in from nothing, or is already grown when [calm]. */
+@Composable
+private fun rememberSunMotion(hours: List<Long>, scale: Float, calm: Boolean) = remember {
+    SunMotion().apply {
+        if (calm) { val peak = (hours.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat(); hours.forEachIndexed { i, v -> now[i] = v / peak }; this.scale = scale }
+    }
 }
 
 @Composable
@@ -181,11 +205,7 @@ internal fun IntroCard(s: SpotifriedStats, still: Boolean = false) {
 private fun Intro(s: SpotifriedStats, calm: Boolean) {
     val accent = MaterialTheme.colorScheme.primary
     val scale = sunScale(minutesOf(s.seconds))
-    val motion = remember {
-        SunMotion().apply {
-            if (calm) { val peak = (s.hours.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat(); s.hours.forEachIndexed { i, v -> now[i] = v / peak }; this.scale = scale }
-        }
-    }
+    val motion = rememberSunMotion(s.hours, scale, calm)
     // the busiest hour points straight up, so the part above the edge is the person's longest rays whatever their hours
     val turn = -(s.hours.indices.maxByOrNull { s.hours[it] } ?: 0) * 15f
     val up = progress(calm, 200, 1400)
@@ -549,6 +569,132 @@ private fun Months(s: SpotifriedStats, calm: Boolean) {
                     }
                 }
             }
+        }
+    }
+}
+
+/** Before "a sun.": the period in words. */
+internal fun sunLead(p: WrappedPeriod): String = when {
+    p.label.length == 4 && p.label.all { it.isDigit() } -> "This is your year as "
+    p.label == "Last 12 months" -> "This is your twelve months as "
+    p.label == "All time" -> "This is all your listening as "
+    else -> "This is your listening as "
+}
+
+/** Card 7: the person's sun, big and not turned, so the hour labels around it are true; it is drawn round from midnight like a clock hand. */
+@Composable
+internal fun SunCard(s: SpotifriedStats, still: Boolean = false) {
+    val calm = still || rememberNoMotion()
+    key(s.period, calm) { SunPortrait(s, calm) }
+}
+
+@Composable
+private fun SunPortrait(s: SpotifriedStats, calm: Boolean) {
+    val accent = MaterialTheme.colorScheme.primary
+    val scale = sunScale(minutesOf(s.seconds))
+    val motion = rememberSunMotion(s.hours, scale, calm)
+    val t = clock(calm, 2300f)
+    // labels can sit over long rays, so each gets a dark halo
+    val label = Sub.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, shadow = Shadow(Color.Black, blurRadius = 8f))
+    Column(Modifier.fillMaxSize().padding(top = 20.dp, bottom = 28.dp)) {
+        Column(Modifier.padding(horizontal = 26.dp)) {
+            Text(buildAnnotatedString { append(sunLead(s.period)); withStyle(SpanStyle(color = accent)) { append("a sun.") } }, Modifier.rise(0, calm), style = Headline)
+            Text(
+                "Each ray is one hour of your day. Longer means you listened more. Nobody else has this one.",
+                Modifier.padding(top = 14.dp).rise(1, calm), soft(), style = Sub,
+            )
+        }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(top = 12.dp), Alignment.Center) {
+            // a little wider than the screen, as in the mockup: only the longest rays at 6 a.m. or 6 p.m. reach the edges
+            val side = minOf(maxWidth * 1.08f, maxHeight)
+            // the glow fades in whole; only the rays sweep round, so the middle never shows a pie slice
+            Canvas(Modifier.requiredSize(side).graphicsLayer { alpha = stepAt(t.value, 500f, 1800f) }) {
+                drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = .3f), Color.Transparent)), size.width / 2)
+            }
+            Box(
+                Modifier.requiredSize(side).testTag("sun").drawWithContent {
+                    val sweep = 360f * stepAt(t.value, 500f, 1800f)
+                    if (sweep >= 360f) drawContent()
+                    else clipPath(Path().apply { moveTo(center.x, center.y); arcTo(Rect(center, size.maxDimension), -90f, sweep, false); close() }) {
+                        this@drawWithContent.drawContent()
+                    }
+                },
+            ) { Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false) }
+            // a clock face: just inside the longest rays, as in the mockup, each shown once the sweep reaches it
+            val r = side * .44f
+            val across = minOf(r, maxWidth / 2 - 24.dp)
+            listOf(0 to (0.dp to -r), 6 to (across to 0.dp), 12 to (0.dp to r), 18 to (-across to 0.dp)).forEach { (h, at) ->
+                Text(
+                    hourName(h), Modifier.offset(at.first, at.second).graphicsLayer { alpha = ((stepAt(t.value, 500f, 1800f) * 24 - h + 1) / 3).coerceIn(0f, 1f) },
+                    soft(), maxLines = 1, style = label,
+                )
+            }
+        }
+    }
+}
+
+/** Where the first figure of a fact is, with its "%" or "a.m.", to set in the accent; a percentage wins over a number in a name. */
+internal fun factFigure(f: String): IntRange? =
+    (Regex("""\d+(?:[.,]\d+)*%""").find(f) ?: Regex("""\d+(?:[.,]\d+)*(?: [ap]\.m\.)?""").find(f))?.range
+
+/** Card 8: who the person is as a listener, three true facts one after another, and Share. */
+@Composable
+internal fun TypeCard(s: SpotifriedStats, onShare: () -> Unit, still: Boolean = false) {
+    val calm = still || rememberNoMotion()
+    key(s.period, calm) { Type(s, onShare, calm) }
+}
+
+@Composable
+private fun Type(s: SpotifriedStats, onShare: () -> Unit, calm: Boolean) {
+    val accent = MaterialTheme.colorScheme.primary
+    val ink = MaterialTheme.colorScheme.onBackground
+    val title = typeTitle(s) + "."
+    val facts = remember(s) { typeFacts(s, listenerType(s)) }
+    val scale = sunScale(minutesOf(s.seconds))
+    val motion = rememberSunMotion(s.hours, scale, calm)
+    val spin = if (calm) null else rememberInfiniteTransition("spin").animateFloat(0f, 360f, infiniteRepeatable(tween(120_000, easing = LinearEasing)), "turn")
+    val up = progress(calm, 0, 1400)
+    BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
+        // the person's own sun, big and dim behind everything, its centre 60 dp above the bottom edge, as in the mockup
+        val side = maxWidth * 1.72f
+        Box(
+            Modifier.align(Alignment.BottomCenter).offset(y = side / 2 - 60.dp).requiredSize(side)
+                .graphicsLayer { alpha = .55f * up.value; rotationZ = spin?.value ?: 0f },
+        ) {
+            Canvas(Modifier.fillMaxSize()) { drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = .34f), Color.Transparent), radius = size.width * .36f), size.width * .36f) }
+            Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false)
+        }
+        CardColumn {
+            Text("You are", Modifier.rise(0, calm), soft(), style = Sub)
+            BoxWithConstraints(Modifier.padding(top = 6.dp).fillMaxWidth()) {
+                val big = Headline.copy(fontSize = 56.sp, lineHeight = 55.sp, letterSpacing = (-2).sp)
+                val measurer = rememberTextMeasurer()
+                // shrinks until the longest word fits a line, so a title never breaks inside a word; three words make three lines at most
+                val widest = remember(title, measurer) { title.split(' ').maxOf { measurer.measure(it, big).size.width } }
+                val k = minOf(1f, constraints.maxWidth * .98f / widest.coerceAtLeast(1))
+                val cut = title.lastIndexOf(' ') + 1
+                Text(
+                    buildAnnotatedString { append(title.take(cut)); withStyle(SpanStyle(color = accent)) { append(title.drop(cut)) } },
+                    Modifier.rise(1, calm), maxLines = 3, style = big.copy(fontSize = big.fontSize * k, lineHeight = big.lineHeight * k, letterSpacing = big.letterSpacing * k),
+                )
+            }
+            Column(Modifier.weight(1f).padding(top = 26.dp).widthIn(max = 280.dp), Arrangement.spacedBy(12.dp)) {
+                facts.forEachIndexed { i, f ->
+                    val fig = factFigure(f)
+                    Text(
+                        buildAnnotatedString {
+                            if (fig == null) append(f)
+                            else { append(f.substring(0, fig.first)); withStyle(SpanStyle(color = accent, fontWeight = FontWeight.ExtraBold)) { append(f.substring(fig)) }; append(f.substring(fig.last + 1)) }
+                        },
+                        Modifier.riseAt(1000 + i * 250, calm, 800), ink, style = Sub.copy(lineHeight = 20.sp),
+                    )
+                }
+            }
+            Button(
+                onShare, Modifier.heightIn(min = 48.dp).riseAt(1900, calm, 800),
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = MaterialTheme.colorScheme.onPrimary),
+                contentPadding = PaddingValues(horizontal = 22.dp),
+            ) { Text("Share your story", style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)) }
         }
     }
 }
