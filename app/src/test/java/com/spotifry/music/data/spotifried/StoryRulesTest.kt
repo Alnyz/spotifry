@@ -142,4 +142,13 @@ class StoryRulesTest {
         assertFalse(f[1].startsWith("That"))
         assertTrue(f[1].contains("321"))
     }
+
+    @Test fun bigCountsInFactsHaveThousandsSeparators() {
+        val s = stats(plays = 1240, songs = 2400, newSongs = 1500, replayedSongs = 1100, longestStreak = 1001, seconds = 1240 * 3600L, age = ageStats(typicalYear = 1990, songsWithYear = 1200, songsTotal = 2400))
+        val all = ListenerType.entries.flatMap { typeFacts(s, it) }
+        listOf("1,240 songs", "1,500 of 2,400 songs", "1,100", "1,001 days", "1,200 of 2,400 songs", "1,240 hours").forEach { want ->
+            assertTrue(want, all.any { it.contains(want) })
+        }
+        assertTrue(all.any { it.contains("1990") }) // a year keeps its four digits
+    }
 }

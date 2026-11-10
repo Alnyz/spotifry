@@ -37,10 +37,13 @@ fun typeTitle(s: SpotifriedStats): String {
     return if (t == ListenerType.REGULAR) "The ${hourKind(peakHour(s))} Regular" else t.title
 }
 
-private fun count(n: Int, word: String) = "$n ${if (n == 1) word else word + "s"}"
+/** "1,240": a count, with thousands separators. Years are not counts and stay "1998". */
+private fun num(n: Int) = "%,d".format(Locale.US, n)
+
+private fun count(n: Int, word: String) = "${num(n)} ${if (n == 1) word else word + "s"}"
 
 /** "You replayed N of them" that still reads right for 0 and 1. */
-private fun replayedOfThem(n: Int) = if (n == 0) "You never replayed any of them." else "You replayed $n of them."
+private fun replayedOfThem(n: Int) = if (n == 0) "You never replayed any of them." else "You replayed ${num(n)} of them."
 
 fun typeFacts(s: SpotifriedStats, type: ListenerType): List<String> {
     val busiest = "Your busiest hour was ${hourName(peakHour(s))}".let { if (it.endsWith(".")) it else "$it." }
@@ -54,7 +57,7 @@ fun typeFacts(s: SpotifriedStats, type: ListenerType): List<String> {
         )
         ListenerType.TIME_TRAVELLER -> listOf(
             "A typical song of yours came out in ${s.age.typicalYear ?: "an unknown year"}.",
-            "Release years are known for ${s.age.songsWithYear} of ${count(s.age.songsTotal, "song")}.",
+            "Release years are known for ${num(s.age.songsWithYear)} of ${count(s.age.songsTotal, "song")}.",
             s.age.oldestYear?.let { "Your oldest song is from $it." } ?: "Your listening age is ${s.age.age ?: 0}.",
         )
         ListenerType.STREAK_KEEPER -> listOf(
@@ -63,7 +66,7 @@ fun typeFacts(s: SpotifriedStats, type: ListenerType): List<String> {
             "Your longest day was $dayHours hours of music.",
         )
         ListenerType.EXPLORER -> listOf(
-            "${s.newSongs} of ${count(s.songs, "song")} ${if (s.newSongs == 1) "was" else "were"} new to you.",
+            "${num(s.newSongs)} of ${count(s.songs, "song")} ${if (s.newSongs == 1) "was" else "were"} new to you.",
             "That is ${if (s.songs == 0) 0 else pct(s.newSongs.toFloat() / s.songs)}% fresh music.",
             when (s.replayedSongs) {
                 0 -> "None of your songs got a replay."
@@ -90,7 +93,7 @@ fun typeFacts(s: SpotifriedStats, type: ListenerType): List<String> {
             "You played ${count(s.plays, "song")}.",
             "That was ${count(s.songs, "different song")}, and " + when (s.replayedSongs) {
                 0 -> "none came back."
-                else -> "${s.replayedSongs} came back."
+                else -> "${num(s.replayedSongs)} came back."
             },
         )
     }

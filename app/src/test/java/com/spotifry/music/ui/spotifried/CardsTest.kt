@@ -51,6 +51,10 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.TextLayoutResult
 import org.robolectric.annotation.GraphicsMode
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.test.onRoot
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
@@ -368,6 +372,8 @@ class CardsTest {
         assertTrue(rule.onNodeWithText("Share your story").assertIsDisplayed().getBoundsInRoot().bottom <= 460.dp)
     }
 
+    // native graphics: the default fake one does not measure text widths, so nothing would wrap
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
     @Test fun typeCardLongTitle() {
         val s = stats(plays = 40, songs = 30, seconds = 9000, hours = List(24) { if (it == 14) 900L else 0L })
         // a narrow phone: the longest title still breaks between words, in three lines at most
@@ -388,5 +394,65 @@ class CardsTest {
         assertEquals("9.5", fig("Your longest day was 9.5 hours of music."))
         assertEquals("40%", fig("Blink 182 took 40% of your listening."))
         assertEquals(null, fig("You never replayed a song."))
+    }
+
+    /** Shows [card] with the text twice its normal size; 460 dp high is a card's share of a phone with music playing. */
+    private fun showBigText(height: Int = 460, card: @Composable () -> Unit) = rule.setContent {
+        MusicTheme { CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) { Box(Modifier.size(360.dp, height.dp)) { card() } } }
+    }
+
+    // native graphics: the default fake one does not measure text widths, so nothing would wrap
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test fun typeCardKeepsAllFactsReadableAtLargeText() {
+        val s = stats(plays = 1240, songs = 30, seconds = 9000, hours = List(24) { if (it == 14) 900L else 0L })
+        showBigText { TypeCard(s, onShare = {}, still = true) }
+        val button = rule.onNodeWithText("Share your story").assertIsDisplayed().fetchSemanticsNode()
+        assertTrue(button.boundsInRoot.bottom <= rule.onRoot().fetchSemanticsNode().size.height)
+        typeFacts(s, listenerType(s)).forEach { f ->
+            val node = rule.onNodeWithText(f).assertIsDisplayed().fetchSemanticsNode()
+            val results = mutableListOf<TextLayoutResult>()
+            node.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+            assertFalse("$f overflows", results.single().didOverflowHeight)
+            // nothing of it is cut off by the card: what shows is the whole text
+            assertEquals(f, node.size.height.toFloat(), node.boundsInRoot.height, 1f)
+            assertTrue("$f under the button", node.boundsInRoot.bottom <= button.boundsInRoot.top)
+        }
+    }
+
+    // native graphics: the default fake one does not measure text widths, so nothing would wrap
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test fun sunCardSideLabelsStayOnScreenAtLargeText() {
+        // a full phone, so the sun is as wide as it gets
+        showBigText(780) { SunCard(stats(plays = 40, seconds = 9000, hours = night), still = true) }
+        val width = rule.onRoot().fetchSemanticsNode().size.width
+        listOf("6 a.m.", "6 p.m.").forEach {
+            val n = rule.onNodeWithText(it).fetchSemanticsNode()
+            assertTrue(it, n.positionInRoot.x >= 0f && n.positionInRoot.x + n.size.width <= width)
+        }
+    }
+
+    @Test fun shareButtonWaitsUntilItShows() {
+        var shared = 0
+        rule.mainClock.autoAdvance = false
+        show { TypeCard(nightReplayer(), onShare = { shared++ }) }
+        rule.mainClock.advanceTimeBy(500)
+        rule.onNodeWithText("Share your story").assertDoesNotExist()
+        rule.mainClock.advanceTimeBy(3000)
+        rule.onNodeWithText("Share your story").performClick()
+        assertEquals(1, shared)
+    }
+
+    @Test fun doubleTapSharesOnce() {
+        var shared = 0
+        show { TypeCard(nightReplayer(), onShare = { shared++ }, still = true) }
+        rule.onNodeWithText("Share your story").performClick().performClick()
+        assertEquals(1, shared)
+    }
+
+    @Test fun firstHourLabelWaitsForTheSweep() {
+        assertEquals(0f, hourLabelAlpha(0f, 0))
+        assertEquals(0f, hourLabelAlpha(.25f, 6))
+        assertEquals(1f, hourLabelAlpha(1f, 18))
+        assertEquals(1f, hourLabelAlpha(.2f, 0))
     }
 }

@@ -34,6 +34,15 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.text.rememberTextMeasurer
+import android.os.SystemClock
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Constraints
 import com.spotifry.music.data.hourName
 import com.spotifry.music.data.spotifried.listenerType
 import com.spotifry.music.data.spotifried.typeFacts
@@ -621,17 +630,22 @@ private fun SunPortrait(s: SpotifriedStats, calm: Boolean) {
                 },
             ) { Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false) }
             // a clock face: just inside the longest rays, as in the mockup, each shown once the sweep reaches it
+            // side labels are kept 8 dp inside the screen whatever their width, so large text never runs off it
             val r = side * .44f
-            val across = minOf(r, maxWidth / 2 - 24.dp)
-            listOf(0 to (0.dp to -r), 6 to (across to 0.dp), 12 to (0.dp to r), 18 to (-across to 0.dp)).forEach { (h, at) ->
+            listOf(0 to (0.dp to -r), 6 to (r to 0.dp), 12 to (0.dp to r), 18 to (-r to 0.dp)).forEach { (h, at) ->
                 Text(
-                    hourName(h), Modifier.offset(at.first, at.second).graphicsLayer { alpha = ((stepAt(t.value, 500f, 1800f) * 24 - h + 1) / 3).coerceIn(0f, 1f) },
+                    hourName(h),
+                    Modifier.offset(y = at.second).padding(horizontal = 8.dp).anchorAt(maxWidth / 2 - 8.dp + at.first)
+                        .graphicsLayer { alpha = hourLabelAlpha(stepAt(t.value, 500f, 1800f), h) },
                     soft(), maxLines = 1, style = label,
                 )
             }
         }
     }
 }
+
+/** An hour label fades in over the three hours after the sweep ([sweep] 0 to 1 round the day) reaches hour [h]. */
+internal fun hourLabelAlpha(sweep: Float, h: Int) = ((sweep * 24 - h) / 3).coerceIn(0f, 1f)
 
 /** Where the first figure of a fact is, with its "%" or "a.m.", to set in the accent; a percentage wins over a number in a name. */
 internal fun factFigure(f: String): IntRange? =
@@ -652,47 +666,74 @@ private fun Type(s: SpotifriedStats, onShare: () -> Unit, calm: Boolean) {
     val facts = remember(s) { typeFacts(s, listenerType(s)) }
     val scale = sunScale(minutesOf(s.seconds))
     val motion = rememberSunMotion(s.hours, scale, calm)
-    val spin = if (calm) null else rememberInfiniteTransition("spin").animateFloat(0f, 360f, infiniteRepeatable(tween(120_000, easing = LinearEasing)), "turn")
     val up = progress(calm, 0, 1400)
+    val button = progress(calm, 1900, 800)
+    // tappable only once it has appeared: before that a tap on it goes back a card, as anywhere on the left
+    val ready by remember { derivedStateOf { button.value >= 1f } }
+    var sharedAt by remember { mutableLongStateOf(-1_000L) }
     BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
         // the person's own sun, big and dim behind everything, its centre 60 dp above the bottom edge, as in the mockup
         val side = maxWidth * 1.72f
         Box(
             Modifier.align(Alignment.BottomCenter).offset(y = side / 2 - 60.dp).requiredSize(side)
-                .graphicsLayer { alpha = .55f * up.value; rotationZ = spin?.value ?: 0f },
+                .graphicsLayer { alpha = .55f * up.value },
         ) {
             Canvas(Modifier.fillMaxSize()) { drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = .34f), Color.Transparent), radius = size.width * .36f), size.width * .36f) }
             Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false)
         }
         CardColumn {
-            Text("You are", Modifier.rise(0, calm), soft(), style = Sub)
-            BoxWithConstraints(Modifier.padding(top = 6.dp).fillMaxWidth()) {
-                val big = Headline.copy(fontSize = 56.sp, lineHeight = 55.sp, letterSpacing = (-2).sp)
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 val measurer = rememberTextMeasurer()
-                // shrinks until the longest word fits a line, so a title never breaks inside a word; three words make three lines at most
-                val widest = remember(title, measurer) { title.split(' ').maxOf { measurer.measure(it, big).size.width } }
-                val k = minOf(1f, constraints.maxWidth * .98f / widest.coerceAtLeast(1))
-                val cut = title.lastIndexOf(' ') + 1
-                Text(
-                    buildAnnotatedString { append(title.take(cut)); withStyle(SpanStyle(color = accent)) { append(title.drop(cut)) } },
-                    Modifier.rise(1, calm), maxLines = 3, style = big.copy(fontSize = big.fontSize * k, lineHeight = big.lineHeight * k, letterSpacing = big.letterSpacing * k),
-                )
-            }
-            Column(Modifier.weight(1f).padding(top = 26.dp).widthIn(max = 280.dp), Arrangement.spacedBy(12.dp)) {
-                facts.forEachIndexed { i, f ->
-                    val fig = factFigure(f)
+                val density = LocalDensity.current
+                val big = Headline.copy(fontSize = 56.sp, lineHeight = 55.sp, letterSpacing = (-2).sp)
+                val factWidth = minOf(constraints.maxWidth, with(density) { 280.dp.roundToPx() })
+                // the title shrinks until its longest word fits a line, so it never breaks inside a word; three words make three lines at most
+                val word = remember(title, measurer, constraints.maxWidth) {
+                    minOf(1f, constraints.maxWidth * .98f / title.split(' ').maxOf { measurer.measure(it, big).size.width }.coerceAtLeast(1))
+                }
+                fun titleStyle(k: Float) = big.copy(fontSize = big.fontSize * word * k, lineHeight = big.lineHeight * word * k, letterSpacing = big.letterSpacing * word * k)
+                fun factStyle(k: Float) = Sub.copy(fontSize = Sub.fontSize * k, lineHeight = 20.sp * k)
+                // large system text: everything shrinks in steps until the title and all three facts fit above the button; scrolling is the last resort
+                val fit = remember(title, facts, measurer, constraints) {
+                    fun height(k: Float): Int = with(density) {
+                        measurer.measure("You are", Sub).size.height + 6.dp.roundToPx() +
+                            measurer.measure(title, titleStyle(k), maxLines = 3, constraints = Constraints(maxWidth = constraints.maxWidth)).size.height + 26.dp.roundToPx() +
+                            facts.sumOf { measurer.measure(it, factStyle(k), constraints = Constraints(maxWidth = factWidth)).size.height } + 2 * 12.dp.roundToPx()
+                    }
+                    generateSequence(1f) { it - .05f }.takeWhile { it >= .5f }.firstOrNull { height(it) <= constraints.maxHeight } ?: .5f
+                }
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text("You are", Modifier.rise(0, calm), soft(), style = Sub)
+                    val cut = title.lastIndexOf(' ') + 1
                     Text(
-                        buildAnnotatedString {
-                            if (fig == null) append(f)
-                            else { append(f.substring(0, fig.first)); withStyle(SpanStyle(color = accent, fontWeight = FontWeight.ExtraBold)) { append(f.substring(fig)) }; append(f.substring(fig.last + 1)) }
-                        },
-                        Modifier.riseAt(1000 + i * 250, calm, 800), ink, style = Sub.copy(lineHeight = 20.sp),
+                        buildAnnotatedString { append(title.take(cut)); withStyle(SpanStyle(color = accent)) { append(title.drop(cut)) } },
+                        Modifier.padding(top = 6.dp).rise(1, calm), maxLines = 3, style = titleStyle(fit),
                     )
+                    Column(Modifier.padding(top = 26.dp).widthIn(max = 280.dp), Arrangement.spacedBy(12.dp)) {
+                        facts.forEachIndexed { i, f ->
+                            val fig = factFigure(f)
+                            Text(
+                                buildAnnotatedString {
+                                    if (fig == null) append(f)
+                                    else { append(f.substring(0, fig.first)); withStyle(SpanStyle(color = accent, fontWeight = FontWeight.ExtraBold)) { append(f.substring(fig)) }; append(f.substring(fig.last + 1)) }
+                                },
+                                Modifier.riseAt(1000 + i * 250, calm, 800), ink, style = factStyle(fit),
+                            )
+                        }
+                    }
                 }
             }
+            val lift = with(LocalDensity.current) { 18.dp.toPx() }
             Button(
-                onShare, Modifier.heightIn(min = 48.dp).riseAt(1900, calm, 800),
-                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = MaterialTheme.colorScheme.onPrimary),
+                // a second tap within a second, while the share sheet is still opening, does nothing
+                { val now = SystemClock.uptimeMillis(); if (now - sharedAt >= 1000) { sharedAt = now; onShare() } },
+                Modifier.padding(top = 12.dp).heightIn(min = 48.dp).graphicsLayer { alpha = button.value; translationY = (1 - button.value) * lift }
+                    .then(if (ready) Modifier else Modifier.clearAndSetSemantics {}),
+                enabled = ready,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accent, contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = accent, disabledContentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
                 contentPadding = PaddingValues(horizontal = 22.dp),
             ) { Text("Share your story", style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)) }
         }
