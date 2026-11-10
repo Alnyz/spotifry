@@ -30,8 +30,9 @@ sealed interface Lyrics {
         const val LRCLIB = "LRCLIB"
         const val BETTER_LYRICS = "BetterLyrics"
         const val LRC_RED = "lrc.red"
+        const val UNISON = "Unison"
         /** Every source, best first: asked together; word-timed beats line-timed, then the earlier wins. LRCLIB is asked only when the rest miss. */
-        val SOURCES = listOf(BETTER_LYRICS, LRC_RED, LRCLIB)
+        val SOURCES = listOf(BETTER_LYRICS, LRC_RED, UNISON, LRCLIB)
     }
 }
 
@@ -60,11 +61,22 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
 
     /** Word-timed beats line-timed whatever the source; within each, the better source (earlier in [Lyrics.SOURCES]) wins. */
     private suspend fun fromSources(song: Song, skip: Set<String>): Lyrics? = coroutineScope {
-        val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed)
+        val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed, Lyrics.UNISON to ::unison)
             .filter { it.first !in skip }.map { (_, ask) -> async { ask(song) } }
         val answers = asked.awaitAll().filterNotNull() // all run together, each capped at 4 seconds
         answers.firstOrNull { a -> a is Lyrics.Timed && a.lines.any { it.words.isNotEmpty() } } ?: answers.firstOrNull()
     }
+
+    /** Unison is listener-contributed: it answers with TTML (word timed), LRC (line timed) or plain text, which is left to LRCLIB. */
+    private fun unison(song: Song): Lyrics? = runCatching {
+        val url = "https://unison.boidu.dev/lyrics".toHttpUrl().newBuilder()
+            .addQueryParameter("song", song.title).addQueryParameter("artist", song.artist).addQueryParameter("duration", song.durationSec.toString()).build()
+        val data = quick.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use {
+            if (!it.isSuccessful) return null
+            JSONObject(it.body!!.string()).takeIf { o -> o.optBoolean("success") }?.optJSONObject("data") ?: return null
+        }
+        unisonLines(data.optString("lyrics"), data.optString("format"), data.optString("syncType"))?.let { Lyrics.Timed(it, Lyrics.UNISON) }
+    }.getOrNull()
 
     /** lrc.red's search is free text, so a hit counts only when [bestHit] is sure it is this recording. */
     private fun lrcRed(song: Song): Lyrics? = runCatching {
@@ -126,6 +138,12 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
 
     companion object {
         private const val BASE = "https://lrclib.net/"
+        /** The timed lines of a Unison entry, or null when it is empty or plain text. */
+        fun unisonLines(text: String, format: String, syncType: String): List<LyricLine>? {
+            if (text.isBlank() || syncType.equals("plain", true)) return null
+            return (if (format.equals("ttml", true)) parseTtml(text) else parseLrc(text)).takeIf { it.isNotEmpty() }
+        }
+
         private const val UA = "Spotifry (personal music player)"
 
         /**

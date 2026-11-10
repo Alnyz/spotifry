@@ -70,4 +70,10 @@ class LyricsTest {
         assertNull(LyricsSource.bestHit(hits, "Bohemian Rhapsody", "Queen", 300))
         assertEquals("GBUM71029604", LyricsSource.bestHit(hits, "Bohemian Rhapsody (Live)", "Queen", 352))
     }
+
+    @Test fun unisonEntryShapes() {
+        assertNull(LyricsSource.unisonLines("la la", "lrc", "plain"))
+        assertNull(LyricsSource.unisonLines("", "lrc", "linesync"))
+        assertEquals(2, LyricsSource.unisonLines("[00:01.00]a\n[00:02.00]b", "lrc", "linesync")!!.size)
+    }
 }
