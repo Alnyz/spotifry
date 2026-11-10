@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
+import java.time.YearMonth
 
 class SpotifriedStatsTest {
     private val today = LocalDate.of(2026, 12, 31)
@@ -71,5 +72,63 @@ class SpotifriedStatsTest {
         assertNull(s.topSong); assertNull(s.longestDay)
         assertEquals(24, s.hours.size)
         assertEquals(365, s.daySeconds.size)
+    }
+
+    @Test fun obsessionIsTheSongPlayedMostInOneDay() {
+        val rows = (0 until 23).map { row(at(2026, 3, 14, it % 24), "a", 60) } + row(at(2026, 3, 15), "b", 60)
+        val o = stats(*rows.toTypedArray()).obsession!!
+        assertEquals("a", o.song.id); assertEquals(LocalDate.of(2026, 3, 14), o.date)
+        assertEquals(23, o.plays); assertEquals(23, o.startHours.size)
+    }
+
+    @Test fun obsessionTieGoesToTheEarlierDay() {
+        val o = stats(row(at(2026, 5, 2), "b", 60), row(at(2026, 5, 1), "a", 60)).obsession!!
+        assertEquals(LocalDate.of(2026, 5, 1), o.date)
+    }
+
+    @Test fun monthsHaveTheTopSongOfEachMonth() {
+        val s = stats(row(at(2026, 1, 1), "a", 60), row(at(2026, 1, 2), "a", 60), row(at(2026, 1, 3), "b", 60),
+            row(at(2026, 3, 1), "c", 60))
+        assertEquals(listOf(YearMonth.of(2026, 1), YearMonth.of(2026, 3)), s.months.map { it.month })
+        assertEquals(listOf("a", "c"), s.months.map { it.song.id })
+        assertEquals(2, s.months[0].plays)
+    }
+
+    @Test fun changeMonthIsWhereTheTopFiveChangedMost() {
+        fun month(m: Int, ids: List<String>) = ids.map { row(at(2026, m, 1), it, 60) }
+        val s = stats(*(month(1, listOf("a", "b", "c", "d", "e")) + month(2, listOf("a", "b", "c", "d", "x")) +
+            month(3, listOf("p", "q", "r", "s", "t"))).toTypedArray())
+        assertEquals(YearMonth.of(2026, 3), s.changeMonth)
+    }
+
+    @Test fun changeMonthNullWithOneMonth() {
+        assertNull(stats(row(at(2026, 1, 1), "a", 60)).changeMonth)
+    }
+
+    @Test fun streakStaysInsideThePeriod() {
+        val p = WrappedPeriod(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), "2026")
+        val s = stats(row(at(2025, 12, 29), "a", 60), row(at(2025, 12, 30), "a", 60), row(at(2025, 12, 31), "a", 60),
+            row(at(2026, 1, 1), "a", 60), row(at(2026, 1, 2), "a", 60), row(at(2026, 1, 5), "a", 60), period = p)
+        assertEquals(2, s.longestStreak)
+    }
+
+    @Test fun newSongsOnlyCountsFirstPlaysInThePeriod() {
+        val s = stats(row(at(2025, 6, 1), "old", 60), row(at(2026, 2, 1), "old", 60), row(at(2026, 2, 2), "new", 60),
+            row(at(2026, 2, 3), "new", 60))
+        assertEquals(1, s.newSongs)
+        assertEquals(1, s.replayedSongs)
+    }
+
+    @Test fun shareFiguresAreZeroNotNaNWhenThereAreNoPlays() {
+        val s = stats(row(at(2026, 2, 1), "a", 10))
+        assertEquals(0f, s.earlyShare, 0f); assertEquals(0f, s.nightShare, 0f)
+        assertEquals(0f, stats().earlyShare, 0f)
+    }
+
+    @Test fun topArtistAndTimeOfDayShares() {
+        val s = stats(row(at(2026, 2, 1, 8), "a", 300, "X - Topic"), row(at(2026, 2, 1, 2), "b", 100, "Y"),
+            row(at(2026, 2, 1, 15), "c", 100, "Y"), row(at(2026, 2, 1, 20), "d", 100, "Y"))
+        assertEquals("X", s.topArtist!!.name); assertEquals(0.5f, s.topArtist!!.share, 0.001f)
+        assertEquals(0.5f, s.earlyShare, 0.001f); assertEquals(0.25f, s.nightShare, 0.001f)
     }
 }
