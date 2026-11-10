@@ -30,14 +30,14 @@ sealed interface Lyrics {
         const val LRCLIB = "LRCLIB"
         const val BETTER_LYRICS = "BetterLyrics"
         const val LRC_RED = "lrc.red"
-        /** Every source, best first: the word-timed ones are asked together and the first with an answer wins; LRCLIB is the fallback. */
+        /** Every source, best first: asked together; word-timed beats line-timed, then the earlier wins. LRCLIB is asked only when the rest miss. */
         val SOURCES = listOf(BETTER_LYRICS, LRC_RED, LRCLIB)
     }
 }
 
 /**
  * Lyrics timed word by word from BetterLyrics (lyrics-api.boidu.dev) or lrc.red, both Apple Music's timings, asked at
- * the same time; a word-timed answer beats a line-timed one, then the earlier in [Lyrics.SOURCES] wins. LRCLIB is asked only if none has the song, and (lrclib.net), timed by line.
+ * the same time; a word-timed answer beats a line-timed one, then the earlier in [Lyrics.SOURCES] wins. LRCLIB (lrclib.net, timed by line) is asked only if none has the song.
  * All free, no account; all get the song's title, artist and length. [off] names the sources the listener turned off.
  * Null means no source has lyrics for the song; an exception means LRCLIB couldn't be asked (offline, busy).
  */
