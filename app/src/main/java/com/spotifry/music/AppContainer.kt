@@ -44,6 +44,7 @@ class AppContainer(private val context: Context) {
         NewPipeSource(), com.spotifry.music.data.source.JioSaavnSource(client)::find, { settings.jioSaavn.value },
         com.spotifry.music.data.source.MonochromeSource(client)::find, { settings.monochrome.value },
     )
+    val musicBrainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = "Spotifry/${BuildConfig.VERSION_NAME} (https://github.com/Alnyz/spotifry)")
     val resolver = StreamResolver(source)
     // "Play the whole song" means whole: the smart trim is turned off for that song too
     val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, knownKbps = ::streamKbps, saveTrim = { id, t -> trims[id] = t; if (t == null) smartTrims.turnOff(id) }) }

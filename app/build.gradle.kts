@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.work.runtime)
     ksp(libs.room.compiler)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
@@ -84,6 +85,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    testImplementation(libs.work.testing)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.androidx.test.core)

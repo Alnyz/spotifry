@@ -67,6 +67,8 @@ data class ListenRow(
     @Embedded val song: SongEntity?,
 )
 
+data class PlayCountRow(val songId: String, val n: Int)
+
 data class PlaylistWithCounts(val id: Long, val name: String, val songCount: Int, val savedCount: Int, val number: Int)
 
 data class PlaylistCoverRow(val playlistId: Long, @Embedded val song: SongEntity)

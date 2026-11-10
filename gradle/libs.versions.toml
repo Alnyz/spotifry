@@ -16,6 +16,7 @@ haze = "1.7.1"
 reorderable = "3.1.0"
 junit = "4.13.2"
 robolectric = "4.17"
+work = "2.12.0"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
@@ -43,6 +44,8 @@ coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", ve
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 junit = { module = "junit:junit", version.ref = "junit" }
+work-runtime = { module = "androidx.work:work-runtime", version.ref = "work" }
+work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 androidx-test-core = { module = "androidx.test:core", version = "1.7.0" }
 androidx-test-runner = { module = "androidx.test:runner", version = "1.7.0" }
