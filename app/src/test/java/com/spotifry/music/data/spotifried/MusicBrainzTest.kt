@@ -61,6 +61,26 @@ class MusicBrainzTest {
         assertEquals(YearResult.TryLater, mb().yearOf("Fly", "Band"))
     }
 
+    @Test fun otherClientErrorsAreNotFoundSoTheQueueMovesOn() = runBlocking {
+        for (code in listOf(400, 404)) {
+            server.enqueue(MockResponse().setResponseCode(code))
+            assertEquals("status $code", YearResult.NotFound, mb().yearOf("Fly", "Band"))
+        }
+    }
+
+    @Test fun serverErrorsAreTryLater() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(500))
+        assertEquals(YearResult.TryLater, mb().yearOf("Fly", "Band"))
+    }
+
+    @Test fun aZeroYearDoesNotHideTheRealOne() =
+        assertEquals(1980, earliestYear(body(rec("Fly", "Band", "0000"), rec("Fly", "Band", "1980")), "Fly", "Band"))
+
+    @Test fun aTitleThatCleansToNothingAsksNothing() = runBlocking {
+        assertEquals(YearResult.NotFound, mb().yearOf("(Official Video)", "Band"))
+        assertEquals(0, server.requestCount)
+    }
+
     @Test fun emptyResultIsNotFound() = runBlocking {
         server.enqueue(MockResponse().setBody(body()))
         assertEquals(YearResult.NotFound, mb().yearOf("Fly", "Band"))

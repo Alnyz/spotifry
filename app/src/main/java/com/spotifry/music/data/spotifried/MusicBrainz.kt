@@ -24,6 +24,7 @@ class MusicBrainz(
     private val userAgent: String,
 ) {
     suspend fun yearOf(title: String, artist: String): YearResult {
+        if (cleanTitle(title).isEmpty()) return YearResult.NotFound
         val url = base.toHttpUrl().newBuilder()
             .addPathSegments("ws/2/recording")
             .addQueryParameter("query", "recording:\"${lucene(title)}\" AND artist:\"${lucene(artist)}\"")
@@ -33,7 +34,10 @@ class MusicBrainz(
         val request = Request.Builder().url(url).header("User-Agent", userAgent).build()
         return try {
             client.newCall(request).read { r ->
-                if (!r.isSuccessful) return@read YearResult.TryLater
+                if (!r.isSuccessful) {
+                    // a rate limit or a server problem passes; any other refusal would repeat for ever, so it counts as not found
+                    return@read if (r.code == 429 || r.code >= 500) YearResult.TryLater else YearResult.NotFound
+                }
                 val year = try {
                     earliestYear(r.body!!.string(), title, artist)
                 } catch (e: org.json.JSONException) {
@@ -64,5 +68,6 @@ fun earliestYear(json: String, title: String, artist: String): Int? {
             }
         }
         .mapNotNull { it.optString("first-release-date").take(4).toIntOrNull() }
+        .filter { it >= 1900 }
         .minOrNull()
 }
