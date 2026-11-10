@@ -185,12 +185,25 @@ class ListeningScreenTest {
         val vm = ListeningRowViewModel(db.listens())
         rule.setContent { MusicTheme { ListeningRow(vm, false, {}) } }
         rule.waitForIdle()
-        missing("Taste")
+        missing("Your rotation")
         db.listens().insert(com.spotifry.music.data.db.ListenEntity(1_000, "a", 60)) // long ago
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("Taste").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Your rotation").fetchSemanticsNodes().isNotEmpty() }
         missing("1 min this week")
         db.listens().insert(com.spotifry.music.data.db.ListenEntity(System.currentTimeMillis(), "a", 120))
         rule.waitUntil(5_000) { rule.onAllNodesWithText("2 min this week").fetchSemanticsNodes().isNotEmpty() }
+        db.close()
+    }
+
+    @Test @Config(fontScale = 2f) fun homesRowKeepsBothLinesAtBigText() = kotlinx.coroutines.runBlocking {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>(), com.spotifry.music.data.db.AppDatabase::class.java).allowMainThreadQueries().build()
+        db.listens().insert(com.spotifry.music.data.db.ListenEntity(System.currentTimeMillis(), "a", 120))
+        val vm = ListeningRowViewModel(db.listens())
+        rule.setContent { MusicTheme { ListeningRow(vm, false, {}) } }
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("2 min this week").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("Your rotation").assertIsDisplayed()
+        rule.onNodeWithText("2 min this week").assertIsDisplayed()
+        val w = rule.onNodeWithText("2 min this week").fetchSemanticsNode().boundsInRoot.right
+        assert(w <= 360f * rule.density.density) { "second line runs past the screen: $w" }
         db.close()
     }
 
