@@ -62,6 +62,7 @@ import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.key
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
@@ -69,6 +70,15 @@ import android.os.Build
 import java.time.LocalDate
 import java.time.YearMonth
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import com.spotifry.music.ui.listening.sunReach
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.draw.drawBehind
 import com.spotifry.music.data.spotifried.MonthTop
 import com.spotifry.music.ui.listening.count
@@ -127,23 +137,26 @@ internal fun hoursLead(p: WrappedPeriod): String = when {
     else -> "${p.label}, "
 }
 
-private val MAX_SLOT = 6.dp
-
-/** How many bars fit [width], and each one's slot: about 2.5 dp a bar, but never wider than [MAX_SLOT], so a few days stay thin. */
-internal fun barLayout(days: Int, width: Dp): Pair<Int, Dp> {
-    val n = minOf(days, (width / 2.5.dp).toInt()).coerceAtLeast(1)
-    return n to minOf(width / n, MAX_SLOT)
-}
+private val WIDE_BAR = 14.dp
+/** Fewer days than this show as separate wide bars, so only the first and last dates go under them. */
+private const val FEW_DAYS = 30
 
 /**
- * The dates under the bars, each different. [full]: the bars span the width, so start, middle and end spread across it;
- * otherwise one line from the first day to the last.
+ * How many bars fit [width], and each one's width; the bars always span the whole width. A year is a barcode, about 2.5 dp a
+ * bar with a 1 dp gap; a short history has wide bars, [WIDE_BAR] at most, spread out with gaps, so the card never looks empty.
  */
-internal fun dateLabels(start: LocalDate, days: Int, full: Boolean): List<String> {
+internal fun barLayout(days: Int, width: Dp): Pair<Int, Dp> {
+    val n = minOf(days, (width / 2.5.dp).toInt()).coerceAtLeast(1)
+    val slot = width / n
+    return n to minOf(slot - minOf(1.dp, slot * .4f), WIDE_BAR)
+}
+
+/** The dates under the bars, each different: start, middle and end, or only the first and last for a short history. */
+internal fun dateLabels(start: LocalDate, days: Int): List<String> {
     val end = start.plusDays(days - 1L)
     val fmt = DateTimeFormatter.ofPattern(when { start.year != end.year -> "MMM yyyy"; days > 62 -> "MMM"; else -> "d MMM" }, english)
-    val all = listOf(start, start.plusDays(days / 2L), end).map { it.format(fmt) }.distinct()
-    return if (full) all else listOf(listOf(all.first(), all.last()).distinct().joinToString(" – "))
+    val at = if (days < FEW_DAYS) listOf(start, end) else listOf(start, start.plusDays(days / 2L), end)
+    return at.map { it.format(fmt) }.distinct()
 }
 
 /** Which of [bars] bars day [day] of [days] falls in. */
@@ -206,6 +219,12 @@ private fun CardColumn(content: @Composable ColumnScope.() -> Unit) =
 @Composable
 private fun soft() = MaterialTheme.colorScheme.onBackground.copy(alpha = .64f)
 
+/** Fades what it holds out over its bottom [height], so a sun cut by the card's edge ends softly, not on a hard line. */
+private fun Modifier.fadeOutBottom(height: Dp = 64.dp) = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+    drawContent()
+    drawRect(Brush.verticalGradient(0f to Color.Black, 1f to Color.Transparent, startY = size.height - height.toPx(), endY = size.height), blendMode = BlendMode.DstIn)
+}
+
 /** Card 1: the title, and the person's own sun rising from the bottom edge. */
 @Composable
 internal fun IntroCard(s: SpotifriedStats, still: Boolean = false) {
@@ -224,13 +243,15 @@ private fun Intro(s: SpotifriedStats, calm: Boolean) {
     BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
         val side = maxWidth * 1.33f
         val drop = with(LocalDensity.current) { 140.dp.toPx() }
-        Box(
-            Modifier.align(Alignment.BottomCenter).offset(y = side / 2 - 50.dp).requiredSize(side)
-                .graphicsLayer { translationY = (1 - up.value) * drop; alpha = up.value },
-        ) {
-            Canvas(Modifier.fillMaxSize()) { drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = .34f), Color.Transparent)), size.width / 2) }
-            Box(Modifier.fillMaxSize().graphicsLayer { rotationZ = turn }) {
-                Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false)
+        Box(Modifier.fillMaxSize().fadeOutBottom()) {
+            Box(
+                Modifier.align(Alignment.BottomCenter).offset(y = side / 2 - 50.dp).requiredSize(side)
+                    .graphicsLayer { translationY = (1 - up.value) * drop; alpha = up.value },
+            ) {
+                Canvas(Modifier.fillMaxSize()) { drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = .34f), Color.Transparent)), size.width / 2) }
+                Box(Modifier.fillMaxSize().graphicsLayer { rotationZ = turn }) {
+                    Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false)
+                }
             }
         }
         CardColumn {
@@ -257,33 +278,36 @@ private fun TopSong(top: com.spotifry.music.data.TopSong, calm: Boolean) {
     val plays = countUp(top.plays, calm)
     val ring = if (calm) null else rememberInfiniteTransition("rings").animateFloat(0f, 1f, infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart), "ring")
     val shape = RoundedCornerShape(18.dp)
-    CardColumn {
+    // the rings are drawn behind the whole card, centred on the cover, so they pass under the headline, not over it
+    var card by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var cover by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    Box(Modifier.fillMaxSize().onPlaced { card = it }.drawBehind {
+        val t = ring?.value ?: return@drawBehind
+        val from = card?.takeIf { it.isAttached } ?: return@drawBehind
+        val c = cover?.takeIf { it.isAttached } ?: return@drawBehind
+        val rings = from.localPositionOf(c, Offset(c.size.width / 2f, c.size.height / 2f))
+        val base = 10.dp.toPx()
+        repeat(3) { k ->
+            val q = Ease.transform((t + k / 3f) % 1f)
+            val grow = 1 + 21 * q
+            // quieter than the mockup's .7: wide rings at that strength made the headline busy on a phone
+            drawCircle(accent, base * grow, rings, alpha = .4f * (1 - q), style = Stroke(1.5.dp.toPx() * grow))
+        }
+    }) { CardColumn {
         Column(Modifier.weight(1f)) {
             // smaller than the other headlines and three lines at most, so the cover keeps about 200 dp on a 780 dp phone
             Text("You couldn't leave this one alone.", Modifier.rise(0, calm), maxLines = 3, overflow = TextOverflow.Ellipsis, style = Headline.copy(fontSize = 38.sp, lineHeight = 37.sp, letterSpacing = (-1.3).sp))
             Box(
-                Modifier.padding(top = 20.dp).weight(1f, fill = false).widthIn(max = 230.dp).aspectRatio(1f, matchHeightConstraintsFirst = true)
-                    .testTag("top_cover").rise(1, calm),
+                // up to 300 dp: on a tall phone the cover takes the room rather than leaving it empty under the plays
+                Modifier.padding(top = 20.dp).weight(1f, fill = false).widthIn(max = 300.dp).aspectRatio(1f, matchHeightConstraintsFirst = true)
+                    .onPlaced { cover = it }.testTag("top_cover").rise(1, calm),
             ) {
                 // a soft accent glow under the cover: inset 18 dp, 24 dp lower, blurred. The blur needs Android 12.
                 if (Build.VERSION.SDK_INT >= 31) Box(
                     Modifier.matchParentSize().offset(y = 24.dp).padding(horizontal = 18.dp, vertical = 18.dp)
                         .blur(20.dp, BlurredEdgeTreatment.Unbounded).background(accent.copy(alpha = .45f), shape),
                 )
-                CoverArt(
-                    top.song.id, top.song.thumbnailUrl, top.song.thumbPath,
-                    Modifier.fillMaxSize().drawWithContent {
-                        drawContent()
-                        val t = ring?.value ?: return@drawWithContent
-                        val base = 10.dp.toPx()
-                        repeat(3) { k ->
-                            val q = Ease.transform((t + k / 3f) % 1f)
-                            val grow = 1 + 21 * q
-                            drawCircle(accent, base * grow, center, alpha = .7f * (1 - q), style = Stroke(1.5.dp.toPx() * grow))
-                        }
-                    },
-                    shape,
-                )
+                CoverArt(top.song.id, top.song.thumbnailUrl, top.song.thumbPath, Modifier.fillMaxSize(), shape)
             }
             Text(
                 top.song.title, Modifier.padding(top = 20.dp).rise(2, calm), maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -298,7 +322,7 @@ private fun TopSong(top: com.spotifry.music.data.TopSong, calm: Boolean) {
             )
             Text(if (top.plays == 1) "play" else "plays", Modifier.alignByBaseline(), soft(), style = Sub)
         }
-    }
+    } }
 }
 
 /** Card 3: the period's hours counting up, over a barcode of its days with the longest one lit. */
@@ -330,27 +354,25 @@ private fun Hours(s: SpotifriedStats, calm: Boolean) {
             Text("That is ${longDuration(minutesOf(s.seconds))}, with no break.", Modifier.padding(top = 14.dp).rise(1, calm), soft(), style = Sub)
         }
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), Alignment.BottomStart) {
-            val (n, slotDp) = barLayout(days, maxWidth)
+            val (n, barDp) = barLayout(days, maxWidth)
             val bars = remember(s.daySeconds, n) { barHeights(s.daySeconds, n) }
             val lit = longest?.let { barOf(it, days, bars.size) }
-            val full = slotDp * n >= maxWidth - 1.dp
             val tallest = minOf(maxHeight - 30.dp, 270.dp).coerceAtLeast(40.dp)
             if (days > 0) Column {
-                Canvas(Modifier.width(slotDp * n).height(tallest)) {
-                    val slot = slotDp.toPx()
-                    val gap = minOf(1.dp.toPx(), slot * .4f)
+                Canvas(Modifier.fillMaxWidth().height(tallest).testTag("day_bars")) {
+                    val bar = barDp.toPx()
+                    // first bar on the left edge, last on the right, so the first and last dates sit under them
+                    val step = if (bars.size > 1) (size.width - bar) / (bars.size - 1) else 0f
                     val stub = 1.5.dp.toPx()
+                    val round = if (bar >= WIDE_BAR.toPx()) 3.dp.toPx() else minOf(1.dp.toPx(), bar / 2)
                     bars.forEachIndexed { i, h ->
                         val p = Ease.transform(((clock.value - 400 - i * sweep / bars.size) / grow).coerceIn(0f, 1f))
                         val tall = maxOf(h * size.height, stub) * p
-                        drawRoundRect(
-                            if (i == lit) accent else faint, Offset(i * slot, size.height - tall), Size(slot - gap, tall),
-                            CornerRadius(minOf(1.dp.toPx(), (slot - gap) / 2)),
-                        )
+                        drawRoundRect(if (i == lit) accent else faint, Offset(i * step, size.height - tall), Size(bar, tall), CornerRadius(minOf(round, tall / 2)))
                     }
                 }
-                Row(Modifier.then(if (full) Modifier.fillMaxWidth() else Modifier).padding(top = 8.dp), Arrangement.SpaceBetween) {
-                    dateLabels(s.start, days, full).forEach { Text(it, color = soft(), style = Sub.copy(fontSize = 11.sp, lineHeight = 14.sp)) }
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), Arrangement.SpaceBetween) {
+                    dateLabels(s.start, days).forEach { Text(it, color = soft(), style = Sub.copy(fontSize = 11.sp, lineHeight = 14.sp)) }
                 }
             }
         }
@@ -412,15 +434,18 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
     val lo = minOf(1960, (a.years.minOrNull() ?: 1960) / 10 * 10)
     val hi = maxOf(s.period.to.year, a.years.maxOrNull() ?: 0, lo + 20)
     val t = clock(calm, 4600f)
-    CardColumn {
+    // while years are still being looked up the timeline and the progress under it sit as one group in the middle of the
+    // free room; on a short card or with large text the timeline needs all of it
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(Modifier.fillMaxSize()) { val centred = typical == null && maxHeight >= 520.dp && fontScale < 1.5f; CardColumn {
         val head = Headline.copy(fontSize = 40.sp, lineHeight = 40.sp, letterSpacing = (-1.4).sp)
         if (typical != null) {
             Text(buildAnnotatedString { append("You listen like someone who was "); withStyle(SpanStyle(color = accent)) { append("14 in $typical.") } }, style = head)
         } else {
             Text(buildAnnotatedString { append("How old is "); withStyle(SpanStyle(color = accent)) { append("your music?") } }, style = head)
-            Text("Checking song years: ${count(checked)} of ${count(checked + unchecked)}", Modifier.padding(top = 10.dp), soft(), style = Sub)
         }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().clipToBounds()) {
+        if (centred) Spacer(Modifier.weight(.6f))
+        BoxWithConstraints(Modifier.weight(if (centred) .7f else 1f).fillMaxWidth().clipToBounds()) {
             val axis = maxHeight - 22.dp
             fun xOf(y: Int) = 4.dp + (maxWidth - 8.dp) * ((y - lo).toFloat() / (hi - lo))
             val step = stackStep(dots.maxOfOrNull { it.second } ?: 0, axis - 12.dp - 44.dp)
@@ -454,25 +479,46 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
                 // ends at the oldest dot, so it stays left of the typical year's line; lifted above the stacks under its ~90 dp
                 val left = (xOf(old) + 4.dp - 90.dp).coerceAtLeast(0.dp)
                 val under = dots.filter { xOf(it.first) in left..left + 90.dp }.maxOfOrNull { it.second } ?: 0
+                // room for its line above the dots: 26 dp at normal text size, more with large text
+                val y = axis - 12.dp - step * under - 12.dp - with(LocalDensity.current) { 14.sp.toDp() }
+                // while waiting, a timeline squeezed by large text has no room for it above the dots
+                if (typical == null && y < 0.dp) return@let
                 Text(
-                    "$old, your oldest", Modifier.offset(y = (axis - 12.dp - step * under - 26.dp).coerceAtLeast(22.dp)).anchorAt(xOf(old) + 4.dp, 1f)
+                    "$old, your oldest", Modifier.offset(y = if (typical == null) y else y.coerceAtLeast(22.dp)).anchorAt(xOf(old) + 4.dp, 1f)
                         .graphicsLayer { val p = stepAt(t.value, 1800f, 600f); alpha = p; translationY = (1 - p) * lift },
                     soft(), style = small,
                 )
             }
         }
-        val shown = if (typical != null) count((a.age!! * stepAt(t.value, 3100f, 1500f)).roundToInt()) else "?"
-        val line = if (typical != null) "Your listening age." + (topDecade(a.years)?.let { " Most of your songs are from the ${decadeName(it)}." } ?: "")
-            else "Needs 20 songs with a year."
-        Row(Modifier.padding(top = 6.dp), Arrangement.spacedBy(10.dp)) {
+        if (typical != null) {
+            val shown = count((a.age!! * stepAt(t.value, 3100f, 1500f)).roundToInt())
+            val line = "Your listening age." + (topDecade(a.years)?.let { " Most of your songs are from the ${decadeName(it)}." } ?: "")
+            Row(Modifier.padding(top = 6.dp), Arrangement.spacedBy(10.dp)) {
+                Text(
+                    shown, Modifier.alignByBaseline(), accent,
+                    style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 112.sp, lineHeight = 96.sp, letterSpacing = (-5.6).sp, fontFeatureSettings = TABULAR),
+                )
+                Text(line, Modifier.alignByBaseline().graphicsLayer { val p = stepAt(t.value, 3100f, 800f); alpha = p; translationY = (1 - p) * 18.dp.toPx() }, soft(), style = Sub)
+            }
+        } else {
+            // the progress takes the age's place, with a quiet bar under it
+            val done = checked.toFloat() / (checked + unchecked).coerceAtLeast(1)
             Text(
-                shown, Modifier.alignByBaseline(), accent,
-                style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 112.sp, lineHeight = 96.sp, letterSpacing = (-5.6).sp, fontFeatureSettings = TABULAR),
+                "Checking song years: ${count(checked)} of ${count(checked + unchecked)}", Modifier.padding(top = 14.dp),
+                style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, lineHeight = 28.sp, letterSpacing = (-.4).sp, fontFeatureSettings = TABULAR),
             )
-            Text(line, Modifier.alignByBaseline().graphicsLayer { val p = stepAt(t.value, 3100f, 800f); alpha = p; translationY = (1 - p) * 18.dp.toPx() }, soft(), style = Sub)
+            Box(
+                Modifier.padding(top = 14.dp).fillMaxWidth().height(4.dp).testTag("years_progress").drawBehind {
+                    val r = CornerRadius(size.height / 2)
+                    drawRoundRect(faint, cornerRadius = r)
+                    drawRoundRect(accent, size = Size(size.width * done, size.height), cornerRadius = r)
+                },
+            )
+            Text("Needs 20 songs with a year.", Modifier.padding(top = 12.dp), soft(), style = Sub)
+            if (centred) Spacer(Modifier.weight(.8f))
         }
         Text("Song years from MusicBrainz", Modifier.padding(top = 8.dp), soft(), style = Sub.copy(fontSize = 11.sp, lineHeight = 14.sp))
-    }
+    } }
 }
 
 internal fun dayText(d: LocalDate, withYear: Boolean): String = d.format(DateTimeFormatter.ofPattern(if (withYear) "d MMMM yyyy" else "d MMMM", english))
@@ -674,15 +720,26 @@ private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean, work
     // tappable only once it has appeared: before that a tap on it goes back a card, as anywhere on the left
     val ready by remember { derivedStateOf { button.value >= 1f } }
     var sharedAt by remember { mutableLongStateOf(-1_000L) }
-    BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
+    // where the facts end, from the card's top: the sun is lowered when its rays would come closer to them than 24 dp
+    var top by remember { mutableFloatStateOf(0f) }
+    var factsEnd by remember { mutableFloatStateOf(0f) }
+    BoxWithConstraints(Modifier.fillMaxSize().clipToBounds().onGloballyPositioned { top = it.boundsInRoot().top }) {
         // the person's own sun, big and dim behind everything, its centre 60 dp above the bottom edge, as in the mockup
         val side = maxWidth * 1.72f
-        Box(
-            Modifier.align(Alignment.BottomCenter).offset(y = side / 2 - 60.dp).requiredSize(side)
-                .graphicsLayer { alpha = .55f * up.value },
-        ) {
-            Canvas(Modifier.fillMaxSize()) { drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = .34f), Color.Transparent), radius = size.width * .36f), size.width * .36f) }
-            Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false)
+        val height = maxHeight
+        val reach = remember(s.hours, scale) { sunReach(s.hours, scale) }
+        Box(Modifier.fillMaxSize().fadeOutBottom()) {
+            Box(
+                Modifier.align(Alignment.BottomCenter).offset(y = side / 2 - 60.dp).requiredSize(side)
+                    .graphicsLayer {
+                        alpha = .55f * up.value
+                        val rays = height.toPx() - 60.dp.toPx() - side.toPx() * reach
+                        translationY = (factsEnd - top + 24.dp.toPx() - rays).coerceAtLeast(0f)
+                    },
+            ) {
+                Canvas(Modifier.fillMaxSize()) { drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = .34f), Color.Transparent), radius = size.width * .36f), size.width * .36f) }
+                Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false)
+            }
         }
         CardColumn {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -712,7 +769,7 @@ private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean, work
                         buildAnnotatedString { append(title.take(cut)); withStyle(SpanStyle(color = accent)) { append(title.drop(cut)) } },
                         Modifier.padding(top = 6.dp).rise(1, calm), maxLines = 3, style = titleStyle(fit),
                     )
-                    Column(Modifier.padding(top = 26.dp).widthIn(max = 280.dp), Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.padding(top = 26.dp).widthIn(max = 280.dp).onGloballyPositioned { factsEnd = it.boundsInRoot().bottom }, Arrangement.spacedBy(12.dp)) {
                         facts.forEachIndexed { i, f ->
                             val fig = factFigure(f)
                             Text(

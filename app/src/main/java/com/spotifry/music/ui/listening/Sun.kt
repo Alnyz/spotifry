@@ -201,17 +201,20 @@ private const val SUN_GLOW = .06f
  * square would be a blank gap above what follows. Works from the longest the rays can be (their random spread only
  * shortens them), so nothing is ever cut.
  */
-internal fun sunHeightFraction(hours: List<Long>, scale: Float): Float {
+internal fun sunHeightFraction(hours: List<Long>, scale: Float): Float = minOf(1f, .5f + sunReach(hours, scale, up = false) + SUN_GLOW)
+
+/** How far the rays reach from the centre at most, straight up ([up]) or down, as a share of the square's side; never a glow. */
+internal fun sunReach(hours: List<Long>, scale: Float, up: Boolean = true): Float {
     val peak = (hours.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
     val now = FloatArray(24) { hours[it] / peak }
-    var down = SUN_INNER
+    var most = SUN_INNER
     for (k in 0 until 96) {
         val a = k / 96f * 2 * PI.toFloat()
-        val below = -cos(a) // 1 straight down at noon, negative in the top half
-        if (below <= 0f) continue
-        down = maxOf(down, (SUN_INNER + SUN_REACH * valueAt(now, a).pow(.7f) * scale) * below)
+        val toward = if (up) cos(a) else -cos(a) // cos is 1 straight up at midnight, -1 straight down at noon
+        if (toward <= 0f) continue
+        most = maxOf(most, (SUN_INNER + SUN_REACH * valueAt(now, a).pow(.7f) * scale) * toward)
     }
-    return minOf(1f, .5f + down + SUN_GLOW)
+    return most
 }
 
 /** Between two hours the length eases from one to the other, so an hour with listening shows as one round tongue. */

@@ -143,19 +143,36 @@ class CardsTest {
         assertEquals("All told, ", hoursLead(WrappedPeriod(d, d, "All time")))
     }
 
-    @Test fun shortHistoryKeepsBarsThinAndLeft() {
-        assertEquals(1 to 6.dp, barLayout(1, 308.dp))
-        assertEquals(7 to 6.dp, barLayout(7, 308.dp))
-        val (n, slot) = barLayout(366, 308.dp)
+    @Test fun shortHistoryHasWideBarsAcrossTheWidth() {
+        assertEquals(1 to 14.dp, barLayout(1, 308.dp))
+        assertEquals(6 to 14.dp, barLayout(6, 401.dp))
+        // a month still has a gap between its bars
+        val (m, wide) = barLayout(29, 308.dp)
+        assertEquals(29, m)
+        assertTrue(wide < 308.dp / 29)
+        // a year stays a barcode: about 2.5 dp a bar, a 1 dp gap
+        val (n, bar) = barLayout(366, 308.dp)
         assertEquals(123, n)
-        assertEquals(308f / 123, slot.value, .001f)
+        assertEquals(308f / 123 - 1, bar.value, .001f)
+    }
+
+    @Test fun shortHistoryDatesSitAtBothEnds() {
+        val s = stats(plays = 60, seconds = 6 * 3600L, daySeconds = listOf(5000L, 6000L, 2000L, 100L, 14_400L, 0L))
+            .copy(start = LocalDate.of(2026, 11, 6), longestDay = LocalDate.of(2026, 11, 10))
+        rule.setContent { MusicTheme { Box(Modifier.size(360.dp, 460.dp)) { HoursCard(s, still = true) } } }
+        val bars = rule.onNodeWithTag("day_bars").getBoundsInRoot()
+        assertEquals(308.dp, bars.right - bars.left)
+        assertEquals(bars.left, rule.onNodeWithText("6 Nov").getBoundsInRoot().left)
+        assertEquals(bars.right, rule.onNodeWithText("11 Nov").getBoundsInRoot().right)
+        rule.onNodeWithText("Longest day: 4 hours, 10 November").assertIsDisplayed()
     }
 
     @Test fun dateLabelsAreDistinct() {
         val mar = LocalDate.of(2026, 3, 1)
-        assertEquals(listOf("1 Mar"), dateLabels(mar, 1, full = false))
-        assertEquals(listOf("1 Mar – 7 Mar"), dateLabels(mar, 7, full = false))
-        assertEquals(listOf("Jan", "Jul", "Dec"), dateLabels(LocalDate.of(2024, 1, 1), 366, full = true))
+        assertEquals(listOf("1 Mar"), dateLabels(mar, 1))
+        assertEquals(listOf("1 Mar", "7 Mar"), dateLabels(mar, 7))
+        assertEquals(listOf("1 Mar", "16 Mar", "31 Mar"), dateLabels(mar, 31))
+        assertEquals(listOf("Jan", "Jul", "Dec"), dateLabels(LocalDate.of(2024, 1, 1), 366))
     }
 
     @Test fun oneDayOfHistoryShowsOneDate() {
@@ -206,6 +223,22 @@ class CardsTest {
         rule.onNodeWithText("Checking song years: 5 of 25").assertIsDisplayed()
         rule.onNodeWithText("You listen like", substring = true).assertDoesNotExist()
         rule.onNodeWithText("Your listening age", substring = true).assertDoesNotExist()
+    }
+
+    @Test fun ageCardWaitingShowsTheProgressInPlaceOfTheAge() {
+        val waiting = ageOf(listOf(1990, 1991, 1999, 2004, 2020), null).copy(songsTotal = 95, unchecked = 88)
+        showBigText { AgeCard(stats(plays = 400, age = waiting), 7, 88, still = true) }
+        rule.onNodeWithText("Checking song years: 7 of 95").assertIsDisplayed()
+        rule.onNodeWithTag("years_progress").assertIsDisplayed()
+        rule.onNodeWithText("?").assertDoesNotExist()
+        rule.onNodeWithText("Needs 20 songs with a year.").assertIsDisplayed()
+        assertTrue(rule.onNodeWithText("Song years from MusicBrainz").getBoundsInRoot().bottom <= 460.dp)
+    }
+
+    @Test fun ageCardFinishedHasNoProgressBar() {
+        show { AgeCard(stats(plays = 400, age = ageOf(List(20) { 2000 + it % 7 }, 2003)), 20, 0, still = true) }
+        rule.onNodeWithTag("years_progress").assertDoesNotExist()
+        rule.onNodeWithText("Checking song years", substring = true).assertDoesNotExist()
     }
 
     @Test fun ageCardReplaysWhenTheAgeArrives() {
