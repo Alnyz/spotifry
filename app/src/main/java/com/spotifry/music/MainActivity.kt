@@ -266,7 +266,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
 
     // the bar fades over the page, so every list keeps this much clear at its end (164 dp playing, 104 dp not, on a 16 dp gesture area)
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val inset = FadeBarSpec.reserve(player.current != null, navInset)
+    val mini = com.spotifry.music.ui.miniPlayerShown(route, player.current != null)
+    val inset = FadeBarSpec.reserve(mini, navInset)
     val suggestionMenu: (Int) -> Unit = { i -> player.queue.getOrNull(i)?.let { menu = MenuTarget(it, queueIndex = i) } }
     val openMenu: (Song) -> Unit = { menu = MenuTarget(it) }
     val context = LocalContext.current
@@ -311,7 +312,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             if (!covered) Scaffold(
                 // the Spotifried story is dark on either theme, up under the status bar too
                 containerColor = if (route == Routes.SPOTIFRIED) com.spotifry.music.ui.theme.StoryBlack else MaterialTheme.colorScheme.background,
-                snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = FadeBarSpec.solid(player.current != null, navInset))) },
+                snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = FadeBarSpec.solid(mini, navInset))) },
                 contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
             ) { pad ->
                 if (route != Routes.SPOTIFRIED) TopGlow()
@@ -385,9 +386,13 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                         }
                     }
                     }
-                    FadeBar(barTabs, route, goTo, player.current != null, Modifier.align(Alignment.BottomCenter)) {
-                        MiniPlayer(player, position, haze, c.player::toggle, c.player::next, { showPlayer = true })
+                    val bar = @Composable {
+                        FadeBar(barTabs, route, goTo, mini, Modifier.align(Alignment.BottomCenter)) {
+                            MiniPlayer(player, position, haze, c.player::toggle, c.player::next, { showPlayer = true })
+                        }
                     }
+                    // under the story the bar fades into its black, not into a light page on the light theme
+                    if (route == Routes.SPOTIFRIED) com.spotifry.music.ui.theme.AlwaysDark(com.spotifry.music.ui.theme.StoryBlack, systemBars = false) { bar() } else bar()
                 }
             }
 

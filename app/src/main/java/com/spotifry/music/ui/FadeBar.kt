@@ -95,6 +95,9 @@ fun tabSelected(tab: String, route: String?): Boolean = route == tab ||
     (tab == Routes.SEARCH && (route == Routes.PAGE || route == Routes.MOOD)) ||
     (tab == Routes.LISTEN && (route == Routes.SETTINGS || route == Routes.EQUALIZER || route == Routes.LISTENING || route == Routes.SPOTIFRIED))
 
+/** The mini player shows while a song is loaded, except over the Spotifried story, which is full screen (the song keeps playing). */
+fun miniPlayerShown(route: String?, loaded: Boolean): Boolean = loaded && route != Routes.SPOTIFRIED
+
 /**
  * Where the selection pill is, as its two edges in pixels. They move on their own springs, the edge the pill is travelling
  * towards the stiffer one, so it stretches across the tabs in between and then settles with a small bounce.

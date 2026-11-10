@@ -84,6 +84,14 @@ class FadeBarTest {
         assertEquals(104.dp, FadeBarSpec.reserve(false, 16.dp))
     }
 
+    @Test fun miniPlayerHidesOnlyOverTheStory() {
+        assertTrue(miniPlayerShown(Routes.LISTEN, loaded = true))
+        assertTrue(miniPlayerShown(Routes.LISTENING, loaded = true))
+        assertFalse(miniPlayerShown(Routes.SPOTIFRIED, loaded = true))
+        assertFalse(miniPlayerShown(Routes.LISTEN, loaded = false))
+        assertEquals(FadeBarSpec.reserve(false, 16.dp), FadeBarSpec.reserve(miniPlayerShown(Routes.SPOTIFRIED, true), 16.dp))
+    }
+
     @Test fun eachScreenBelongsToItsTab() {
         fun on(route: String?) = tabs.filter { tabSelected(it.route, route) }.map { it.label }
         assertEquals(listOf("Home"), on(Routes.LISTEN))

@@ -43,9 +43,10 @@ fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, accent: Accent = AccentChoice.
  * were when it leaves.
  */
 @Composable
-fun AlwaysDark(background: Color, content: @Composable () -> Unit) {
+fun AlwaysDark(background: Color, systemBars: Boolean = true, content: @Composable () -> Unit) {
     val view = LocalView.current
-    val bars = remember(view) { (view.context as? Activity)?.window?.takeIf { !view.isInEditMode }?.let { WindowCompat.getInsetsController(it, view) } }
+    // [systemBars] false: colours only, for a second dark part next to one that already sets the bars
+    val bars = remember(view, systemBars) { (view.context as? Activity)?.window?.takeIf { systemBars && !view.isInEditMode }?.let { WindowCompat.getInsetsController(it, view) } }
     if (bars != null) {
         // read in the first SideEffect, not in DisposableEffect: those run before any SideEffect, so before MusicTheme's has set them
         val before = remember(bars) { arrayOfNulls<Boolean>(2) }
