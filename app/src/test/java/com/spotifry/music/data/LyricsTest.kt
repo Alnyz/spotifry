@@ -60,4 +60,14 @@ class LyricsTest {
         assertEquals(62_345L, LyricsSource.clock("62.345"))
         assertEquals(3_662_300L, LyricsSource.clock("1:01:02.3"))
     }
+
+    @Test fun lrcRedHitMustBeTheSameRecording() {
+        val hits = JSONArray("""[
+            {"isrc":"GBUM71029604","title":"Bohemian Rhapsody (Live)","artist":"Queen","duration":352.0},
+            {"isrc":"GBUM71029605","title":"Bohemian Rhapsody - 2011 Remaster","artist":"Queen","duration":356.0},
+            {"isrc":"GBUM71029606","title":"Bohemian Rhapsody","artist":"Someone Else","duration":355.0}]""")
+        assertEquals("GBUM71029605", LyricsSource.bestHit(hits, "Bohemian Rhapsody", "Queen", 355))
+        assertNull(LyricsSource.bestHit(hits, "Bohemian Rhapsody", "Queen", 300))
+        assertEquals("GBUM71029604", LyricsSource.bestHit(hits, "Bohemian Rhapsody (Live)", "Queen", 352))
+    }
 }

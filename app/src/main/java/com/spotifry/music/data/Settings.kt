@@ -150,6 +150,14 @@ class Settings(private val prefs: SharedPreferences) {
     val hideNonMusic: StateFlow<Boolean> = _hideNonMusic
     fun setHideNonMusic(on: Boolean) { _hideNonMusic.value = on; prefs.edit().putBoolean(HIDE_NON_MUSIC, on).apply() }
 
+    private val _lyricsOff = MutableStateFlow(prefs.getString(LYRICS_OFF, "").orEmpty().split(',').filter { it.isNotEmpty() }.toSet())
+    /** Lyrics sources the listener turned off (names from [Lyrics.SOURCES]). All on unless turned off. */
+    val lyricsOff: StateFlow<Set<String>> = _lyricsOff
+    fun setLyricsSource(name: String, on: Boolean) {
+        _lyricsOff.value = if (on) _lyricsOff.value - name else _lyricsOff.value + name
+        prefs.edit().putString(LYRICS_OFF, _lyricsOff.value.joinToString(",")).apply()
+    }
+
     private val _firstLaunchSeen = MutableStateFlow(prefs.getBoolean(FIRST_LAUNCH_SEEN, false))
     /** The first-launch screens were finished, skipped, or never needed (the app was updated, not installed). */
     val firstLaunchSeen: StateFlow<Boolean> = _firstLaunchSeen
@@ -170,6 +178,7 @@ class Settings(private val prefs: SharedPreferences) {
         const val CACHE_MB = "cache_mb"
         const val JIOSAAVN = "jiosaavn"
         const val HIDE_NON_MUSIC = "hide_non_music"
+        const val LYRICS_OFF = "lyrics_off"
         const val ARTISTS = "picked_artists"
         const val DATA_SAVER = "data_saver"
         const val SAVE_LOW = "save_low"

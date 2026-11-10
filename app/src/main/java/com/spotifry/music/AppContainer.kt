@@ -61,7 +61,7 @@ class AppContainer(private val context: Context) {
     /** Songs listened to in the last 24 hours: Shuffle plays them in the second half. */
     suspend fun recentlyPlayed(): Set<String> = db.plays().playedSince(System.currentTimeMillis() - 24 * 60 * 60 * 1000L).toSet()
     /** One lyrics lookup for Now playing and Share, so a song's lyrics are fetched once. */
-    val lyrics = com.spotifry.music.data.LyricsSource(client)
+    val lyrics = com.spotifry.music.data.LyricsSource(client) { settings.lyricsOff.value }
     val historyRecorder = HistoryRecorder(db.history(), db.songs())
     val listenLog = com.spotifry.music.data.ListenLog(db.listens())
     val events = PlaybackEvents()

@@ -54,6 +54,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val cacheMb by vm.settings.cacheMb.collectAsStateWithLifecycle()
 
     val hideNonMusic by vm.settings.hideNonMusic.collectAsStateWithLifecycle()
+    val lyricsOff by vm.settings.lyricsOff.collectAsStateWithLifecycle()
     val fade by vm.settings.fadeSeconds.collectAsStateWithLifecycle()
     val eqOn by vm.settings.eqOn.collectAsStateWithLifecycle()
     val eqPreset by vm.settings.eqPreset.collectAsStateWithLifecycle()
@@ -130,6 +131,19 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     onClick = { vm.settings.setHideNonMusic(!hideNonMusic) }, role = Role.Switch,
                 ) { Switch(hideNonMusic, null, colors = switchColors()) }
             }
+            Group("Lyrics sources") {
+                com.spotifry.music.data.Lyrics.SOURCES.forEach { name ->
+                    val on = name !in lyricsOff
+                    Item(
+                        name, when (name) {
+                            com.spotifry.music.data.Lyrics.BETTER_LYRICS -> "Word by word. Sends the song's title, artist and length to lyrics-api.boidu.dev."
+                            com.spotifry.music.data.Lyrics.LRC_RED -> "Word by word. Sends them to lrc.red."
+                            else -> "Line by line, the last choice. Sends them to lrclib.net."
+                        },
+                        onClick = { vm.settings.setLyricsSource(name, !on) }, role = Role.Switch,
+                    ) { Switch(on, null, colors = switchColors()) }
+                }
+            }
             Group("Storage") {
                 Item("Saved songs", storage?.let { "${it.savedCount} ${if (it.savedCount == 1) "song" else "songs"} · ${size(it.savedBytes)}" } ?: "Counting…")
                 Item("Replay storage", "Most space for played songs kept for replay. ∞ keeps them until Android needs the space. Saved songs are not touched. Takes effect when the app is next opened.", below = true) {
@@ -176,7 +190,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     )
                 } else Item("Spotifry", "Version ${BuildConfig.VERSION_NAME}")
                 Item("Music from YouTube", "Through NewPipe Extractor ${BuildConfig.NEWPIPE_VERSION}. If search breaks, this needs an update.")
-                Item("Lyrics from BetterLyrics and LRCLIB", "Sends the song's title, artist and length to lyrics-api.boidu.dev and lrclib.net")
+                Item("Lyrics", "Sources are chosen under Lyrics sources. Each gets the song's title, artist and length.")
             }
         }
     }

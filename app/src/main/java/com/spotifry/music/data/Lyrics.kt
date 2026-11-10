@@ -2,6 +2,9 @@ package com.spotifry.music.data
 
 import com.spotifry.music.data.source.Song
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -26,24 +29,55 @@ sealed interface Lyrics {
     companion object {
         const val LRCLIB = "LRCLIB"
         const val BETTER_LYRICS = "BetterLyrics"
+        const val LRC_RED = "lrc.red"
+        /** Every source, best first: the word-timed ones are asked together and the first with an answer wins; LRCLIB is the fallback. */
+        val SOURCES = listOf(BETTER_LYRICS, LRC_RED, LRCLIB)
     }
 }
 
 /**
- * Lyrics timed word by word from BetterLyrics (lyrics-api.boidu.dev, Apple Music's timings) when it has the song,
- * else from LRCLIB (lrclib.net), timed by line. Both free, no account; both get the song's title, artist and length.
- * Null means neither has lyrics for the song; an exception means LRCLIB couldn't be asked (offline, busy).
+ * Lyrics timed word by word from BetterLyrics (lyrics-api.boidu.dev) or lrc.red, both Apple Music's timings, asked at
+ * the same time; the first in [Lyrics.SOURCES] order that has the song wins. Else LRCLIB (lrclib.net), timed by line.
+ * All free, no account; all get the song's title, artist and length. [off] names the sources the listener turned off.
+ * Null means no source has lyrics for the song; an exception means LRCLIB couldn't be asked (offline, busy).
  */
-class LyricsSource(private val client: OkHttpClient) {
+class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<String> = { emptySet() }) {
     // ponytail: kept for this run of the app only; a disk copy would make lyrics work offline
     private val known = HashMap<String, Lyrics?>()
+    /** A word-timed source that hasn't answered in 4 seconds is a miss, so a dead site can't hold the lyrics up. */
+    private val quick = client.newBuilder().callTimeout(4, java.util.concurrent.TimeUnit.SECONDS).build()
 
     suspend fun get(song: Song): Lyrics? {
-        if (song.id in known) return known[song.id]
-        val found = withContext(Dispatchers.IO) { wordTimed(song) ?: tries { exact(song) } ?: tries { closest(song) } }
-        known[song.id] = found
+        val skip = off()
+        val key = song.id + skip.sorted()
+        if (key in known) return known[key]
+        val found = withContext(Dispatchers.IO) {
+            wordTimedFirst(song, skip) ?: if (Lyrics.LRCLIB in skip) null else tries { exact(song) } ?: tries { closest(song) }
+        }
+        known[key] = found
         return found
     }
+
+    private suspend fun wordTimedFirst(song: Song, skip: Set<String>): Lyrics? = coroutineScope {
+        val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed)
+            .filter { it.first !in skip }.map { (_, ask) -> async { ask(song) } }
+        // waits in priority order, but all are already running; a miss moves on to the next
+        asked.firstNotNullOfOrNull { it.await() }.also { coroutineContext.cancelChildren() }
+    }
+
+    /** lrc.red's search is free text, so a hit counts only when [bestHit] is sure it is this recording. */
+    private fun lrcRed(song: Song): Lyrics? = runCatching {
+        val url = "https://lrc.red/search.json".toHttpUrl().newBuilder().addQueryParameter("q", "${song.title} ${song.artist}").build()
+        val hits = quick.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use {
+            if (!it.isSuccessful) return null
+            JSONObject(it.body!!.string()).optJSONArray("hits") ?: return null
+        }
+        val isrc = bestHit(hits, song.title, song.artist, song.durationSec) ?: return null
+        quick.newCall(Request.Builder().url("https://lrc.red/s/$isrc.ttml").header("User-Agent", UA).build()).execute().use {
+            if (!it.isSuccessful) return null
+            parseTtml(it.body!!.string()).takeIf { l -> l.isNotEmpty() }?.let { l -> Lyrics.Timed(l, Lyrics.LRC_RED) }
+        }
+    }.getOrNull()
 
     /**
      * BetterLyrics only answers for songs someone has looked up before (others need a key it doesn't hand out),
@@ -52,7 +86,7 @@ class LyricsSource(private val client: OkHttpClient) {
     private fun wordTimed(song: Song): Lyrics? = runCatching {
         val url = "https://lyrics-api.boidu.dev/getLyrics".toHttpUrl().newBuilder()
             .addQueryParameter("s", song.title).addQueryParameter("a", song.artist).addQueryParameter("d", song.durationSec.toString()).build()
-        client.newCall(Request.Builder().url(url).header("User-Agent", "Spotifry (personal music player)").build()).execute().use {
+        quick.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use {
             if (!it.isSuccessful) return null
             parseTtml(JSONObject(it.body!!.string()).optString("ttml")).takeIf { l -> l.isNotEmpty() }?.let { l -> Lyrics.Timed(l, Lyrics.BETTER_LYRICS) }
         }
@@ -83,7 +117,7 @@ class LyricsSource(private val client: OkHttpClient) {
     }
 
     private fun call(url: String): String? =
-        client.newCall(Request.Builder().url(url).header("User-Agent", "Spotifry (personal music player)").build()).execute().use {
+        client.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use {
             if (it.code == 404) return null
             if (!it.isSuccessful) throw IOException("lyrics site said ${it.code}")
             it.body!!.string()
@@ -91,6 +125,39 @@ class LyricsSource(private val client: OkHttpClient) {
 
     companion object {
         private const val BASE = "https://lrclib.net/"
+        private const val UA = "Spotifry (personal music player)"
+
+        /**
+         * The ISRC (recording code) of the hit that is this recording, or null if none is sure to be. A miss just means
+         * the next source is asked; the wrong words in time with the right song are worse, so every test must pass:
+         * same title outside its brackets, same words naming another version (live, remix…), a shared artist, and a
+         * length within 3 seconds.
+         */
+        fun bestHit(hits: JSONArray, title: String, artist: String, durationSec: Long): String? {
+            val core = coreOf(title); val version = versionOf(title); val artists = artistsOf(artist)
+            return (0 until hits.length()).map { hits.getJSONObject(it) }.filter { h ->
+                val name = h.optString("title").ifEmpty { return@filter false }
+                Regex("[A-Z]{2}[A-Z0-9]{3}\\d{7}").matches(h.optString("isrc")) &&
+                    coreOf(name) == core && versionOf(name) == version &&
+                    (artists.isEmpty() || artistsOf(h.optString("artist")).any { it in artists }) &&
+                    (!h.has("duration") || durationSec <= 0 || abs(h.optDouble("duration") - durationSec) <= 3)
+            }.minByOrNull { if (it.has("duration")) abs(it.optDouble("duration") - durationSec) else 0.0 }?.getString("isrc")
+        }
+
+        private val BRACKETED = Regex("""[(\[][^)\]]*[)\]]""")
+        private val VERSION_WORDS = setOf("live", "remix", "remixed", "mix", "acoustic", "unplugged", "instrumental", "karaoke", "cappella",
+            "acapella", "demo", "edit", "version", "cover", "sped", "slowed", "reverb", "nightcore", "lofi", "orchestral", "extended")
+
+        /** Lower case, accents off, only letters and digits. */
+        private fun plain(v: String) = java.text.Normalizer.normalize(v, java.text.Normalizer.Form.NFD).replace(Regex("""\p{Mn}+"""), "")
+            .lowercase().map { if (it.isLetterOrDigit()) it else ' ' }.joinToString("").replace(Regex("""\s+"""), " ").trim()
+
+        /** "Song (Live) - 2011 Remaster" gives "song". */
+        private fun coreOf(t: String) = plain(t.replace(BRACKETED, " ").substringBefore(" - ")).ifEmpty { plain(t) }
+        private fun versionOf(t: String) = plain(BRACKETED.findAll(t).joinToString(" ") { it.value } + " " + t.substringAfter(" - ", ""))
+            .split(' ').filter { it in VERSION_WORDS }.toSet()
+        private fun artistsOf(a: String) = a.split(Regex("""\s*(?:,|&|;|/|\s+and\s+|\s+x\s+|\s+with\s+|\s+feat\.?\s+|\s+ft\.?\s+)\s*""", RegexOption.IGNORE_CASE))
+            .map(::plain).filter { it.isNotEmpty() }.toSet()
 
         fun pickClosest(results: JSONArray, durationSec: Long): Lyrics? =
             (0 until results.length()).map { results.getJSONObject(it) }
