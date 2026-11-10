@@ -168,6 +168,12 @@ class Settings(private val prefs: SharedPreferences) {
     val firstLaunchSeen: StateFlow<Boolean> = _firstLaunchSeen
     fun markFirstLaunchSeen() { _firstLaunchSeen.value = true; prefs.edit().putBoolean(FIRST_LAUNCH_SEEN, true).apply() }
 
+    private val _name = MutableStateFlow(prefs.getString(NAME, "").orEmpty())
+    /** What to call the listener (a name or nickname); empty when none was given. Only the Spotifried listener card uses it. */
+    val name: StateFlow<String> = _name
+    /** Saves [raw] as the name, cleaned and cut to [NAME_MAX] characters ([cleanName]); empty removes it. */
+    fun setName(raw: String) { val n = cleanName(raw); _name.value = n; prefs.edit().putString(NAME, n).apply() }
+
     private val _artists = MutableStateFlow(readArtists())
     /** Artists picked for Home, in the order picked. */
     val artists: StateFlow<List<PickedArtist>> = _artists
@@ -186,6 +192,7 @@ class Settings(private val prefs: SharedPreferences) {
         const val HIDE_NON_MUSIC = "hide_non_music"
         const val LYRICS_OFF = "lyrics_off"
         const val ARTISTS = "picked_artists"
+        const val NAME = "user_name"
         const val DATA_SAVER = "data_saver"
         const val SAVE_LOW = "save_low"
         const val KEEP_SCREEN_ON = "keep_screen_on"

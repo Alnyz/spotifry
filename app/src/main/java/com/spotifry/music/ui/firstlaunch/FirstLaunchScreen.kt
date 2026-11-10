@@ -87,6 +87,7 @@ fun FirstLaunchScreen(
     vm: FirstLaunchViewModel, importVm: ImportViewModel, covers: Map<Long, List<SongEntity>>, onRestore: (() -> Unit)? = null, onClose: () -> Unit = {},
 ) {
     val step by vm.step.collectAsStateWithLifecycle()
+    val intro by vm.intro.collectAsStateWithLifecycle()
     val importing by importVm.state.collectAsStateWithLifecycle()
     val running = importing is ImportState.Opening || importing is ImportState.Running
     val finish = { importVm.close(); vm.finish() }
@@ -99,29 +100,34 @@ fun FirstLaunchScreen(
     // a cancelled import closes the import; the link box comes back
     LaunchedEffect(importing, step) { if (step == 2 && importing == ImportState.Closed) importVm.open() }
     // nothing to go back to on the first screen of a first launch; while the import runs the back key waits for Cancel import
-    BackHandler(enabled = step == 2 || vm.reopen) {
+    BackHandler(enabled = step == 2 || vm.reopen || intro != Intro.WELCOME) {
         if (running) return@BackHandler
         // a finished import is not thrown away by going back: that ends the first launch
-        if (importing is ImportState.Done) finish() else if (step == 2) vm.back() else onClose()
+        if (importing is ImportState.Done) finish() else if (step == 2 || !vm.reopen) vm.back() else onClose()
     }
     
     // a Surface, so text takes the theme's ink: outside the Scaffold it would default to black on the dark background
     androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
     Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
-        if (step == 1) {
-            val starters by vm.starters.collectAsStateWithLifecycle()
+        val starters by vm.starters.collectAsStateWithLifecycle()
+        if (intro == Intro.WELCOME) {
+            WelcomeStep(starters, onFresh = vm::startFresh, onRestore = onRestore)
+        } else if (intro == Intro.NAME) {
+            val name by vm.name.collectAsStateWithLifecycle()
+            NameStep(starters, name, { vm.name.value = it }, "1 of 3", onContinue = vm::saveName, onSkip = vm::skipName)
+        } else if (step == 1) {
             val picked by vm.picked.collectAsStateWithLifecycle()
             val query by vm.query.collectAsStateWithLifecycle()
             val search by vm.search.collectAsStateWithLifecycle()
             val off by vm.offline.collectAsStateWithLifecycle()
             ArtistsStep(
                 starters, picked, query, { vm.query.value = it }, search, off,
-                stepLabel = if (vm.reopen) null else "1 of 2",
+                stepLabel = if (vm.reopen) null else "2 of 3",
                 skipLabel = if (vm.reopen) "Cancel" else "Skip", continueLabel = if (vm.reopen) "Done" else "Continue",
                 onToggle = vm::toggle, onRetry = vm::retryPhotos,
                 onSkip = { if (vm.reopen) onClose() else vm.skipArtists() },
                 onContinue = { vm.next(); if (vm.reopen) onClose() },
-                minPicks = vm.minPicks, onRestore = onRestore,
+                minPicks = vm.minPicks,
             )
         } else {
             LinkStep(
@@ -138,7 +144,7 @@ private fun isOnline(context: android.content.Context): Boolean {
 }
 
 @Composable
-private fun TopRow(stepLabel: String?, skipLabel: String, skipEnabled: Boolean, onSkip: () -> Unit) {
+internal fun TopRow(stepLabel: String?, skipLabel: String, skipEnabled: Boolean, onSkip: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 20.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
         Text(stepLabel.orEmpty(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
@@ -156,7 +162,7 @@ private fun Heading(text: String, sub: String? = null) {
 }
 
 @Composable
-private fun Foot(content: @Composable () -> Unit) = Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp)) { content() }
+internal fun Foot(content: @Composable () -> Unit) = Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp)) { content() }
 
 /** Screen 1. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -165,7 +171,7 @@ internal fun ArtistsStep(
     starters: List<Starter>, picked: List<PickedArtist>, query: String, onQuery: (String) -> Unit, search: ArtistSearch, offline: Boolean,
     stepLabel: String?, skipLabel: String, continueLabel: String,
     onToggle: (PickedArtist) -> Unit, onRetry: () -> Unit, onSkip: () -> Unit, onContinue: () -> Unit,
-    minPicks: Int = MIN_ARTISTS, onRestore: (() -> Unit)? = null,
+    minPicks: Int = MIN_ARTISTS,
 ) {
     val scheme = MaterialTheme.colorScheme
     val keyboard = LocalSoftwareKeyboardController.current
@@ -201,11 +207,6 @@ internal fun ArtistsStep(
             val n = picked.size
             if (n >= minPicks) Pill(null, if (n == 0) "$continueLabel · none picked" else "$continueLabel · $n picked", scheme.primary, scheme.onPrimary, onContinue, Modifier.fillMaxWidth())
             else Pill(null, if (n == 0) "Pick $MIN_ARTISTS or more" else "Pick ${MIN_ARTISTS - n} more", scheme.surfaceContainerHigh, scheme.onSurfaceVariant, {}, Modifier.fillMaxWidth().semantics { disabled() })
-            if (onRestore != null) Text(
-                "Restore a backup",
-                Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp).clickable(role = Role.Button, onClick = onRestore).heightIn(min = 48.dp).padding(horizontal = 12.dp).wrapContentHeight(Alignment.CenterVertically),
-                style = MaterialTheme.typography.labelLarge, color = scheme.primary,
-            )
         }
     }
 }
@@ -305,7 +306,7 @@ internal fun LinkStep(
     var link by rememberSaveable { mutableStateOf(copied) }
     val running = state is ImportState.Opening || state is ImportState.Running
     Column(Modifier.fillMaxSize()) {
-        TopRow(if (state is ImportState.Done) null else "2 of 2", if (state is ImportState.Done) "" else "Skip", skipEnabled = !running && state !is ImportState.Done, onSkip)
+        TopRow(if (state is ImportState.Done) null else "3 of 3", if (state is ImportState.Done) "" else "Skip", skipEnabled = !running && state !is ImportState.Done, onSkip)
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
             when (state) {
                 is ImportState.Opening -> {

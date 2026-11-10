@@ -83,6 +83,30 @@ class FirstLaunchViewModelTest {
         assertEquals(1, vm.step.value); assertEquals(3, vm.picked.value.size)
     }
 
+    @Test fun welcomeThenNameThenArtistsAndBackWalksTheSameWay() {
+        val s = settings(); val vm = FirstLaunchViewModel(Source(), s)
+        assertEquals(Intro.WELCOME, vm.intro.value)
+        vm.startFresh(); assertEquals(Intro.NAME, vm.intro.value)
+        vm.name.value = "  Ali  "; vm.saveName()
+        assertEquals("Ali", s.name.value); assertEquals(Intro.DONE, vm.intro.value)
+        vm.back(); assertEquals(Intro.NAME, vm.intro.value); assertEquals("  Ali  ", vm.name.value)
+        vm.back(); assertEquals(Intro.WELCOME, vm.intro.value)
+    }
+
+    @Test fun anEmptyNameDoesNotContinueAndSkipKeepsNone() {
+        val s = settings(); val vm = FirstLaunchViewModel(Source(), s)
+        vm.startFresh(); vm.name.value = "   "; vm.saveName()
+        assertEquals(Intro.NAME, vm.intro.value); assertEquals("", s.name.value)
+        vm.skipName()
+        assertEquals(Intro.DONE, vm.intro.value); assertEquals("", s.name.value)
+    }
+
+    @Test fun reopenedFromHomeHasNoWelcomeOrName() {
+        val vm = FirstLaunchViewModel(Source(), settings(), reopen = true)
+        assertEquals(Intro.DONE, vm.intro.value)
+        vm.back(); assertEquals(Intro.DONE, vm.intro.value)
+    }
+
     @Test fun photosAndPagesFillInWhenTheLookupsAnswer() {
         val vm = FirstLaunchViewModel(Source(), settings())
         assertTrue(vm.starters.value.all { it.photo != null && it.url.isNotEmpty() })
