@@ -93,7 +93,7 @@ internal suspend fun captureStoryCard(
     // behind the app's own views: covered, yet drawn every frame like any child. One moved off screen would not be drawn.
     decor.addView(view, 0, FrameLayout.LayoutParams(WIDTH, HEIGHT))
     try {
-        val shot = drawn.await().also { awaitFrame() }.toImageBitmap().asAndroidBitmap()
+        val shot = drawn.await().also { awaitFrame(); awaitFrame() }.toImageBitmap().asAndroidBitmap()
         // on a phone the shot is a hardware bitmap, which can't be drawn on
         val out = try { shot.copy(Bitmap.Config.ARGB_8888, true) } finally { shot.recycle() }
             ?: throw IllegalStateException("Not enough memory for the picture")

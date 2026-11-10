@@ -16,6 +16,6 @@ class MusicApp : Application(), androidx.work.Configuration.Provider {
         container = AppContainer(this)
         NewPipe.init(OkHttpDownloader(container.client), Localization("en", "US"))
         com.spotifry.music.data.spotifried.enqueueYearLookup(this)
-        Thread { com.spotifry.music.ui.share.clearSharedPictures(cacheDir) }.start()
+        Thread { runCatching { com.spotifry.music.ui.share.clearSharedPictures(cacheDir) } }.start()
     }
 }
