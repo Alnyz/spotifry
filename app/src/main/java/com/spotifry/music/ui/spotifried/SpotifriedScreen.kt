@@ -32,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.spotifry.music.ui.share.sharePictures
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -116,7 +117,8 @@ fun SpotifriedScreen(
                 try {
                     val activity = generateSequence(context) { (it as? ContextWrapper)?.baseContext }.filterIsInstance<Activity>().first()
                     sharePictures(context, state.cards.size) { capture(activity, state.cards[it], state) }
-                } catch (e: CancellationException) { throw e }
+                } catch (e: TimeoutCancellationException) { failed = true } // a stalled capture, not the screen going away
+                catch (e: CancellationException) { throw e }
                 catch (e: Exception) { failed = true }
                 finally { working = false }
             }

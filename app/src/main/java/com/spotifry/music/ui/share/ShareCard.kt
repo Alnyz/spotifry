@@ -186,6 +186,7 @@ suspend fun sharePicture(context: Context, card: Bitmap) {
  * before the next is drawn, so only one bitmap is alive at a time. Anything thrown by [draw] shares nothing.
  */
 suspend fun sharePictures(context: Context, count: Int, draw: suspend (Int) -> Bitmap) {
+    require(count > 0) { "Nothing to share" }
     val dir = withContext(Dispatchers.IO) { File(context.cacheDir, "shares").apply { mkdirs(); listFiles()?.forEach { it.delete() } } }
     val uris = (0 until count).map { n ->
         val bitmap = draw(n)
@@ -194,12 +195,17 @@ suspend fun sharePictures(context: Context, count: Int, draw: suspend (Int) -> B
         } finally { bitmap.recycle() }
         FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
     }
-    val send = Intent(Intent.ACTION_SEND_MULTIPLE).setType("image/png").putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    // some apps only take a single image through plain SEND
+    val send = (if (count == 1) Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
+        else Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris)))
+        .setType("image/png").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     // the clip is what makes the read permission cover every uri, not only the first
     send.clipData = ClipData.newRawUri(null, uris.first()).also { clip -> uris.drop(1).forEach { clip.addItem(ClipData.Item(it)) } }
     context.startActivity(Intent.createChooser(send, null))
 }
+
+/** Deletes the pictures a past Share left in the cache. */
+fun clearSharedPictures(cacheDir: File) { File(cacheDir, "shares").listFiles()?.forEach { it.delete() } }
 
 /** Hands [text] to Android's share list. */
 fun sendText(context: Context, text: String) =

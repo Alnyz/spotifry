@@ -27,6 +27,7 @@ import com.spotifry.music.data.spotifried.stats
 import com.spotifry.music.ui.components.loadCover
 import com.spotifry.music.ui.share.CardBackground
 import com.spotifry.music.ui.share.drawCard
+import com.spotifry.music.ui.share.clearSharedPictures
 import com.spotifry.music.ui.share.sharePictures
 import kotlinx.coroutines.runBlocking
 import com.spotifry.music.ui.theme.AccentChoice
@@ -184,11 +185,7 @@ class PicturesTest {
         assertNull(second.get())
     }
 
-    // FileProvider keeps its folders per authority for the whole JVM; every Robolectric test has a new cache folder
-    @Before fun forgetProviderFolders() {
-        val cache = FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }
-        @Suppress("UNCHECKED_CAST") (cache.get(null) as MutableMap<*, *>).clear()
-    }
+    @Before fun forgetProviderFolders() = forgetFileProviderFolders()
 
     private fun small() = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888)
     private val shares get() = File(activity.cacheDir, "shares")
@@ -222,5 +219,25 @@ class PicturesTest {
         while (shadowOf(activity).nextStartedActivity != null) Unit
         runCatching { runBlocking { sharePictures(activity, 3) { if (it == 1) error("no") else small() } } }
         assertNull(shadowOf(activity).nextStartedActivity)
+    }
+
+    @Test fun oneCardIsSentAsAPlainSend() {
+        runBlocking { sharePictures(activity, 1) { small() } }
+        val sent = shadowOf(activity).nextStartedActivity.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
+        assertEquals(Intent.ACTION_SEND, sent.action)
+        assertTrue(sent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM) != null)
+    }
+
+    @Test fun noCardsIsRefused() {
+        val r = runCatching { runBlocking { sharePictures(activity, 0) { small() } } }
+        assertTrue(r.exceptionOrNull() is IllegalArgumentException)
+    }
+
+    @Test fun clearSharedPicturesDeletesOnlyTheSharesFolder() {
+        runBlocking { sharePictures(activity, 2) { small() } }
+        val other = File(activity.cacheDir, "keep.txt").apply { writeText("x") }
+        clearSharedPictures(activity.cacheDir)
+        assertEquals(0, shares.list()!!.size)
+        assertTrue(other.exists())
     }
 }

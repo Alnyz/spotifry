@@ -11,6 +11,8 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.robolectric.Shadows.shadowOf
@@ -57,10 +59,7 @@ class SpotifriedScreenTest {
     private fun ms(y: Int, m: Int, d: Int) = LocalDateTime.of(y, m, d, 12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     private fun row(at: Long, id: String) = ListenRow(at, id, 200, false, SongEntity(id, "Song $id", "Artist $id", 200, null, null, null, null))
 
-    @Before fun forgetProviderFolders() {
-        val cache = androidx.core.content.FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }
-        @Suppress("UNCHECKED_CAST") (cache.get(null) as MutableMap<*, *>).clear()
-    }
+    @Before fun forgetProviderFolders() = forgetFileProviderFolders()
 
     private var show by mutableStateOf(true)
     private var index = 0
@@ -172,6 +171,13 @@ class SpotifriedScreenTest {
         rule.onNodeWithText(typeCard).performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Couldn't make the pictures. Try again.").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText(typeCard).assertIsEnabled()
+        assertNull(sent())
+    }
+
+    @Test fun aTimedOutCaptureShowsTheMessageAndSharesNothing() {
+        shareScreen { _, _, _ -> withTimeout(1) { awaitCancellation() } }
+        rule.onNodeWithText(typeCard).performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Couldn't make the pictures. Try again.").fetchSemanticsNodes().isNotEmpty() }
         assertNull(sent())
     }
 
