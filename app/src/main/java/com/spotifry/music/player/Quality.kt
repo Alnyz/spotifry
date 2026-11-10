@@ -5,7 +5,7 @@ import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 
 /**
- * The playing song's real sound, as a short label for Now playing: "Opus 160 kbps", "FLAC 24-bit · 96 kHz".
+ * The playing song's real sound, as a short label for Now playing: "Opus 160 kbps", "Lossless" or "Hi-Res Lossless".
  * Only what the file really is, never "Hi-Res" on a YouTube song. [knownKbps] is YouTube's own figure, used
  * when the file doesn't carry its bitrate (Opus in WebM doesn't). Null when the format is unknown.
  */
@@ -29,6 +29,8 @@ fun qualityLabel(f: Format?, knownKbps: Int? = null): String? {
             C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> 32
             else -> null
         }
+        // FLAC and ALAC get a plain name; "Hi-Res" only when the file really is above CD quality
+        if (mime != MimeTypes.AUDIO_RAW) return if ((bits ?: 16) > 16 || f.sampleRate > 48_000) "Hi-Res Lossless" else "Lossless"
         val tail = listOfNotNull(bits?.let { "$it-bit" }, khz(f.sampleRate)).joinToString(" · ")
         return if (tail.isEmpty()) name else "$name $tail"
     }
