@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongEntity::class, HistoryEntity::class, PlayCountEntity::class, ListenEntity::class],
-    version = 4,
+    entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongEntity::class, HistoryEntity::class, PlayCountEntity::class, ListenEntity::class, SongYearEntity::class],
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -19,10 +19,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun plays(): PlayCountDao
     abstract fun listens(): ListenDao
     abstract fun backup(): BackupDao
+    abstract fun songYears(): SongYearDao
 
     companion object {
         fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "music.db").addMigrations(ADD_PLAYS, ADD_ADDED_AT, ADD_LISTENS).build()
+            Room.databaseBuilder(context, AppDatabase::class.java, "music.db").addMigrations(ADD_PLAYS, ADD_ADDED_AT, ADD_LISTENS, ADD_SONG_YEARS).build()
 
         val ADD_PLAYS = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -42,6 +43,12 @@ abstract class AppDatabase : RoomDatabase() {
         val ADD_LISTENS = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `listens` (`startedAt` INTEGER NOT NULL, `songId` TEXT NOT NULL, `secondsHeard` INTEGER NOT NULL, `skipped` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`startedAt`))")
+            }
+        }
+
+        val ADD_SONG_YEARS = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `song_years` (`songId` TEXT NOT NULL, `year` INTEGER, `checkedAt` INTEGER NOT NULL, PRIMARY KEY(`songId`))")
             }
         }
     }
