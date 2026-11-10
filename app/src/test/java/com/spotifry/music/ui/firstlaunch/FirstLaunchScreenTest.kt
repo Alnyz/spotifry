@@ -50,18 +50,6 @@ class FirstLaunchScreenTest {
         MusicTheme { ArtistsStep(starters, picked, "", {}, ArtistSearch.Idle, offline, "1 of 2", "Skip", "Continue", {}, onRetry, {}, onContinue) }
     }
 
-    @Test fun restoreLinkShowsOnlyWhenOffered() {
-        var taps = 0
-        var offered by mutableStateOf(false)
-        compose.setContent {
-            MusicTheme { ArtistsStep(starters, emptyList(), "", {}, ArtistSearch.Idle, false, "1 of 2", "Skip", "Continue", {}, {}, {}, {}, onRestore = if (offered) ({ taps++ }) else null) }
-        }
-        compose.onNodeWithText("Restore a backup").assertDoesNotExist()
-        offered = true
-        compose.onNodeWithText("Restore a backup").performClick()
-        assertEquals(1, taps)
-    }
-
     @Test fun nothingPickedAsksForThree() {
         artists(emptyList())
         compose.onNodeWithText("Pick 3 or more").assertIsDisplayed()
@@ -155,7 +143,11 @@ class FirstLaunchScreenTest {
         val settings = Settings(context.getSharedPreferences("screen", 0))
         val vm = FirstLaunchViewModel(source, settings)
         compose.setContent { MusicTheme { FirstLaunchScreen(vm, importVm, emptyMap()) } }
+        compose.onNodeWithText("Start fresh").performClick()
         compose.onNodeWithText("Skip").performClick()
+        compose.onNodeWithText("2 of 3").assertIsDisplayed()
+        compose.onNodeWithText("Skip").performClick()
+        compose.onNodeWithText("3 of 3").assertIsDisplayed()
         compose.onNodeWithText("Bring a playlist").assertIsDisplayed()
         compose.onNode(hasSetTextAction()).performTextInput("https://open.spotify.com/playlist/2wauuVc0v7DBWGylJ6nFFr")
         compose.onNodeWithText("Import").performClick()
@@ -167,5 +159,27 @@ class FirstLaunchScreenTest {
         compose.onNodeWithText("Skip").performClick()
         assertTrue(settings.firstLaunchSeen.value)
         db.close()
+    }
+
+    @Test fun welcomeOffersBothChoicesAndRestoreOpensThePicker() {
+        var taps = 0; var fresh = 0
+        compose.setContent { MusicTheme { WelcomeStep(emptyList(), { fresh++ }, { taps++ }) } }
+        compose.onNodeWithText("Welcome to", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Restore a backup").performClick()
+        compose.onNodeWithText("Start fresh").performClick()
+        assertEquals(1, taps); assertEquals(1, fresh)
+    }
+
+    @Test fun nameContinueWaitsForSomethingTypedAndStopsAtTwenty() {
+        var name by mutableStateOf(""); var went = 0
+        compose.setContent { MusicTheme { NameStep(emptyList(), name, { name = it }, "1 of 3", { went++ }, {}) } }
+        compose.onNodeWithText("1 of 3").assertIsDisplayed()
+        compose.onNodeWithText("Continue").assertIsNotEnabled().performClick()
+        assertEquals(0, went)
+        compose.onNodeWithTag("name field").performTextInput("Alexandria Kristofer Jones")
+        assertEquals("Alexandria Kristofer", name)
+        compose.onNodeWithText("20/20").assertIsDisplayed()
+        compose.onNodeWithText("Continue").performClick()
+        assertEquals(1, went)
     }
 }

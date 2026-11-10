@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.MIN_ARTISTS
 import com.spotifry.music.data.PickedArtist
 import com.spotifry.music.data.STARTER_ARTISTS
+import com.spotifry.music.data.cleanName
 import com.spotifry.music.data.Settings
 import com.spotifry.music.data.lookupArtist
 import com.spotifry.music.data.source.MusicSource
@@ -39,8 +40,11 @@ sealed interface ArtistSearch {
     data object Error : ArtistSearch
 }
 
+/** The pages before the artists on a first launch: [WELCOME] (restore a backup, or start fresh), then [NAME]; [DONE] once past them. */
+object Intro { const val WELCOME = 0; const val NAME = 1; const val DONE = 2 }
+
 /**
- * Screen 1 (pick artists) and the step number of the two screens. [reopen]: opened again from Home (Edit, or the button on an empty Home); it starts
+ * The pages of the first launch: welcome, name, then step 1 (pick artists) and step 2 (the playlist link). [reopen]: opened again from Home (Edit, or the button on an empty Home); it starts
  * from the artists already picked, takes any number of them and has no second screen.
  */
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -50,6 +54,10 @@ class FirstLaunchViewModel(
     val reopen: Boolean = false,
 ) : ViewModel() {
     val step = MutableStateFlow(1)
+    /** Where the pages before the artists are; a reopened picker has none of them. */
+    val intro = MutableStateFlow(if (reopen) Intro.DONE else Intro.WELCOME)
+    /** What is typed in the name box; the saved name is filled in, so going back and forth keeps it. */
+    val name = MutableStateFlow(settings.name.value)
     val picked = MutableStateFlow(if (reopen) settings.artists.value else emptyList())
     val query = MutableStateFlow("")
     val starters = MutableStateFlow(STARTER_ARTISTS.map { Starter(it) })
@@ -112,10 +120,30 @@ class FirstLaunchViewModel(
         if (!reopen) step.value = 2
     }
 
+    /** "Start fresh". */
+    fun startFresh() { intro.value = Intro.NAME }
+
+    /** "Continue" on the name page: the name is kept at once, as the artists are on theirs. */
+    fun saveName() {
+        if (cleanName(name.value).isEmpty()) return
+        settings.setName(name.value)
+        intro.value = Intro.DONE
+    }
+
+    /** "Skip" on the name page keeps no name. */
+    fun skipName() { intro.value = Intro.DONE }
+
     /** "Skip" on screen 1 saves no picks and goes on to the link screen. */
     fun skipArtists() { if (!reopen) step.value = 2 }
 
-    fun back() { if (step.value == 2) step.value = 1 }
+    /** One page back: link to artists, artists to name, name to welcome. */
+    fun back() {
+        when {
+            step.value == 2 -> step.value = 1
+            !reopen && intro.value == Intro.DONE -> intro.value = Intro.NAME
+            intro.value == Intro.NAME -> intro.value = Intro.WELCOME
+        }
+    }
 
     /** The end of the first launch, by finishing or skipping the link screen. */
     fun finish() { settings.markFirstLaunchSeen() }

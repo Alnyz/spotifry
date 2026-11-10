@@ -13,7 +13,7 @@ import com.spotifry.music.R
 /** Albert Sans (variable). Bold for titles and section names, regular for reading. */
 @OptIn(ExperimentalTextApi::class)
 val Albert = FontFamily(
-    listOf(400, 500, 600, 700).map { w ->
+    listOf(400, 500, 600, 700, 800, 900).map { w ->
         Font(R.font.albertsans, FontWeight(w), variationSettings = FontVariation.Settings(FontVariation.weight(w)))
     }
 )
