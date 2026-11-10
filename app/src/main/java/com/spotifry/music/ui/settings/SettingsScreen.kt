@@ -74,40 +74,40 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
         item { ScreenHeader("Settings", onBack = onBack) }
         item {
             Group("Sound") {
-                Item("Data saver", "Lower quality on mobile data, about a third of the data. Wi-Fi stays high.", onClick = { vm.settings.setDataSaver(!dataSaver) }, role = Role.Switch) {
+                Item("Data saver", "Lower quality on mobile data. Wi-Fi stays high.", onClick = { vm.settings.setDataSaver(!dataSaver) }, role = Role.Switch) {
                     Switch(dataSaver, null, colors = switchColors())
                 }
                 Item(
-                    "Lossless (Monochrome)", "FLAC, about 1000 kbps and 5–10× the data. Unofficial: the server can stop working any day. Falls back to JioSaavn, then YouTube.",
+                    "Lossless (Monochrome)", "FLAC, 5–10× the data. Unofficial, can stop working any day.",
                     onClick = { vm.setMonochrome(!monochrome) }, role = Role.Switch,
                 ) {
                     Switch(monochrome, null, colors = switchColors())
                 }
                 Item(
-                    "JioSaavn 320 kbps", "Unofficial, may not work outside India. Falls back to YouTube.",
+                    "JioSaavn 320 kbps", "Unofficial, may not work outside India.",
                     onClick = { vm.setJioSaavn(!jioSaavn) }, role = Role.Switch,
                 ) {
                     Switch(jioSaavn, null, colors = switchColors())
                 }
                 Item(
-                    "Same loudness for every song", "Quiet songs are turned up and loud ones down, so you don't reach for the volume between songs.",
+                    "Same loudness for every song", "Quiet songs up, loud ones down.",
                     onClick = { vm.settings.setSameLoudness(!sameLoudness) }, role = Role.Switch,
                 ) {
                     Switch(sameLoudness, null, colors = switchColors())
                 }
                 Item(
-                    "Skip quiet parts", "Jumps over silence, like long quiet intros, endings and gaps between tracks on live albums.",
+                    "Skip quiet parts", "Jumps over long silences.",
                     onClick = { vm.settings.setSkipSilence(!skipSilence) }, role = Role.Switch,
                 ) {
                     Switch(skipSilence, null, colors = switchColors())
                 }
                 Item(
-                    "Smart trim", "Skips talking at the start and end of music videos, using a shared public list. Your own trims always win.",
+                    "Smart trim", "Skips talking at the start and end of music videos.",
                     onClick = { vm.settings.setSmartTrim(!smartTrim) }, role = Role.Switch,
                 ) {
                     Switch(smartTrim, null, colors = switchColors())
                 }
-                Item("Crossfade", "Songs overlap as one runs into the next, on the beat when they can.", below = true) {
+                Item("Crossfade", "Songs overlap, on the beat when they can.", below = true) {
                     Segments(FADES.map { if (it == 0) "Off" else "$it s" }, FADES.indexOf(fade).coerceAtLeast(0)) { vm.settings.setFadeSeconds(FADES[it]) }
                 }
                 Item("Equalizer", if (!eqOn) "Off" else eqPreset ?: "Custom", onClick = onOpenEqualizer) {
@@ -122,7 +122,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     Segments(listOf("Phone", "Light", "Dark"), theme.ordinal) { vm.settings.setTheme(ThemeMode.entries[it]) }
                 }
                 Item(
-                    "Pure black", "Black instead of dark grey when the app is dark. Saves battery on phones with an OLED screen.",
+                    "Pure black", "Black instead of dark grey. Saves battery on OLED.",
                     onClick = { vm.settings.setPureBlack(!pureBlack) }, role = Role.Switch,
                 ) { Switch(pureBlack, null, colors = switchColors()) }
                 Item("Accent colour", com.spotifry.music.ui.theme.AccentChoice.of(accent).label, onClick = { pickAccent = true }) {
@@ -134,7 +134,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
             }
             Group("Music on your phone") {
                 Item(
-                    "Hide non-music audio", "Clips under 30 seconds, WAV files, voice notes, recordings and system sounds.",
+                    "Hide non-music audio", "Clips under 30 seconds, voice notes, recordings, system sounds.",
                     onClick = { vm.settings.setHideNonMusic(!hideNonMusic) }, role = Role.Switch,
                 ) { Switch(hideNonMusic, null, colors = switchColors()) }
             }
@@ -143,11 +143,11 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     val on = name !in lyricsOff
                     Item(
                         name, when (name) {
-                            com.spotifry.music.data.Lyrics.BETTER_LYRICS -> "Word by word. Sends the song's title, artist and length to lyrics-api.boidu.dev."
-                            com.spotifry.music.data.Lyrics.LRC_RED -> "Word by word. Sends them to lrc.red."
-                            com.spotifry.music.data.Lyrics.PORTATO -> "Word by word, a big catalogue. Sends them to lyrics-api.boidu.dev (QQ Music)."
-                            com.spotifry.music.data.Lyrics.UNISON -> "Written by listeners, word by word or line by line. Sends them to unison.boidu.dev."
-                            else -> "Line by line, the last choice. Sends them to lrclib.net."
+                            com.spotifry.music.data.Lyrics.BETTER_LYRICS -> "Word by word."
+                            com.spotifry.music.data.Lyrics.LRC_RED -> "Word by word."
+                            com.spotifry.music.data.Lyrics.PORTATO -> "Word by word, a big catalogue."
+                            com.spotifry.music.data.Lyrics.UNISON -> "Written by listeners."
+                            else -> "Line by line, the last choice."
                         },
                         onClick = { vm.settings.setLyricsSource(name, !on) }, role = Role.Switch,
                     ) { Switch(on, null, colors = switchColors()) }
@@ -155,15 +155,15 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
             }
             Group("Storage") {
                 Item("Saved songs", storage?.let { "${it.savedCount} ${if (it.savedCount == 1) "song" else "songs"} · ${size(it.savedBytes)}" } ?: "Counting…")
-                Item("Replay storage", "Most space for played songs kept for replay. ∞ keeps them until Android needs the space. Saved songs are not touched. Takes effect when the app is next opened.", below = true) {
+                Item("Replay storage", "Most space for played songs. ∞ keeps them until Android needs the space.", below = true) {
                     Segments(CACHE_MB.map(::cacheLabel), CACHE_MB.indexOf(cacheMb).coerceAtLeast(0), Modifier.fillMaxWidth(), fill = true) { vm.settings.setCacheMb(CACHE_MB[it]) }
                 }
-                Item("Clear played songs kept for replay", storage?.let { "${size(it.songCacheBytes)} of ${if (cacheMb == 0) "no limit" else cacheLabel(cacheMb)} · they download again when played" } ?: "Counting…", onClick = vm::clearSongCache)
-                Item("Clear covers kept for speed", storage?.let { "${size(it.coverBytes)} · they load again when shown" } ?: "Counting…", onClick = vm::clearCovers)
+                Item("Clear played songs kept for replay", storage?.let { "${size(it.songCacheBytes)} of ${if (cacheMb == 0) "no limit" else cacheLabel(cacheMb)}" } ?: "Counting…", onClick = vm::clearSongCache)
+                Item("Clear covers kept for speed", storage?.let { "${size(it.coverBytes)}" } ?: "Counting…", onClick = vm::clearCovers)
             }
             if (backup != null) Group("Backup") {
-                Item("Save backup", "Your playlists, song list, history, trims and settings, in one file. No music files.", onClick = backup.save)
-                Item("Restore backup", "Brings a backup into this phone. Saved songs can be downloaded again from Saved.", onClick = backup.restore)
+                Item("Save backup", "Playlists, history, trims and settings in one file.", onClick = backup.save)
+                Item("Restore backup", "Brings a backup into this phone.", onClick = backup.restore)
             }
             Group("History") {
                 Item("Clear recent searches", if (searches.isEmpty()) "Nothing to clear" else "${searches.size} saved", onClick = vm::clearSearches)
@@ -198,8 +198,8 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                         onClick = updates::check,
                     )
                 } else Item("Spotifry", "Version ${BuildConfig.VERSION_NAME}")
-                Item("Music from YouTube", "Through NewPipe Extractor ${BuildConfig.NEWPIPE_VERSION}. If search breaks, this needs an update.")
-                Item("Lyrics", "Sources are chosen under Lyrics sources. Each gets the song's title, artist and length.")
+                Item("Music from YouTube", "Through NewPipe Extractor ${BuildConfig.NEWPIPE_VERSION}.")
+                Item("Lyrics", "Each source gets the song's title, artist and length.")
             }
         }
     }

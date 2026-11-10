@@ -278,7 +278,6 @@ internal fun ListeningContent(
             }
             val all = stats.periods.last()
             if (stats.days.size > 7) Text("${stats.days.size} days. ${count(all.songs)} songs. Still going.", Modifier.padding(start = 20.dp, end = 20.dp, top = 36.dp), style = MaterialTheme.typography.headlineMedium)
-            Text("Kept only on this phone.", Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -59,7 +59,7 @@ class ListeningScreenTest {
         missing("Every day you've played")
         scrollTo("Your top songs show up once you've heard three.")
         scrollTo("It started here")
-        scrollTo("Kept only on this phone.")
+        missing("Kept only on this phone.")
         missing("You keep coming back")
     }
 
