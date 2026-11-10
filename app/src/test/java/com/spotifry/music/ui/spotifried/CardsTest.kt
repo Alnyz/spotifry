@@ -4,7 +4,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import android.app.Activity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
@@ -23,6 +29,7 @@ import com.spotifry.music.data.spotifried.WrappedPeriod
 import com.spotifry.music.data.spotifried.stats
 import com.spotifry.music.ui.theme.MusicTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -96,7 +103,7 @@ class CardsTest {
     }
 
     @Test fun bigCountsHaveThousandsSeparators() {
-        val s = stats(plays = 4000, seconds = 1240 * 3600L, daySeconds = List(365) { 3600L }).copy(topSong = TopSong(song, 999_000, 1240))
+        val s = stats(plays = 4000, seconds = 1240 * 3600L, daySeconds = List(365) { 3600L })
         show { HoursCard(s, still = true) }
         rule.onNodeWithText("1,240 hours.", substring = true).assertIsDisplayed()
     }
@@ -138,5 +145,24 @@ class CardsTest {
         // a card's share of a 360 x 780 dp phone: minus status bar 24, back 52, periods 48, progress 27 and the bottom bar with music playing 164
         rule.setContent { MusicTheme { Box(Modifier.size(360.dp, 460.dp)) { TopSongCard(stats(plays = 40).copy(topSong = TopSong(long, 4600, 23)), still = true) } } }
         rule.onNodeWithTag("top_cover").assertHeightIsAtLeast(200.dp)
+    }
+
+    @Test fun systemBarIconsAreLightOnTheStoryAndRestoredAfter() {
+        var view: android.view.View? = null
+        var open by mutableStateOf(true)
+        rule.setContent {
+            MusicTheme(ThemeMode.LIGHT) {
+                view = LocalView.current
+                if (open) StoryTheme {}
+            }
+        }
+        rule.waitForIdle()
+        val bars = WindowCompat.getInsetsController((view!!.context as Activity).window, view!!)
+        assertFalse(bars.isAppearanceLightStatusBars)
+        assertFalse(bars.isAppearanceLightNavigationBars)
+        open = false
+        rule.waitForIdle()
+        assertTrue(bars.isAppearanceLightStatusBars)
+        assertTrue(bars.isAppearanceLightNavigationBars)
     }
 }

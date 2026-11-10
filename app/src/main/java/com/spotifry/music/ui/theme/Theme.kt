@@ -6,6 +6,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
@@ -37,16 +38,24 @@ fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, accent: Accent = AccentChoice.
 }
 
 /**
- * The dark theme on [background] whatever the app's theme, with the user's accent. While shown on the light theme, the
- * status bar icons turn light so they stay visible.
+ * The dark theme on [background] whatever the app's theme, with the user's accent. The status and navigation bar icons
+ * are light while it shows (set after every recomposition, so they win over [MusicTheme]'s), and go back to what they
+ * were when it leaves.
  */
 @Composable
 fun AlwaysDark(background: Color, content: @Composable () -> Unit) {
     val view = LocalView.current
-    if (!isDark() && !view.isInEditMode) DisposableEffect(view) {
-        val bars = (view.context as? Activity)?.window?.let { WindowCompat.getInsetsController(it, view) }
-        bars?.isAppearanceLightStatusBars = false
-        onDispose { bars?.isAppearanceLightStatusBars = true }
+    val bars = remember(view) { (view.context as? Activity)?.window?.takeIf { !view.isInEditMode }?.let { WindowCompat.getInsetsController(it, view) } }
+    if (bars != null) {
+        // read in the first SideEffect, not in DisposableEffect: those run before any SideEffect, so before MusicTheme's has set them
+        val before = remember(bars) { arrayOfNulls<Boolean>(2) }
+        SideEffect {
+            if (before[0] == null) { before[0] = bars.isAppearanceLightStatusBars; before[1] = bars.isAppearanceLightNavigationBars }
+            bars.isAppearanceLightStatusBars = false; bars.isAppearanceLightNavigationBars = false
+        }
+        DisposableEffect(bars) {
+            onDispose { before[0]?.let { bars.isAppearanceLightStatusBars = it }; before[1]?.let { bars.isAppearanceLightNavigationBars = it } }
+        }
     }
     CompositionLocalProvider(LocalDark provides true) {
         MaterialTheme(colorScheme = darkColors(LocalAccent.current).copy(background = background, surface = background), typography = MusicTypography, content = content)
