@@ -33,6 +33,13 @@ class SongYearDbTest {
         assertEquals(listOf(SongYearEntity("a", 1999, 5), SongYearEntity("b", null, 6)), db.songYears().observeAll().first().sortedBy { it.songId })
     }
 
+    @Test fun playCountsOnlyListsSongsThatHaveARow() = runBlocking {
+        db.songs().upsert(com.spotifry.music.data.db.SongEntity("a", "T", "A", 100, null, null, null, null))
+        db.listens().insert(ListenEntity(1L, "a", 100))
+        db.listens().insert(ListenEntity(2L, "gone", 100))
+        assertEquals(listOf("a"), db.listens().playCounts().map { it.songId })
+    }
+
     @Test fun putReplacesAnEarlierRow() = runBlocking {
         db.songYears().put(SongYearEntity("a", null, 5))
         db.songYears().put(SongYearEntity("a", 2001, 9))

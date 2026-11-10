@@ -170,6 +170,12 @@ class SpotifriedStatsTest {
         assertEquals(10, a.unchecked); assertEquals(5, a.songsWithYear)
     }
 
+    @Test fun listensWithoutASongRowAreLeftOutOfTheAgeCounts() {
+        val gone = ListenRow(at(2026, 2, 1), "gone", 60, false, null)
+        val s = spotifriedStats(listOf(row(at(2026, 2, 2), "a", 60), gone), emptyMap(), year, testZone)
+        assertEquals(1, s.age.songsTotal); assertEquals(1, s.age.unchecked)
+    }
+
     @Test fun oldestIsTheEarliestYear() {
         val a = aged(25, mapOf("s1" to 1985, "s2" to 1971, "s3" to 2001))!!
         assertEquals(1971, a.oldestYear); assertEquals("s2", a.oldestSong?.id)

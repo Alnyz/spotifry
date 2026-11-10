@@ -178,7 +178,7 @@ abstract class ListenDao {
     @Query("UPDATE listens SET secondsHeard = :seconds, skipped = :skipped WHERE startedAt = :startedAt")
     abstract suspend fun update(startedAt: Long, seconds: Int, skipped: Boolean)
     @Query("DELETE FROM listens") abstract suspend fun clear()
-    @Query("SELECT songId, COUNT(*) AS n FROM listens WHERE secondsHeard >= 30 GROUP BY songId")
+    @Query("SELECT l.songId, COUNT(*) AS n FROM listens l JOIN songs s ON s.id = l.songId WHERE l.secondsHeard >= 30 GROUP BY l.songId")
     abstract suspend fun playCounts(): List<PlayCountRow>
 
     @Query("SELECT l.startedAt, l.songId, l.secondsHeard, l.skipped, s.* FROM listens l LEFT JOIN songs s ON s.id = l.songId ORDER BY l.startedAt")

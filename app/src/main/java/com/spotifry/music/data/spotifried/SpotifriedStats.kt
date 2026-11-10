@@ -117,7 +117,8 @@ fun spotifriedStats(
         ?.takeIf { totalSeconds > 0 }?.let { ArtistShare(it.key, it.value.toFloat() / totalSeconds) }
     fun share(n: Int) = if (heard.isEmpty()) 0f else n.toFloat() / heard.size
 
-    val songIds = heard.map { it.row.songId }.distinct()
+    // a song with no row can never be looked up, so it is left out of the age counts
+    val songIds = heard.filter { it.row.song != null }.map { it.row.songId }.distinct()
     val yearOf = songIds.filter { it in years }
     val songYears = yearOf.map { years.getValue(it) }
     val oldestId = yearOf.minByOrNull { years.getValue(it) }
