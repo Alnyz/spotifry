@@ -75,7 +75,8 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         val isrc = bestHit(hits, song.title, song.artist, song.durationSec) ?: return null
         quick.newCall(Request.Builder().url("https://lrc.red/s/$isrc.ttml").header("User-Agent", UA).build()).execute().use {
             if (!it.isSuccessful) return null
-            parseTtml(it.body!!.string()).takeIf { l -> l.isNotEmpty() }?.let { l -> Lyrics.Timed(l, Lyrics.LRC_RED) }
+            // many lrc.red entries are timed by line only (lrc:timing="Line"); those are no better than LRCLIB, so a miss
+            parseTtml(it.body!!.string()).takeIf { l -> l.any { line -> line.words.isNotEmpty() } }?.let { l -> Lyrics.Timed(l, Lyrics.LRC_RED) }
         }
     }.getOrNull()
 
