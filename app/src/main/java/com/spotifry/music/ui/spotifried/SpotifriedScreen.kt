@@ -119,7 +119,7 @@ internal fun NotEnough(more: Int) {
 }
 
 @Composable
-internal fun StoryCard(id: CardId, state: SpotifriedState, still: Boolean = false, onShare: () -> Unit) {
+internal fun StoryCard(id: CardId, state: SpotifriedState, still: Boolean = false, onShare: (() -> Unit)?) {
     when (id) {
         CardId.INTRO -> IntroCard(state.stats, still)
         CardId.TOP_SONG -> TopSongCard(state.stats, still)

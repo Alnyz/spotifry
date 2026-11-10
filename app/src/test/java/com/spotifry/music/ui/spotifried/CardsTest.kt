@@ -55,6 +55,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h780dp")
@@ -354,6 +358,12 @@ class CardsTest {
         assertEquals(3, facts.size)
         facts.forEach { rule.onNodeWithText(it).assertIsDisplayed() }
         rule.onNodeWithText("Share your story").assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test fun noShareButtonWithoutOnShare() {
+        show { TypeCard(nightReplayer(), onShare = null, still = true) }
+        rule.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)).assertCountEquals(0)
+        rule.onNodeWithText("Share your story").assertDoesNotExist()
     }
 
     @Test fun shareButtonCallsOnShare() {

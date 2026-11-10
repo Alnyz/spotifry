@@ -651,15 +651,15 @@ internal fun hourLabelAlpha(sweep: Float, h: Int) = ((sweep * 24 - h) / 3).coerc
 internal fun factFigure(f: String): IntRange? =
     (Regex("""\d+(?:[.,]\d+)*%""").find(f) ?: Regex("""\d+(?:[.,]\d+)*(?: [ap]\.m\.)?""").find(f))?.range
 
-/** Card 8: who the person is as a listener, three true facts one after another, and Share. */
+/** Card 8: who the person is as a listener, three true facts one after another, and Share ([onShare] null: no button, as in the shared picture). */
 @Composable
-internal fun TypeCard(s: SpotifriedStats, onShare: () -> Unit, still: Boolean = false) {
+internal fun TypeCard(s: SpotifriedStats, onShare: (() -> Unit)?, still: Boolean = false) {
     val calm = still || rememberNoMotion()
     key(s.period, calm) { Type(s, onShare, calm) }
 }
 
 @Composable
-private fun Type(s: SpotifriedStats, onShare: () -> Unit, calm: Boolean) {
+private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean) {
     val accent = MaterialTheme.colorScheme.primary
     val ink = MaterialTheme.colorScheme.onBackground
     val title = typeTitle(s) + "."
@@ -724,7 +724,7 @@ private fun Type(s: SpotifriedStats, onShare: () -> Unit, calm: Boolean) {
                 }
             }
             val lift = with(LocalDensity.current) { 18.dp.toPx() }
-            Button(
+            if (onShare != null) Button(
                 // a second tap within a second, while the share sheet is still opening, does nothing
                 { val now = SystemClock.uptimeMillis(); if (now - sharedAt >= 1000) { sharedAt = now; onShare() } },
                 Modifier.padding(top = 12.dp).heightIn(min = 48.dp).graphicsLayer { alpha = button.value; translationY = (1 - button.value) * lift }

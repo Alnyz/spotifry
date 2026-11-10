@@ -28,8 +28,6 @@ import com.spotifry.music.ui.theme.AccentChoice
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.delay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -42,6 +40,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.lang.ref.WeakReference
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.time.Duration
 import java.time.LocalDate
 import java.time.YearMonth
@@ -133,21 +133,38 @@ class PicturesTest {
     @Test fun topSongWaitsForTheCover() {
         val file = File(ApplicationProvider.getApplicationContext<android.content.Context>().cacheDir, "late.png").apply { delete() }
         val url = "https://example.invalid/cover.jpg"
-        // the file appears only after 3 s, so a picture taken any earlier could not show it
+        // the file appears only after a blocking 300 ms, so a picture taken any earlier could not show it
         val late = capture(CardId.TOP_SONG, state(url, file.path)) {
-            delay(3_000)
+            Thread.sleep(300)
             Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888).apply { eraseColor(red) }.let { b -> file.outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) } }
             loadCover(null, it.thumbnailUrl, it.thumbPath, null)
         }
         assertTrue(late.count(red) > 10_000)
         late.recycle()
-        // one that never arrives: the placeholder once the limit has passed, not a hang
-        val start = SystemClock.uptimeMillis()
-        val never = capture(CardId.TOP_SONG, state(url, file.path + ".none"), limitMs = 2_000) { awaitCancellation() }
-        assertTrue(SystemClock.uptimeMillis() - start >= 2_000)
-        assertEquals(0, never.count(red))
-        assertTrue(never.count(Color(0xFF0B0B0C).toArgb()) < 1080 * 1920) // still a picture of the card
-        never.recycle()
+    }
+
+    @Test fun aStalledCoverStillGivesThePictureWithinOneLimit() {
+        val stalled = CountDownLatch(1)
+        try {
+            val start = SystemClock.uptimeMillis()
+            val wall = System.currentTimeMillis()
+            // blocks its thread like a download stuck in DNS, and ignores being cancelled
+            val never = capture(CardId.TOP_SONG, state("https://example.invalid/cover.jpg", "/none.png"), limitMs = 2_000) { stalled.await(20, TimeUnit.SECONDS) }
+            val took = SystemClock.uptimeMillis() - start
+            assertTrue("took $took ms", took in 1_000 until 2_000)
+            assertTrue(System.currentTimeMillis() - wall < 10_000)
+            assertEquals(0, never.count(red))
+            assertTrue(never.count(Color(0xFF0B0B0C).toArgb()) < 1080 * 1920) // still a picture of the card
+            never.recycle()
+        } finally { stalled.countDown() }
+    }
+
+    @Test fun typePictureHasNoButton() {
+        val b = capture(CardId.TYPE)
+        // where the Share button sits on screen: bottom left, above the card's 28 dp bottom padding
+        val pill = b.count(accent.dark.toArgb(), 78 until 600, 1920 - 84 - 160 until 1920 - 84)
+        assertEquals(0, pill)
+        b.recycle()
     }
 
     @Test fun releasesBetweenCards() {
