@@ -138,6 +138,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                         name, when (name) {
                             com.spotifry.music.data.Lyrics.BETTER_LYRICS -> "Word by word. Sends the song's title, artist and length to lyrics-api.boidu.dev."
                             com.spotifry.music.data.Lyrics.LRC_RED -> "Word by word. Sends them to lrc.red."
+                            com.spotifry.music.data.Lyrics.PORTATO -> "Word by word, a big catalogue. Sends them to lyrics-api.boidu.dev (QQ Music)."
                             com.spotifry.music.data.Lyrics.UNISON -> "Written by listeners, word by word or line by line. Sends them to unison.boidu.dev."
                             else -> "Line by line, the last choice. Sends them to lrclib.net."
                         },

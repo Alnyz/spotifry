@@ -76,4 +76,15 @@ class LyricsTest {
         assertNull(LyricsSource.unisonLines("", "lrc", "linesync"))
         assertEquals(2, LyricsSource.unisonLines("[00:01.00]a\n[00:02.00]b", "lrc", "linesync")!!.size)
     }
+
+    @Test fun qqKaraokeLinesKeepWordsAndDropCredits() {
+        val raw = "<Lyric_1 LyricType=\"1\" LyricContent=\"[ti:Here]\n[0,1660]Here(0,75) (75,75)-(525,75) (600,75)Alessia(675,75)\n" +
+            "[1660,1660]Lyrics(1660,47) (1707,47)by(1754,47)：(1801,47)Someone(1848,47)\n" +
+            "[4984,1956]I (4984,178)guess (5162,167)right (5329,167)\n\"/>"
+        val lines = LyricsSource.parseQrc(raw)
+        assertEquals(1, lines.size)
+        assertEquals("I guess right", lines[0].text)
+        assertEquals(listOf("I ", "guess ", "right "), lines[0].words.map { it.text })
+        assertEquals(5162L, lines[0].words[1].startMs)
+    }
 }

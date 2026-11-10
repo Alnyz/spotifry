@@ -31,8 +31,9 @@ sealed interface Lyrics {
         const val BETTER_LYRICS = "BetterLyrics"
         const val LRC_RED = "lrc.red"
         const val UNISON = "Unison"
+        const val PORTATO = "QQ Music"
         /** Every source, best first: asked together; word-timed beats line-timed, then the earlier wins. LRCLIB is asked only when the rest miss. */
-        val SOURCES = listOf(BETTER_LYRICS, LRC_RED, UNISON, LRCLIB)
+        val SOURCES = listOf(BETTER_LYRICS, LRC_RED, PORTATO, UNISON, LRCLIB)
     }
 }
 
@@ -61,11 +62,22 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
 
     /** Word-timed beats line-timed whatever the source; within each, the better source (earlier in [Lyrics.SOURCES]) wins. */
     private suspend fun fromSources(song: Song, skip: Set<String>): Lyrics? = coroutineScope {
-        val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed, Lyrics.UNISON to ::unison)
+        val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed, Lyrics.PORTATO to ::portato, Lyrics.UNISON to ::unison)
             .filter { it.first !in skip }.map { (_, ask) -> async { ask(song) } }
         val answers = asked.awaitAll().filterNotNull() // all run together, each capped at 4 seconds
         answers.firstOrNull { a -> a is Lyrics.Timed && a.lines.any { it.words.isNotEmpty() } } ?: answers.firstOrNull()
     }
+
+    /** QQ Music's karaoke lyrics through BetterLyrics' Portato endpoint: a big catalogue, timed word by word. */
+    private fun portato(song: Song): Lyrics? = runCatching {
+        val url = "https://lyrics-api.boidu.dev/qq/getLyrics".toHttpUrl().newBuilder()
+            .addQueryParameter("s", song.title).addQueryParameter("a", song.artist).addQueryParameter("d", song.durationSec.toString()).build()
+        val raw = quick.newCall(Request.Builder().url(url).header("User-Agent", UA).build()).execute().use {
+            if (!it.isSuccessful) return null
+            JSONObject(it.body!!.string()).optString("lyrics")
+        }
+        parseQrc(raw).takeIf { it.isNotEmpty() }?.let { Lyrics.Timed(it, Lyrics.PORTATO) }
+    }.getOrNull()
 
     /** Unison is listener-contributed: it answers with TTML (word timed), LRC (line timed) or plain text, which is left to LRCLIB. */
     private fun unison(song: Song): Lyrics? = runCatching {
@@ -138,6 +150,28 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
 
     companion object {
         private const val BASE = "https://lrclib.net/"
+        /**
+         * QQ Music's karaoke format, inside an XML wrapper: "[lineStartMs,lengthMs]word (startMs,lengthMs)word (...)".
+         * Each word keeps the space after it. Credit lines ("Composed by：…") and the title line are dropped. If the
+         * entry has plain "[mm:ss.xx]" lines instead, those are used, timed by line.
+         */
+        fun parseQrc(raw: String): List<LyricLine> {
+            val body = Regex("""LyricContent="([^"]*)"""").find(raw)?.groupValues?.get(1)?.let(::unescapeXml) ?: raw
+            val lines = body.lines().mapNotNull { src ->
+                val m = Regex("""^\[(\d+),(\d+)](.*)$""").find(src.trim()) ?: return@mapNotNull null
+                val words = Regex("""([^()]*)\((\d+),(\d+)\)""").findAll(m.groupValues[3]).map { w ->
+                    val at = w.groupValues[2].toLong()
+                    LyricWord(at, at + w.groupValues[3].toLong(), w.groupValues[1])
+                }.filter { it.text.isNotEmpty() }.toList()
+                val text = words.joinToString("") { it.text }.trim()
+                if (text.isEmpty() || "：" in text || (m.groupValues[1] == "0" && " - " in text)) null
+                else LyricLine(minOf(m.groupValues[1].toLong(), words.first().startMs), text, words)
+            }.sortedBy { it.atMs }
+            return lines.ifEmpty { parseLrc(body) }
+        }
+
+        private fun unescapeXml(s: String) = s.replace("&quot;", "\"").replace("&apos;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+
         /** The timed lines of a Unison entry, or null when it is empty or plain text. */
         fun unisonLines(text: String, format: String, syncType: String): List<LyricLine>? {
             if (text.isBlank() || syncType.equals("plain", true)) return null
