@@ -11,6 +11,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
@@ -37,6 +38,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -172,7 +180,7 @@ class FirstLaunchScreenTest {
 
     @Test fun nameContinueWaitsForSomethingTypedAndStopsAtTwenty() {
         var name by mutableStateOf(""); var went = 0
-        compose.setContent { MusicTheme { NameStep(emptyList(), name, { name = it }, "1 of 3", { went++ }, {}) } }
+        compose.setContent { MusicTheme { NameStep(name, { name = it }, "1 of 3", { went++ }, {}) } }
         compose.onNodeWithText("1 of 3").assertIsDisplayed()
         compose.onNodeWithText("Continue").assertIsNotEnabled().performClick()
         assertEquals(0, went)
@@ -181,5 +189,83 @@ class FirstLaunchScreenTest {
         compose.onNodeWithText("20/20").assertIsDisplayed()
         compose.onNodeWithText("Continue").performClick()
         assertEquals(1, went)
+    }
+
+    @Test fun inkComesUpWithEachLetterAndIsFullByTheThird() {
+        assertEquals(0f, inkFor(""), 0f)
+        assertEquals(0f, inkFor("   "), 0f)
+        assertEquals(1 / 3f, inkFor("A"), 1e-6f)
+        assertEquals(2 / 3f, inkFor("Al"), 1e-6f)
+        assertEquals(1f, inkFor("Ali"), 0f)
+        assertEquals(1f, inkFor("Maximiliana Wolfens"), 0f)
+        // spaces are not letters; an accent typed as its own mark belongs to its letter
+        assertEquals(2 / 3f, inkFor("A l"), 1e-6f)
+        assertEquals(2 / 3f, inkFor("Zo\u0308"), 1e-6f)
+    }
+
+    @Test fun nameTakesTwoLinesWithTheKeyboardClosedAndOneWhileItIsOpen() {
+        assertEquals(2, nameLines(keyboard = false))
+        assertEquals(1, nameLines(keyboard = true))
+    }
+
+    @Test fun plainPhotoIsGreyAndFullInkRunsGreyToTheAccent() {
+        val ink = Color(0xFFFF8A3D)
+        val grey = sleeveMatrix(0f, ink).values
+        for (c in 0 until 5) { assertEquals(grey[c], grey[5 + c], 0f); assertEquals(grey[c], grey[10 + c], 0f) }
+        val full = sleeveMatrix(1f, ink).values
+        assertEquals(ink.green / ink.red, full[6] / full[1], 1e-4f)
+        assertEquals(ink.blue / ink.red, full[11] / full[1], 1e-4f)
+    }
+
+    @Test fun theNameIsOnThePhotoOnlyOnceSomethingIsTyped() {
+        var name by mutableStateOf("")
+        compose.setContent { MusicTheme { NameStep(name, { name = it }, "1 of 3", {}, {}) } }
+        compose.onNodeWithTag("sleeve name").assertDoesNotExist()
+        name = "   "
+        compose.onNodeWithTag("sleeve name").assertDoesNotExist()
+        name = "Ali"
+        compose.onNodeWithTag("sleeve name").assertExists()
+        name = ""
+        compose.onNodeWithTag("sleeve name").assertDoesNotExist()
+    }
+
+    /** Accents and the longest names are set on the photo; TalkBack hears the name once, from the field. */
+    @Test fun accentedAndLongNamesAreDrawnAndReadOnce() {
+        var name by mutableStateOf("")
+        compose.setContent { MusicTheme { NameStep(name, { name = it }, "1 of 3", {}, {}) } }
+        for (n in listOf("José", "Zoë", "Łukasz", "Łukasz Zoë", "Maximiliana Wolfens", "Alexandriakristoferj")) {
+            name = n
+            compose.onNodeWithTag("sleeve name").assertExists()
+            compose.onAllNodesWithText(n).assertCountEquals(1)
+            compose.onNodeWithContentDescription("Name or nickname").assertExists()
+        }
+    }
+
+    /** The size step-down: lines break only between words, at most the lines allowed, and a long single word stays whole. */
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test fun nameFitsBreakingOnlyBetweenWords() {
+        val fits = mutableMapOf<String, TextLayoutResult>()
+        lateinit var density: Density
+        compose.setContent {
+            density = LocalDensity.current
+            val m = rememberTextMeasurer()
+            with(density) {
+                val w = 354.dp.roundToPx()
+                fits["two"] = fitName(m, "Maximiliana Wolfens", density, w, 500.dp.roundToPx(), 2)
+                fits["one"] = fitName(m, "Maximiliana Wolfens", density, w, 200.dp.roundToPx(), 1)
+                fits["accents"] = fitName(m, "Łukasz Zoë", density, w, 500.dp.roundToPx(), 2)
+                fits["word"] = fitName(m, "Alexandriakristoferj", density, 200.dp.roundToPx(), 500.dp.roundToPx(), 2)
+            }
+        }
+        compose.waitForIdle()
+        for ((key, l) in fits) {
+            val text = l.layoutInput.text.text
+            assertTrue(key, l.lineCount <= (if (key == "one") 1 else 2))
+            for (i in 0 until l.lineCount - 1) assertEquals(key, ' ', text[l.getLineEnd(i) - 1])
+        }
+        assertEquals(1, fits["one"]!!.lineCount)
+        assertEquals(1, fits["word"]!!.lineCount)
+        // with room for two lines the name is set bigger than on one
+        assertTrue(fits["two"]!!.layoutInput.style.fontSize.value > fits["one"]!!.layoutInput.style.fontSize.value)
     }
 }
