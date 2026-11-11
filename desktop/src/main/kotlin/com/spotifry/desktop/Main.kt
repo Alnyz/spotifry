@@ -12,7 +12,9 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.spotifry.music.data.StreamResolver
+import com.spotifry.music.data.source.MusicSource
 import com.spotifry.music.data.source.NewPipeSource
+import com.spotifry.music.player.MusicPlayer
 import com.spotifry.music.data.source.OkHttpDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,26 +28,33 @@ import java.util.concurrent.TimeUnit
 /** Where the desktop app keeps its files: $XDG_DATA_HOME/spotifry, else ~/.local/share/spotifry. */
 fun dataDir(): File = File(System.getenv("XDG_DATA_HOME") ?: (System.getProperty("user.home") + "/.local/share"), "spotifry").also { it.mkdirs() }
 
-class Services {
+/** What the screens use. The real one is built by [productionServices]; tests build their own. */
+class Services(
+    val scope: CoroutineScope, val source: MusicSource, val library: Library, val player: MusicPlayer, val setVolume: (Int) -> Unit,
+)
+
+fun productionServices(): Services {
     // idle connections are dropped after 10 s: some networks silently end them, as on the phone
     val client = OkHttpClient.Builder().connectionPool(okhttp3.ConnectionPool(5, 10, TimeUnit.SECONDS)).build()
-    init {
-        Covers.client = client
-        NewPipe.init(OkHttpDownloader(client), Localization("en", "US"))
-    }
+    Covers.client = client
+    NewPipe.init(OkHttpDownloader(client), Localization("en", "US"))
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val source = NewPipeSource()
     val resolver = StreamResolver(source, scope)
+    val dir = dataDir()
+    val library = Library.open(dir, client, resolver)
     // SPOTIFRY_MPV_ARGS="--ao=null" turns the sound off, for tests
-    val player = MpvPlayer(resolver, scope, File(dataDir(), "last_queue.json"), System.getenv("SPOTIFRY_MPV_ARGS")?.split(' ')?.filter { it.isNotBlank() }.orEmpty())
+    val args = System.getenv("SPOTIFRY_MPV_ARGS")?.split(' ')?.filter { it.isNotBlank() }.orEmpty()
+    val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder)
+    return Services(scope, source, library, player, player::setVolume)
 }
 
 fun main() = application {
-    val services = androidx.compose.runtime.remember { Services() }
+    val services = androidx.compose.runtime.remember { productionServices() }
     Window(
-        onCloseRequest = { services.player.close(); exitApplication() }, title = "Spotifry",
+        onCloseRequest = { (services.player as? MpvPlayer)?.close(); exitApplication() }, title = "Spotifry",
         state = rememberWindowState(size = DpSize(1280.dp, 800.dp)),
-    ) { SpotifryTheme { App(services.player, services.source, services.player::setVolume) } }
+    ) { SpotifryTheme { App(services) } }
 }
 
 /** Runs [block] when Enter is pressed in a text field. */

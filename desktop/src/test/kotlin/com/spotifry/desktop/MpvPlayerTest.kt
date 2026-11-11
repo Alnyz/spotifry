@@ -136,4 +136,21 @@ class MpvPlayerTest {
             assertFalse(s.wantsPlay) // comes back paused
         } finally { again.close() }
     }
+
+    @Test fun thePlayRecordsHistoryAndTheListen() {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder<com.spotifry.music.data.db.AppDatabase>(factory = { com.spotifry.music.data.db.AppDatabase_Impl() })
+            .setDriver(androidx.sqlite.driver.bundled.BundledSQLiteDriver()).setQueryCoroutineContext(Dispatchers.IO).build()
+        val recorder = PlayRecorder(com.spotifry.music.data.HistoryRecorder(db.history(), db.songs()), com.spotifry.music.data.ListenLog(db.listens(), scope)) { db.plays().count(it, 1L) }
+        player?.close()
+        val p = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), recorder = recorder)
+        try {
+            File(dir, "long.wav").writeBytes(silence(seconds = 4))
+            p.playList(listOf(Song("long", "Long", "A", 4, null)), 0)
+            wait("the song to end") { p.state.first { it.ended } }
+            wait("the song in history") { db.history().observeRecent().first { list -> list.isNotEmpty() } }
+            assertEquals("long", runBlocking { db.history().observeRecent().first().first().id })
+            // the listen is written once sound has run for a second, and updated as it goes
+            wait("a listen with seconds heard") { db.listens().observeAll().first { rows -> rows.isNotEmpty() } }
+        } finally { p.close(); db.close() }
+    }
 }

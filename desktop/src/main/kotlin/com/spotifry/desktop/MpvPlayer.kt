@@ -2,7 +2,11 @@ package com.spotifry.desktop
 
 import com.spotifry.music.data.StreamResolver
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.data.HistoryRecorder
+import com.spotifry.music.data.ListenLog
 import com.spotifry.music.player.LastQueue
+import com.spotifry.music.player.ListenTracker
+import com.spotifry.music.player.PlayCounter
 import com.spotifry.music.player.MusicPlayer
 import com.spotifry.music.player.PlayerUiState
 import com.spotifry.music.player.RepeatMode
@@ -30,6 +34,9 @@ class MpvPlayer(
     mpvArgs: List<String> = emptyList(),
     private val recentlyPlayed: suspend () -> Set<String> = { emptySet() },
     private val random: Random = Random.Default,
+    /** Where a song's file is when it was saved on this computer, so it plays from there. */
+    private val localFile: suspend (Song) -> String? = { null },
+    private val recorder: PlayRecorder? = null,
 ) : MusicPlayer {
     private val _state = MutableStateFlow(PlayerUiState())
     override val state: StateFlow<PlayerUiState> = _state
@@ -56,6 +63,8 @@ class MpvPlayer(
     private var failsOfThisSong = 0
     private var loading: Job? = null
     private var lastTick = 0L
+    private val listens = ListenTracker()
+    private val plays = PlayCounter()
 
     private val mpv = Mpv(mpvArgs, ::onMpv).also {
         it.observe(1, "time-pos"); it.observe(2, "duration"); it.observe(3, "paused-for-cache")
@@ -70,6 +79,17 @@ class MpvPlayer(
             publish()
         }
         scope.launch { while (true) { delay(10_000); if (wants) save() } }
+        scope.launch {
+            var last = System.nanoTime() / 1_000_000
+            while (true) {
+                delay(1_000)
+                val (id, playing) = synchronized(lock) { queue.getOrNull(index)?.id to state.value.isPlaying }
+                if (plays.tick(id, playing, 1_000) && id != null) recorder?.let { r -> launch { r.countPlay(id) } }
+                val at = System.nanoTime() / 1_000_000
+                recorder?.listenLog?.write(listens.tick(id, playing, at - last))
+                last = at
+            }
+        }
     }
 
     fun setVolume(percent: Int) = mpv.set("volume", percent.coerceIn(0, 100))
@@ -196,7 +216,7 @@ class MpvPlayer(
 
     // ---- loading
 
-    private fun load(i: Int, keepWants: Boolean = false) {
+    private fun load(i: Int, keepWants: Boolean = false, byListener: Boolean = true) {
         loading?.cancel()
         index = i
         order = if (!shuffle) null else order?.let { o -> o.indexOf(i).takeIf { it >= 0 }?.let(o::drop) } ?: newOrder()
@@ -206,13 +226,15 @@ class MpvPlayer(
         _position.value = at
         publish(); save()
         val song = queue[i]
+        plays.restart(song.id)
+        recorder?.let { r -> r.listenLog.write(listens.moved(song.id, byListener)); scope.launch { r.history.onPlayed(song) } }
         loading = scope.launch(Dispatchers.IO) {
             try {
-                val stream = resolver.get(song)
+                val url = localFile(song) ?: resolver.get(song).url
                 synchronized(lock) {
                     if (queue.getOrNull(index)?.id != song.id) return@launch
                     mpv.set("pause", !wants)
-                    if (at > 0) mpv.command("loadfile", stream.url, "replace", -1, "start=${at / 1000.0}") else mpv.command("loadfile", stream.url, "replace")
+                    if (at > 0) mpv.command("loadfile", url, "replace", -1, "start=${at / 1000.0}") else mpv.command("loadfile", url, "replace")
                 }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { synchronized(lock) { fail(song) } }
         }
@@ -225,7 +247,7 @@ class MpvPlayer(
         failed = true; buffering = false
         publish()
         // a song that can't play moves on at once, unless it was the last
-        nextIndex(automatic = false)?.let { if (wants) load(it) }
+        nextIndex(automatic = false)?.let { if (wants) load(it, byListener = false) }
     }
 
     private fun stopAll() {
@@ -253,7 +275,7 @@ class MpvPlayer(
             "end-file" -> when (e.optString("reason")) {
                 "eof" -> {
                     val n = nextIndex(automatic = true)
-                    if (n != null) load(n) else { ended = true; wants = false; loaded = false; publish() }
+                    if (n != null) load(n, byListener = false) else { ended = true; wants = false; loaded = false; publish() }
                 }
                 "error" -> queue.getOrNull(index)?.let { fail(it) }
             }
@@ -281,5 +303,8 @@ class MpvPlayer(
         scope.launch(Dispatchers.IO) { runCatching { f.parentFile?.mkdirs(); f.writeText(text) } }
     }
 
-    fun close() { save(); mpv.close() }
+    fun close() { save(); recorder?.listenLog?.write(listens.moved(null, byListener = false)); mpv.close() }
 }
+
+/** What the player tells the library: a song started, how long it was heard, a play that counts. */
+class PlayRecorder(val history: HistoryRecorder, val listenLog: ListenLog, val countPlay: suspend (String) -> Unit)

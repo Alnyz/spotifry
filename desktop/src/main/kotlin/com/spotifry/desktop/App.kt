@@ -46,15 +46,29 @@ import com.spotifry.music.player.RepeatMode
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
+/** Where the window is: a page, or a playlist opened from Playlists. */
+sealed interface Route {
+    val page: Page
+    data object Home : Route { override val page = Page.Home }
+    data object Search : Route { override val page = Page.Search }
+    data object Saved : Route { override val page = Page.Saved }
+    data object Playlists : Route { override val page = Page.Playlists }
+    data class Playlist(val id: Long) : Route { override val page = Page.Playlists }
+    data object Settings : Route { override val page = Page.Settings }
+}
+
 enum class Page(val label: String, val icon: ImageVector) {
-    Home("Home", Icons.Home), Search("Search", Icons.Search), Saved("Saved", Icons.Saved), Playlists("Playlists", Icons.Playlists), Settings("Settings", Icons.Settings)
+    Home("Home", Icons.Home), Search("Search", Icons.Search), Saved("Saved", Icons.Saved), Playlists("Playlists", Icons.Playlists), Settings("Settings", Icons.Settings);
+    val route: Route get() = when (this) { Home -> Route.Home; Search -> Route.Search; Saved -> Route.Saved; Playlists -> Route.Playlists; Settings -> Route.Settings }
 }
 
 private const val BAR = 84
 
 @Composable
-fun App(player: MusicPlayer, source: MusicSource, setVolume: (Int) -> Unit, initialQuery: String = "") {
-    var page by remember { mutableStateOf(Page.Search) }
+fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = "") {
+    val player = services.player; val setVolume = services.setVolume
+    var route by remember { mutableStateOf(startOn) }
+    val page = route.page
     val haze = remember { HazeState() }
     val state by player.state.collectAsState()
     Box(Modifier.fillMaxSize().background(Palette.bg)) {
@@ -64,16 +78,21 @@ fun App(player: MusicPlayer, source: MusicSource, setVolume: (Int) -> Unit, init
         Row(Modifier.fillMaxSize().hazeSource(haze)) {
             Spacer(Modifier.width(230.dp))
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                when (page) {
-                    Page.Search -> SearchPage(player, source, state, initialQuery, Modifier.padding(start = 40.dp, end = 40.dp, top = 24.dp, bottom = (BAR + 24).dp))
-                    else -> Column(Modifier.padding(start = 40.dp, top = 24.dp)) {
-                        Text(page.label, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                val pad = Modifier.padding(start = 40.dp, end = 40.dp, top = 24.dp, bottom = (BAR + 24).dp)
+                when (val r = route) {
+                    Route.Home -> HomePage(services, { route = it }, pad)
+                    Route.Search -> SearchPage(services, state, initialQuery, pad)
+                    Route.Saved -> SavedPage(services, pad)
+                    Route.Playlists -> PlaylistsPage(services, { route = it }, pad)
+                    is Route.Playlist -> PlaylistPage(services, r.id, { route = it }, pad)
+                    Route.Settings -> Column(pad) {
+                        Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                         Text("Coming in the next step.", color = Palette.ink2, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
         }
-        Sidebar(page, { page = it }, haze, Modifier.align(Alignment.TopStart).fillMaxHeight().padding(bottom = BAR.dp))
+        Sidebar(page, { route = it.route }, haze, Modifier.align(Alignment.TopStart).fillMaxHeight().padding(bottom = BAR.dp))
         PlayerBar(player, setVolume, state, haze, Modifier.align(Alignment.BottomStart).fillMaxWidth().height(BAR.dp))
     }
 }

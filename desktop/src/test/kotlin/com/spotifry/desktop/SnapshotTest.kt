@@ -9,6 +9,7 @@ import com.spotifry.music.player.MusicPlayer
 import com.spotifry.music.player.PlayerUiState
 import com.spotifry.music.player.RepeatMode
 import com.spotifry.music.player.Trim
+import com.spotifry.music.data.db.toEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.Test
@@ -36,12 +37,59 @@ class SnapshotTest {
         override fun setTrim(id: String, trim: Trim?, skip: Boolean) = Unit; override fun listen(atMs: Long, forMs: Long?) = Unit
     }
 
-    @Test fun searchPage() {
-        val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(fakePlayer, fakeSource, {}, initialQuery = "kala biru") } }
+    private fun library(): Library {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder<com.spotifry.music.data.db.AppDatabase>(factory = { com.spotifry.music.data.db.AppDatabase_Impl() })
+            .setDriver(androidx.sqlite.driver.bundled.BundledSQLiteDriver()).setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.IO).build()
+        val client = okhttp3.OkHttpClient()
+        val dir = java.nio.file.Files.createTempDirectory("spotifry-snap").toFile()
+        val lib = Library(db, com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), dir, client,
+            com.spotifry.music.data.StreamResolver(fakeSource))
+        kotlinx.coroutines.runBlocking {
+            songs.forEach { db.songs().upsert(it.toEntity()) }
+            db.songs().markSaved("a", "/x/a", null, 1); db.songs().markSaved("c", "/x/c", null, 2); db.songs().markSaved("e", "/x/e", null, 3)
+            songs.forEachIndexed { i, s -> db.history().record(s.id, 100L + i) }
+            val road = db.playlists().create("Road trip 2019"); songs.forEach { db.playlists().addSong(road, it.id) }
+            val rain = db.playlists().create("Hujan"); songs.take(3).forEach { db.playlists().addSong(rain, it.id) }
+            db.playlists().create("Fokus").also { songs.takeLast(2).forEach { s -> db.playlists().addSong(it, s.id) } }
+        }
+        return lib
+    }
+
+    private fun shoot(name: String, route: Route, library: Library = library()) {
+        val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library, fakePlayer) {}
+        val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startOn = route, initialQuery = if (route == Route.Search) "kala biru" else "") } }
         var t = 0L
-        repeat(30) { scene.render(t); t += 50_000_000; Thread.sleep(20) }
+        repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
         val png = scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes
-        File("build/snapshots").apply { mkdirs() }.resolve("search.png").writeBytes(png)
+        File("build/snapshots").apply { mkdirs() }.resolve("$name.png").writeBytes(png)
         scene.close()
+    }
+
+    @Test fun pages() {
+        val lib = library()
+        shoot("search", Route.Search, lib)
+        shoot("home", Route.Home, lib)
+        shoot("saved", Route.Saved, lib)
+        shoot("playlists", Route.Playlists, lib)
+        shoot("playlist", Route.Playlist(1), lib)
+    }
+
+    /** With SPOTIFRY_BACKUP set: restores a real backup and draws the pages with it, covers included. Pictures stay in build/. */
+    @Test fun pagesWithARealBackup() {
+        val path = System.getenv("SPOTIFRY_BACKUP") ?: return
+        Covers.client = okhttp3.OkHttpClient()
+        val db = androidx.room.Room.inMemoryDatabaseBuilder<com.spotifry.music.data.db.AppDatabase>(factory = { com.spotifry.music.data.db.AppDatabase_Impl() })
+            .setDriver(androidx.sqlite.driver.bundled.BundledSQLiteDriver()).setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.IO).build()
+        val dir = java.nio.file.Files.createTempDirectory("spotifry-real").toFile()
+        val lib = Library(db, com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), dir, okhttp3.OkHttpClient(), com.spotifry.music.data.StreamResolver(fakeSource))
+        kotlinx.coroutines.runBlocking { lib.backups.restore(com.spotifry.music.data.readBackup(File(path).inputStream())) }
+        for ((name, route) in listOf("real-home" to Route.Home, "real-playlists" to Route.Playlists, "real-playlist" to Route.Playlist(1), "real-saved" to Route.Saved)) {
+            val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, lib, fakePlayer) {}
+            val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startOn = route) } }
+            var t = 0L
+            repeat(120) { scene.render(t); t += 50_000_000; Thread.sleep(40) }
+            File("build/snapshots").apply { mkdirs() }.resolve("$name.png").writeBytes(scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            scene.close()
+        }
     }
 }

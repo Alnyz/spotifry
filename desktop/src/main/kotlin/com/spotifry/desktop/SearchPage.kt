@@ -44,7 +44,8 @@ import com.spotifry.music.data.source.MusicSource
 import kotlinx.coroutines.launch
 
 @Composable
-fun SearchPage(player: MusicPlayer, source: MusicSource, state: PlayerUiState, initialQuery: String = "", modifier: Modifier = Modifier) {
+fun SearchPage(services: Services, state: PlayerUiState, initialQuery: String = "", modifier: Modifier = Modifier) {
+    val player = services.player; val source = services.source
     var query by remember { mutableStateOf(initialQuery) }
     var results by remember { mutableStateOf<List<Song>?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -81,25 +82,9 @@ fun SearchPage(player: MusicPlayer, source: MusicSource, state: PlayerUiState, i
             results?.isEmpty() == true -> Text("No songs found.", color = Palette.ink2, modifier = Modifier.padding(top = 24.dp))
             results != null -> LazyColumn(Modifier.padding(top = 18.dp)) {
                 itemsIndexed(results!!, key = { _, s -> s.id }) { i, s ->
-                    SongRow(i + 1, s, playing = state.current?.id == s.id) { player.playList(results!!, i, "Search") }
+                    SongLine(services, i + 1, s, state.current?.id == s.id) { player.playList(results!!, i, "Search") }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun SongRow(number: Int, s: Song, playing: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(12.dp)).background(if (playing) Palette.surface else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Text(number.toString(), color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.width(24.dp))
-        Cover(s.thumbnailUrl, 40.dp, RoundedCornerShape(8.dp))
-        Column(Modifier.weight(1f)) {
-            Text(s.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, color = if (playing) Palette.accent else Palette.ink)
-            Text(s.artist, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
-        }
-        Text(clock(s.durationSec * 1000), color = Palette.ink2, fontSize = 13.sp)
     }
 }
