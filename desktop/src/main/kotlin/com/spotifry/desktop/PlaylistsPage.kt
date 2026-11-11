@@ -31,6 +31,7 @@ fun PlaylistsPage(services: Services, go: (Route) -> Unit, modifier: Modifier = 
     if (creating) NameDialog("New playlist", "Create", "", { creating = false }) { name -> scope.launch { db.playlists().create(name) }; creating = false }
     Column(modifier) {
         PageHeader("Playlists", if (lists.isEmpty()) null else "${lists.size} ${if (lists.size == 1) "playlist" else "playlists"}") {
+            Pill("Import a playlist", Icons.Download) { services.importer.open() }
             Pill("+ New playlist", primary = true) { creating = true }
         }
         if (lists.isEmpty()) EmptyState("No playlists yet", "Press New playlist, then add songs from the menu next to any song.")

@@ -37,4 +37,12 @@ class LiveTest {
             assertTrue(player.state.value.durationMs > 60_000)
         } finally { player.close() }
     }
+
+    @Test fun lyricsAreFoundForARealSong() = runBlocking {
+        assumeTrue("LIVE not set", System.getenv("LIVE") == "1")
+        val song = com.spotifry.music.data.source.Song("yellow", "Yellow", "Coldplay", 269, null)
+        val found = com.spotifry.music.data.LyricsSource(OkHttpClient()).get(song)
+        println("lyrics: ${found?.let { it::class.simpleName }} ${(found as? com.spotifry.music.data.Lyrics.Timed)?.let { "${it.lines.size} lines from ${it.from}" }}")
+        assertTrue(found != null)
+    }
 }

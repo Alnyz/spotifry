@@ -41,7 +41,10 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
         if (hero == null && lists.isEmpty()) item {
             EmptyState("Nothing played yet", "What you play shows up here.")
             Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.Center) {
-                Pill("Search for a song", Icons.Search, primary = true) { go(Route.Search) }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Pill("Search for a song", Icons.Search, primary = true) { go(Route.Search) }
+                    Pill("Import a playlist", Icons.Download) { services.importer.open() }
+                }
             }
         }
         if (hero != null) item {

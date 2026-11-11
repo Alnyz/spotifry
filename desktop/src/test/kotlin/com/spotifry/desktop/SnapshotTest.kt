@@ -37,14 +37,14 @@ class SnapshotTest {
         override fun setTrim(id: String, trim: Trim?, skip: Boolean) = Unit; override fun listen(atMs: Long, forMs: Long?) = Unit
     }
 
-    private fun library(): Library {
+    private fun library(seed: Boolean = true): Library {
         val db = androidx.room.Room.inMemoryDatabaseBuilder<com.spotifry.music.data.db.AppDatabase>(factory = { com.spotifry.music.data.db.AppDatabase_Impl() })
             .setDriver(androidx.sqlite.driver.bundled.BundledSQLiteDriver()).setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.IO).build()
         val client = okhttp3.OkHttpClient()
         val dir = java.nio.file.Files.createTempDirectory("spotifry-snap").toFile()
         val lib = Library(db, com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), dir, client,
             com.spotifry.music.data.StreamResolver(fakeSource))
-        kotlinx.coroutines.runBlocking {
+        if (seed) kotlinx.coroutines.runBlocking {
             songs.forEach { db.songs().upsert(it.toEntity()) }
             db.songs().markSaved("a", "/x/a", null, 1); db.songs().markSaved("c", "/x/c", null, 2); db.songs().markSaved("e", "/x/e", null, 3)
             songs.forEachIndexed { i, s -> db.history().record(s.id, 100L + i) }
@@ -72,6 +72,37 @@ class SnapshotTest {
         shoot("settings-light", Route.Settings, lib)
         shoot("home-light", Route.Home, lib)
         Palette.dark = true; Palette.accentChoice = AccentChoice.EMBER
+    }
+
+    @Test fun nowPlaying() {
+        val lines = listOf(
+            com.spotifry.music.data.LyricLine(0, "Hujan turun di atas atap"), com.spotifry.music.data.LyricLine(20_000, "Kita diam, tak ada yang bicara"),
+            com.spotifry.music.data.LyricLine(40_000, "Kopi dingin di meja depan", listOf(
+                com.spotifry.music.data.LyricWord(40_000, 41_000, "Kopi "), com.spotifry.music.data.LyricWord(41_000, 42_000, "dingin "),
+                com.spotifry.music.data.LyricWord(88_000, 89_000, "di "), com.spotifry.music.data.LyricWord(89_000, 90_000, "meja "), com.spotifry.music.data.LyricWord(90_000, 91_000, "depan"))),
+            com.spotifry.music.data.LyricLine(100_000, "Pagi ini terasa lain"), com.spotifry.music.data.LyricLine(120_000, "Lampu jalan belum padam"),
+        )
+        val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library(), fakePlayer, setVolume = {}, lyrics = { com.spotifry.music.data.Lyrics.Timed(lines) })
+        val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startNowPlaying = true) } }
+        var t = 0L
+        repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
+        File("build/snapshots").apply { mkdirs() }.resolve("nowplaying.png").writeBytes(scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+        scene.close()
+    }
+
+    @Test fun firstLaunchAndImport() {
+        val fresh = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library(seed = false), fakePlayer, setVolume = {})
+        fun draw(name: String, services: Services, route: Route = Route.Home, before: () -> Unit = {}) {
+            val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startOn = route) } }
+            before()
+            var t = 0L
+            repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
+            File("build/snapshots").apply { mkdirs() }.resolve("$name.png").writeBytes(scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            scene.close()
+        }
+        draw("firstlaunch", fresh)
+        val full = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library(), fakePlayer, setVolume = {})
+        draw("import", full, Route.Playlists) { full.importer.open() }
     }
 
     @Test fun pages() {

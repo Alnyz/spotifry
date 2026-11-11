@@ -29,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import com.spotifry.music.data.isFreshInstall
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -65,7 +67,7 @@ enum class Page(val label: String, val icon: ImageVector) {
 private const val BAR = 84
 
 @Composable
-fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = "", restart: () -> Unit = {}) {
+fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = "", restart: () -> Unit = {}, startNowPlaying: Boolean = false) {
     val player = services.player; val setVolume = services.setVolume
     val flow = remember(services) { BackupFlow(services.library, services.scope, restart) }
     // the theme and accent come from the settings, which a restored backup can change
@@ -75,6 +77,11 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     Palette.dark = when (theme) { com.spotifry.music.data.ThemeMode.DARK -> true; com.spotifry.music.data.ThemeMode.LIGHT -> false; else -> system }
     Palette.accentChoice = AccentChoice.of(accent)
     var route by remember { mutableStateOf(startOn) }
+    var nowPlaying by remember { mutableStateOf(startNowPlaying) }
+    // the welcome shows once, on an empty library that never saw it
+    val lib = services.library
+    var welcomed by remember { mutableStateOf(false) }
+    val fresh by produceState<Boolean?>(null, services) { value = !lib.settings.firstLaunchSeen.value && isFreshInstall(true, lib.db.history(), lib.db.songs(), lib.db.playlists()) }
     val page = route.page
     val haze = remember { HazeState() }
     val state by player.state.collectAsState()
@@ -82,11 +89,14 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
         // the ember glow behind the page, like the phone's top glow
         Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(
             listOf(Palette.accent.copy(alpha = 0.13f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(1500f, 0f), radius = 900f)))
+        if (fresh == true && !welcomed) { FirstLaunch(services, flow) { welcomed = true }; BackupDialogs(flow); return@Box }
+        if (fresh == null) return@Box
         Row(Modifier.fillMaxSize().hazeSource(haze)) {
             Spacer(Modifier.width(230.dp))
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 val pad = Modifier.padding(start = 40.dp, end = 40.dp, top = 24.dp, bottom = (BAR + 24).dp)
-                when (val r = route) {
+                if (nowPlaying) NowPlayingPage(services, Modifier.padding(start = 40.dp, end = 24.dp, top = 24.dp, bottom = (BAR + 24).dp))
+                else when (val r = route) {
                     Route.Home -> HomePage(services, { route = it }, pad)
                     Route.Search -> SearchPage(services, state, initialQuery, pad)
                     Route.Saved -> SavedPage(services, pad)
@@ -96,9 +106,10 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                 }
             }
         }
-        Sidebar(page, { route = it.route }, haze, Modifier.align(Alignment.TopStart).fillMaxHeight().padding(bottom = BAR.dp))
+        Sidebar(page, { route = it.route; nowPlaying = false }, haze, Modifier.align(Alignment.TopStart).fillMaxHeight().padding(bottom = BAR.dp))
         BackupDialogs(flow)
-        PlayerBar(player, setVolume, state, haze, Modifier.align(Alignment.BottomStart).fillMaxWidth().height(BAR.dp))
+        ImportDialog(services) { route = Route.Playlist(it) }
+        PlayerBar(player, setVolume, state, haze, nowPlaying, { nowPlaying = it }, Modifier.align(Alignment.BottomStart).fillMaxWidth().height(BAR.dp))
     }
 }
 
@@ -125,12 +136,12 @@ private fun NavItem(p: Page, on: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PlayerBar(player: MusicPlayer, setVolume: (Int) -> Unit, s: PlayerUiState, haze: HazeState, modifier: Modifier) {
+private fun PlayerBar(player: MusicPlayer, setVolume: (Int) -> Unit, s: PlayerUiState, haze: HazeState, nowPlaying: Boolean, setNowPlaying: (Boolean) -> Unit, modifier: Modifier) {
     val position by player.position.collectAsState()
     var volume by remember { mutableStateOf(100f) }
     var dragging by remember { mutableStateOf<Float?>(null) }
     Row(modifier.glass(haze, RoundedCornerShape(0.dp), tint = 0.66f).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.weight(1f).clickable(enabled = s.current != null) { setNowPlaying(!nowPlaying) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (s.current != null) {
                 Cover(s.current!!.thumbnailUrl, 56.dp, RoundedCornerShape(12.dp))
                 Column {
@@ -160,6 +171,8 @@ private fun PlayerBar(player: MusicPlayer, setVolume: (Int) -> Unit, s: PlayerUi
             }
         }
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            RoundButton(Icons.Lyrics, if (nowPlaying) Palette.accent else Palette.ink2, 40) { if (s.current != null) setNowPlaying(!nowPlaying) }
+            RoundButton(Icons.Queue, if (nowPlaying) Palette.accent else Palette.ink2, 40) { if (s.current != null) setNowPlaying(!nowPlaying) }
             Icon(Icons.Volume, "Volume", Modifier.size(22.dp), tint = Palette.ink2)
             Track(volume, 100f, Palette.ink2, { volume = it; setVolume(it.toInt()) }, {}, Modifier.width(110.dp))
         }

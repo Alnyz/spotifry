@@ -24,7 +24,7 @@ const val NEWPIPE_VERSION = "v0.26.5"
 
 /** Everything the desktop app keeps: the database, the settings, the saved songs and the backup tools. */
 class Library(
-    val db: AppDatabase, val prefs: Prefs, trimPrefs: Prefs, restorePrefs: Prefs, dir: File, client: OkHttpClient, resolver: StreamResolver,
+    val db: AppDatabase, val prefs: Prefs, trimPrefs: Prefs, restorePrefs: Prefs, dir: File, val client: OkHttpClient, resolver: StreamResolver,
 ) {
     val settings = Settings(prefs)
     /** Where saved songs are kept: a folder named songs inside the app's data folder. */
@@ -32,6 +32,7 @@ class Library(
     val orders = PlaylistOrders(prefs)
     val trims = Trims(trimPrefs)
     val downloads = DownloadRepository(dir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })
+    val lyrics = com.spotifry.music.data.LyricsSource(client) { settings.lyricsOff.value }
     val history = HistoryRecorder(db.history(), db.songs())
     val listenLog = ListenLog(db.listens())
     val restoreQueue = RestoreQueue(restorePrefs, db.songs(), downloads::save, metered = { false })

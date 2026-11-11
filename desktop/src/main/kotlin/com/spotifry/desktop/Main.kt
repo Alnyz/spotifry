@@ -36,9 +36,14 @@ fun dataDir(): File = File(System.getenv("XDG_DATA_HOME") ?: (System.getProperty
 /** What the screens use. The real one is built by [productionServices]; tests build their own. */
 class Services(
     val scope: CoroutineScope, val source: MusicSource, val library: Library, val player: MusicPlayer, val setVolume: (Int) -> Unit,
+    /** Lyrics for a song; null when no source has them. */
+    val lyrics: suspend (com.spotifry.music.data.source.Song) -> com.spotifry.music.data.Lyrics? = { null },
     /** Stops the player and closes the database, before the window is built again. */
     val close: () -> Unit = {},
-)
+) {
+    /** Playlists brought in from Spotify or YouTube. Lives with the window, so changing pages doesn't stop an import. */
+    val importer = com.spotifry.music.ui.playlists.PlaylistImport(scope, { com.spotifry.music.data.SpotifyImport.fetch(library.client, it) }, source, library.db.playlists(), library.db.songs())
+}
 
 fun productionServices(): Services {
     // idle connections are dropped after 10 s: some networks silently end them, as on the phone
@@ -53,7 +58,7 @@ fun productionServices(): Services {
     // SPOTIFRY_MPV_ARGS="--ao=null" turns the sound off, for tests
     val args = System.getenv("SPOTIFRY_MPV_ARGS")?.split(' ')?.filter { it.isNotBlank() }.orEmpty()
     val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder)
-    return Services(scope, source, library, player, player::setVolume) { player.close(); library.db.close() }
+    return Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { player.close(); library.db.close() })
 }
 
 fun main() = application {
