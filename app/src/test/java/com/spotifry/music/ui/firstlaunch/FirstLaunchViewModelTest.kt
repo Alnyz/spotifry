@@ -101,6 +101,19 @@ class FirstLaunchViewModelTest {
         assertEquals(Intro.DONE, vm.intro.value); assertEquals("", s.name.value)
     }
 
+    @Test fun skippingTheNameClearsOneSavedEarlier() {
+        val s = settings(); s.setName("Ali"); val vm = FirstLaunchViewModel(Source(), s)
+        vm.startFresh(); vm.skipName()
+        assertEquals("", s.name.value)
+    }
+
+    @Test fun aRestartMidFlowReturnsToTheSamePageWithTheTypedName() {
+        val h = androidx.lifecycle.SavedStateHandle(); val s = settings()
+        FirstLaunchViewModel(Source(), s, saved = h).apply { startFresh(); name.value = "Al" }
+        val again = FirstLaunchViewModel(Source(), s, saved = h)
+        assertEquals(Intro.NAME, again.intro.value); assertEquals("Al", again.name.value)
+    }
+
     @Test fun reopenedFromHomeHasNoWelcomeOrName() {
         val vm = FirstLaunchViewModel(Source(), settings(), reopen = true)
         assertEquals(Intro.DONE, vm.intro.value)

@@ -213,11 +213,12 @@ class Backups(
         check(trims.edit().apply { b.trims.forEach { (k, v) -> if (!trims.contains(k)) putString(k, v) } }.commit()) { "trims not written" }
         val unusable = unusableSettings(b)
         check(app.edit().apply {
-            app.all.keys.filterNot { aboutThisPhone(it) || it in unusable }.forEach { remove(it) }
+            // a backup without a name leaves this phone's name alone
+            app.all.keys.filterNot { aboutThisPhone(it) || it in unusable || (it == Settings.NAME && Settings.NAME !in b.settings) }.forEach { remove(it) }
             b.settings.filterKeys { !aboutThisPhone(it) && it !in unusable }.forEach { (k, v) ->
                 when (v) {
                     is Boolean -> putBoolean(k, v); is Int -> putInt(k, v); is Long -> putLong(k, v); is Float -> putFloat(k, v)
-                    is String -> putString(k, v); is Set<*> -> putStringSet(k, v as Set<String>)
+                    is String -> putString(k, if (k == Settings.NAME) cleanName(v) else v); is Set<*> -> putStringSet(k, v as Set<String>)
                 }
             }
             // a playlist already on this phone keeps the order picked here

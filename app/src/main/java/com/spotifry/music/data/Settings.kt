@@ -168,7 +168,7 @@ class Settings(private val prefs: SharedPreferences) {
     val firstLaunchSeen: StateFlow<Boolean> = _firstLaunchSeen
     fun markFirstLaunchSeen() { _firstLaunchSeen.value = true; prefs.edit().putBoolean(FIRST_LAUNCH_SEEN, true).apply() }
 
-    private val _name = MutableStateFlow(prefs.getString(NAME, "").orEmpty())
+    private val _name = MutableStateFlow(cleanName(prefs.getString(NAME, "").orEmpty()))
     /** What to call the listener (a name or nickname); empty when none was given. Only the Spotifried listener card uses it. */
     val name: StateFlow<String> = _name
     /** Saves [raw] as the name, cleaned and cut to [NAME_MAX] characters ([cleanName]); empty removes it. */

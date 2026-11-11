@@ -19,5 +19,10 @@ class NameTest {
         assertEquals("e\u0301".repeat(20), cleanName(accented))
     }
 
+    @Test fun invisibleFormatCharactersGoAndLeaveAnEmptyName() {
+        assertEquals("", cleanName("\u200B\u200F\u2060\uFEFF\u202E\u2066\u2069 "))
+        assertEquals("Ali", cleanName("A\u200Bl\u202Ei\uFEFF"))
+    }
+
     @Test fun otherScriptsAreKept() = assertEquals("علي", cleanName("علي"))
 }

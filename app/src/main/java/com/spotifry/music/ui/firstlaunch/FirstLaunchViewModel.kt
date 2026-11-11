@@ -1,5 +1,6 @@
 package com.spotifry.music.ui.firstlaunch
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.MIN_ARTISTS
@@ -52,12 +53,14 @@ class FirstLaunchViewModel(
     private val source: MusicSource,
     private val settings: Settings,
     val reopen: Boolean = false,
+    saved: SavedStateHandle = SavedStateHandle(),
 ) : ViewModel() {
-    val step = MutableStateFlow(1)
+    // kept in the saved state, so Android closing the app returns to the same page with the typed name
+    val step = saved.getMutableStateFlow("step", 1)
     /** Where the pages before the artists are; a reopened picker has none of them. */
-    val intro = MutableStateFlow(if (reopen) Intro.DONE else Intro.WELCOME)
+    val intro = saved.getMutableStateFlow("intro", if (reopen) Intro.DONE else Intro.WELCOME)
     /** What is typed in the name box; the saved name is filled in, so going back and forth keeps it. */
-    val name = MutableStateFlow(settings.name.value)
+    val name = saved.getMutableStateFlow("name", settings.name.value)
     val picked = MutableStateFlow(if (reopen) settings.artists.value else emptyList())
     val query = MutableStateFlow("")
     val starters = MutableStateFlow(STARTER_ARTISTS.map { Starter(it) })
@@ -130,8 +133,8 @@ class FirstLaunchViewModel(
         intro.value = Intro.DONE
     }
 
-    /** "Skip" on the name page keeps no name. */
-    fun skipName() { intro.value = Intro.DONE }
+    /** "Skip" on the name page keeps no name, and clears one saved earlier. */
+    fun skipName() { settings.setName(""); name.value = ""; intro.value = Intro.DONE }
 
     /** "Skip" on screen 1 saves no picks and goes on to the link screen. */
     fun skipArtists() { if (!reopen) step.value = 2 }

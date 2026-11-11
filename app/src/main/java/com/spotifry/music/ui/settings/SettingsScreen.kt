@@ -63,6 +63,8 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val searches by vm.recentSearches.list.collectAsStateWithLifecycle()
     var confirmHistory by remember { mutableStateOf(false) }
     var pickAccent by remember { mutableStateOf(false) }
+    val userName by vm.settings.name.collectAsStateWithLifecycle()
+    var editName by remember { mutableStateOf<String?>(null) }
     val pureBlack by vm.settings.pureBlack.collectAsStateWithLifecycle()
     val accent by vm.settings.accent.collectAsStateWithLifecycle()
     val accentColor by vm.settings.accentColor.collectAsStateWithLifecycle()
@@ -118,6 +120,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 }
             }
             Group("Look") {
+                Item("Name", userName.ifEmpty { "Not set" }, onClick = { editName = userName }) {
+                    androidx.compose.material3.Icon(com.spotifry.music.ui.Icons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Item("Theme") {
                     Segments(listOf("Phone", "Light", "Dark"), theme.ordinal) { vm.settings.setTheme(ThemeMode.entries[it]) }
                 }
@@ -204,6 +209,21 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
         }
     }
     if (pickAccent) AccentPicker(accent, accentColor, { c, color -> vm.settings.setAccent(c, color); pickAccent = false }, { pickAccent = false })
+    editName?.let { text ->
+        AlertDialog(
+            onDismissRequest = { editName = null },
+            title = { Text("Your name") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    text, { editName = com.spotifry.music.data.cutName(it.replace('\n', ' ')) }, singleLine = true,
+                    placeholder = { Text("Name or nickname") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words, autoCorrectEnabled = false),
+                )
+            },
+            confirmButton = { TextButton({ vm.settings.setName(text); editName = null }) { Text("Save") } },
+            dismissButton = { TextButton({ editName = null }) { Text("Cancel") } },
+        )
+    }
     if (confirmHistory) AlertDialog(
         onDismissRequest = { confirmHistory = false },
         title = { Text("Clear listening history?") },

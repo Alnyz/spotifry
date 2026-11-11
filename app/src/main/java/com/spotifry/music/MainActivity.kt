@@ -1,5 +1,6 @@
 package com.spotifry.music
 
+import androidx.lifecycle.createSavedStateHandle
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -427,10 +428,10 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
             picture?.let { t -> MakePicturePage(t, c.lyrics, player.current?.id == t.songs.firstOrNull()?.id && !t.playlist, { position() + (player.trim?.startMs ?: 0) }) { picture = null } }
             if (!firstSeen && fresh == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
             if (!firstSeen && fresh == true) {
-                val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "first-launch", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings) } })
+                val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "first-launch", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings, saved = createSavedStateHandle()) } })
                 com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers, onRestore = backupActions.restore)
             } else if (pickArtists > 0 && pickingOpen) {
-                val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "pick-artists-$pickArtists", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings, reopen = true) } })
+                val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "pick-artists-$pickArtists", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings, reopen = true, saved = createSavedStateHandle()) } })
                 com.spotifry.music.ui.firstlaunch.FirstLaunchScreen(vm, importVm, plCovers, onClose = { pickingOpen = false })
             }
         }

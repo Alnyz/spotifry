@@ -187,6 +187,22 @@ class BackupTest {
         assertEquals("TITLE", app.getString(PlaylistOrders.key(3), null))
     }
 
+    @Test fun theNameGoesIntoTheBackupAndComesBack() = runBlocking {
+        app.edit().putString(Settings.NAME, "Ali").commit()
+        val b = readBackup(ByteArrayInputStream(zipped(backups.build())))
+        assertEquals("Ali", b.settings[Settings.NAME])
+        app.edit().clear().commit()
+        backups.restore(b)
+        assertEquals("Ali", app.getString(Settings.NAME, null))
+    }
+
+    @Test fun aBackupWithoutANameKeepsThisPhonesName() = runBlocking {
+        app.edit().putString(Settings.NAME, "Ali").commit()
+        backups.restore(file(settings = mapOf<String, Any>("pitch" to (2 as Any))))
+        assertEquals("Ali", app.getString(Settings.NAME, null))
+        assertEquals(2, app.getInt("pitch", 0))
+    }
+
     @Test fun savedSongsWaitOldestFirstSoSavedKeepsItsOrder() = runBlocking {
         backups.restore(file(songs = listOf(song("new", 30), song("no", null), song("old", 10), song("mid", 20))))
         assertEquals(listOf("old", "mid", "new"), queue.ids.value)

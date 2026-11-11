@@ -24,7 +24,10 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -43,7 +46,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -129,15 +135,15 @@ internal fun NameStep(starters: List<Starter>, name: String, onName: (String) ->
     val scheme = MaterialTheme.colorScheme
     val intro = rememberEntrance()
     val ready = cleanName(name).isNotEmpty()
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())) {
         TopRow(stepLabel, "Skip", true, onSkip)
         Text(
             "What should\nwe call you?", Modifier.padding(horizontal = 20.dp).semantics { heading() }.graphicsLayer { translationY = (1 - ease(intro.seg(.1f, .6f))) * 42.dp.toPx(); alpha = ease(intro.seg(.1f, .5f)) },
             style = MediumHeading,
         )
         // the keyboard is up: the picture gives its room to the field and the button, which stay in view
-        if (WindowInsets.isImeVisible) Spacer(Modifier.weight(1f))
-        else Collage(Modifier.weight(1f).fillMaxWidth().padding(top = 16.dp), 300f) { NamePicture(starters, intro) }
+        // the page scrolls, so at a large font with the keyboard up the heading, field and button stay reachable
+        if (!WindowInsets.isImeVisible) Collage(Modifier.height(260.dp).fillMaxWidth().padding(top = 16.dp), 300f) { NamePicture(starters, intro) }
         Foot {
             NameField(name, onName, onContinue = { if (ready) onContinue() })
             Pill(
@@ -155,12 +161,15 @@ private val MediumHeading = TextStyle(fontFamily = Albert, fontWeight = FontWeig
 private fun NameField(name: String, onName: (String) -> Unit, onContinue: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     var focused by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) { focus.requestFocus(); keyboard?.show() }
     val count = remember(name) { cutName(name).let { java.text.BreakIterator.getCharacterInstance().run { setText(it); var n = 0; while (next() != java.text.BreakIterator.DONE) n++; n } } }
     val shape = RoundedCornerShape(16.dp)
     BasicTextField(
         name, { onName(cutName(it.replace('\n', ' '))) },
         Modifier.fillMaxWidth().height(56.dp).clip(shape).background(scheme.surface).then(if (focused) Modifier.border(2.dp, scheme.primary, shape) else Modifier)
-            .onFocusChanged { focused = it.isFocused }.semantics { contentDescription = "Name or nickname" }.testTag("name field"),
+            .focusRequester(focus).onFocusChanged { focused = it.isFocused }.semantics { contentDescription = "Name or nickname" }.testTag("name field"),
         singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface), cursorBrush = Brush.linearGradient(listOf(scheme.primary, scheme.primary)),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, autoCorrectEnabled = false, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onContinue() }),
