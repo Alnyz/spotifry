@@ -62,6 +62,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.data.db.PlaylistWithCounts
 import com.spotifry.music.data.hourKind
+import com.spotifry.music.data.TimeMix
+import com.spotifry.music.data.pickTimeMixes
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.Song
@@ -103,8 +105,9 @@ fun HomeScreen(
     val saved by vm.savedIds.collectAsStateWithLifecycle()
     val savedRead by vm.savedRead.collectAsStateWithLifecycle()
     val most by vm.mostPlayed.collectAsStateWithLifecycle()
+    val mixes by vm.timeMixes.collectAsStateWithLifecycle()
     HomeContent(
-        recent = recent.orEmpty(), loading = recent == null || !savedRead || !libraryRead, savedIds = saved, mostPlayed = most.orEmpty(), mostRead = most != null,
+        recent = recent.orEmpty(), loading = recent == null || !savedRead || !libraryRead, savedIds = saved, mostPlayed = most.orEmpty(), mostRead = most != null, timeMixes = pickTimeMixes(mixes, LocalTime.now().hour),
         onPlay = vm::play, onMore = onMore, modifier = modifier, bottomInset = bottomInset,
         onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, listening = listening, top = top,
         artists = artists, onOpenArtist = onOpenArtist, onPickArtists = onPickArtists,
@@ -132,6 +135,8 @@ fun HomeContent(
     playlists: List<PlaylistWithCounts> = emptyList(), covers: Map<Long, List<SongEntity>> = emptyMap(),
     onOpenPlaylist: (Long) -> Unit = {}, onPlayPlaylist: (PlaylistWithCounts) -> Unit = {},
     onSearch: () -> Unit = {}, onImport: () -> Unit = {}, onMood: (Mood) -> Unit = {},
+    /** Mixes of the songs most played at a time of day, already picked for the hour. */
+    timeMixes: List<TimeMix> = emptyList(),
 ) {
     val songs = recent.map { it.toSong() }
     // a song that has run to its end is back to being the last one played
@@ -252,10 +257,18 @@ fun HomeContent(
                 }
             }
         }
-        if (songs.isNotEmpty()) {
-            item { SectionTitle("Keep listening") }
+        if (songs.isNotEmpty() || timeMixes.isNotEmpty()) item { SectionTitle("Keep listening") }
+        if (songs.isNotEmpty()) item {
+            val s = recent[0]
             // one song queued alone: when it ends, the player adds similar songs, so this plays as a mix
-            item { MixCard(recent[0], Modifier.fadeIn(fade)) { onPlay(listOf(songs[0]), 0, "Mix from ${songs[0].title}") } }
+            MixCard({ CoverArt(s.id, s.thumbnailUrl, s.thumbPath, it, RoundedCornerShape(10.dp)) }, "Mix from ${s.title}", "Plays it, then similar songs", Modifier.fadeIn(fade)) {
+                onPlay(listOf(songs[0]), 0, "Mix from ${songs[0].title}")
+            }
+        }
+        items(timeMixes, key = { "time-" + it.kind }) { m ->
+            MixCard({ CoverMosaic(m.songs.take(4), it.clip(RoundedCornerShape(10.dp)), large = false) }, m.title, m.line, Modifier.fadeIn(fade).padding(top = 10.dp)) {
+                onPlay(m.songs.map { it.toSong() }, 0, m.title)
+            }
         }
         // built into the app, so they cost nothing until tapped; once there's history, Search has them
         if (recent.size < MOODS_UNTIL_PLAYED) {
@@ -443,20 +456,21 @@ private fun RecentCard(s: SongEntity, onPlay: () -> Unit, onMore: () -> Unit, sp
 }
 
 @Composable
-private fun MixCard(s: SongEntity, modifier: Modifier, onPlay: () -> Unit) {
+private fun MixCard(art: @Composable (Modifier) -> Unit, title: String, line: String, modifier: Modifier, onPlay: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Row(
-        modifier.padding(horizontal = 20.dp).fillMaxWidth().height(86.dp).clip(RoundedCornerShape(20.dp))
+        // grows with very large text instead of cutting the words off
+        modifier.padding(horizontal = 20.dp).fillMaxWidth().heightIn(min = 86.dp).clip(RoundedCornerShape(20.dp))
             .background(Brush.horizontalGradient(listOf(scheme.primary.copy(alpha = .22f), scheme.surface), endX = 900f))
             .background(scheme.surface.copy(alpha = .35f))
             .clickable(onClickLabel = "Play mix", onClick = onPlay)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         Arrangement.spacedBy(14.dp), Alignment.CenterVertically,
     ) {
-        CoverArt(s.id, s.thumbnailUrl, s.thumbPath, Modifier.size(54.dp), RoundedCornerShape(10.dp))
+        art(Modifier.size(54.dp))
         Column(Modifier.weight(1f)) {
-            Text("Mix from ${s.title}", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("Plays it, then similar songs", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(line, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
         }
         Box(Modifier.size(44.dp).clip(CircleShape).background(scheme.primary), Alignment.Center) {
             Icon(Icons.Mix, null, Modifier.size(22.dp), tint = scheme.onPrimary)

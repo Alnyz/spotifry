@@ -6,6 +6,11 @@ import kotlinx.coroutines.flow.collectLatest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.RecentSearches
+import com.spotifry.music.data.TimeMix
+import com.spotifry.music.data.timeMixes
+import com.spotifry.music.data.db.ListenRow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 import com.spotifry.music.data.db.HistoryDao
 import com.spotifry.music.data.db.SongDao
 import com.spotifry.music.data.db.SongEntity
@@ -49,7 +54,11 @@ class HomeViewModel(
     localSongs: Flow<List<Song>> = flowOf(emptyList()),
     /** Fetches the links of songs likely to be tapped next. */
     private val warm: (List<Song>) -> Unit = {},
+    listens: Flow<List<ListenRow>> = flowOf(emptyList()),
 ) : ViewModel() {
+    /** The parts of the day with enough history for a mix; Home picks which to show by the hour. */
+    val timeMixes: StateFlow<List<TimeMix>> = listens.map { timeMixes(it) }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     /** Null until the play counts have been read, so an empty list says something. */
     val mostPlayed: StateFlow<List<SongEntity>?> = mostPlayed.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     private val query = MutableStateFlow("")
