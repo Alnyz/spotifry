@@ -5,6 +5,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.spotifry.music.data.SpotifyPlaylist
 import com.spotifry.music.data.SpotifyTrack
+import com.spotifry.music.data.YouTubePlaylist
+import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException
 import com.spotifry.music.data.db.AppDatabase
 import com.spotifry.music.data.source.MusicSource
 import com.spotifry.music.data.source.ResolvedStream
@@ -100,6 +102,52 @@ class ImportViewModelTest {
     @Test fun wrongLinkSaysSo() {
         val vm = vm(emptyList())
         vm.start("https://youtube.com/watch?v=1")
-        assertEquals(ImportState.Input("That isn't a Spotify playlist link"), vm.state.value)
+        assertEquals(ImportState.Input("That isn't a Spotify or YouTube playlist link"), vm.state.value)
+    }
+
+    private val ytLink = "https://music.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf"
+    private fun ytVm(fetch: suspend (String) -> YouTubePlaylist) =
+        ImportViewModel({ error("no Spotify here") }, source, db.playlists(), db.songs(), fetch)
+
+    @Test fun youTubeSongsGoStraightInWithoutSearching() = runBlocking<Unit> {
+        var asked: String? = null
+        val songs = (1..3).map { Song("yt$it", "Song $it", "A", 200, null) }
+        val vm = ImportViewModel({ error("no Spotify here") }, object : MusicSource by source {
+            override suspend fun search(query: String): List<Song> = error("must not search")
+        }, db.playlists(), db.songs()) { asked = it; YouTubePlaylist("road trip", songs, skipped = 2, capped = false) }
+        vm.start(ytLink)
+        val done = vm.awaitEnd() as ImportState.Done
+        assertEquals("https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf", asked)
+        assertEquals(3, done.added)
+        assertEquals(5, done.total)
+        assertEquals("2 skipped: unavailable or too long.", done.note)
+        assertEquals(listOf("yt1", "yt2", "yt3"), db.playlists().observeSongs(done.playlistId).first().map { it.id })
+        assertEquals("road trip", db.playlists().observePlaylists().first().single().name)
+    }
+
+    @Test fun cutMixSaysSo() = runBlocking<Unit> {
+        val vm = ytVm { YouTubePlaylist("Mix", listOf(Song("yt1", "S", "A", 200, null)), 0, capped = true) }
+        vm.start("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ")
+        assertEquals("Mixes never end, so only the first 500 were taken.", (vm.awaitEnd() as ImportState.Done).note)
+    }
+
+    @Test fun privateYouTubeListSaysSo() = runBlocking<Unit> {
+        val vm = ytVm { throw ContentNotAvailableException("This playlist is private") }
+        vm.start(ytLink)
+        assertEquals(ImportState.Failed("That playlist is private or needs sign-in. Only public playlists can be imported."), vm.awaitEnd())
+        assertTrue(db.playlists().observePlaylists().first().isEmpty())
+    }
+
+    @Test fun youTubeOfflineOrEmptySaysSo() = runBlocking<Unit> {
+        val offline = ytVm { throw java.io.IOException("no network") }
+        offline.start(ytLink)
+        assertEquals(ImportState.Failed("Couldn't open that playlist. Check it's public and you're online."), offline.awaitEnd())
+        val broken = ytVm { throw org.schabi.newpipe.extractor.exceptions.ParsingException("changed page") }
+        broken.start(ytLink)
+        assertEquals(ImportState.Failed("Couldn't open that playlist. Check it's public and you're online."), broken.awaitEnd())
+        val empty = ytVm { YouTubePlaylist("nothing", emptyList(), 4, false) }
+        empty.start(ytLink)
+        assertEquals(ImportState.Failed("That playlist has no songs."), empty.awaitEnd())
+        assertTrue(db.playlists().observePlaylists().first().isEmpty())
     }
 }
