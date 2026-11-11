@@ -221,4 +221,15 @@ class HomeScreenTest {
         compose.waitForIdle()
         compose.onAllNodesWithText("Most played").assertCountEquals(0)
     }
+
+    @Test fun aTimeMixPlaysItsSongsFromTheTop() {
+        val songs = many(8)
+        val mix = com.spotifry.music.data.TimeMix("Night", songs, 12)
+        var played: Triple<List<Song>, Int, String>? = null
+        compose.setContent { MusicTheme { HomeContent(emptyList(), emptySet(), { l, i, n -> played = Triple(l, i, n) }, {}, timeMixes = listOf(mix)) } }
+        list.performScrollToNode(hasText("Your late nights"))
+        compose.onNodeWithText("8 songs you play late at night").assertExists()
+        compose.onNodeWithText("Your late nights").performClick()
+        assertEquals(Triple(songs.map { it.toSong() }, 0, "Your late nights"), played)
+    }
 }

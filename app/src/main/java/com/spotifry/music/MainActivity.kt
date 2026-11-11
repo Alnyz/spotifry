@@ -199,7 +199,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     val backEntry by nav.currentBackStackEntryAsState()
     val route = backEntry?.destination?.route
 
-    val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs, c::warm) } })
+    val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs, c::warm, c.db.listens().observeAll()) } })
     val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic, c.db.history(), c.restoreQueue) } })
     val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val backupActions = com.spotifry.music.ui.settings.rememberBackupActions(viewModel(factory = viewModelFactory { initializer {
