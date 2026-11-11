@@ -26,7 +26,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.Song
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import com.spotifry.music.data.NOTE_MAX
+import com.spotifry.music.data.Settings
+import com.spotifry.music.data.ShareText
+import com.spotifry.music.data.cleanNote
+import com.spotifry.music.data.cutName
+import com.spotifry.music.data.db.SongNoteEntity
+import com.spotifry.music.data.source.isLocal
+import com.spotifry.music.data.speedPitchLabel
+import com.spotifry.music.player.SleepState
+import com.spotifry.music.player.Trim
+import com.spotifry.music.player.canEndAt
+import com.spotifry.music.player.canStartAt
+import com.spotifry.music.player.clipText
+import com.spotifry.music.player.clockText
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** Page heading with a quiet line under it and the page's buttons on the right. */
 @Composable
@@ -153,50 +173,198 @@ fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved:
     }
 }
 
+/** The ⋮ menu of a song. The sleep timer, speed and pitch and the trim show only for the song that plays. */
 @Composable
 fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composable (() -> Unit) -> Unit) {
     val lib = services.library
     val scope = rememberCoroutineScope()
     var saved by remember { mutableStateOf(false) }
-    var choosing by remember { mutableStateOf(false) }
+    // what the menu shows: its main list, the playlists to add to, or the sleep timer's choices
+    var view by remember { mutableStateOf("main") }
     var naming by remember { mutableStateOf(false) }
+    var noting by remember { mutableStateOf(false) }
+    var tuning by remember { mutableStateOf(false) }
+    var copied by remember { mutableStateOf(false) }
     LaunchedEffect(song.id) { saved = lib.db.songs().get(song.id)?.isSaved == true }
+    LaunchedEffect(copied) { if (copied) { delay(900); close() } }
     val lists by lib.db.playlists().observePlaylists().collectAsState(emptyList())
+    val note by remember(song.id) { lib.db.notes().observe(song.id) }.collectAsState(null)
     val state by services.player.state.collectAsState()
-    DropdownMenu(true, close, containerColor = Palette.surface) {
-        if (!choosing) {
-            // the playing song is already there, and a song already waiting is moved or left alone, never listed twice
-            val playingThis = state.current?.id == song.id
-            val waiting = (state.currentIndex + 1 until state.queue.size).filter { state.queue[it].id == song.id }
-            if (!playingThis) {
-                DropdownMenuItem({ Text("Play next") }, onClick = {
-                    if (state.queue.isEmpty()) services.player.playList(listOf(song), 0)
-                    else { waiting.sortedDescending().forEach { services.player.remove(it, song.id) }; services.player.insert(state.currentIndex + 1, song, null) }
+    val clipboard = LocalClipboardManager.current
+    val playingThis = state.current?.id == song.id
+    DropdownMenu(!noting && !tuning, close, containerColor = Palette.surface) {
+        when (view) {
+            "main" -> {
+                // the playing song is already there, and a song already waiting is moved or left alone, never listed twice
+                val waiting = (state.currentIndex + 1 until state.queue.size).filter { state.queue[it].id == song.id }
+                if (!playingThis) {
+                    DropdownMenuItem({ Text("Play next") }, onClick = {
+                        if (state.queue.isEmpty()) services.player.playList(listOf(song), 0)
+                        else { waiting.sortedDescending().forEach { services.player.remove(it, song.id) }; services.player.insert(state.currentIndex + 1, song, null) }
+                        close()
+                    })
+                    if (waiting.isEmpty()) DropdownMenuItem({ Text("Add to queue") }, onClick = {
+                        if (state.queue.isEmpty()) services.player.playList(listOf(song), 0) else services.player.insert(state.queue.size, song, null)
+                        close()
+                    })
+                }
+                DropdownMenuItem({ Text(if (saved) "Remove from saved" else "Save on this computer") }, onClick = {
+                    scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
                     close()
                 })
-                if (waiting.isEmpty()) DropdownMenuItem({ Text("Add to queue") }, onClick = {
-                    if (state.queue.isEmpty()) services.player.playList(listOf(song), 0) else services.player.insert(state.queue.size, song, null)
-                    close()
+                DropdownMenuItem({ Text("Add to a playlist") }, onClick = { view = "lists" })
+                // the name and the link, the same text the phone shares; Spotifry reads it back in Import
+                if (!song.isLocal) DropdownMenuItem({ Text(if (copied) "Link copied" else "Copy link", color = if (copied) Palette.accent else Color.Unspecified) }, onClick = {
+                    clipboard.setText(AnnotatedString(ShareText.song(song))); copied = true
                 })
+                DropdownMenuItem({ Text(if (note == null) "Add a note" else "Edit note") }, onClick = { noting = true })
+                extra(close)
+                if (playingThis) PlayingItems(services, state, { view = "sleep" }, { tuning = true }, close)
             }
-            DropdownMenuItem({ Text(if (saved) "Remove from saved" else "Save on this computer") }, onClick = {
-                scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
-                close()
-            })
-            DropdownMenuItem({ Text("Add to a playlist") }, onClick = { choosing = true })
-            extra(close)
-        } else {
-            DropdownMenuItem({ Text("New playlist…", color = Palette.accent) }, onClick = { naming = true })
-            lists.forEach { p ->
-                DropdownMenuItem({ Text(p.name) }, onClick = {
-                    scope.launch { lib.db.songs().upsert(song.toEntity()); lib.db.playlists().addSong(p.id, song.id) }
-                    close()
-                })
+            "lists" -> {
+                DropdownMenuItem({ Text("New playlist…", color = Palette.accent) }, onClick = { naming = true })
+                lists.forEach { p ->
+                    DropdownMenuItem({ Text(p.name) }, onClick = {
+                        scope.launch { lib.db.songs().upsert(song.toEntity()); lib.db.playlists().addSong(p.id, song.id) }
+                        close()
+                    })
+                }
             }
+            "sleep" -> services.sleep?.let { SleepChoices(it, close) }
         }
     }
     if (naming) NameDialog("New playlist", "Create", "", { naming = false }) { name ->
         scope.launch { val id = lib.db.playlists().create(name); lib.db.songs().upsert(song.toEntity()); lib.db.playlists().addSong(id, song.id) }
         naming = false; close()
     }
+    if (noting) NoteDialog(services, song.id, note.orEmpty(), close)
+    if (tuning) SpeedPitchDialog(lib.settings, close)
+}
+
+/** The playing song's own entries: sleep timer, speed and pitch, and where it starts and ends. */
+@Composable
+private fun PlayingItems(services: Services, state: com.spotifry.music.player.PlayerUiState, onSleep: () -> Unit, onTune: () -> Unit, close: () -> Unit) {
+    val player = services.player
+    val song = state.current ?: return
+    HorizontalDivider(Modifier.padding(vertical = 4.dp), color = Palette.ink.copy(alpha = 0.1f))
+    services.sleep?.let { timer ->
+        val sleep by timer.state.collectAsState()
+        val left by produceState("", sleep) {
+            while (true) {
+                value = when (sleep) {
+                    is SleepState.Minutes -> " · ${clockText(timer.remainingMs() ?: 0)} left"
+                    SleepState.EndOfSong -> " · after this song"
+                    SleepState.Off -> ""
+                }
+                delay(1_000)
+            }
+        }
+        DropdownMenuItem({ Text("Sleep timer$left") }, onClick = onSleep)
+    }
+    val speed by services.library.settings.speed.collectAsState()
+    val pitch by services.library.settings.pitch.collectAsState()
+    DropdownMenuItem({ Text("Speed and pitch" + (speedPitchLabel(speed, pitch)?.let { " · $it" } ?: "")) }, onClick = onTune)
+    // a point is set where the song is now, so these need it playing; once trimmed, one tap undoes it
+    val old = state.trim
+    if (old == null) {
+        val position by player.position.collectAsState()
+        if (canStartAt(position, state.wholeMs)) DropdownMenuItem({ Text("Start this song here · ${clipText(position)}") }, onClick = {
+            player.setTrim(song.id, Trim(position)); close()
+        })
+        if (canEndAt(position)) DropdownMenuItem({ Text("End this song here · ${clipText(position)}") }, onClick = {
+            player.setTrim(song.id, Trim(endMs = position), skip = true); close()
+        })
+    } else DropdownMenuItem({ Text("Play the whole song · now ${old.note(state.wholeMs)}") }, onClick = { player.setTrim(song.id, null); close() })
+}
+
+/** The sleep timer's choices, inside the menu. Each one starts over from now. */
+@Composable
+private fun SleepChoices(timer: SleepTimer, close: () -> Unit) {
+    val sleep by timer.state.collectAsState()
+    val note by produceState("", sleep) {
+        while (true) {
+            value = when (sleep) {
+                SleepState.Off -> "Music fades out and stops. Play starts again from there."
+                is SleepState.Minutes -> "Stops in ${clockText(timer.remainingMs() ?: 0)}. Pick a new time to start over."
+                SleepState.EndOfSong -> "Stops after this song. Pick a new time to start over."
+            }
+            delay(1_000)
+        }
+    }
+    Text(note, color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.widthIn(max = 280.dp).padding(horizontal = 16.dp, vertical = 8.dp))
+    if (sleep != SleepState.Off) DropdownMenuItem({ Text("Turn off timer", color = Palette.danger) }, onClick = { timer.off(); close() })
+    listOf(15, 30, 45, 60).forEach { m ->
+        val on = (sleep as? SleepState.Minutes)?.minutes == m
+        DropdownMenuItem({ Text(if (m == 60) "1 hour" else "$m minutes", color = if (on) Palette.accent else Color.Unspecified) }, onClick = { timer.start(m); close() })
+    }
+    DropdownMenuItem({ Text("End of this song", color = if (sleep == SleepState.EndOfSong) Palette.accent else Color.Unspecified) }, onClick = { timer.startEndOfSong(); close() })
+}
+
+/** Writes, changes or deletes the note on a song. Empty saves as no note. */
+@Composable
+fun NoteDialog(services: Services, songId: String, initial: String, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    fun save(raw: String) {
+        val clean = cleanNote(raw)
+        val notes = services.library.db.notes()
+        services.scope.launch { if (clean.isEmpty()) notes.delete(songId) else notes.put(SongNoteEntity(songId, clean, System.currentTimeMillis())) }
+        onDismiss()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss, containerColor = Palette.surface,
+        title = { Text(if (initial.isEmpty()) "Add a note" else "Edit note", fontFamily = Serif, fontSize = 22.sp) },
+        text = {
+            OutlinedTextField(
+                text, { text = cutName(it.replace('\n', ' '), NOTE_MAX) }, maxLines = 4, placeholder = { Text("What this song means to you") },
+                shape = RoundedCornerShape(16.dp), modifier = Modifier.onEnter { save(text) },
+            )
+        },
+        confirmButton = { TextButton({ save(text) }) { Text("Save", color = Palette.accent) } },
+        dismissButton = {
+            Row {
+                if (initial.isNotEmpty()) TextButton({ save("") }) { Text("Delete", color = Palette.danger) }
+                TextButton(onDismiss) { Text("Cancel", color = Palette.ink2) }
+            }
+        },
+    )
+}
+
+/** Speed (half to double) and pitch (6 steps either way), heard at once and kept for every song until set back. */
+@Composable
+fun SpeedPitchDialog(settings: Settings, onDismiss: () -> Unit) {
+    val speed by settings.speed.collectAsState()
+    val pitch by settings.pitch.collectAsState()
+    AlertDialog(
+        onDismissRequest = onDismiss, containerColor = Palette.surface,
+        title = { Text("Speed and pitch", fontFamily = Serif, fontSize = 22.sp) },
+        text = {
+            Column(Modifier.width(340.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Speed", color = Palette.ink)
+                    Text(speedPitchLabel(speed, 0) ?: "1×", color = Palette.accent, fontWeight = FontWeight.SemiBold)
+                }
+                // steps of 0.05 between 0.5 and 2
+                Track(speed - .5f, 1.5f, Palette.accent, { settings.setSpeed(((it + .5f) * 20).roundToInt() / 20f) }, {}, Modifier.fillMaxWidth().padding(vertical = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(.75f, 1f, 1.25f, 1.5f).forEach { x -> Chip(speedPitchLabel(x, 0) ?: "1×", abs(speed - x) < .001f) { settings.setSpeed(x) } }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Pitch", color = Palette.ink)
+                    Text(speedPitchLabel(1f, pitch) ?: "Normal", color = Palette.accent, fontWeight = FontWeight.SemiBold)
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Chip("−", false) { if (pitch > -6) settings.setPitch(pitch - 1) }
+                    Text(
+                        when { pitch == 0 -> "Normal"; pitch > 0 -> "$pitch ${if (pitch == 1) "step" else "steps"} higher"; else -> "${-pitch} ${if (pitch == -1) "step" else "steps"} lower" },
+                        color = Palette.ink, textAlign = TextAlign.Center, modifier = Modifier.weight(1f),
+                    )
+                    Chip("+", false) { if (pitch < 6) settings.setPitch(pitch + 1) }
+                }
+            }
+        },
+        confirmButton = { TextButton(onDismiss) { Text("Done", color = Palette.accent) } },
+        dismissButton = {
+            if (speed != 1f || pitch != 0) TextButton({ settings.setSpeed(1f); settings.setPitch(0) }) { Text("Back to normal", color = Palette.ink2) }
+        },
+    )
 }

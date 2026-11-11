@@ -67,6 +67,7 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
                 Cover(song.thumbnailUrl ?: song.localThumbPath, cover, RoundedCornerShape(12.dp), large = true)
                 Text(song.title, fontFamily = Serif, fontSize = 28.sp, lineHeight = 30.sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 18.dp))
                 Text(song.artist, color = Palette.accent, fontSize = 15.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+                SongNote(services, song.id)
                 state.quality?.let { QualityPill(it, Modifier.padding(top = 12.dp)) }
                 QueueList(services, state, queueOpen, onShowQueue, Modifier.weight(1f).fillMaxWidth())
             }
@@ -175,4 +176,19 @@ private fun QueueList(services: Services, state: com.spotifry.music.player.Playe
             if (all.size > upcoming.size) item { Text(if (queueOpen) "Hide queue" else "Show all ${all.size}", color = Palette.accent, fontSize = 14.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onShowQueue).padding(horizontal = 10.dp, vertical = 8.dp)) }
         }
     }
+}
+
+/** The listener's note on the song, one quiet line under the artist; a click edits it. Nothing when there is none. */
+@Composable
+private fun SongNote(services: Services, songId: String) {
+    val note by remember(songId) { services.library.db.notes().observe(songId) }.collectAsState(null)
+    var editing by remember { mutableStateOf(false) }
+    val text = note ?: return
+    Tip("Edit note") {
+        Text(
+            text, fontFamily = Serif, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 3, color = Palette.ink2,
+            modifier = Modifier.padding(top = 8.dp).clip(RoundedCornerShape(6.dp)).clickable { editing = true },
+        )
+    }
+    if (editing) NoteDialog(services, songId, text) { editing = false }
 }

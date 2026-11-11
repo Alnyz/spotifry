@@ -31,6 +31,7 @@ import com.spotifry.music.data.source.OkHttpDownloader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.localization.Localization
@@ -47,6 +48,8 @@ class Services(
     val lyrics: suspend (com.spotifry.music.data.source.Song) -> com.spotifry.music.data.Lyrics? = { null },
     /** Stops the player and closes the database, before the window is built again. */
     val close: () -> Unit = {},
+    /** Null in tests that have no real player. */
+    val sleep: SleepTimer? = null,
 ) {
     /** Set by the window: bring it to the front (the media widget's "open"), and quit. */
     var raise: () -> Unit = {}
@@ -70,9 +73,11 @@ fun productionServices(): Services {
     val library = Library.open(dir, client, resolver)
     // SPOTIFRY_MPV_ARGS="--ao=null" turns the sound off, for tests
     val args = System.getenv("SPOTIFRY_MPV_ARGS")?.split(' ')?.filter { it.isNotBlank() }.orEmpty()
-    val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder)
+    val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder, trims = library.trims)
+    val settings = library.settings
+    scope.launch { kotlinx.coroutines.flow.combine(settings.speed, settings.pitch, ::Pair).collect { (s, p) -> player.setSpeedPitch(s, p) } }
     lateinit var services: Services
-    services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); library.db.close() })
+    services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); library.db.close() }, sleep = SleepTimer(scope, player))
     services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
     return services
 }
@@ -83,8 +88,13 @@ fun main() = application {
     key(generation) {
         val started = remember { runCatching { productionServices() } }
         val services = started.getOrNull()
+        var restarting by remember { mutableStateOf(false) }
         if (services == null) StartFailedWindow(started.exceptionOrNull())
-        else MainWindow(services, restart = { services.close(); generation++ })
+        else {
+            MainWindow(services, restarting, restart = { restarting = true })
+            // the old screens leave first: one last redraw of them would read from the closed database and crash
+            if (restarting) LaunchedEffect(Unit) { services.close(); generation++ }
+        }
     }
 }
 
@@ -96,7 +106,7 @@ private fun ApplicationScope.StartFailedWindow(error: Throwable?) {
 }
 
 @androidx.compose.runtime.Composable
-private fun ApplicationScope.MainWindow(services: Services, restart: () -> Unit) {
+private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean, restart: () -> Unit) {
     Window(
         onCloseRequest = { services.close(); exitApplication() }, title = "Spotifry", icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.image),
         state = rememberWindowState(size = DpSize(1280.dp, 800.dp)),
@@ -106,7 +116,7 @@ private fun ApplicationScope.MainWindow(services: Services, restart: () -> Unit)
             services.quit = { services.close(); exitApplication() }
         }
         window.minimumSize = java.awt.Dimension(900, 600)
-        SpotifryTheme { App(services, restart = restart) }
+        SpotifryTheme { if (!restarting) App(services, restart = restart) }
     }
 }
 

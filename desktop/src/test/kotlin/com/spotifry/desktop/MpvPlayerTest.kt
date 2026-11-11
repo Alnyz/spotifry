@@ -124,6 +124,34 @@ class MpvPlayerTest {
         wait("to move past the broken song") { p.state.first { it.currentIndex == 2 } }
     }
 
+    @Test fun aTrimPlaysOnlyItsPartAndCanChangeWhilePlaying() {
+        File(dir, "long.wav").writeBytes(silence(seconds = 4))
+        val trims = com.spotifry.music.player.Trims(FilePrefs(File(dir, "trims.json")))
+        trims["long"] = com.spotifry.music.player.Trim(1_000, 2_500) // as a phone backup brings it
+        player!!.close()
+        val p = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), trims = trims).also { player = it }
+        val long = Song("long", "Long", "A", 4, null)
+        p.playList(listOf(long, songs[0]), 0)
+        wait("the trimmed song to play") { p.state.first { it.isPlaying && it.wholeMs > 3_500 } }
+        assertEquals(1_500L, p.state.value.durationMs)
+        assertTrue(p.position.value in 0..1_500)
+        val started = System.currentTimeMillis()
+        wait("the next song") { p.state.first { it.currentIndex == 1 } }
+        assertTrue("ended at its trim, not at 4 s", System.currentTimeMillis() - started < 2_500)
+
+        // the menu's "Start this song here" keeps the song going; "End this song here" moves on
+        trims["long"] = null
+        p.playList(listOf(long, songs[0]), 0)
+        wait("the whole song") { p.state.first { it.isPlaying && it.durationMs > 3_500 } }
+        p.setTrim("long", com.spotifry.music.player.Trim(500))
+        assertEquals(500L, p.state.value.trim?.startMs)
+        assertEquals(p.state.value.wholeMs - 500, p.state.value.durationMs)
+        assertEquals(0, p.state.value.currentIndex)
+        p.setTrim("long", com.spotifry.music.player.Trim(500, 1_000), skip = true)
+        wait("the next song after End here") { p.state.first { it.currentIndex == 1 } }
+        assertEquals(com.spotifry.music.player.Trim(500, 1_000), trims["long"])
+    }
+
     @Test fun theQueueComesBackAfterARestart() {
         val p = player!!
         p.playList(songs, 1, "Saved")

@@ -11,6 +11,7 @@ import com.spotifry.music.player.MusicPlayer
 import com.spotifry.music.player.PlayerUiState
 import com.spotifry.music.player.RepeatMode
 import com.spotifry.music.player.Trim
+import com.spotifry.music.player.Trims
 import com.spotifry.music.player.spreadShuffle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +26,7 @@ import kotlin.random.Random
 
 /**
  * The desktop's player: the queue lives here, the sound is made by mpv. Same behaviour as the phone's player for what the
- * 0.1 screens use. Smart shuffle, trims, speed and pitch, the sleep timer and the sound quality label come later.
+ * desktop screens use. Smart shuffle and smart trims are not here yet.
  */
 class MpvPlayer(
     private val resolver: StreamResolver,
@@ -37,7 +38,9 @@ class MpvPlayer(
     /** Where a song's file is when it was saved on this computer, so it plays from there. */
     private val localFile: suspend (Song) -> String? = { null },
     private val recorder: PlayRecorder? = null,
-) : MusicPlayer {
+    /** Each song's own start and end, the same store the phone backup fills. */
+    private val trims: Trims? = null,
+) : MusicPlayer, SleepTimer.Target {
     private val _state = MutableStateFlow(PlayerUiState())
     override val state: StateFlow<PlayerUiState> = _state
     private val _position = MutableStateFlow(0L)
@@ -57,7 +60,14 @@ class MpvPlayer(
     private var buffering = false
     private var failed = false
     private var ended = false
-    private var durationMs = 0L
+    /** Length of the whole song; [trim] says which part of it plays. Positions outside mpv count from the trim's start. */
+    private var wholeMs = 0L
+    private var trim: Trim? = null
+    private val startMs get() = trim?.startMs ?: 0
+    private val durationMs get() = ((trim?.endMs ?: wholeMs) - startMs).coerceAtLeast(0)
+    private var volume = 100
+    private var gain = 1f
+    override var pauseAtEnd: (() -> Unit)? = null
     /** Where to start the next load, from a restored queue. */
     private var startAtMs = 0L
     private var failsOfThisSong = 0
@@ -78,7 +88,7 @@ class MpvPlayer(
         lastQueueFile?.let { f -> runCatching { f.readText() }.getOrNull()?.let(LastQueue::decode) }?.let { last ->
             queue = last.songs; index = last.index; from = last.from; shuffle = last.shuffle; repeat = last.repeatMode
             startAtMs = last.positionMs; _position.value = last.positionMs
-            durationMs = queue[index].durationSec * 1000
+            wholeMs = queue[index].durationSec * 1000; trim = trims?.get(queue[index].id)
             order = newOrder()
             publish()
         }
@@ -96,7 +106,17 @@ class MpvPlayer(
         }
     }
 
-    fun setVolume(percent: Int) = mpv.set("volume", percent.coerceIn(0, 100))
+    fun setVolume(percent: Int) = synchronized(lock) { volume = percent.coerceIn(0, 100); mpv.set("volume", volume * gain) }
+
+    override fun fade(gain: Float) = synchronized(lock) { if (gain != this.gain) { this.gain = gain; mpv.set("volume", volume * gain) } }
+
+    override fun songLeftMs(): Long? = synchronized(lock) { if (loaded && !ended) durationMs - _position.value else null }
+
+    /** [speed] 0.5 to 2, [pitch] in semitones; mpv keeps the two apart. */
+    fun setSpeedPitch(speed: Float, pitch: Int) {
+        mpv.set("speed", speed.toDouble())
+        mpv.set("pitch", Math.pow(2.0, pitch / 12.0))
+    }
 
     // ---- commands
 
@@ -135,7 +155,7 @@ class MpvPlayer(
 
     override fun seekTo(ms: Long) {
         _position.value = ms
-        if (loaded) mpv.command("seek", ms / 1000.0, "absolute") else startAtMs = ms
+        if (loaded) mpv.command("seek", (ms + startMs) / 1000.0, "absolute") else startAtMs = ms
     }
 
     override fun cycleShuffle() = synchronized(lock) {
@@ -185,8 +205,23 @@ class MpvPlayer(
         publish(); save()
     }
 
-    /** 0.1 has no trim screen, so a trim is not kept or applied. */
-    override fun setTrim(id: String, trim: Trim?, skip: Boolean) = Unit
+    override fun setTrim(id: String, trim: Trim?, skip: Boolean) = synchronized(lock) {
+        trims?.set(id, trim)
+        if (queue.getOrNull(index)?.id != id) return
+        val at = _position.value + startMs
+        this.trim = trim
+        val end = trim?.endMs
+        if (skip || (end != null && at >= end)) {
+            val n = nextIndex(automatic = false)
+            if (n != null) load(n) else { wants = false; mpv.set("pause", true); seekTo(0); publish() }
+            return
+        }
+        // the same moment of the song goes on; only the end can move under a song already playing
+        if (loaded) mpv.set("file-local-options/end", end?.let { "${it / 1000.0}" } ?: "none")
+        _position.value = (at - startMs).coerceAtLeast(0)
+        if (!loaded) startAtMs = _position.value
+        publish()
+    }
 
     override fun listen(atMs: Long, forMs: Long?) {
         seekTo(atMs)
@@ -226,7 +261,8 @@ class MpvPlayer(
         order = if (!shuffle) null else order?.let { o -> o.indexOf(i).takeIf { it >= 0 }?.let(o::drop) } ?: newOrder()
         loaded = false; buffering = true; failed = false; ended = false
         codec = null; bitrate = null; rate = null
-        durationMs = queue[i].durationSec * 1000
+        wholeMs = queue[i].durationSec * 1000
+        trim = trims?.get(queue[i].id)
         val at = startAtMs; startAtMs = 0
         _position.value = at
         publish(); save()
@@ -243,7 +279,11 @@ class MpvPlayer(
                     // the source's own bitrate figure: mpv's live reading of a stream keeps moving, so it makes a restless label
                     bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
                     mpv.set("pause", !wants)
-                    if (at > 0) mpv.command("loadfile", url, "replace", -1, "start=${at / 1000.0}") else mpv.command("loadfile", url, "replace")
+                    val opts = listOfNotNull(
+                        (at + startMs).takeIf { it > 0 }?.let { "start=${it / 1000.0}" },
+                        trim?.endMs?.let { "end=${it / 1000.0}" },
+                    )
+                    if (opts.isNotEmpty()) mpv.command("loadfile", url, "replace", -1, opts.joinToString(",")) else mpv.command("loadfile", url, "replace")
                 }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { synchronized(lock) { fail(song) } }
         }
@@ -268,10 +308,10 @@ class MpvPlayer(
         when (name) {
             "property-change" -> when (e.optString("name")) {
                 "time-pos" -> if (!e.isNull("data")) {
-                    val ms = (e.getDouble("data") * 1000).toLong(); val now = System.currentTimeMillis()
+                    val ms = (e.getDouble("data") * 1000).toLong() - startMs; val now = System.currentTimeMillis()
                     if (now - lastTick >= 400) { lastTick = now; _position.value = ms }
                 }
-                "duration" -> if (!e.isNull("data")) { durationMs = (e.getDouble("data") * 1000).toLong(); publish() }
+                "duration" -> if (!e.isNull("data")) { wholeMs = (e.getDouble("data") * 1000).toLong(); publish() }
                 "paused-for-cache" -> { buffering = loaded && e.optBoolean("data"); publish() }
                 "audio-codec-name" -> { codec = if (e.isNull("data")) null else e.optString("data"); publish() }
                 "audio-params/samplerate" -> { rate = if (e.isNull("data")) null else e.optInt("data"); publish() }
@@ -286,7 +326,10 @@ class MpvPlayer(
             "end-file" -> when (e.optString("reason")) {
                 "eof" -> {
                     val n = nextIndex(automatic = true)
+                    // the sleep timer's "end of this song": the next one waits, paused, at its start
+                    val stop = pauseAtEnd?.also { pauseAtEnd = null; wants = false }
                     if (n != null) load(n, byListener = false) else { ended = true; wants = false; loaded = false; publish() }
+                    stop?.invoke()
                 }
                 "error" -> queue.getOrNull(index)?.let { fail(it) }
             }
@@ -302,7 +345,7 @@ class MpvPlayer(
             isPlaying = wants && loaded && !buffering && !ended,
             wantsPlay = wants && !ended,
             ended = ended, buffering = buffering && wants, failed = failed,
-            durationMs = durationMs, wholeMs = durationMs,
+            durationMs = durationMs, wholeMs = wholeMs, trim = trim,
             queue = queue, currentIndex = index, shuffle = shuffle, repeatMode = repeat, order = order, from = from,
             quality = if (loaded) qualityLabel(codec, bitrate, rate) else null,
         )
