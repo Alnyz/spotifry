@@ -84,17 +84,19 @@ fun Modifier.splashTarget(key: String?): Modifier = if (key == null) this else o
 // ---- the timeline, in ms (the mockup's numbers) ----
 
 internal val Standard = CubicBezierEasing(.2f, 0f, 0f, 1f)
+/** The quarter turn eases in and out, so it starts and stops gently. */
+internal val TurnEase = CubicBezierEasing(.45f, 0f, .2f, 1f)
 internal val Decelerate = CubicBezierEasing(.05f, .7f, .1f, 1f)
 internal val Accelerate = CubicBezierEasing(.3f, 0f, 1f, 1f)
 
 internal object SplashTime {
-    const val FLY0 = 360f
+    const val FLY0 = 520f
     const val GAP = 45f
     const val FLY = 500f
-    const val WRITE0 = 860f
+    const val WRITE0 = 1020f
     const val WRITE = 280f
     /** Our part ends here; then the bars fade over Home's own fade time. */
-    const val OURS = 1250f
+    const val OURS = 1410f
     const val END = OURS + FADE_MS
     /** Without places to fly to: the logo shrinks and fades while the page shows. */
     const val FALLBACK = 300f
@@ -103,7 +105,7 @@ internal object SplashTime {
 }
 
 internal fun prog(t: Float, from: Float, to: Float) = ((t - from) / (to - from)).coerceIn(0f, 1f)
-internal fun turn(t: Float) = Standard.transform(prog(t, 60f, 360f))
+internal fun turn(t: Float) = TurnEase.transform(prog(t, 60f, 520f))
 internal fun discShrink(t: Float) = Accelerate.transform(prog(t, 40f, 330f))
 private fun flightStart(i: Int) = SplashTime.FLY0 + i * SplashTime.GAP
 internal fun flight(i: Int, t: Float) = Standard.transform(prog(t, flightStart(i), flightStart(i) + SplashTime.FLY))
@@ -114,7 +116,7 @@ internal fun split(i: Int, t: Float) = Standard.transform(prog(t, flightStart(i)
 /** How much of line [i] has been written, as the bar pulls back to the right. */
 internal fun write(i: Int, t: Float) = Standard.transform(prog(t, SplashTime.WRITE0 + i * SplashTime.GAP, SplashTime.WRITE0 + i * SplashTime.GAP + SplashTime.WRITE))
 /** The rest of the page showing. */
-internal fun pageIn(t: Float, page: SplashPage) = Decelerate.transform(prog(t, if (page == SplashPage.WELCOME) 950f else 880f, SplashTime.OURS))
+internal fun pageIn(t: Float, page: SplashPage) = Decelerate.transform(prog(t, if (page == SplashPage.WELCOME) 1110f else 1040f, SplashTime.OURS))
 internal fun endFade(t: Float) = 1f - prog(t, SplashTime.OURS, SplashTime.END)
 internal fun fallback(t: Float) = Standard.transform(prog(t, SplashTime.FLY0, SplashTime.FLY0 + SplashTime.FALLBACK))
 
@@ -253,7 +255,7 @@ private fun DrawScope.splash(t: Float, plan: Plan?, c: Offset, rects: Map<String
     if (page == SplashPage.HOME) drawRect(SplashBg, alpha = (1f - shown) * fade)
     else {
         // the welcome picture shows early, as its own entrance plays; the words and buttons stay covered until they are written
-        drawRect(SplashBg, alpha = (1f - Standard.transform(prog(t, 360f, 700f))) * fade)
+        drawRect(SplashBg, alpha = (1f - Standard.transform(prog(t, 520f, 860f))) * fade)
         rects["welcome"]?.let { drawRect(plan.pageColor, Offset(0f, it.top - 8.dp.toPx()), size.copy(height = size.height - it.top + 8.dp.toPx()), alpha = (1f - shown) * fade) }
     }
     val targets = targets(plan, rects)
