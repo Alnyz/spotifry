@@ -1,5 +1,11 @@
 package com.spotifry.music.data
 
+import com.spotifry.music.data.source.Song
+import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -34,6 +40,49 @@ class LyricsTest {
         assertNull(LyricsSource.fromEntry(JSONObject().put("instrumental", true).put("plainLyrics", "la")))
         assertNull(LyricsSource.fromEntry(JSONObject().put("syncedLyrics", JSONObject.NULL).put("plainLyrics", JSONObject.NULL)))
         assertTrue(LyricsSource.fromEntry(JSONObject().put("syncedLyrics", JSONObject.NULL).put("plainLyrics", "a\n\nb")) is Lyrics.Plain)
+    }
+
+    private val song = Song("id", "GLORY", "Ogryzek", 149, null)
+    private fun plain(vararg lines: String) = JSONObject().put("duration", 149.0).put("syncedLyrics", JSONObject.NULL).put("plainLyrics", lines.joinToString("\n"))
+
+    /** LRCLIB stand-in: [get] answers /api/get (null = 404), [search] answers /api/search; every request path is logged. */
+    private fun lrclib(get: JSONObject?, search: JSONArray, asked: MutableList<String>) = LyricsSource(OkHttpClient.Builder().addInterceptor { c ->
+        val path = c.request().url.encodedPath; asked += path
+        val body = if (path.endsWith("/get")) get?.toString() else search.toString()
+        Response.Builder().request(c.request()).protocol(Protocol.HTTP_1_1).code(if (body == null) 404 else 200).message("x")
+            .body((body ?: "").toResponseBody()).build()
+    }.build(), off = { setOf(Lyrics.BETTER_LYRICS, Lyrics.LRC_RED, Lyrics.PORTATO, Lyrics.UNISON) })
+
+    @Test fun instrumentalExactMatchIsFinalAndSkipsTheSearch() = runBlocking {
+        val asked = mutableListOf<String>()
+        val get = JSONObject().put("instrumental", true).put("plainLyrics", JSONObject.NULL).put("syncedLyrics", JSONObject.NULL)
+        assertNull(lrclib(get, JSONArray().put(plain("a", "b")), asked).get(song))
+        assertEquals(listOf("/api/get"), asked)
+    }
+
+    @Test fun missingExactRecordStillTriesTheSearch() = runBlocking {
+        val asked = mutableListOf<String>()
+        assertTrue(lrclib(null, JSONArray().put(plain("a", "b")), asked).get(song) is Lyrics.Plain)
+        assertEquals(listOf("/api/get", "/api/search"), asked)
+    }
+
+    private val junk = Array(16) { "1nst pinar.tncc" }
+
+    @Test fun searchSkipsRepeatedLineJunkAndTakesTheNextOne() {
+        val l = LyricsSource.pickClosest(JSONArray().put(plain(*junk)).put(plain("real", "words")), 149) as Lyrics.Plain
+        assertEquals(listOf("real", "words"), l.lines)
+        assertNull(LyricsSource.pickClosest(JSONArray().put(plain(*junk)), 149))
+    }
+
+    @Test fun searchKeepsSyncedEvenIfRepeatedAndShortRepeatsPlain() {
+        val synced = JSONObject().put("duration", 149.0).put("plainLyrics", JSONObject.NULL).put("syncedLyrics", (1..20).joinToString("\n") { "[00:%02d.00]la".format(it) })
+        assertTrue(LyricsSource.pickClosest(JSONArray().put(synced), 149) is Lyrics.Timed)
+        assertTrue(LyricsSource.pickClosest(JSONArray().put(plain("la", "la", "la", "la", "la")), 149) is Lyrics.Plain)
+    }
+
+    @Test fun exactMatchWithRepeatedLinesIsAccepted() = runBlocking {
+        val l = lrclib(plain(*Array(20) { "na" }), JSONArray(), mutableListOf()).get(song)
+        assertEquals(20, (l as Lyrics.Plain).lines.size)
     }
 
     // trimmed from a real BetterLyrics answer: syllables of one word, a background voice, a line with no word timing

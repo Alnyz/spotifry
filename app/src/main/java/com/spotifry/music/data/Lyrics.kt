@@ -54,7 +54,7 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         val key = song.id + skip.sorted()
         if (key in known) return known[key]
         val found = withContext(Dispatchers.IO) {
-            fromSources(song, skip) ?: if (Lyrics.LRCLIB in skip) null else tries { exact(song) } ?: tries { closest(song) }
+            fromSources(song, skip) ?: if (Lyrics.LRCLIB in skip) null else lrclib(song)
         }
         known[key] = found
         return found
@@ -125,12 +125,19 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         return block()
     }
 
-    private fun exact(song: Song): Lyrics? {
+    /** An exact record marked instrumental is the answer (no lyrics); only a missing record or an empty one goes on to the fuzzy search. */
+    private suspend fun lrclib(song: Song): Lyrics? {
+        val record = tries { exact(song) }
+        if (record?.optBoolean("instrumental") == true) return null
+        return record?.let(::fromEntry) ?: tries { closest(song) }
+    }
+
+    private fun exact(song: Song): JSONObject? {
         val url = BASE.toHttpUrl().newBuilder().addPathSegments("api/get")
             .addQueryParameter("track_name", song.title).addQueryParameter("artist_name", song.artist)
             .addQueryParameter("duration", song.durationSec.toString()).build()
         val body = call(url.toString()) ?: return null
-        return fromEntry(JSONObject(body))
+        return JSONObject(body)
     }
 
     /** The search finds songs whose title or artist is written a bit differently; the length keeps it honest. */
@@ -216,7 +223,13 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
             (0 until results.length()).map { results.getJSONObject(it) }
                 .filter { abs(it.optDouble("duration", 0.0) - durationSec) <= 5 }
                 .sortedByDescending { !it.isNull("syncedLyrics") }
-                .firstNotNullOfOrNull(::fromEntry)
+                .firstNotNullOfOrNull { fromEntry(it)?.takeUnless(::isJunk) }
+
+        /** Untimed text that is one line said over and over (6+ lines, 90%+ the same) is a bad upload; only trusted for an exact match. */
+        private fun isJunk(l: Lyrics): Boolean {
+            val lines = (l as? Lyrics.Plain)?.lines?.map { it.trim().lowercase() } ?: return false
+            return lines.size >= 6 && lines.groupingBy { it }.eachCount().values.max() >= lines.size * 0.9
+        }
 
         fun fromEntry(o: JSONObject): Lyrics? {
             if (o.optBoolean("instrumental")) return null
