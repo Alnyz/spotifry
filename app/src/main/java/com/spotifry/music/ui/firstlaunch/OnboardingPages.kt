@@ -7,14 +7,13 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextLayoutResult
@@ -75,10 +74,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -163,13 +159,12 @@ internal fun NameStep(name: String, onName: (String) -> Unit, stepLabel: String,
     val scheme = MaterialTheme.colorScheme
     val ready = cleanName(name).isNotEmpty()
     val keyboard = WindowInsets.isImeVisible
-    var bodyH by remember { mutableIntStateOf(0) }
-    // the photo takes what the question, field and button leave; at a large font scale it stops at a strip and the page scrolls
-    BoxWithConstraints(Modifier.fillMaxSize().imePadding()) {
-        val photoH = maxOf(140.dp, maxHeight - with(LocalDensity.current) { bodyH.toDp() })
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Sleeve(name, keyboard, Modifier.fillMaxWidth().height(photoH)) { TopRow(stepLabel, "Skip", true, onSkip, ink = Color.White) }
-            Column(Modifier.onSizeChanged { bodyH = it.height }) {
+    // the photo takes what the question, field and button leave; at a large font scale it stops at a strip and the page scrolls.
+    // Worked out in one measuring pass from the room on screen, so a size seen a frame late never moves the field again.
+    Layout(
+        {
+            Sleeve(name, keyboard, Modifier.fillMaxWidth()) { TopRow(stepLabel, "Skip", true, onSkip, ink = Color.White) }
+            Column {
                 Text(
                     "What should we call you?", Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).semantics { heading() },
                     style = if (keyboard) Question.copy(fontSize = 20.sp) else Question,
@@ -182,7 +177,14 @@ internal fun NameStep(name: String, onName: (String) -> Unit, stepLabel: String,
                     )
                 }
             }
-        }
+        },
+        // the scroll keeps the screen's height as the least the page may take
+        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()),
+    ) { (sleeve, body), c ->
+        val b = body.measure(c.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+        val photoH = maxOf(140.dp.roundToPx(), c.minHeight - b.height)
+        val s = sleeve.measure(Constraints.fixed(c.maxWidth, photoH))
+        layout(c.maxWidth, photoH + b.height) { s.place(0, 0); b.place(0, photoH) }
     }
 }
 
@@ -193,15 +195,13 @@ private val Question = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Bl
 private fun NameField(name: String, onName: (String) -> Unit, onContinue: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     var focused by remember { mutableStateOf(false) }
-    val focus = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) { focus.requestFocus(); keyboard?.show() }
+    // no focus and no keyboard until the field is tapped: the page opens whole, photo and question first
     val count = remember(name) { clusters(cutName(name)).size }
     val shape = RoundedCornerShape(16.dp)
     BasicTextField(
         name, { onName(cutName(it.replace('\n', ' '))) },
         Modifier.fillMaxWidth().height(60.dp).clip(shape).background(scheme.surface).border(if (focused) 2.dp else 1.dp, if (focused) scheme.primary else scheme.outlineVariant, shape)
-            .focusRequester(focus).onFocusChanged { focused = it.isFocused }.semantics { contentDescription = "Name or nickname" }.testTag("name field"),
+            .onFocusChanged { focused = it.isFocused }.semantics { contentDescription = "Name or nickname" }.testTag("name field"),
         singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface), cursorBrush = Brush.linearGradient(listOf(scheme.primary, scheme.primary)),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, autoCorrectEnabled = false, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onContinue() }),

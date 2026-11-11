@@ -45,6 +45,20 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import android.view.View
+import android.view.inputmethod.InputMethodManager
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -189,6 +203,55 @@ class FirstLaunchScreenTest {
         compose.onNodeWithText("20/20").assertIsDisplayed()
         compose.onNodeWithText("Continue").performClick()
         assertEquals(1, went)
+    }
+
+    /** The page opens with the photo and question in view: no focus, no keyboard, until the field is tapped. */
+    @Test fun nameOpensWithoutTheKeyboardAndATapOnTheFieldAsksForIt() {
+        lateinit var view: View
+        compose.setContent { view = LocalView.current; MusicTheme { NameStep("", {}, "1 of 3", {}, {}) } }
+        compose.waitForIdle()
+        val imm = shadowOf(view.context.getSystemService(InputMethodManager::class.java))
+        compose.onNodeWithTag("name field").assertIsNotFocused()
+        assertFalse(imm.isSoftInputVisible)
+        compose.onNodeWithTag("name field").performClick()
+        compose.onNodeWithTag("name field").assertIsFocused()
+    }
+
+    /**
+     * The keyboard opening and closing moves the field once, to where it stays: the photo is worked out from the room on
+     * screen in the same pass, never from a height measured a frame earlier (that flipped the page back and forth).
+     */
+    @Config(qualifiers = "w384dp-h848dp")
+    @Test fun namePageSettlesAtOnceAsTheKeyboardOpensAndCloses() {
+        lateinit var view: View
+        compose.setContent {
+            view = LocalView.current
+            // as FirstLaunchScreen hosts it
+            MusicTheme { Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { NameStep("", {}, "1 of 3", {}, {}) } }
+        }
+        compose.mainClock.autoAdvance = false
+        val density = view.resources.displayMetrics.density
+        fun keyboard(dp: Int) {
+            val insets = WindowInsetsCompat.Builder()
+                .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, (dp * density).toInt()))
+                .setVisible(WindowInsetsCompat.Type.ime(), dp > 0).build()
+            compose.runOnUiThread { ViewCompat.dispatchApplyWindowInsets(view, insets) }
+        }
+        // where the button sits on each of the next frames
+        fun frames() = List(8) { compose.mainClock.advanceTimeByFrame(); compose.onNodeWithText("Continue").fetchSemanticsNode().boundsInRoot }
+        val closed = frames()
+        repeat(2) {
+            keyboard(380)
+            val open = frames()
+            assertEquals(1, open.distinct().size)
+            // just above the keyboard, the foot's own margin under it
+            assertEquals(848f - 380f - 20f, open.first().bottom, 1f)
+            keyboard(0)
+            val again = frames()
+            assertEquals(1, again.distinct().size)
+            assertEquals(closed.last(), again.first())
+            assertEquals(848f - 20f, again.first().bottom, 1f)
+        }
     }
 
     @Test fun inkComesUpWithEachLetterAndIsFullByTheThird() {
