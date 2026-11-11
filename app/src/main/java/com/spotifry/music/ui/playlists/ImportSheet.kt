@@ -35,7 +35,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.spotifry.music.data.SpotifyImport
 import com.spotifry.music.data.SpotifyTrack
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.ui.Icons
@@ -78,16 +77,16 @@ private fun LinkStep(error: String?, onImport: (String) -> Unit, onShared: (com.
     val clip = LocalClipboardManager.current
     // a song list a friend sent from Spotifry, copied from the chat: offered as is, no Spotify needed
     val shared = remember { clip.getText()?.text?.let(com.spotifry.music.data.ShareText::read) }
-    // a Spotify playlist link already copied is filled in, so the usual case is one tap
-    var link by remember { mutableStateOf(clip.getText()?.text?.takeIf { SpotifyImport.playlistId(it) != null }.orEmpty()) }
+    // a playlist link already copied is filled in, so the usual case is one tap
+    var link by remember { mutableStateOf(clip.getText()?.text?.takeIf(::isPlaylistLink).orEmpty()) }
     // the error belongs to the link that caused it; typing clears it
     var shownFor by remember(error) { mutableStateOf(link) }
     val err = error?.takeIf { link == shownFor }
     val keyboard = LocalSoftwareKeyboardController.current
-    Title("Import from Spotify", "Paste the link from Spotify: Share, then Copy link.")
+    Title("Import a playlist", "Paste a Spotify or YouTube playlist link: Share, then Copy link.")
     OutlinedTextField(
         link, { link = it }, Modifier.fillMaxWidth().padding(top = 18.dp), singleLine = true,
-        placeholder = { Text("open.spotify.com/playlist/…") }, leadingIcon = { Icon(Icons.Link, null) },
+        placeholder = { Text("Spotify or YouTube link") }, leadingIcon = { Icon(Icons.Link, null) },
         isError = err != null, shape = RoundedCornerShape(16.dp),
         supportingText = { Text(err ?: "Public playlists only.") },
     )
@@ -101,7 +100,7 @@ private fun LinkStep(error: String?, onImport: (String) -> Unit, onShared: (com.
 
 @Composable
 private fun Opening() {
-    Title("Import from Spotify", "Opening the playlist…")
+    Title("Import a playlist", "Opening the playlist…")
     LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 20.dp), strokeCap = androidx.compose.ui.graphics.StrokeCap.Round)
 }
 
@@ -128,6 +127,7 @@ private fun Done(s: ImportState.Done, covers: List<SongEntity>, onOpen: (Long) -
         CoverMosaic(covers, Modifier.size(64.dp))
         Column { Title(s.name, "${s.added} of ${s.total} songs added") }
     }
+    s.note?.let { Small(it, Modifier.padding(top = 12.dp)) }
     Row(Modifier.padding(top = 18.dp), Arrangement.spacedBy(10.dp)) {
         Pill(null, "Open playlist", scheme.primary, scheme.onPrimary, { onOpen(s.playlistId) }, Modifier.weight(1f))
         Pill(null, "Done", scheme.surfaceContainerHigh, scheme.onSurface, onClose, Modifier.weight(1f))
@@ -141,7 +141,7 @@ private fun Done(s: ImportState.Done, covers: List<SongEntity>, onOpen: (Long) -
 @Composable
 private fun Failed(message: String, onRetry: () -> Unit, onClose: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    Title("Import from Spotify", message)
+    Title("Import a playlist", message)
     Row(Modifier.padding(top = 18.dp), Arrangement.spacedBy(10.dp)) {
         Pill(null, "Try again", scheme.primary, scheme.onPrimary, onRetry, Modifier.weight(1f))
         Pill(null, "Close", scheme.surfaceContainerHigh, scheme.onSurface, onClose, Modifier.weight(1f))

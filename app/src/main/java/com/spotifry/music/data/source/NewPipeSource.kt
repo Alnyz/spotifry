@@ -82,22 +82,23 @@ class NewPipeSource : MusicSource {
         (mix?.takeIf { it.size > 1 } ?: StreamInfo.getInfo(YouTube, song.url).relatedItems.toSongs()).filter { it.id != song.id }
     }
 
-    private fun List<InfoItem>.toSongs(): List<Song> = filterIsInstance<StreamInfoItem>().mapNotNull { item ->
-        // drops live streams (duration -1) and anything over 20 minutes
-        if (item.duration !in 1..MAX_SECONDS) return@mapNotNull null
-        val id = YoutubeStreamLinkHandlerFactory.getInstance().getId(item.url)
-        Song(id, item.name, item.uploaderName.orEmpty(), item.duration, item.thumbnails.maxByOrNull { it.height }?.url)
-    }
-
     private fun expiryOf(url: String): Long {
         val seconds = Regex("[?&]expire=(\\d+)").find(url)?.groupValues?.get(1)?.toLongOrNull()
         return if (seconds != null) seconds * 1000 else System.currentTimeMillis() + FALLBACK_TTL_MS
     }
 
     private companion object {
-        const val MAX_SECONDS = 1200L
         const val FALLBACK_TTL_MS = 5 * 60 * 60 * 1000L
     }
+}
+
+private const val MAX_SECONDS = 1200L
+
+/** Found videos as songs. Drops live streams (duration -1) and anything over 20 minutes. */
+internal fun List<InfoItem>.toSongs(): List<Song> = filterIsInstance<StreamInfoItem>().mapNotNull { item ->
+    if (item.duration !in 1..MAX_SECONDS) return@mapNotNull null
+    val id = YoutubeStreamLinkHandlerFactory.getInstance().getId(item.url)
+    Song(id, item.name, item.uploaderName.orEmpty(), item.duration, item.thumbnails.maxByOrNull { it.height }?.url)
 }
 
 private fun filterOf(type: SearchType) = when (type) {

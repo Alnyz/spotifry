@@ -66,7 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.data.MIN_ARTISTS
 import com.spotifry.music.data.PickedArtist
-import com.spotifry.music.data.SpotifyImport
+import com.spotifry.music.ui.playlists.isPlaylistLink
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.CoverArt
@@ -301,8 +301,8 @@ internal fun LinkStep(
     val scheme = MaterialTheme.colorScheme
     val clip = LocalClipboardManager.current
     val keyboard = LocalSoftwareKeyboardController.current
-    // a Spotify link already copied is filled in, so the usual case is one tap
-    val copied = remember { clip.getText()?.text?.takeIf { SpotifyImport.playlistId(it) != null }.orEmpty() }
+    // a playlist link already copied is filled in, so the usual case is one tap
+    val copied = remember { clip.getText()?.text?.takeIf(::isPlaylistLink).orEmpty() }
     var link by rememberSaveable { mutableStateOf(copied) }
     val running = state is ImportState.Opening || state is ImportState.Running
     Column(Modifier.fillMaxSize()) {
@@ -322,7 +322,8 @@ internal fun LinkStep(
                         CoverMosaic(covers[state.playlistId].orEmpty(), Modifier.size(64.dp))
                         Column { Title(state.name, "${state.added} of ${state.total} songs added") }
                     }
-                    if (state.missing.isNotEmpty()) Text("${state.missing.size} songs were not found on YouTube Music.", Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                    val note = state.note ?: if (state.missing.isNotEmpty()) "${state.missing.size} songs were not found on YouTube Music." else null
+                    if (note != null) Text(note,Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                 }
                 else -> {
                     val error = (state as? ImportState.Input)?.error
@@ -330,7 +331,7 @@ internal fun LinkStep(
                     // an error belongs to the link that caused it; typing clears it
                     var shownFor by remember(state) { mutableStateOf(link) }
                     val err = error?.takeIf { link == shownFor }
-                    Heading("Bring a playlist", "Paste a link from Spotify. Songs are found on YouTube Music. Public playlists only.")
+                    Heading("Bring a playlist", "Paste a link from Spotify or YouTube. Spotify songs are found on YouTube Music. Public playlists only.")
                     OutlinedTextField(
                         link, { link = it }, Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 22.dp), singleLine = true,
                         placeholder = { Text("open.spotify.com/playlist/…") }, leadingIcon = { Icon(Icons.Link, null) },

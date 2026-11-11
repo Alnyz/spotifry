@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.SpotifyImport
 import com.spotifry.music.data.SpotifyPlaylist
 import com.spotifry.music.data.SpotifyTrack
+import com.spotifry.music.data.YouTubeImport
+import com.spotifry.music.data.YouTubePlaylist
+import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException
 import com.spotifry.music.data.db.PlaylistDao
 import com.spotifry.music.data.db.SongDao
 import com.spotifry.music.data.db.toEntity
@@ -26,16 +29,21 @@ sealed interface ImportState {
     data object Opening : ImportState
     /** [recent] newest first; a null `found` is the song being looked up now. */
     data class Running(val name: String, val done: Int, val total: Int, val secondsLeft: Long?, val recent: List<Pair<SpotifyTrack, Boolean?>>) : ImportState
-    data class Done(val playlistId: Long, val name: String, val added: Int, val total: Int, val missing: List<SpotifyTrack>) : ImportState
+    /** [note]: what a YouTube import left out, if anything. */
+    data class Done(val playlistId: Long, val name: String, val added: Int, val total: Int, val missing: List<SpotifyTrack>, val note: String? = null) : ImportState
     data class Failed(val message: String) : ImportState
 }
 
-/** Spotify link in, playlist out. Lives as long as the app shell, so switching tabs does not stop it. */
+/** A link [ImportViewModel.start] takes: a Spotify or YouTube playlist. */
+fun isPlaylistLink(text: String) = YouTubeImport.playlistUrl(text) != null || SpotifyImport.playlistId(text) != null
+
+/** Spotify or YouTube link in, playlist out. Lives as long as the app shell, so switching tabs does not stop it. */
 class ImportViewModel(
     private val fetch: suspend (String) -> SpotifyPlaylist,
     private val source: MusicSource,
     private val playlists: PlaylistDao,
     private val songs: SongDao,
+    private val fetchYouTube: suspend (String) -> YouTubePlaylist = YouTubeImport::fetch,
 ) : ViewModel() {
     private val _state = MutableStateFlow<ImportState>(ImportState.Closed)
     val state: StateFlow<ImportState> = _state
@@ -71,14 +79,37 @@ class ImportViewModel(
     fun retry() { _state.value = ImportState.Input() }
 
     fun start(link: String) {
-        val id = SpotifyImport.playlistId(link) ?: run { _state.value = ImportState.Input("That isn't a Spotify playlist link"); return }
+        YouTubeImport.playlistUrl(link)?.let { startYouTube(it); return }
+        val id = SpotifyImport.playlistId(link) ?: run { _state.value = ImportState.Input("That isn't a Spotify or YouTube playlist link"); return }
         job = viewModelScope.launch {
             _state.value = ImportState.Opening
             val list = try { fetch(id) } catch (e: CancellationException) { throw e } catch (e: Exception) {
-                _state.value = ImportState.Failed("Couldn't open that playlist. Check it's public and you're online."); return@launch
+                _state.value = ImportState.Failed(OPEN_FAILED); return@launch
             }
-            if (list.tracks.isEmpty()) { _state.value = ImportState.Failed("That playlist has no songs."); return@launch }
+            if (list.tracks.isEmpty()) { _state.value = ImportState.Failed(EMPTY); return@launch }
             run(list)
+        }
+    }
+
+    /** No search: the songs are YouTube's already, so they go straight in, in the playlist's order. */
+    private fun startYouTube(url: String) {
+        job = viewModelScope.launch {
+            _state.value = ImportState.Opening
+            val list = try { fetchYouTube(url) } catch (e: CancellationException) { throw e } catch (e: ContentNotAvailableException) {
+                _state.value = ImportState.Failed("That playlist is private or needs sign-in. Only public playlists can be imported."); return@launch
+            } catch (e: Exception) {
+                _state.value = ImportState.Failed(OPEN_FAILED); return@launch
+            }
+            if (list.songs.isEmpty()) { _state.value = ImportState.Failed(EMPTY); return@launch }
+            val playlistId = playlists.create(list.name)
+            importing = playlistId
+            list.songs.forEach { songs.upsert(it.toEntity()); playlists.addSong(playlistId, it.id) }
+            importing = null
+            val note = listOfNotNull(
+                if (list.skipped > 0) "${list.skipped} skipped: unavailable or too long." else null,
+                if (list.capped) "Mixes never end, so only the first ${YouTubeImport.MIX_LIMIT} were taken." else null,
+            ).joinToString(" ").ifEmpty { null }
+            _state.value = ImportState.Done(playlistId, list.name, list.songs.size, list.songs.size + list.skipped, emptyList(), note)
         }
     }
 
@@ -117,5 +148,9 @@ class ImportViewModel(
         else ImportState.Done(playlistId, list.name, added, list.tracks.size, missing)
     }
 
-    private companion object { const val PARALLEL = 3 }
+    private companion object {
+        const val PARALLEL = 3
+        const val OPEN_FAILED = "Couldn't open that playlist. Check it's public and you're online."
+        const val EMPTY = "That playlist has no songs."
+    }
 }

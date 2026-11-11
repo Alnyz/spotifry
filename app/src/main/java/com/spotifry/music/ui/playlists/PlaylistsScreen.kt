@@ -83,7 +83,7 @@ fun PlaylistsContent(playlists: List<PlaylistWithCounts>, onOpen: (Long) -> Unit
             item(span = { GridItemSpan(2) }) {
                 Column {
                     ScreenHeader("Playlists", Modifier.offset(x = (-20).dp), subtitle = if (playlists.isEmpty()) null else "${playlists.size} ${if (playlists.size == 1) "playlist" else "playlists"}")
-                    Pill(Icons.Download, "Import from Spotify", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface, onImport, Modifier.padding(top = 16.dp, bottom = 4.dp))
+                    Pill(Icons.Download, "Import a playlist", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface, onImport, Modifier.padding(top = 16.dp, bottom = 4.dp))
                     if (notFound > 0) Pill(null, "$notFound not found from the import · search them", MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.onSurface, onReview, Modifier.padding(top = 6.dp, bottom = 4.dp))
                 }
             }
