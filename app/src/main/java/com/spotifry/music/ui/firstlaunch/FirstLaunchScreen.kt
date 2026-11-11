@@ -114,7 +114,7 @@ fun FirstLaunchScreen(
             WelcomeStep(starters, onFresh = vm::startFresh, onRestore = onRestore)
         } else if (intro == Intro.NAME) {
             val name by vm.name.collectAsStateWithLifecycle()
-            NameStep(starters, name, { vm.name.value = it }, "1 of 3", onContinue = vm::saveName, onSkip = vm::skipName)
+            NameStep(name, { vm.name.value = it }, "1 of 3", onContinue = vm::saveName, onSkip = vm::skipName)
         } else if (step == 1) {
             val picked by vm.picked.collectAsStateWithLifecycle()
             val query by vm.query.collectAsStateWithLifecycle()
@@ -144,13 +144,13 @@ private fun isOnline(context: android.content.Context): Boolean {
 }
 
 @Composable
-internal fun TopRow(stepLabel: String?, skipLabel: String, skipEnabled: Boolean, onSkip: () -> Unit) {
+internal fun TopRow(stepLabel: String?, skipLabel: String, skipEnabled: Boolean, onSkip: () -> Unit, ink: Color? = null) {
     Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 20.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Text(stepLabel.orEmpty(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stepLabel.orEmpty(), style = MaterialTheme.typography.labelLarge, color = ink?.copy(alpha = .86f) ?: MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             skipLabel,
             Modifier.alpha(if (skipEnabled) 1f else .35f).clickable(enabled = skipEnabled, role = Role.Button, onClick = onSkip).heightIn(min = 48.dp).widthIn(min = 48.dp).padding(horizontal = 6.dp).wrapContentHeight(Alignment.CenterVertically),
-            style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelLarge, color = ink ?: MaterialTheme.colorScheme.primary,
         )
     }
 }

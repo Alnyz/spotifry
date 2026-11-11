@@ -1,6 +1,35 @@
 package com.spotifry.music.ui.firstlaunch
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.BiasAlignment
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.em
+import com.spotifry.music.R
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
@@ -65,7 +94,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.geometry.Rect
@@ -82,7 +110,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spotifry.music.data.NAME_MAX
@@ -96,14 +123,14 @@ import kotlin.math.PI
 import kotlin.math.pow
 
 /*
- * The two first pages, drawn as a cut-out collage (design/onboarding-mockup-3.html, option N): a record, black-and-white prints of
- * the starter artists' photos on paper, an orange circle, a squiggle, a round sticker. Everything is drawn in a 390 dp wide
- * space and scaled to the screen. The entrance runs once; the record and the sticker's text keep turning slowly. With the
- * system's "remove animations" on, the collage is simply there and still.
+ * Welcome is drawn as a cut-out collage (design/onboarding-mockup-3.html, option N): a record, black-and-white prints of the
+ * starter artists' photos on paper, an orange circle, a squiggle, a round sticker. Everything is drawn in a 390 dp wide
+ * space and scaled to the screen. The entrance runs once; the record and the sticker's text keep turning slowly.
+ * The Name page is a one-ink record sleeve (design/name-page-mockup-4b.html): a black-and-white photo that takes the accent
+ * colour as the name is typed, with the name set as its title. With the system's "remove animations" on, nothing moves.
  */
 
 private val Paper = Color(0xFFE9E4D4)
-private val PaperInk = Color(0xFF17191E)
 private val Vinyl = Color(0xFF0E0F12)
 private const val ART_W = 390f
 
@@ -113,7 +140,7 @@ internal fun WelcomeStep(starters: List<Starter>, onFresh: () -> Unit, onRestore
     val scheme = MaterialTheme.colorScheme
     val intro = rememberEntrance()
     Column(Modifier.fillMaxSize()) {
-        TopRow(null, "", false) {}
+        TopRow(null, "", false, {})
         Collage(Modifier.weight(1f).fillMaxWidth().padding(top = 20.dp), 440f) { Welcome(starters, intro) }
         Column(Modifier.graphicsLayer { translationY = (1 - ease(intro.seg(.1f, .6f))) * 42.dp.toPx(); alpha = ease(intro.seg(.1f, .5f)) }) {
             Text(
@@ -132,31 +159,35 @@ internal fun WelcomeStep(starters: List<Starter>, onFresh: () -> Unit, onRestore
 /** Name: a name or nickname, kept on the phone and shown once, on the Spotifried listener card. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun NameStep(starters: List<Starter>, name: String, onName: (String) -> Unit, stepLabel: String, onContinue: () -> Unit, onSkip: () -> Unit) {
+internal fun NameStep(name: String, onName: (String) -> Unit, stepLabel: String, onContinue: () -> Unit, onSkip: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val intro = rememberEntrance()
     val ready = cleanName(name).isNotEmpty()
-    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())) {
-        TopRow(stepLabel, "Skip", true, onSkip)
-        Text(
-            "What should\nwe call you?", Modifier.padding(horizontal = 20.dp).semantics { heading() }.graphicsLayer { translationY = (1 - ease(intro.seg(.1f, .6f))) * 42.dp.toPx(); alpha = ease(intro.seg(.1f, .5f)) },
-            style = MediumHeading,
-        )
-        // the keyboard is up: the picture gives its room to the field and the button, which stay in view
-        // the page scrolls, so at a large font with the keyboard up the heading, field and button stay reachable
-        if (!WindowInsets.isImeVisible) Collage(Modifier.height(260.dp).fillMaxWidth().padding(top = 16.dp), 300f) { NamePicture(starters, intro) }
-        Foot {
-            NameField(name, onName, onContinue = { if (ready) onContinue() })
-            Pill(
-                null, "Continue", if (ready) scheme.primary else scheme.surfaceContainerHigh, if (ready) scheme.onPrimary else scheme.onSurfaceVariant,
-                { if (ready) onContinue() }, Modifier.fillMaxWidth().padding(top = 10.dp).then(if (ready) Modifier else Modifier.semantics { disabled() }),
-            )
+    val keyboard = WindowInsets.isImeVisible
+    var bodyH by remember { mutableIntStateOf(0) }
+    // the photo takes what the question, field and button leave; at a large font scale it stops at a strip and the page scrolls
+    BoxWithConstraints(Modifier.fillMaxSize().imePadding()) {
+        val photoH = maxOf(140.dp, maxHeight - with(LocalDensity.current) { bodyH.toDp() })
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            Sleeve(name, keyboard, Modifier.fillMaxWidth().height(photoH)) { TopRow(stepLabel, "Skip", true, onSkip, ink = Color.White) }
+            Column(Modifier.onSizeChanged { bodyH = it.height }) {
+                Text(
+                    "What should we call you?", Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).semantics { heading() },
+                    style = if (keyboard) Question.copy(fontSize = 20.sp) else Question,
+                )
+                Foot {
+                    NameField(name, onName, onContinue = { if (ready) onContinue() })
+                    Pill(
+                        null, "Continue", if (ready) scheme.primary else scheme.surfaceContainerHigh, if (ready) scheme.onPrimary else scheme.onSurfaceVariant,
+                        { if (ready) onContinue() }, Modifier.fillMaxWidth().padding(top = 12.dp).then(if (ready) Modifier else Modifier.semantics { disabled() }),
+                    )
+                }
+            }
         }
     }
 }
 
 private val BigHeading = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 58.sp, lineHeight = 55.sp, letterSpacing = (-2.6).sp)
-private val MediumHeading = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 40.sp, lineHeight = 40.sp, letterSpacing = (-1.6).sp)
+private val Question = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 30.sp, lineHeight = 1.02.em, letterSpacing = (-0.025).em, lineBreak = LineBreak.Heading)
 
 @Composable
 private fun NameField(name: String, onName: (String) -> Unit, onContinue: () -> Unit) {
@@ -165,26 +196,150 @@ private fun NameField(name: String, onName: (String) -> Unit, onContinue: () -> 
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { focus.requestFocus(); keyboard?.show() }
-    val count = remember(name) { cutName(name).let { java.text.BreakIterator.getCharacterInstance().run { setText(it); var n = 0; while (next() != java.text.BreakIterator.DONE) n++; n } } }
+    val count = remember(name) { clusters(cutName(name)).size }
     val shape = RoundedCornerShape(16.dp)
     BasicTextField(
         name, { onName(cutName(it.replace('\n', ' '))) },
-        Modifier.fillMaxWidth().height(56.dp).clip(shape).background(scheme.surface).then(if (focused) Modifier.border(2.dp, scheme.primary, shape) else Modifier)
+        Modifier.fillMaxWidth().height(60.dp).clip(shape).background(scheme.surface).border(if (focused) 2.dp else 1.dp, if (focused) scheme.primary else scheme.outlineVariant, shape)
             .focusRequester(focus).onFocusChanged { focused = it.isFocused }.semantics { contentDescription = "Name or nickname" }.testTag("name field"),
         singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface), cursorBrush = Brush.linearGradient(listOf(scheme.primary, scheme.primary)),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, autoCorrectEnabled = false, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onContinue() }),
         decorationBox = { inner ->
             Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f), Alignment.CenterStart) {
-                    if (name.isEmpty()) Text("Name or nickname", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
-                    inner()
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                    // empty and not in use: the words sit in the box; otherwise they move up as its label
+                    if (name.isEmpty() && !focused) Text("Name or nickname", Modifier.align(Alignment.CenterStart), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
+                    else Text("Name or nickname", Modifier.align(Alignment.TopStart).padding(top = 10.dp), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = if (focused) scheme.primary else scheme.onSurfaceVariant)
+                    Box(Modifier.align(Alignment.CenterStart).padding(top = 16.dp)) { inner() }
                 }
                 // the count only shows when the end is near
                 if (count >= NAME_MAX - 5) Text("$count/$NAME_MAX", Modifier.padding(start = 10.dp), style = MaterialTheme.typography.bodySmall, color = if (count >= NAME_MAX) scheme.onSurface else scheme.onSurfaceVariant)
             }
         },
     )
+}
+
+// ---- the sleeve ----
+
+/** The letters of [s] as the reader sees them (an accent typed as its own mark stays with its letter). */
+private fun clusters(s: String): List<IntRange> = java.text.BreakIterator.getCharacterInstance().run {
+    setText(s)
+    var from = first()
+    buildList { while (true) { val to = next(); if (to == java.text.BreakIterator.DONE) break; add(from until to); from = to } }
+}
+
+/** How much accent ink the photo has taken: none for an empty name, full from the third letter. */
+internal fun inkFor(name: String): Float = (clusters(cleanName(name).replace(" ", "")).size / 3f).coerceAtMost(1f)
+
+/** The name on the photo: two lines with the keyboard closed, one while it is open. */
+internal fun nameLines(keyboard: Boolean) = if (keyboard) 1 else 2
+
+private val SleeveEase = CubicBezierEasing(.16f, 1f, .3f, 1f)
+
+@OptIn(ExperimentalTextApi::class)
+private val Bodoni = FontFamily(Font(R.font.bodonimoda, FontWeight.Black, variationSettings = FontVariation.Settings(FontVariation.weight(900), FontVariation.Setting("opsz", 28f))))
+internal val NameStyle = TextStyle(color = Color.White, fontFamily = Bodoni, fontWeight = FontWeight.Black, lineHeight = 0.9.em, letterSpacing = (-0.02).em, lineBreak = LineBreak.Heading)
+
+/**
+ * The grey print with the accent multiplied over it: luminance, then contrast and brightness as the ink comes up ([p] 0 to 1),
+ * then each channel scaled from 1 (plain grey) towards [ink]'s, so grey runs from black to the accent.
+ */
+internal fun sleeveMatrix(p: Float, ink: Color): ColorMatrix {
+    val c = 1.05f + .2f * p
+    val b = .8f + .2f * p
+    val rows = listOf(ink.red, ink.green, ink.blue).flatMap { channel ->
+        val k = (1 - p + p * channel) * c * b
+        listOf(.2126f * k, .7152f * k, .0722f * k, 0f, 127.5f * (1 - c) * b * (1 - p + p * channel))
+    }
+    return ColorMatrix((rows + listOf(0f, 0f, 0f, 1f, 0f)).toFloatArray())
+}
+
+/** The photo, tinted and pushed in as the name is typed; with the keyboard open a wide strip with its own crop. [top] sits on it. */
+@Composable
+private fun Sleeve(name: String, keyboard: Boolean, modifier: Modifier, top: @Composable () -> Unit) {
+    val still = rememberStill()
+    val named = cleanName(name).isNotEmpty()
+    val p by animateFloatAsState(inkFor(name), if (still) snap() else tween(900, easing = SleeveEase), label = "ink")
+    val k by animateFloatAsState(if (keyboard) 1f else 0f, if (still) snap() else tween(600, easing = SleeveEase), label = "strip")
+    val shade = animateFloatAsState(if (named) 1f else 0f, if (still) snap() else tween(600), label = "shade")
+    val ink = MaterialTheme.colorScheme.primary
+    BoxWithConstraints(modifier.clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)).background(Color.Black)) {
+        Image(
+            painterResource(R.drawable.name_photo), null,
+            Modifier.fillMaxSize().graphicsLayer { val s = 1f + .16f * k + (.1f - .04f * k) * p; scaleX = s; scaleY = s; transformOrigin = TransformOrigin(.48f, .26f) },
+            // the raised hands: a little above the middle, higher in the strip
+            alignment = BiasAlignment(0f, -.4f - .16f * k), contentScale = ContentScale.Crop, colorFilter = ColorFilter.colorMatrix(sleeveMatrix(p, ink)),
+        )
+        Box(Modifier.fillMaxWidth().height(110.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .55f), Color.Transparent))))
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(.62f).graphicsLayer { alpha = shade.value }.background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .78f)))))
+        top()
+        val density = LocalDensity.current
+        val maxW = with(density) { (maxWidth - 36.dp).roundToPx() }
+        val maxH = with(density) { if (keyboard) (maxHeight * .5f).roundToPx() else (maxHeight - 96.dp).roundToPx() }
+        Mast(cleanName(name), nameLines(keyboard), maxW, maxH, Modifier.align(Alignment.BottomStart).padding(start = 18.dp, end = 18.dp, bottom = 14.dp))
+    }
+}
+
+/**
+ * The largest size, from 12 to [lines] == 1 ? 88 : 200 dp, at which [text] fits [maxW] x [maxH] in [lines] lines, breaking only
+ * between words: every word must fit the width on its own, else a line would break inside it.
+ */
+internal fun fitName(measurer: TextMeasurer, text: String, density: Density, maxW: Int, maxH: Int, lines: Int): TextLayoutResult {
+    val w = maxW.coerceAtLeast(1)
+    val words = text.split(' ').filter { it.isNotEmpty() }
+    fun style(px: Int) = NameStyle.copy(fontSize = with(density) { px.toSp() })
+    fun layout(px: Int) = measurer.measure(text, style(px), constraints = Constraints(maxWidth = w))
+    fun fits(px: Int): Boolean {
+        if (words.any { measurer.measure(it, style(px), softWrap = false, maxLines = 1).size.width > w }) return false
+        val l = layout(px)
+        return l.lineCount <= lines && l.size.height <= maxH
+    }
+    var lo = with(density) { 12.dp.roundToPx() }
+    var hi = with(density) { (if (lines == 1) 88 else 200).dp.roundToPx() }
+    while (hi - lo > 1) { val mid = (lo + hi) / 2; if (fits(mid)) lo = mid else hi = mid }
+    return layout(lo)
+}
+
+/** One letter of the name and how far it has risen in (0 to 1). */
+private class Rise(val range: IntRange, val t: Animatable<Float, AnimationVector1D>)
+
+/** The typed name, set as large as the photo allows. Drawn, not read: the field already says it to TalkBack. */
+@Composable
+private fun Mast(text: String, lines: Int, maxW: Int, maxH: Int, modifier: Modifier) {
+    if (text.isEmpty()) return
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val layout = remember(text, lines, maxW, maxH, density) { fitName(measurer, text, density, maxW, maxH, lines) }
+    val still = rememberStill()
+    // letters kept from the last name stay put; new ones start low and clear
+    val last = remember { arrayOf("" to emptyList<Rise>()) }
+    val rises = remember(text) {
+        val (before, old) = last[0]
+        val keep = before.commonPrefixWith(text).length
+        clusters(text).map { r -> old.firstOrNull { it.range == r && r.last < keep } ?: Rise(r, Animatable(if (still) 1f else 0f)) }.also { last[0] = text to it }
+    }
+    LaunchedEffect(rises) { rises.forEach { if (it.t.value < 1f) launch { it.t.animateTo(1f, tween(500, easing = SleeveEase)) } } }
+    with(density) {
+        Spacer(modifier.size(layout.size.width.toDp(), layout.size.height.toDp()).testTag("sleeve name").drawBehind {
+            // the whole name is laid out once, so each letter keeps the font's pairing with its neighbours; a rising letter is
+            // that same layout clipped to the letter's box, moved down and faded
+            val rising = rises.filter { it.t.value < 1f }
+            val font = layout.layoutInput.style.fontSize.toPx()
+            fun box(r: Rise): Rect {
+                val a = layout.getBoundingBox(r.range.first)
+                val z = layout.getBoundingBox(r.range.last)
+                val line = layout.getLineForOffset(r.range.first)
+                return Rect(minOf(a.left, z.left), layout.getLineTop(line) - .25f * font, maxOf(a.right, z.right), layout.getLineBottom(line) + .1f * font)
+            }
+            val holes = Path().apply { rising.forEach { addRect(box(it)) } }
+            clipPath(holes, ClipOp.Difference) { drawText(layout) }
+            rising.forEach { r ->
+                val v = r.t.value
+                withTransform({ translate(top = (1 - v) * .32f * font); clipRect(box(r).left, box(r).top, box(r).right, box(r).bottom) }) { drawText(layout, alpha = v) }
+            }
+        })
+    }
 }
 
 // ---- the collage ----
@@ -224,15 +379,6 @@ private fun Welcome(starters: List<Starter>, intro: Entrance) {
     Print(starters.photoAt(0), starters.nameAt(0), 112, 46, 236, -3f, intro, .15f)
     Print(starters.photoAt(4), starters.nameAt(4), 262, 250, 112, 7f, intro, .3f)
     Sticker(196, 196, intro)
-}
-
-@Composable
-private fun NamePicture(starters: List<Starter>, intro: Entrance) {
-    val scheme = MaterialTheme.colorScheme
-    Box(Modifier.offset(196.dp, 92.dp).size(120.dp).graphicsLayer { val p = ease(intro.seg(0f, .45f)); scaleX = .6f + .4f * p; scaleY = scaleX; alpha = p }.background(scheme.primary, CircleShape))
-    Record(-90, -40, 270, intro)
-    Print(starters.photoAt(2), starters.nameAt(2), 176, 10, 170, 4f, intro, .15f)
-    Note(22, 128, intro)
 }
 
 private fun List<Starter>.photoAt(i: Int) = getOrNull(i)?.photo
@@ -337,17 +483,5 @@ private fun Sticker(x: Int, y: Int, intro: Entrance) {
         withTransform({ scale(k, k, Offset.Zero); rotate(turn, Offset(48f, 48f)) }) { letters.forEach { drawPath(it, ink) } }
         val a = Path().apply { moveTo(38f * k, 58f * k); lineTo(58f * k, 38f * k); moveTo(44f * k, 38f * k); lineTo(58f * k, 38f * k); lineTo(58f * k, 52f * k) }
         drawPath(a, ink, style = Stroke(5f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    }
-}
-
-/** A taped paper note: the same words as the sticker, on the page that asks for the name. */
-@Composable
-private fun Note(x: Int, y: Int, intro: Entrance) {
-    Box(Modifier.offset(x.dp, y.dp).graphicsLayer {
-        val p = spring(intro.seg(.3f, .8f))
-        translationY = -(1 - p) * 36.dp.toPx(); rotationZ = 4f + (1 - p) * 16f; alpha = intro.seg(.3f, .5f)
-    }.shadow(8.dp, RoundedCornerShape(2.dp)).background(Paper).padding(horizontal = 15.dp, vertical = 12.dp)) {
-        Text("Just\nbetween us.", style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, lineHeight = 21.sp, letterSpacing = (-0.4).sp, color = PaperInk))
-        Box(Modifier.align(Alignment.TopCenter).offset(y = (-21).dp).size(46.dp, 16.dp).background(Color.White.copy(alpha = .28f)))
     }
 }
