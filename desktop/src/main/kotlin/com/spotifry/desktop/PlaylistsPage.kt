@@ -30,12 +30,14 @@ fun PlaylistsPage(services: Services, go: (Route) -> Unit, modifier: Modifier = 
     val scope = rememberCoroutineScope()
     if (creating) NameDialog("New playlist", "Create", "", { creating = false }) { name -> scope.launch { db.playlists().create(name) }; creating = false }
     Column(modifier) {
+        Kicker("On this computer")
         PageHeader("Playlists", if (lists.isEmpty()) null else "${lists.size} ${if (lists.size == 1) "playlist" else "playlists"}") {
             Pill("Import a playlist", Icons.Download) { services.importer.open() }
             Pill("+ New playlist", primary = true) { creating = true }
         }
+        SavedFilters(Route.Playlists, go)
         if (lists.isEmpty()) EmptyState("No playlists yet", "Press New playlist, then add songs from the menu next to any song.")
-        else LazyVerticalGrid(GridCells.Adaptive(180.dp), Modifier.padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        else LazyVerticalGrid(GridCells.Adaptive(180.dp), Modifier.padding(top = 24.dp), contentPadding = PaddingValues(bottom = LocalBottomInset.current), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             items(lists, key = { it.id }) { p ->
                 val art = covers.filter { it.playlistId == p.id }.take(4).map { it.song.thumbnailUrl }
                 CoverCard(p.name, "${p.songCount} songs · ${p.savedCount} saved", { w -> Mosaic(art, w) }, onClick = { go(Route.Playlist(p.id)) })
@@ -99,6 +101,6 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
                 onClick = { services.player.playList(songs, i, meta.name) },
             )
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }
 }

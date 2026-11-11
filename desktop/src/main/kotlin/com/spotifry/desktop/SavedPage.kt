@@ -19,18 +19,21 @@ import com.spotifry.music.data.RestoreStatus
 import com.spotifry.music.data.db.SongEntity
 
 @Composable
-fun SavedPage(services: Services, modifier: Modifier = Modifier) {
+fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modifier) {
     val lib = services.library
     val saved by lib.db.songs().observeSaved().collectAsState(emptyList())
     val state by services.player.state.collectAsState()
     val songs = saved.map(SongEntity::toSong)
     LazyColumn(modifier) {
         item {
-            PageHeader("Saved", if (songs.isEmpty()) null else "${songs.size} ${if (songs.size == 1) "song" else "songs"} on this computer") {
-                if (songs.isNotEmpty()) {
-                    Pill("Play all", Icons.Play, primary = true) { services.player.playList(songs, 0, "Saved") }
-                    Pill("Shuffle", Icons.Shuffle) { services.player.shuffleList(songs, "Saved") }
-                }
+            Kicker("On this computer")
+            Text(androidx.compose.ui.text.buildAnnotatedString {
+                append("Saved"); if (songs.isNotEmpty()) { append(", "); pushStyle(androidx.compose.ui.text.SpanStyle(color = Palette.accent, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)); append(songs.size.toString()); pop(); append(if (songs.size == 1) " song." else " songs.") }
+            }, fontFamily = Serif, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 14.dp))
+            SavedFilters(Route.Saved, go)
+            if (songs.isNotEmpty()) Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Pill("Play all", Icons.Play, primary = true) { services.player.playList(songs, 0, "Saved") }
+                Pill("Shuffle", Icons.Shuffle) { services.player.shuffleList(songs, "Saved") }
             }
         }
         item { RestoreCard(services) }
@@ -40,7 +43,7 @@ fun SavedPage(services: Services, modifier: Modifier = Modifier) {
         itemsIndexed(songs, key = { _, s -> s.id }) { i, s ->
             SongLine(services, i + 1, s, state.current?.id == s.id, saved = true, onClick = { services.player.playList(songs, i, "Saved") })
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }
 }
 

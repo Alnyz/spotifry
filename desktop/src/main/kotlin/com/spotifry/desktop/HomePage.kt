@@ -37,36 +37,26 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
     val hour = LocalTime.now().hour
 
     LazyColumn(modifier) {
-        item { Text(buildGreeting(hour), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
         if (hero == null && lists.isEmpty()) item {
-            EmptyState("Nothing played yet", "What you play shows up here.")
-            Row(Modifier.fillMaxWidth().padding(top = 20.dp), horizontalArrangement = Arrangement.Center) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Pill("Search for a song", Icons.Search, primary = true) { go(Route.Search) }
-                    Pill("Import a playlist", Icons.Download) { services.importer.open() }
-                }
+            Kicker("Welcome")
+            Text("Nothing played yet.", fontFamily = Serif, fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-1.5).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp))
+            Text("What you play shows up here.", color = Palette.ink2, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp))
+            Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Pill("Import a playlist", Icons.Download, primary = true) { services.importer.open() }
             }
         }
         if (hero != null) item {
             val playingThis = state.current?.id == hero.id
             val tag = when { playingThis && state.wantsPlay -> "Playing"; playingThis -> "Paused"; else -> "Last played" }
-            Row(
-                Modifier.padding(top = 22.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Palette.surface).border(1.dp, Palette.line, RoundedCornerShape(24.dp)).padding(24.dp),
-                horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Cover(hero.thumbnailUrl ?: hero.localThumbPath, 180.dp, RoundedCornerShape(18.dp), large = true)
-                Column(Modifier.weight(1f)) {
-                    Text(tag, color = Palette.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Text(hero.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
-                    Text(hero.artist, color = Palette.ink2, fontSize = 16.sp, maxLines = 1)
-                    Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Pill(if (playingThis && state.wantsPlay) "Pause" else if (playingThis) "Play" else "Play again", if (playingThis && state.wantsPlay) Icons.Pause else Icons.Play, primary = true) {
-                            if (playingThis) services.player.toggle() else services.player.playList(listOf(hero), 0, "Home")
-                        }
-                        if (recentSongs.size > 1) Pill("Shuffle", Icons.Shuffle) { services.player.shuffleList(recentSongs, "Recently played") }
-                        Pill("Save", Icons.Download) { scope.launch { lib.downloads.save(hero) } }
-                    }
+            Kicker("$tag · ${buildGreeting(hour).trimEnd('.').lowercase()}")
+            Text(hero.title, fontFamily = Serif, fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-1.5).sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 8.dp))
+            Text(hero.artist, color = Palette.accent, fontSize = 16.sp, maxLines = 1, modifier = Modifier.padding(top = 8.dp))
+            Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Pill(if (playingThis && state.wantsPlay) "Pause" else if (playingThis) "Play" else "Play again", if (playingThis && state.wantsPlay) Icons.Pause else Icons.Play, primary = true) {
+                    if (playingThis) services.player.toggle() else services.player.playList(listOf(hero), 0, "Home")
                 }
+                if (recentSongs.size > 1) Pill("Shuffle", Icons.Shuffle) { services.player.shuffleList(recentSongs, "Recently played") }
+                Pill("Save", Icons.Download) { scope.launch { lib.downloads.save(hero) } }
             }
         }
         if (others.isNotEmpty()) {
@@ -74,7 +64,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                     itemsIndexed(others.take(12)) { i, s ->
-                        CoverCard(s.title, s.artist, { w -> Cover(s.thumbnailUrl ?: s.localThumbPath, w, RoundedCornerShape(14.dp)) }, onClick = { services.player.playList(others, i, "Recently played") })
+                        CoverCard(s.title, s.artist, { w -> Cover(s.thumbnailUrl ?: s.localThumbPath, w, RoundedCornerShape(8.dp)) }, onClick = { services.player.playList(others, i, "Recently played") })
                     }
                 }
             }
@@ -90,7 +80,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
                 }
             }
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }
 }
 

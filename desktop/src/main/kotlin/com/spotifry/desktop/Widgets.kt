@@ -26,8 +26,8 @@ import kotlinx.coroutines.launch
 fun PageHeader(title: String, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            if (subtitle != null) Text(subtitle, color = Palette.ink2, fontSize = 14.sp)
+            Text(title, fontFamily = Serif, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink)
+            if (subtitle != null) Text(subtitle, color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), content = actions)
     }
@@ -36,12 +36,12 @@ fun PageHeader(title: String, subtitle: String? = null, actions: @Composable Row
 @Composable
 fun Pill(text: String, icon: ImageVector? = null, primary: Boolean = false, onClick: () -> Unit) {
     Row(
-        Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(if (primary) Palette.accent else Palette.high)
-            .then(if (primary) Modifier else Modifier.border(1.dp, Palette.line, RoundedCornerShape(22.dp))).clickable(onClick = onClick).padding(horizontal = 20.dp),
+        Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(if (primary) Palette.ink else Color.Transparent)
+            .then(if (primary) Modifier else Modifier.border(1.dp, Palette.ink.copy(alpha = 0.2f), RoundedCornerShape(22.dp))).clickable(onClick = onClick).padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (icon != null) Icon(icon, null, Modifier.size(20.dp), tint = if (primary) Palette.onAccent else Palette.ink)
-        Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = if (primary) Palette.onAccent else Palette.ink)
+        if (icon != null) Icon(icon, null, Modifier.size(20.dp), tint = if (primary) Palette.bg else Palette.ink)
+        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = if (primary) Palette.bg else Palette.ink)
     }
 }
 
@@ -54,12 +54,15 @@ fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun SectionTitle(text: String) = Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 30.dp, bottom = 12.dp))
+fun SectionTitle(text: String) = Column(Modifier.padding(top = 28.dp, bottom = 8.dp)) {
+    Text(text, fontFamily = Serif, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(bottom = 8.dp))
+    Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.ink.copy(alpha = 0.14f)))
+}
 
 @Composable
 fun EmptyState(title: String, text: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(title, fontFamily = Serif, fontSize = 24.sp, color = Palette.ink)
         Text(text, color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
     }
 }
@@ -82,7 +85,7 @@ fun Mosaic(covers: List<String?>, size: Dp, radius: Dp = 14.dp) {
 fun CoverCard(title: String, subtitle: String, cover: @Composable (Dp) -> Unit, width: Dp = 180.dp, onClick: () -> Unit) {
     Column(Modifier.width(width).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
         cover(width)
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, modifier = Modifier.padding(top = 10.dp))
+        Text(title, fontFamily = Serif, fontSize = 17.sp, maxLines = 1, modifier = Modifier.padding(top = 10.dp))
         Text(subtitle, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
     }
 }
@@ -119,14 +122,14 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () ->
 fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved: Boolean = false, extra: @Composable (close: () -> Unit) -> Unit = {}, onClick: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(12.dp)).background(if (playing) Palette.surface else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 12.dp),
+        Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (number != null) Text(number.toString(), color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.width(24.dp))
-        Cover(s.thumbnailUrl ?: s.localThumbPath, 40.dp, RoundedCornerShape(8.dp))
+        if (number != null) Text(number.toString(), fontFamily = Serif, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Palette.ink.copy(alpha = 0.4f), fontSize = 14.sp, modifier = Modifier.width(24.dp))
+        Cover(s.thumbnailUrl ?: s.localThumbPath, 44.dp, RoundedCornerShape(6.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(s.title, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, color = if (playing) Palette.accent else Palette.ink, modifier = Modifier.weight(1f, fill = false))
+                Text(s.title, fontFamily = Serif, fontSize = 18.sp, maxLines = 1, color = if (playing) Palette.accent else Palette.ink, modifier = Modifier.weight(1f, fill = false))
                 if (saved) Icon(Icons.Saved, "Saved on this computer", Modifier.size(15.dp), tint = Palette.accent)
             }
             Text(s.artist, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)

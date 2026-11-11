@@ -1,6 +1,5 @@
 package com.spotifry.desktop
 
-import androidx.compose.foundation.border
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -11,18 +10,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
-import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 
 /** Accent colours with a bright shade for the dark theme and a deeper one for the light theme, as on the phone. */
 enum class AccentChoice(val label: String, val dark: Color, val light: Color) {
@@ -44,6 +35,8 @@ enum class AccentChoice(val label: String, val dark: Color, val light: Color) {
 object Palette {
     var dark by mutableStateOf(true)
     var accentChoice by mutableStateOf(AccentChoice.EMBER)
+    /** The colour the window glows with: the playing cover's, or the accent when there is none. Set by the window. */
+    var glow by mutableStateOf<Color?>(null)
 
     val bg get() = if (dark) Color(0xFF0C0D10) else Color(0xFFF4F5F7)
     val surface get() = if (dark) Color(0xFF17191E) else Color(0xFFFFFFFF)
@@ -55,6 +48,12 @@ object Palette {
     val onAccent get() = if (dark) Color(0xFF2A1205) else Color.White
     val danger get() = if (dark) Color(0xFFF2877A) else Color(0xFFB3261E)
 }
+
+/** The serif used for headlines, song titles and lyrics. */
+val Serif = FontFamily(
+    Font(resource = "font/serif-regular.ttf", weight = FontWeight.Normal), Font(resource = "font/serif-medium.ttf", weight = FontWeight.Medium),
+    Font(resource = "font/serif-regular.ttf", weight = FontWeight.Bold), Font(resource = "font/serif-italic.ttf", weight = FontWeight.Normal, style = androidx.compose.ui.text.font.FontStyle.Italic),
+)
 
 private val albert = FontFamily(listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold).map { Font(resource = "font/albertsans.ttf", weight = it) })
 
@@ -75,10 +74,3 @@ fun SpotifryTheme(content: @Composable () -> Unit) = MaterialTheme(
     ),
     typography = Typography().with(albert),
 ) { CompositionLocalProvider(LocalContentColor provides Palette.ink, content = content) }
-
-/** The glass look, used on three things only: the sidebar, the player bar and (later) dialogs. */
-@Composable
-fun Modifier.glass(state: HazeState, shape: Shape, tint: Float = 0.80f): Modifier =
-    clip(shape)
-        .hazeEffect(state) { style = HazeStyle(backgroundColor = Palette.bg, tint = HazeTint(Palette.bg.copy(alpha = tint)), blurRadius = 26.dp) }
-        .border(1.dp, Palette.ink.copy(alpha = 0.08f), shape)

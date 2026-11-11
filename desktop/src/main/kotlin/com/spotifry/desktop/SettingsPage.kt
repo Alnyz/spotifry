@@ -80,7 +80,7 @@ fun SettingsPage(services: Services, flow: BackupFlow, modifier: Modifier = Modi
                 Row("Music from YouTube", "Through NewPipe Extractor $NEWPIPE_VERSION.")
             }
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }
 }
 
