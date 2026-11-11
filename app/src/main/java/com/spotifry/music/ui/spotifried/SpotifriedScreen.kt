@@ -69,6 +69,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import java.time.Instant
@@ -81,13 +82,15 @@ data class SpotifriedState(
     val checked: Int, val unchecked: Int,
     /** Plays missing for a story; null when the period is over and nothing can be added to it. */
     val morePlays: Int? = null,
+    /** The listener's name for the type card; empty when none. */
+    val name: String = "",
 )
 
-class SpotifriedViewModel(listens: Flow<List<ListenRow>>, years: Flow<List<SongYearEntity>>, private val today: () -> LocalDate = LocalDate::now) : ViewModel() {
+class SpotifriedViewModel(listens: Flow<List<ListenRow>>, years: Flow<List<SongYearEntity>>, private val today: () -> LocalDate = LocalDate::now, name: Flow<String> = flowOf("")) : ViewModel() {
     private val picked = MutableStateFlow<WrappedPeriod?>(null)
     private val zone = ZoneId.systemDefault()
 
-    private fun build(rows: List<ListenRow>, rowsWithYear: List<SongYearEntity>, pick: WrappedPeriod?): SpotifriedState {
+    private fun build(rows: List<ListenRow>, rowsWithYear: List<SongYearEntity>, pick: WrappedPeriod?, name: String): SpotifriedState {
         val now = today()
         val first = rows.minOfOrNull { it.startedAt }?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: now
         val choices = periodChoices(first, now)
@@ -99,12 +102,12 @@ class SpotifriedViewModel(listens: Flow<List<ListenRow>>, years: Flow<List<SongY
             ?: statsOf(calendarYear(now.year, now))
         return SpotifriedState(
             stats, shownCards(stats), choices, stats.age.songsTotal - stats.age.unchecked, stats.age.unchecked,
-            if (stats.period.to < now) null else morePlaysNeeded(stats),
+            if (stats.period.to < now) null else morePlaysNeeded(stats), name,
         )
     }
 
     /** Null until the log and the years have both been read. */
-    val state: StateFlow<SpotifriedState?> = combine(listens, years, picked, ::build).flowOn(Dispatchers.Default)
+    val state: StateFlow<SpotifriedState?> = combine(listens, years, picked, name, ::build).flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun pick(p: WrappedPeriod) { picked.value = p }
@@ -175,7 +178,7 @@ internal fun StoryCard(id: CardId, state: SpotifriedState, still: Boolean = fals
         CardId.DAY -> DayCard(state.stats, still)
         CardId.MONTHS -> MonthsCard(state.stats, still)
         CardId.SUN -> SunCard(state.stats, still)
-        CardId.TYPE -> TypeCard(state.stats, onShare, still, working, failed)
+        CardId.TYPE -> TypeCard(state.stats, onShare, still, working, failed, state.name)
     }
 }
 

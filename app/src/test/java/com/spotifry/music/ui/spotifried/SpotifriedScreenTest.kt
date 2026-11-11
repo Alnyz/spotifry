@@ -13,6 +13,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.robolectric.Shadows.shadowOf
@@ -110,6 +115,17 @@ class SpotifriedScreenTest {
         screen((1..3).map { row(ms(2026, 5, it), "a$it") })
         rule.waitUntil(5_000) { rule.onAllNodesWithText("Not enough listening yet").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("7 more plays to go").assertIsDisplayed()
+    }
+
+    @Test fun theTypeCardNameFollowsSettings() = runBlocking {
+        val name = MutableStateFlow("")
+        val vm = SpotifriedViewModel(flowOf((1..12).map { row(ms(2026, 5, it), "a$it") }), flowOf(emptyList()), { today }, name)
+        val seen = mutableListOf<String?>()
+        val job = launch(Dispatchers.Default) { vm.state.collect { seen.add(it?.name) } }
+        withTimeout(5_000) { while (seen.lastOrNull() != "") delay(20) }
+        name.value = "Ali"
+        withTimeout(5_000) { while (seen.lastOrNull() != "Ali") delay(20) }
+        job.cancel()
     }
 
     @Test fun nothingIsDecidedBeforeTheDataArrives() {

@@ -22,6 +22,7 @@ import com.spotifry.music.data.ThemeMode
 import com.spotifry.music.ui.theme.contrast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import com.spotifry.music.data.NAME_MAX
 import androidx.compose.ui.test.onNodeWithText
 import com.spotifry.music.data.TopSong
 import com.spotifry.music.data.db.SongEntity
@@ -391,6 +392,27 @@ class CardsTest {
         assertEquals(3, facts.size)
         facts.forEach { rule.onNodeWithText(it).assertIsDisplayed() }
         rule.onNodeWithText("Share your story").assertIsDisplayed().assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test fun typeCardGreetsByNameAndKeepsYouAreWithout() {
+        show { TypeCard(nightReplayer(), onShare = null, still = true, name = "Ali") }
+        rule.onNodeWithText("Ali, you are").assertIsDisplayed()
+        rule.onNodeWithText("You are").assertDoesNotExist()
+        assertEquals("You are", typeLead(""))
+    }
+
+    // native graphics: the default fake one does not measure text widths, so nothing would wrap
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test fun aLongNameIsNotCutAtLargeText() {
+        val name = "W".repeat(NAME_MAX)
+        showBigText { TypeCard(nightReplayer(), onShare = {}, still = true, name = name) }
+        val node = rule.onNodeWithText("$name, you are").assertIsDisplayed().fetchSemanticsNode()
+        val results = mutableListOf<TextLayoutResult>()
+        node.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+        assertFalse(results.single().didOverflowHeight)
+        assertFalse(results.single().didOverflowWidth)
+        val button = rule.onNodeWithText("Share your story").assertIsDisplayed().fetchSemanticsNode()
+        assertTrue(button.boundsInRoot.bottom <= rule.onRoot().fetchSemanticsNode().size.height)
     }
 
     @Test fun noShareButtonWithoutOnShare() {

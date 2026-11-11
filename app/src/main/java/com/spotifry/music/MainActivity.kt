@@ -354,7 +354,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
                             com.spotifry.music.ui.listening.ListeningScreen(vm, savedIds, player.isPlaying && !showPlayer, { nav.popBackStack() }, plVm::play, openMenu, { name -> home.onQueryChanged(name); goTo(Routes.SEARCH) }, { nav.navigate(Routes.SPOTIFRIED) { launchSingleTop = true } }, inset)
                         }
                         composable(Routes.SPOTIFRIED) {
-                            val vm: com.spotifry.music.ui.spotifried.SpotifriedViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.spotifried.SpotifriedViewModel(c.db.listens().observeAll(), c.db.songYears().observeAll()) } })
+                            val vm: com.spotifry.music.ui.spotifried.SpotifriedViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.spotifried.SpotifriedViewModel(c.db.listens().observeAll(), c.db.songYears().observeAll(), name = c.settings.name) } })
                             LaunchedEffect(Unit) { com.spotifry.music.data.spotifried.enqueueYearLookup(context) }
                             com.spotifry.music.ui.spotifried.SpotifriedScreen(vm, { nav.popBackStack() }, inset)
                         }

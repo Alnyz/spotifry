@@ -700,18 +700,22 @@ internal fun hourLabelAlpha(sweep: Float, h: Int) = ((sweep * 24 - h) / 3).coerc
 internal fun factFigure(f: String): IntRange? =
     (Regex("""\d+(?:[.,]\d+)*%""").find(f) ?: Regex("""\d+(?:[.,]\d+)*(?: [ap]\.m\.)?""").find(f))?.range
 
+/** The line above the type title: "You are", or "Ali, you are" with the listener's [name]. */
+internal fun typeLead(name: String) = if (name.isEmpty()) "You are" else "$name, you are"
+
 /** Card 8: who the person is as a listener, three true facts one after another, and Share ([onShare] null: no button, as in the shared picture). */
 @Composable
-internal fun TypeCard(s: SpotifriedStats, onShare: (() -> Unit)?, still: Boolean = false, working: Boolean = false, failed: Boolean = false) {
+internal fun TypeCard(s: SpotifriedStats, onShare: (() -> Unit)?, still: Boolean = false, working: Boolean = false, failed: Boolean = false, name: String = "") {
     val calm = still || rememberNoMotion()
-    key(s.period, calm) { Type(s, onShare, calm, working, failed) }
+    key(s.period, calm) { Type(s, onShare, calm, working, failed, name) }
 }
 
 @Composable
-private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean, working: Boolean, failed: Boolean) {
+private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean, working: Boolean, failed: Boolean, name: String) {
     val accent = MaterialTheme.colorScheme.primary
     val ink = MaterialTheme.colorScheme.onBackground
     val title = typeTitle(s) + "."
+    val lead = typeLead(name)
     val facts = remember(s) { typeFacts(s, listenerType(s)) }
     val scale = sunScale(minutesOf(s.seconds))
     val motion = rememberSunMotion(s.hours, scale, calm)
@@ -754,16 +758,16 @@ private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean, work
                 fun titleStyle(k: Float) = big.copy(fontSize = big.fontSize * word * k, lineHeight = big.lineHeight * word * k, letterSpacing = big.letterSpacing * word * k)
                 fun factStyle(k: Float) = Sub.copy(fontSize = Sub.fontSize * k, lineHeight = 20.sp * k)
                 // large system text: everything shrinks in steps until the title and all three facts fit above the button; scrolling is the last resort
-                val fit = remember(title, facts, measurer, constraints) {
+                val fit = remember(title, lead, facts, measurer, constraints) {
                     fun height(k: Float): Int = with(density) {
-                        measurer.measure("You are", Sub).size.height + 6.dp.roundToPx() +
+                        measurer.measure(lead, Sub, maxLines = 3, constraints = Constraints(maxWidth = constraints.maxWidth)).size.height + 6.dp.roundToPx() +
                             measurer.measure(title, titleStyle(k), maxLines = 3, constraints = Constraints(maxWidth = constraints.maxWidth)).size.height + 26.dp.roundToPx() +
                             facts.sumOf { measurer.measure(it, factStyle(k), constraints = Constraints(maxWidth = factWidth)).size.height } + 2 * 12.dp.roundToPx()
                     }
                     generateSequence(1f) { it - .05f }.takeWhile { it >= .5f }.firstOrNull { height(it) <= constraints.maxHeight } ?: .5f
                 }
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Text("You are", Modifier.rise(0, calm), soft(), style = Sub)
+                    Text(lead, Modifier.rise(0, calm), soft(), maxLines = 3, overflow = TextOverflow.Ellipsis, style = Sub)
                     val cut = title.lastIndexOf(' ') + 1
                     Text(
                         buildAnnotatedString { append(title.take(cut)); withStyle(SpanStyle(color = accent)) { append(title.drop(cut)) } },
