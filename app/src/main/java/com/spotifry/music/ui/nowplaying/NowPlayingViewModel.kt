@@ -43,6 +43,8 @@ class NowPlayingViewModel(
     private val downloads: DownloadRepository,
     songs: SongDao,
     private val lyricsSource: LyricsSource? = null,
+    private val notes: com.spotifry.music.data.db.SongNoteDao? = null,
+    private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     val state: StateFlow<PlayerUiState> = player.state
 
@@ -69,6 +71,18 @@ class NowPlayingViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, LyricsUi.None)
 
     fun retryLyrics() { lyricsRetry.value++ }
+
+    /** The listener's note on the song playing now, or null. */
+    val note: StateFlow<String?> = player.state.map { it.current?.id }.distinctUntilChanged()
+        .flatMapLatest { id -> if (id == null || notes == null) flowOf(null) else notes.observe(id) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Saves [raw] as [songId]'s note, cleaned ([com.spotifry.music.data.cleanNote]); empty deletes it. */
+    fun setNote(songId: String, raw: String) {
+        val dao = notes ?: return
+        val text = com.spotifry.music.data.cleanNote(raw)
+        viewModelScope.launch { if (text.isEmpty()) dao.delete(songId) else dao.put(com.spotifry.music.data.db.SongNoteEntity(songId, text, now())) }
+    }
 
     /** Tapping only starts or retries a save. Removing a saved song lives in the Saved list menu. */
     fun onSave() {

@@ -25,4 +25,11 @@ class NameTest {
     }
 
     @Test fun otherScriptsAreKept() = assertEquals("علي", cleanName("علي"))
+
+    @Test fun aNoteIsCleanedLikeANameButLonger() {
+        assertEquals("loved it at the beach", cleanNote("  loved it\n at the\tbeach \u200B"))
+        assertEquals("ab".repeat(70), cleanNote("ab".repeat(100)))
+        assertEquals("👨‍👩‍👧".repeat(NOTE_MAX), cleanNote("👨‍👩‍👧".repeat(NOTE_MAX + 5)))
+        assertEquals("", cleanNote(" \n "))
+    }
 }

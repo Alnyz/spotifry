@@ -109,6 +109,8 @@ fun NowPlayingContent(
     onTrim: () -> Unit = {},
     /** Milliseconds this song's lyrics run earlier (negative: later), set from the full lyrics. */
     lyricsShift: Int = 0, onLyricsShift: (Int) -> Unit = {},
+    /** The listener's note on this song, one quiet line under the artist; tapping it edits it. */
+    note: String? = null, onNote: () -> Unit = {},
 ) {
     val song = state.current ?: return
     // a new song closes the full lyrics of the old one
@@ -140,7 +142,8 @@ fun NowPlayingContent(
         val pills = sleep != SleepState.Off || speedLabel != null
         // on short screens the cover gives way, so the controls stay above the gesture bar
         val bars = WindowInsets.systemBars.asPaddingValues()
-        val textGrowth = LocalDensity.current.textGrowth()
+        // the note's line takes its room from the cover on short screens, like bigger text does
+        val textGrowth = LocalDensity.current.run { textGrowth() + if (note != null) NOTE_LINE.toDp() + 2.dp else 0.dp }
         val cover = coverSize(maxWidth, screen, textGrowth, bars.calculateTopPadding() + bars.calculateBottomPadding(), pills)
         // lyrics are timed to the whole song; the player counts from the trim's start
         val trimStart = state.trim?.startMs ?: 0L
@@ -178,6 +181,11 @@ fun NowPlayingContent(
                     Column(Modifier.weight(1f)) {
                         Text(song.title, Modifier.basicMarquee(), style = MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp, lineHeight = 30.sp), maxLines = 1)
                         Text(song.artist, style = MaterialTheme.typography.bodyLarge, color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (note != null) Text(
+                            note, Modifier.padding(top = 2.dp).fillMaxWidth().clickable(onClickLabel = "Edit note", onClick = onNote).semantics { contentDescription = "Your note: $note" },
+                            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, lineHeight = NOTE_LINE),
+                            color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     // a file on the phone is already there: nothing to save
                     if (!song.isLocal) SaveButton(save, onSave)
@@ -384,6 +392,34 @@ private fun saveLabel(save: SaveUi) = when (save) {
  * height, the rest is fixed. Each is converted on its own, since text scaling isn't linear: small sizes grow more than large ones.
  */
 internal fun androidx.compose.ui.unit.Density.textGrowth() = 30.sp.toDp() + 22.sp.toDp() + 18.sp.toDp() + PEEK_LINE.toDp() * 3 - 136.dp
+
+private val NOTE_LINE = 20.sp
+
+/** Writes, changes or deletes the note on a song. Empty saves as no note; the text is cut at [com.spotifry.music.data.NOTE_MAX] as it is typed. */
+@Composable
+fun NoteDialog(initial: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial.isEmpty()) "Add a note" else "Edit note") },
+        text = {
+            androidx.compose.material3.OutlinedTextField(
+                text, { text = com.spotifry.music.data.cutName(it.replace('\n', ' '), com.spotifry.music.data.NOTE_MAX) }, maxLines = 4,
+                placeholder = { Text("What this song means to you") },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences),
+            )
+        },
+        confirmButton = { androidx.compose.material3.TextButton({ onSave(text); onDismiss() }) { Text("Save") } },
+        dismissButton = {
+            Row {
+                if (initial.isNotEmpty()) androidx.compose.material3.TextButton(
+                    { onSave(""); onDismiss() }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Delete") }
+                androidx.compose.material3.TextButton(onDismiss) { Text("Cancel") }
+            }
+        },
+    )
+}
 
 internal fun formatTime(ms: Long): String {
     val total = (ms / 1000).coerceAtLeast(0)

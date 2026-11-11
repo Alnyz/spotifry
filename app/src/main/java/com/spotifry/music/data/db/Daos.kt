@@ -134,6 +134,7 @@ abstract class BackupDao {
     @Query("SELECT * FROM history") abstract suspend fun history(): List<HistoryEntity>
     @Query("SELECT * FROM plays") abstract suspend fun plays(): List<PlayCountEntity>
     @Query("SELECT * FROM listens") abstract suspend fun listens(): List<ListenEntity>
+    @Query("SELECT * FROM song_notes") abstract suspend fun notes(): List<SongNoteEntity>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertSong(e: SongEntity)
     @Insert protected abstract suspend fun insertPlaylist(p: PlaylistEntity): Long
@@ -149,6 +150,9 @@ abstract class BackupDao {
     @Query("UPDATE plays SET count = MAX(count, :count), lastPlayedAt = MAX(lastPlayedAt, :at) WHERE songId = :songId")
     protected abstract suspend fun largerPlays(songId: String, count: Int, at: Long)
     @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertListen(e: ListenEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertNote(e: SongNoteEntity)
+    @Query("UPDATE song_notes SET text = :text, editedAt = :at WHERE songId = :songId AND editedAt < :at")
+    protected abstract suspend fun newerNote(songId: String, text: String, at: Long)
 
     /** Returns this phone's id for each of the backup's playlists, in order, and whether the merge made it. */
     @Transaction
@@ -167,6 +171,8 @@ abstract class BackupDao {
         // the larger count, not the sum: both phones may hold the same plays
         b.plays.forEach { insertPlays(it); largerPlays(it.songId, it.count, it.lastPlayedAt) }
         b.listens.forEach { insertListen(it) }
+        // the note written last wins, here or in the backup
+        b.notes.forEach { insertNote(it); newerNote(it.songId, it.text, it.editedAt) }
         return ids
     }
 }

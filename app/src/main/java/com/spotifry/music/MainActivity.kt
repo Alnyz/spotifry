@@ -216,7 +216,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     } })
     val importVm: ImportViewModel = viewModel(factory = viewModelFactory { initializer { ImportViewModel({ SpotifyImport.fetch(c.client, it) }, c.source, c.db.playlists(), c.db.songs()) } })
     val artistsVm: com.spotifry.music.ui.home.ArtistsHomeViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.home.ArtistsHomeViewModel(c.settings, com.spotifry.music.data.ArtistSongs(c.source)) } })
-    val npVm: NowPlayingViewModel = viewModel(factory = viewModelFactory { initializer { NowPlayingViewModel(c.player, c.downloads, c.db.songs(), c.lyrics) } })
+    val npVm: NowPlayingViewModel = viewModel(factory = viewModelFactory { initializer { NowPlayingViewModel(c.player, c.downloads, c.db.songs(), c.lyrics, c.db.notes()) } })
 
     val player by c.player.state.collectAsStateWithLifecycle()
     // not read here, only inside the progress bars and lyrics, so its ticks don't redraw the whole app
@@ -227,6 +227,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     val save by npVm.save.collectAsStateWithLifecycle()
     val keepScreenOn by c.settings.keepScreenOn.collectAsStateWithLifecycle()
     val lyrics by npVm.lyrics.collectAsStateWithLifecycle()
+    val note by npVm.note.collectAsStateWithLifecycle()
+    // the song and its note as the editor opened, so a song change while typing doesn't move the note
+    var editNote by remember { mutableStateOf<Pair<Song, String>?>(null) }
     val sleep by c.sleepTimer.state.collectAsStateWithLifecycle()
     var showSleep by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
@@ -440,6 +443,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                     onSuggestionMore = suggestionMenu, onTrim = { showTrim = true },
                     lyricsShift = player.current?.let { lyricsShifts[it.id] } ?: 0,
                     onLyricsShift = { ms -> player.current?.let { c.settings.setLyricsShift(it.id, ms) } },
+                    note = note, onNote = { player.current?.let { editNote = it to note.orEmpty() } },
                 )
                 // the app's own snackbar sits under Now playing; this one shows the same message on top of it
                 Box(Modifier.fillMaxSize()) { SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) }
@@ -482,6 +486,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                     add(MenuAction("Keep screen on", Icons.ScreenOn, switch = keepScreenOn) { c.settings.setKeepScreenOn(!keepScreenOn) })
                     add(MenuAction("Sleep timer$left", Icons.Clock) { showSleep = true })
                     add(MenuAction("Speed and pitch" + (speedLabel?.let { " · $it" } ?: ""), Icons.Speed) { showSpeed = true })
+                    add(MenuAction(if (note == null) "Add a note" else "Edit note", Icons.Edit) { editNote = target.song to note.orEmpty() })
                     // Trim: only here, as setting a point needs the song playing. Once trimmed, the sheet moves the points.
                     val s = target.song
                     val old = player.trim
@@ -546,6 +551,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                 },
             ) { showTrim = false }
         }
+        editNote?.let { (s, old) -> com.spotifry.music.ui.nowplaying.NoteDialog(old, { npVm.setNote(s.id, it) }) { editNote = null } }
         if (showSpeed) com.spotifry.music.ui.SpeedPitchSheet(speed, pitch, c.settings::setSpeed, c.settings::setPitch) { showSpeed = false }
         shareSong?.let { s -> ShareSongSheet(s, { picture = ShareTarget.of(s) }) { shareSong = null } }
         sharePlaylist?.let { t -> SharePlaylistSheet(t, { picture = t }) { sharePlaylist = null } }

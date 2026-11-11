@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.spotifry.music.data.db.AppDatabase
 import com.spotifry.music.data.db.ListenEntity
 import com.spotifry.music.data.db.SongEntity
+import com.spotifry.music.data.db.SongNoteEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -63,6 +64,7 @@ class BackupTest {
         db.history().record("a", 11); db.history().record("local:5", 12)
         db.plays().count("a", 13); db.plays().count("local:5", 14)
         db.listens().insert(ListenEntity(15, "a", 60)); db.listens().insert(ListenEntity(16, "gone", 30, skipped = true)); db.listens().insert(ListenEntity(17, "local:5", 30))
+        db.notes().put(SongNoteEntity("a", "first dance", 18)); db.notes().put(SongNoteEntity("local:5", "on this phone only", 19))
         PlaylistOrders(app).set(mix, PlaylistOrder.TITLE)
         trims.edit().putString("a", "1000,").putString("local:5", "2000,").commit()
         app.edit().putBoolean("eq_on", true).putInt("pitch", -2).putLong("big", Long.MAX_VALUE).putFloat("speed", 1.1f).putString("theme", "DARK")
@@ -72,7 +74,7 @@ class BackupTest {
     /** What must not change: every table, as read for a backup. */
     private suspend fun snapshot() = listOf(
         db.backup().songs().sortedBy { it.id }, db.backup().playlists(), db.backup().playlistSongs(), db.backup().history().sortedBy { it.songId },
-        db.backup().plays().sortedBy { it.songId }, db.backup().listens().sortedBy { it.startedAt },
+        db.backup().plays().sortedBy { it.songId }, db.backup().listens().sortedBy { it.startedAt }, db.backup().notes().sortedBy { it.songId },
     )
 
     private fun zipped(b: BackupFile) = ByteArrayOutputStream().also { writeBackup(b, it) }.toByteArray()
@@ -98,6 +100,7 @@ class BackupTest {
         assertEquals(mapOf("a" to "1000,"), b.trims)
         assertFalse(b.settings.keys.any { it == Updates.LAST_CHECK || it == Updates.LATER || it == FIRST_LAUNCH_SEEN || it.startsWith(PlaylistOrders.KEY_PREFIX) })
         assertEquals(setOf(15L, 16L, 17L), b.listens.map { it.startedAt }.toSet()) // the totals keep every listen
+        assertEquals(listOf(SongNoteEntity("a", "first dance", 18)), b.notes)
     }
 
     @Test fun restoreOntoTheSamePhoneChangesNothing() = runBlocking {
@@ -138,6 +141,7 @@ class BackupTest {
         assertFalse(otherApp.contains(Updates.LAST_CHECK))
         assertEquals("1000,", otherTrims.getString("a", null))
         assertEquals(setOf(15L, 16L, 17L), otherDb.backup().listens().map { it.startedAt }.toSet()) // "gone" has no song row and is kept
+        assertEquals(listOf(SongNoteEntity("a", "first dance", 18)), otherDb.backup().notes())
 
         other.restore(b)
         assertEquals(twice, otherDb.backup().songs() to otherDb.backup().playlistSongs())
@@ -176,6 +180,21 @@ class BackupTest {
         assertEquals(500L, db.backup().history().first { it.songId == "a" }.playedAt)
         assertEquals("1000,", trims.getString("a", null))
         assertEquals("8,", trims.getString("b", null))
+    }
+
+    @Test fun theNewerNoteWinsAndOthersAreAdded() = runBlocking {
+        db.notes().put(SongNoteEntity("a", "mine, newer", 50)); db.notes().put(SongNoteEntity("b", "mine, older", 50))
+        backups.restore(file().copy(notes = listOf(SongNoteEntity("a", "old", 10), SongNoteEntity("b", "newer", 60), SongNoteEntity("c", "new", 5))))
+        assertEquals(
+            listOf(SongNoteEntity("a", "mine, newer", 50), SongNoteEntity("b", "newer", 60), SongNoteEntity("c", "new", 5)),
+            db.backup().notes().sortedBy { it.songId },
+        )
+    }
+
+    @Test fun notesFromAFileAreCleanedAndEmptyOnesDropped() {
+        val long = "x".repeat(200)
+        val b = readBackup(ByteArrayInputStream(zipOf("backup.json", """{"format":1,"notes":[{"songId":"a","text":"  two\nlines ","editedAt":3},{"songId":"b","text":" \u200B ","editedAt":4},{"songId":"c","text":"$long","editedAt":5}]}""")))
+        assertEquals(listOf(SongNoteEntity("a", "two lines", 3), SongNoteEntity("c", "x".repeat(NOTE_MAX), 5)), b.notes)
     }
 
     @Test fun settingsAreReplacedButThisPhonesAreKept() = runBlocking {
@@ -369,6 +388,7 @@ class BackupTest {
         assertEquals(listOf("a"), b.songs.map { it.id })
         assertNull(b.songs[0].thumbnailUrl)
         assertEquals(emptyMap<String, Any>(), b.settings)
+        assertEquals(emptyList<SongNoteEntity>(), b.notes) // a backup from before notes
     }
 
     @Test fun summaryCounts() {

@@ -7,6 +7,7 @@ import com.spotifry.music.data.db.ListenEntity
 import com.spotifry.music.data.db.PlayCountEntity
 import com.spotifry.music.data.db.SongDao
 import com.spotifry.music.data.db.SongEntity
+import com.spotifry.music.data.db.SongNoteEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +51,8 @@ data class BackupFile(
     val history: List<HistoryEntity>, val plays: List<PlayCountEntity>, val listens: List<ListenEntity>,
     /** Values are Boolean, Int, Long, Float, String or Set of String: what SharedPreferences holds. */
     val settings: Map<String, Any>, val trims: Map<String, String>,
+    /** Absent in backups made before notes: they restore with none. */
+    val notes: List<SongNoteEntity> = emptyList(),
 )
 
 /** "12 playlists, 340 songs, 5 trims" */
@@ -95,6 +98,7 @@ fun BackupFile.encode(): String = JSONObject()
     }))
     .put("settings", JSONObject().apply { settings.forEach { (k, v) -> put(k, encodeValue(v)) } })
     .put("trims", JSONObject(trims as Map<*, *>))
+    .put("notes", JSONArray(notes.map { JSONObject().put("songId", it.songId).put("text", it.text).put("editedAt", it.editedAt) }))
     .toString()
 
 // the type is written out: a JSON number doesn't say whether a pref was an Int, a Long or a Float, and reading a pref as the wrong one throws
@@ -141,6 +145,8 @@ fun decodeBackup(text: String): BackupFile {
         o.list("listens") { ListenEntity(it.getLong("startedAt"), it.getString("songId"), it.optInt("secondsHeard"), it.optBoolean("skipped")) },
         settings?.keys()?.asSequence()?.mapNotNull { k -> decodeValue(settings.getJSONObject(k))?.let { k to it } }?.toMap().orEmpty(),
         trims?.keys()?.asSequence()?.associateWith { trims.getString(it) }.orEmpty(),
+        // cleaned again: the file may have been edited by hand
+        o.list("notes") { SongNoteEntity(it.getString("songId"), cleanNote(it.optString("text")), it.optLong("editedAt")) }.filter { it.text.isNotEmpty() },
     )
 }
 
@@ -185,6 +191,7 @@ class Backups(
             dao.history().filter { here(it.songId) }, dao.plays().filter { here(it.songId) }, dao.listens(),
             app.all.filterKeys { !aboutThisPhone(it) }.mapNotNull { (k, v) -> v?.let { k to it } }.toMap(),
             trims.all.filterKeys(::here).mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap(),
+            dao.notes().filter { here(it.songId) },
         )
     }
 
