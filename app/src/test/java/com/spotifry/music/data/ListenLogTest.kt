@@ -50,7 +50,7 @@ class ListenLogTest {
         }
         // Room checks the table against the schema when it opens, so a migration that doesn't match fails here
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, file.absolutePath)
-            .addMigrations(AppDatabase.ADD_PLAYS, AppDatabase.ADD_ADDED_AT, AppDatabase.ADD_LISTENS, AppDatabase.ADD_SONG_YEARS).allowMainThreadQueries().build()
+            .addMigrations(AppDatabase.ADD_PLAYS, AppDatabase.ADD_ADDED_AT, AppDatabase.ADD_LISTENS, AppDatabase.ADD_SONG_YEARS, AppDatabase.ADD_SONG_NOTES).allowMainThreadQueries().build()
         assertEquals("Old song", db.songs().get("a")?.title)
         assertEquals(listOf("a"), db.plays().observeMostPlayed(5).first().map { it.id })
         assertTrue(db.listens().observeAll().first().isEmpty())
