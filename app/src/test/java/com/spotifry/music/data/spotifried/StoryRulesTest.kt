@@ -37,6 +37,15 @@ class StoryRulesTest {
         assertEquals("The Explorer", typeTitle(stats(songs = 10, newSongs = 6, hours = hours)))
     }
 
+    @Test fun regularTitleAgreesWithTheBusiestHourInTheFacts() {
+        fun busiest(h: Int) = stats(hours = List(24) { if (it == h) 100L else 1L })
+        assertEquals("The Morning Regular", typeTitle(busiest(11)))
+        assertTrue(typeFacts(busiest(11), ListenerType.REGULAR)[0].contains("11 a.m."))
+        assertEquals("The Afternoon Regular", typeTitle(busiest(15)))
+        assertEquals("The Afternoon Regular", typeTitle(busiest(12)))
+        assertEquals("The Evening Regular", typeTitle(busiest(18)))
+    }
+
     @Test fun factsAreThreeAndContainTheRealNumbers() {
         val s = stats(
             songs = 10, plays = 321, seconds = 90_000, daySeconds = listOf(0, 9 * 3600L), hours = List(24) { if (it == 3) 50L else 1L },

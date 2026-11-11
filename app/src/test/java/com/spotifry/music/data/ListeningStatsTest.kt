@@ -190,9 +190,9 @@ class ListeningStatsTest {
         assertEquals("1 a.m.", hourName(1))
         assertEquals("12 p.m.", hourName(12))
         assertEquals("9 p.m.", hourName(21))
-        assertEquals("Morning", hourKind(5)); assertEquals("Morning", hourKind(10))
-        assertEquals("Afternoon", hourKind(11)); assertEquals("Afternoon", hourKind(16))
-        assertEquals("Evening", hourKind(17)); assertEquals("Evening", hourKind(21))
+        assertEquals("Morning", hourKind(5)); assertEquals("Morning", hourKind(11))
+        assertEquals("Afternoon", hourKind(12)); assertEquals("Afternoon", hourKind(17))
+        assertEquals("Evening", hourKind(18)); assertEquals("Evening", hourKind(21))
         assertEquals("Night", hourKind(22)); assertEquals("Night", hourKind(4))
     }
 

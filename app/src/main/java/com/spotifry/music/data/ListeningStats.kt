@@ -61,7 +61,8 @@ fun minutesOf(seconds: Long): Int = if (seconds <= 0) 0 else maxOf(1, (seconds /
 fun weekStart(today: LocalDate): LocalDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 fun cleanArtist(name: String) = name.removeSuffix(" - Topic").trim()
 fun hourName(h: Int) = "${if (h % 12 == 0) 12 else h % 12} ${if (h < 12) "a.m." else "p.m."}"
-fun hourKind(h: Int) = when (h) { in 5..10 -> "Morning"; in 11..16 -> "Afternoon"; in 17..21 -> "Evening"; else -> "Night" }
+/** The part of the day hour [h] is in; one rule for Home's greeting, the listening page and the story's title, so 11 a.m. is morning everywhere. */
+fun hourKind(h: Int) = when (h) { in 5..11 -> "Morning"; in 12..17 -> "Afternoon"; in 18..21 -> "Evening"; else -> "Night" }
 
 /** "4 min", "6 h 12 min", "12 days, 16 hours". */
 fun longDuration(minutes: Int): String = when {

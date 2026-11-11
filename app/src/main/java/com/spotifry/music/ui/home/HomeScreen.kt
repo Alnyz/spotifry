@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.data.db.PlaylistWithCounts
+import com.spotifry.music.data.hourKind
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.Song
@@ -273,7 +274,7 @@ private const val MOODS_UNTIL_PLAYED = 5
 
 /** "Good evening." for [hour], the full stop in [accent]; the splash writes the same words. */
 fun greetingText(hour: Int, accent: Color) = buildAnnotatedString {
-    val part = when (hour) { in 5..11 -> "morning"; in 12..17 -> "afternoon"; in 18..21 -> "evening"; else -> "night" }
+    val part = hourKind(hour).lowercase()
     append("Good $part"); withStyle(SpanStyle(color = accent)) { append(".") }
 }
 
