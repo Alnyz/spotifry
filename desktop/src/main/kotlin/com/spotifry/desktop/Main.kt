@@ -1,5 +1,10 @@
 package com.spotifry.desktop
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -31,6 +36,8 @@ fun dataDir(): File = File(System.getenv("XDG_DATA_HOME") ?: (System.getProperty
 /** What the screens use. The real one is built by [productionServices]; tests build their own. */
 class Services(
     val scope: CoroutineScope, val source: MusicSource, val library: Library, val player: MusicPlayer, val setVolume: (Int) -> Unit,
+    /** Stops the player and closes the database, before the window is built again. */
+    val close: () -> Unit = {},
 )
 
 fun productionServices(): Services {
@@ -46,15 +53,19 @@ fun productionServices(): Services {
     // SPOTIFRY_MPV_ARGS="--ao=null" turns the sound off, for tests
     val args = System.getenv("SPOTIFRY_MPV_ARGS")?.split(' ')?.filter { it.isNotBlank() }.orEmpty()
     val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder)
-    return Services(scope, source, library, player, player::setVolume)
+    return Services(scope, source, library, player, player::setVolume) { player.close(); library.db.close() }
 }
 
 fun main() = application {
-    val services = androidx.compose.runtime.remember { productionServices() }
-    Window(
-        onCloseRequest = { (services.player as? MpvPlayer)?.close(); exitApplication() }, title = "Spotifry",
-        state = rememberWindowState(size = DpSize(1280.dp, 800.dp)),
-    ) { SpotifryTheme { App(services) } }
+    // a restored backup changes every setting: the window is built again from the files
+    var generation by remember { mutableStateOf(0) }
+    key(generation) {
+        val services = remember { productionServices() }
+        Window(
+            onCloseRequest = { services.close(); exitApplication() }, title = "Spotifry",
+            state = rememberWindowState(size = DpSize(1280.dp, 800.dp)),
+        ) { SpotifryTheme { App(services, restart = { services.close(); generation++ }) } }
+    }
 }
 
 /** Runs [block] when Enter is pressed in a text field. */

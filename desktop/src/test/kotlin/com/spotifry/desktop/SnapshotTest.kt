@@ -56,13 +56,22 @@ class SnapshotTest {
     }
 
     private fun shoot(name: String, route: Route, library: Library = library()) {
-        val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library, fakePlayer) {}
+        val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library, fakePlayer, setVolume = {})
         val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startOn = route, initialQuery = if (route == Route.Search) "kala biru" else "") } }
         var t = 0L
         repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
         val png = scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes
         File("build/snapshots").apply { mkdirs() }.resolve("$name.png").writeBytes(png)
         scene.close()
+    }
+
+    @Test fun settingsLightAndDark() {
+        val lib = library()
+        shoot("settings", Route.Settings, lib)
+        lib.settings.setTheme(com.spotifry.music.data.ThemeMode.LIGHT); lib.settings.setAccent("BLUE", 0)
+        shoot("settings-light", Route.Settings, lib)
+        shoot("home-light", Route.Home, lib)
+        Palette.dark = true; Palette.accentChoice = AccentChoice.EMBER
     }
 
     @Test fun pages() {
@@ -84,7 +93,7 @@ class SnapshotTest {
         val lib = Library(db, com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), dir, okhttp3.OkHttpClient(), com.spotifry.music.data.StreamResolver(fakeSource))
         kotlinx.coroutines.runBlocking { lib.backups.restore(com.spotifry.music.data.readBackup(File(path).inputStream())) }
         for ((name, route) in listOf("real-home" to Route.Home, "real-playlists" to Route.Playlists, "real-playlist" to Route.Playlist(1), "real-saved" to Route.Saved)) {
-            val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, lib, fakePlayer) {}
+            val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, lib, fakePlayer, setVolume = {})
             val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startOn = route) } }
             var t = 0L
             repeat(120) { scene.render(t); t += 50_000_000; Thread.sleep(40) }

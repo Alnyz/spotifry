@@ -19,12 +19,16 @@ import okhttp3.OkHttpClient
 import java.io.File
 
 const val APP_VERSION = "desktop-0.1.0"
+/** The same version as gradle/libs.versions.toml, for the About line. */
+const val NEWPIPE_VERSION = "v0.26.5"
 
 /** Everything the desktop app keeps: the database, the settings, the saved songs and the backup tools. */
 class Library(
     val db: AppDatabase, val prefs: Prefs, trimPrefs: Prefs, restorePrefs: Prefs, dir: File, client: OkHttpClient, resolver: StreamResolver,
 ) {
     val settings = Settings(prefs)
+    /** Where saved songs are kept: a folder named songs inside the app's data folder. */
+    val saveFolder = File(dir, "songs")
     val orders = PlaylistOrders(prefs)
     val trims = Trims(trimPrefs)
     val downloads = DownloadRepository(dir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })

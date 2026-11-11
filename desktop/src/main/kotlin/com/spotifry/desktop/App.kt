@@ -65,8 +65,15 @@ enum class Page(val label: String, val icon: ImageVector) {
 private const val BAR = 84
 
 @Composable
-fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = "") {
+fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = "", restart: () -> Unit = {}) {
     val player = services.player; val setVolume = services.setVolume
+    val flow = remember(services) { BackupFlow(services.library, services.scope, restart) }
+    // the theme and accent come from the settings, which a restored backup can change
+    val theme by services.library.settings.theme.collectAsState()
+    val accent by services.library.settings.accent.collectAsState()
+    val system = androidx.compose.foundation.isSystemInDarkTheme()
+    Palette.dark = when (theme) { com.spotifry.music.data.ThemeMode.DARK -> true; com.spotifry.music.data.ThemeMode.LIGHT -> false; else -> system }
+    Palette.accentChoice = AccentChoice.of(accent)
     var route by remember { mutableStateOf(startOn) }
     val page = route.page
     val haze = remember { HazeState() }
@@ -85,14 +92,12 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                     Route.Saved -> SavedPage(services, pad)
                     Route.Playlists -> PlaylistsPage(services, { route = it }, pad)
                     is Route.Playlist -> PlaylistPage(services, r.id, { route = it }, pad)
-                    Route.Settings -> Column(pad) {
-                        Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                        Text("Coming in the next step.", color = Palette.ink2, modifier = Modifier.padding(top = 8.dp))
-                    }
+                    Route.Settings -> SettingsPage(services, flow, pad)
                 }
             }
         }
         Sidebar(page, { route = it.route }, haze, Modifier.align(Alignment.TopStart).fillMaxHeight().padding(bottom = BAR.dp))
+        BackupDialogs(flow)
         PlayerBar(player, setVolume, state, haze, Modifier.align(Alignment.BottomStart).fillMaxWidth().height(BAR.dp))
     }
 }
@@ -179,8 +184,8 @@ fun Track(value: Float, max: Float, color: Color, onChange: (Float) -> Unit, onD
             .pointerInput(max) { detectHorizontalDragGestures(onDragEnd = onDone, onDragCancel = onDone) { change, _ -> onChange((change.position.x / width).coerceIn(0f, 1f) * max) } },
         contentAlignment = Alignment.CenterStart,
     ) {
-        Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)))
+        Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(Palette.ink.copy(alpha = 0.12f)))
         Box(Modifier.fillMaxWidth(frac).height(4.dp).clip(CircleShape).background(color))
-        Box(Modifier.offset { IntOffset((frac * width).toInt() - 6.dp.roundToPx(), 0) }.size(12.dp).clip(CircleShape).background(Color.White))
+        Box(Modifier.offset { IntOffset((frac * width).toInt() - 6.dp.roundToPx(), 0) }.size(12.dp).clip(CircleShape).background(Palette.ink))
     }
 }

@@ -108,7 +108,7 @@ fun NameDialog(title: String, confirm: String, initial: String, onDismiss: () ->
 @Composable
 fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () -> Unit, onDone: () -> Unit) = AlertDialog(
     onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontWeight = FontWeight.Bold) }, text = { Text(text, color = Palette.ink2) },
-    confirmButton = { TextButton(onDone) { Text(confirm, color = Color(0xFFF2877A)) } },
+    confirmButton = { TextButton(onDone) { Text(confirm, color = Palette.danger) } },
     dismissButton = { TextButton(onDismiss) { Text("Cancel", color = Palette.ink2) } },
 )
 

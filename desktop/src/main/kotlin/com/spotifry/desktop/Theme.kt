@@ -5,8 +5,12 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -20,16 +24,36 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 
-/** The phone app's colours: ember orange on near-black. */
+/** Accent colours with a bright shade for the dark theme and a deeper one for the light theme, as on the phone. */
+enum class AccentChoice(val label: String, val dark: Color, val light: Color) {
+    EMBER("Ember orange", Color(0xFFFF8A3D), Color(0xFFC2410C)),
+    BLUE("Blue", Color(0xFF5B95FF), Color(0xFF1F5FD6)),
+    GOLDEN("Golden", Color(0xFFF5B03D), Color(0xFF9A5800)),
+    CHILI("Chili red", Color(0xFFFF6A55), Color(0xFFC42B1C));
+
+    companion object {
+        /** A backup from the phone may hold "PHONE" or "CUSTOM", which have no meaning here: those show as Ember. */
+        fun of(name: String) = entries.firstOrNull { it.name == name } ?: EMBER
+    }
+}
+
+/**
+ * The colours in use. Reading them inside a composable follows [dark] and [accent], so changing either redraws the window.
+ * Dark is the phone's dark theme; light is its light theme.
+ */
 object Palette {
-    val bg = Color(0xFF0C0D10)
-    val surface = Color(0xFF17191E)
-    val high = Color(0xFF1F2228)
-    val line = Color(0xFF23262C)
-    val ink = Color(0xFFF2F3F5)
-    val ink2 = Color(0xFFA6ADB6)
-    val accent = Color(0xFFFF8A3D)
-    val onAccent = Color(0xFF2A1205)
+    var dark by mutableStateOf(true)
+    var accentChoice by mutableStateOf(AccentChoice.EMBER)
+
+    val bg get() = if (dark) Color(0xFF0C0D10) else Color(0xFFF4F5F7)
+    val surface get() = if (dark) Color(0xFF17191E) else Color(0xFFFFFFFF)
+    val high get() = if (dark) Color(0xFF1F2228) else Color(0xFFE6E8EC)
+    val line get() = if (dark) Color(0xFF23262C) else Color(0xFFE1E4E8)
+    val ink get() = if (dark) Color(0xFFF2F3F5) else Color(0xFF15181C)
+    val ink2 get() = if (dark) Color(0xFFA6ADB6) else Color(0xFF525A64)
+    val accent get() = if (dark) accentChoice.dark else accentChoice.light
+    val onAccent get() = if (dark) Color(0xFF2A1205) else Color.White
+    val danger get() = if (dark) Color(0xFFF2877A) else Color(0xFFB3261E)
 }
 
 private val albert = FontFamily(listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold).map { Font(resource = "font/albertsans.ttf", weight = it) })
@@ -44,7 +68,7 @@ private fun Typography.with(f: FontFamily) = copy(
 
 @Composable
 fun SpotifryTheme(content: @Composable () -> Unit) = MaterialTheme(
-    colorScheme = darkColorScheme(
+    colorScheme = (if (Palette.dark) darkColorScheme() else lightColorScheme()).copy(
         background = Palette.bg, surface = Palette.surface, surfaceContainer = Palette.surface, surfaceContainerHigh = Palette.high,
         outline = Palette.line, outlineVariant = Palette.line, onBackground = Palette.ink, onSurface = Palette.ink,
         onSurfaceVariant = Palette.ink2, primary = Palette.accent, onPrimary = Palette.onAccent,
@@ -57,4 +81,4 @@ fun SpotifryTheme(content: @Composable () -> Unit) = MaterialTheme(
 fun Modifier.glass(state: HazeState, shape: Shape, tint: Float = 0.80f): Modifier =
     clip(shape)
         .hazeEffect(state) { style = HazeStyle(backgroundColor = Palette.bg, tint = HazeTint(Palette.bg.copy(alpha = tint)), blurRadius = 26.dp) }
-        .border(1.dp, Color.White.copy(alpha = 0.07f), shape)
+        .border(1.dp, Palette.ink.copy(alpha = 0.08f), shape)
