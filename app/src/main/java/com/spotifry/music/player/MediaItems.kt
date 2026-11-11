@@ -27,7 +27,9 @@ fun Song.toMediaItem(trim: Trim? = trimOf(id)): MediaItem = MediaItem.Builder()
             MediaItem.ClippingConfiguration.Builder().setStartPositionMs(trim.startMs).apply { trim.endMs?.let(::setEndPositionMs) }.build(),
         )
     }
-    .setUri(Uri.Builder().scheme("music").authority("song").appendPath(id).appendQueryParameter("t", title).appendQueryParameter("a", artist).appendQueryParameter("d", durationSec.toString()).build())
+    .setUri(Uri.Builder().scheme("music").authority("song").appendPath(id).appendQueryParameter("t", title).appendQueryParameter("a", artist).appendQueryParameter("d", durationSec.toString())
+        // the cut is part of the address: Media3 swaps a loaded item in place when only the cut differs, and then the cut never applies
+        .apply { if (trim != null && !trim.isWhole) appendQueryParameter("c", "${trim.startMs}-${trim.endMs ?: ""}") }.build())
     .setCustomCacheKey(id)
     .setMediaMetadata(
         MediaMetadata.Builder()

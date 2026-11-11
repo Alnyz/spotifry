@@ -59,4 +59,14 @@ class TrimTest {
         assertEquals(Trim(15_000, 220_000), song.toMediaItem(Trim(15_000, 220_000)).trim)
         assertNull(song.toMediaItem(null).trim)
     }
+
+    @Test fun aDifferentCutIsADifferentAddressSoThePlayerReallyReplacesTheItem() {
+        val song = Song("abc", "T", "A", 230, null)
+        val whole = song.toMediaItem(null).localConfiguration!!.uri
+        val cut = song.toMediaItem(Trim(3_000, null)).localConfiguration!!.uri
+        val cutEnd = song.toMediaItem(Trim(3_000, 220_000)).localConfiguration!!.uri
+        assertTrue(whole != cut && cut != cutEnd && whole != cutEnd)
+        assertEquals(whole, song.toMediaItem(Trim(0, null)).localConfiguration!!.uri)
+        assertEquals("T", songFromUri("abc", cut).title)
+    }
 }
