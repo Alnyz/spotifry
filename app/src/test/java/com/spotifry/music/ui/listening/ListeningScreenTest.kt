@@ -60,14 +60,14 @@ class ListeningScreenTest {
 
     @Test fun tasteHasASpotifriedButton() {
         show(row(now - 240_000, "a", 240))
-        rule.onNodeWithContentDescription("Spotifried, 2027").assertIsDisplayed().assertHasClickAction().performClick()
+        rule.onNodeWithContentDescription("Spotifried 2027, reveal my year").assertIsDisplayed().assertHasClickAction().performClick()
         assertEquals(true, opened)
     }
 
     @Test fun theGateSitsUnderTheTitleAboveTheSun() {
         show(row(now - 240_000, "a", 240))
         val title = rule.onNodeWithText("First spark.").fetchSemanticsNode().boundsInRoot.bottom
-        val gate = rule.onNodeWithContentDescription("Spotifried, 2027").fetchSemanticsNode().boundsInRoot
+        val gate = rule.onNodeWithContentDescription("Spotifried 2027, reveal my year").fetchSemanticsNode().boundsInRoot
         val sun = rule.onNodeWithContentDescription("Your listening by hour of the day. Most around 9 p.m.").fetchSemanticsNode().boundsInRoot.top
         assertTrue(gate.top >= title && gate.bottom <= sun)
         assertTrue(gate.height >= 48f)
@@ -76,21 +76,40 @@ class ListeningScreenTest {
     @Test fun theGateStillOpensWhenAnimationsAreOff() {
         Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Context>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
         show(row(now - 240_000, "a", 240))
-        rule.onNodeWithContentDescription("Spotifried, 2027").performClick()
+        rule.onNodeWithContentDescription("Spotifried 2027, reveal my year").performClick()
         assertEquals(true, opened)
     }
 
     @Test fun theGateIsOneButtonWithItsDecorHiddenFromTalkBack() {
         show(row(now - 240_000, "a", 240))
-        rule.onNodeWithContentDescription("Spotifried, 2027").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
+        rule.onNodeWithContentDescription("Spotifried 2027, reveal my year").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
         assertTrue(rule.onAllNodesWithText("Spotifried").fetchSemanticsNodes().isEmpty())
         assertTrue(rule.onAllNodesWithText("2027").fetchSemanticsNodes().isEmpty())
+        assertTrue(rule.onAllNodesWithText("YOUR YEAR, IN MUSIC.").fetchSemanticsNodes().isEmpty())
+        assertTrue(rule.onAllNodesWithText("REVEAL MY YEAR").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test fun theGateIsAbout224TallAtBaseText() {
+        show(row(now - 240_000, "a", 240))
+        val gate = rule.onNodeWithContentDescription("Spotifried 2027, reveal my year").fetchSemanticsNode().boundsInRoot
+        // never shorter than 224 / 342 of a 320 wide card; the test font runs a little taller than a phone's, so allow some growth
+        val base = 320f * 224f / 342f * rule.density.density
+        assertTrue(gate.height >= base - 2f && gate.height <= base * 1.35f)
+    }
+
+    @Test fun theLightRunsOnceEvery5Point5Seconds() {
+        assertEquals(0f, lightRun(0), 0f); assertEquals(0f, lightRun(LIGHT_WAIT_MS - 1), 0f)
+        assertTrue(lightRun(LIGHT_WAIT_MS + LIGHT_RUN_MS / 2) in .1f..1f)
+        assertEquals(0f, lightRun(LIGHT_WAIT_MS + LIGHT_RUN_MS + 1), 0f) // dark between runs, so nothing redraws
+        assertEquals(lightRun(LIGHT_WAIT_MS + 300), lightRun(LIGHT_WAIT_MS + LIGHT_EVERY_MS * 3 + 300), 1e-6f)
     }
 
     @Test @Config(fontScale = 2f) fun theGateKeepsItsSizeAndNameAtBigText() {
         show(row(now - 240_000, "a", 240))
-        val gate = rule.onNodeWithContentDescription("Spotifried, 2027").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val gate = rule.onNodeWithContentDescription("Spotifried 2027, reveal my year").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         assertTrue(gate.height >= 48f * rule.density.density && gate.right <= 360f * rule.density.density)
+        // the content pushes the card past its base height instead of being clipped
+        assertTrue(gate.height > 320f * 224f / 342f * rule.density.density + 1f)
     }
 
     @Test fun theRecordComesOutTurnsIntoPlaceThenGlints() {
