@@ -73,7 +73,3 @@ class ListenTracker(private val now: () -> Long = System::currentTimeMillis) {
     private fun heard(): ListenWrite { writtenMs = heardMs; return ListenWrite.Heard(startedAt, seconds(), false) }
     private fun seconds() = (heardMs / 1000).toInt()
 }
-
-/** Whether a move to another song came from the listener: not a song ending or repeating, and not stepping past a failure. */
-fun movedByListener(reason: Int, afterFailure: Boolean) =
-    !afterFailure && reason != androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO && reason != androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT

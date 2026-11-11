@@ -120,7 +120,7 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
     /** The site is often briefly "busy" (503): three tries, a second or two apart, before giving up. */
     private suspend fun <T> tries(block: () -> T): T {
         repeat(2) { n ->
-            try { return block() } catch (e: IOException) { android.util.Log.w("Lyrics", "try ${n + 1} failed: ${e.message}"); delay(1_000L * (n + 1)) }
+            try { return block() } catch (e: IOException) { Log.w("Lyrics", "try ${n + 1} failed: ${e.message}"); delay(1_000L * (n + 1)) }
         }
         return block()
     }

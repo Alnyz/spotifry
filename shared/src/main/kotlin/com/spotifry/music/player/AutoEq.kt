@@ -162,7 +162,7 @@ internal fun normalizeName(text: String): String {
 }
 
 /** Percent escapes back to text. A plus stays a plus, unlike `URLDecoder`. */
-internal fun percentDecode(text: String): String {
+fun percentDecode(text: String): String {
     if ('%' !in text) return text
     val bytes = java.io.ByteArrayOutputStream(text.length)
     var i = 0

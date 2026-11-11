@@ -13,6 +13,7 @@ class MusicApp : Application(), androidx.work.Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        com.spotifry.music.data.Log.sink = { tag, message -> android.util.Log.w(tag, message) }
         container = AppContainer(this)
         NewPipe.init(OkHttpDownloader(container.client), Localization("en", "US"))
         com.spotifry.music.data.spotifried.enqueueYearLookup(this)

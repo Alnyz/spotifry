@@ -29,8 +29,3 @@ val STARTER_ARTISTS = listOf(
  */
 suspend fun isFreshInstall(neverUpdated: Boolean, history: HistoryDao, songs: SongDao, playlists: PlaylistDao): Boolean =
     neverUpdated && history.observeRecent().first().isEmpty() && songs.savedCount() == 0 && playlists.observePlaylists().first().isEmpty()
-
-fun neverUpdated(context: android.content.Context): Boolean = try {
-    val info = context.packageManager.getPackageInfo(context.packageName, 0)
-    info.firstInstallTime == info.lastUpdateTime
-} catch (e: Exception) { false }

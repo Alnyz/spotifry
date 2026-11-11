@@ -1,6 +1,5 @@
 package com.spotifry.music.data
 
-import android.util.Log
 import com.spotifry.music.data.db.ListenDao
 import com.spotifry.music.player.ListenWrite
 import kotlinx.coroutines.CancellationException

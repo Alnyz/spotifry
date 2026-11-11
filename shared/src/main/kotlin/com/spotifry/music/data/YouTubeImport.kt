@@ -42,7 +42,7 @@ object YouTubeImport {
     }
 
     /** Every page in turn, up to [limit] entries. A page with nothing on it ends it too, so a broken next link can't loop. */
-    internal fun collect(first: InfoItemsPage<StreamInfoItem>, more: (Page) -> InfoItemsPage<StreamInfoItem>, limit: Int): Pair<List<StreamInfoItem>, Boolean> {
+    fun collect(first: InfoItemsPage<StreamInfoItem>, more: (Page) -> InfoItemsPage<StreamInfoItem>, limit: Int): Pair<List<StreamInfoItem>, Boolean> {
         val items = first.items.toMutableList()
         var page = first
         while (page.hasNextPage() && items.size < limit) {
