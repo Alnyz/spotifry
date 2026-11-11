@@ -66,7 +66,8 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -307,25 +308,33 @@ private fun Sticker(x: Int, y: Int, intro: Entrance) {
     val turn = if (still) 0f else rememberInfiniteTransition(label = "sticker").animateFloat(0f, 360f, infiniteRepeatable(tween(22000, easing = LinearEasing), RepeatMode.Restart), label = "ring").value
     val fill = MaterialTheme.colorScheme.primary
     val ink = MaterialTheme.colorScheme.onPrimary
-    val paint = remember(ink) {
-        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = ink.toArgb(); typeface = android.graphics.Typeface.DEFAULT_BOLD; textSize = 8.6f }
-    }
-    val ring = remember { android.graphics.Path().apply { addCircle(48f, 48f, 34f, android.graphics.Path.Direction.CW) } }
     val text = "just between us · just between us ·"
+    // Each letter is a filled outline placed round the ring once; turning and scaling then stay sharp (letters drawn as text blurred while moving).
+    val letters = remember {
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD; textSize = 8.6f }
+        val adv = text.map { paint.measureText(it.toString()) }
+        val gap = (2f * PI.toFloat() * 34f - adv.sum()) / text.length
+        var d = 0f
+        text.indices.map { i ->
+            val mid = d + adv[i] / 2f
+            d += adv[i] + gap
+            val theta = mid / 31f
+            val glyph = android.graphics.Path().also { paint.getTextPath(text[i].toString(), 0, 1, 0f, 0f, it) }
+            glyph.transform(android.graphics.Matrix().apply {
+                postTranslate(-adv[i] / 2f, 0f)
+                postRotate(Math.toDegrees(theta.toDouble()).toFloat() + 90f)
+                postTranslate(48f + 31f * kotlin.math.cos(theta), 48f + 31f * kotlin.math.sin(theta))
+            })
+            glyph.asComposePath()
+        }
+    }
     Canvas(Modifier.offset(x.dp, y.dp).size(98.dp).graphicsLayer {
         val p = spring(intro.seg(.4f, 1f))
         rotationZ = -10f - (1 - p) * 30f; scaleX = .4f + .6f * p; scaleY = scaleX; alpha = intro.seg(.4f, .6f)
     }) {
         val k = size.width / 96f
         drawCircle(fill)
-        val w = paint.measureText(text)
-        paint.letterSpacing = (2f * PI.toFloat() * 34f - w) / text.length / paint.textSize
-        drawIntoCanvas { c ->
-            val n = c.nativeCanvas
-            n.save(); n.scale(k, k); n.rotate(turn, 48f, 48f)
-            n.drawTextOnPath(text, ring, 0f, 3f, paint)
-            n.restore()
-        }
+        withTransform({ scale(k, k, Offset.Zero); rotate(turn, Offset(48f, 48f)) }) { letters.forEach { drawPath(it, ink) } }
         val a = Path().apply { moveTo(38f * k, 58f * k); lineTo(58f * k, 38f * k); moveTo(44f * k, 38f * k); lineTo(58f * k, 38f * k); lineTo(58f * k, 52f * k) }
         drawPath(a, ink, style = Stroke(5f * k, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
