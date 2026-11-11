@@ -20,59 +20,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
-data class PlayerUiState(
-    val current: Song? = null,
-    val isPlaying: Boolean = false,
-    /** Playing or about to: also true while it buffers, when [isPlaying] is false. */
-    val wantsPlay: Boolean = false,
-    /** The queue ran out: [current] is still set, but it has finished rather than paused. */
-    val ended: Boolean = false,
-    /** Waiting for sound to arrive. [wantsPlay] without this and without [isPlaying] is another app holding the sound, such as a call. */
-    val buffering: Boolean = false,
-    /** The player gave up on the song; [toggle][PlayerController.toggle] tries it again. */
-    val failed: Boolean = false,
-    val durationMs: Long = 0,
-    val queue: List<Song> = emptyList(),
-    val currentIndex: Int = 0,
-    val shuffle: Boolean = false,
-    /** Shuffle with a similar song from YouTube after every three of yours. Only while [shuffle] is on. */
-    val smart: Boolean = false,
-    val repeatMode: Int = Player.REPEAT_MODE_OFF,
-    /** Queue positions in the order they will play, starting at the current song. Null means plain list order. */
-    val order: List<Int>? = null,
-    /** Where the queue came from, e.g. "Saved" or a playlist name. Null after the app restarts. */
-    val from: String? = null,
-    /** The playing song's own start and end, null when it plays whole. [durationMs] and the position count the kept part only. */
-    val trim: Trim? = null,
-    /** Length of the whole song, trimmed parts included. */
-    val wholeMs: Long = 0,
-    /** The playing song's real sound, e.g. "Opus 160 kbps" or "FLAC 24-bit · 96 kHz". Null until the player knows. */
-    val quality: String? = null,
-) {
-    fun upNextIndices(): List<Int> = order ?: (currentIndex until queue.size).toList()
-}
-
-/** UI-facing handle on the playback service. Commands sent before the connection is ready are queued. */
-/** What screens need to start playback; lets view models be tested without a service. */
-interface SongPlayer {
-    fun playList(songs: List<Song>, startIndex: Int, from: String? = null)
-    /** A list's Shuffle button: the songs spread out by [spreadShuffle], always plain shuffle. */
-    fun shuffleList(songs: List<Song>, from: String? = null) = playList(spreadShuffle(songs, emptySet()), 0, from)
-}
-
 class PlayerController(
     context: Context,
     private val lastQueueFile: File = File(context.filesDir, "last_queue.json"),
     private val recentlyPlayed: suspend () -> Set<String> = { emptySet() },
     private val saveTrim: (String, Trim?) -> Unit = { _, _ -> },
     private val knownKbps: (String, Long) -> Int? = { _, _ -> null },
-) : SongPlayer {
+) : MusicPlayer {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(PlayerUiState())
-    val state: StateFlow<PlayerUiState> = _state.asStateFlow()
+    override val state: StateFlow<PlayerUiState> = _state.asStateFlow()
     // kept apart from [state]: it ticks twice a second, and only the progress bars and lyrics need it
     private val _position = MutableStateFlow(0L)
-    val position: StateFlow<Long> = _position.asStateFlow()
+    override val position: StateFlow<Long> = _position.asStateFlow()
 
     private var controller: MediaController? = null
     private var from: String? = null
@@ -183,21 +143,21 @@ class PlayerController(
         c.prepare()
         c.play()
     }
-    fun toggle() = run {
+    override fun toggle() = run {
         if (it.isPlaying) it.pause()
         else { if (needsPrepare(it.playbackState)) it.prepare(); it.play() }
     }
     /** Unlike [toggle], this also stops a song that is still loading. */
-    fun pause() = run { it.pause() }
-    fun next() = run { it.seekToNextMediaItem() }
-    fun previous() = run { it.seekToPreviousMediaItem() }
-    fun seekTo(ms: Long) = run { it.seekTo(ms) }
+    override fun pause() = run { it.pause() }
+    override fun next() = run { it.seekToNextMediaItem() }
+    override fun previous() = run { it.seekToPreviousMediaItem() }
+    override fun seekTo(ms: Long) = run { it.seekTo(ms) }
     override fun shuffleList(songs: List<Song>, from: String?) {
         scope.launch { playList(spreadShuffle(songs, runCatching { recentlyPlayed() }.getOrDefault(emptySet())), 0, from) }
     }
 
     /** The Now playing button: off, Shuffle, Smart shuffle, off. The service sets the order and adds the suggestions. */
-    fun cycleShuffle() = run {
+    override fun cycleShuffle() = run {
         when {
             !it.shuffleModeEnabled -> it.shuffleModeEnabled = true
             !smart -> { smart = true; it.sendCustomCommand(SessionCommand(PlaybackService.SMART_SHUFFLE, Bundle.EMPTY), Bundle.EMPTY); publish(it) }
@@ -206,7 +166,7 @@ class PlayerController(
     }
 
     /** Takes a song out of the queue; [index] is checked against [id] in case the queue moved meanwhile. */
-    fun remove(index: Int, id: String) = run { c ->
+    override fun remove(index: Int, id: String) = run { c ->
         val at = index.takeIf { it < c.mediaItemCount && c.getMediaItemAt(it).mediaId == id }
             ?: (0 until c.mediaItemCount).firstOrNull { c.getMediaItemAt(it).mediaId == id } ?: return@run
         c.removeMediaItem(at)
@@ -217,13 +177,13 @@ class PlayerController(
      * [upcoming] (what was still to come before the removal) sets the order back as it was.
      */
     // ponytail: [upcoming] holds queue positions; a second removal before this Undo shifts them and mixes the order a little
-    fun insert(index: Int, song: Song, upcoming: List<Int>? = null) = run {
+    override fun insert(index: Int, song: Song, upcoming: List<Int>?) = run {
         it.addMediaItem(index.coerceIn(0, it.mediaItemCount), song.toMediaItem())
         if (upcoming != null && it.shuffleModeEnabled) setUpcoming(it, upcoming)
     }
 
     /** A drag in Queue: the song [from] places after the playing one now plays [to] places after it (1 = next). */
-    fun move(from: Int, to: Int) = run { c ->
+    override fun move(from: Int, to: Int) = run { c ->
         if (from < 1 || to < 1 || from == to) return@run
         if (!c.shuffleModeEnabled) {
             val cur = c.currentMediaItemIndex
@@ -239,14 +199,14 @@ class PlayerController(
 
     private fun setUpcoming(c: MediaController, upcoming: List<Int>) =
         c.sendCustomCommand(SessionCommand(PlaybackService.SET_UPCOMING, Bundle.EMPTY), Bundle().apply { putIntArray(PlaybackService.UPCOMING, upcoming.toIntArray()) })
-    fun cycleRepeat() = run {
+    override fun cycleRepeat() = run {
         it.repeatMode = when (it.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
             else -> Player.REPEAT_MODE_OFF
         }
     }
-    fun skipTo(index: Int) = run { it.seekToDefaultPosition(index) }
+    override fun skipTo(index: Int) = run { it.seekToDefaultPosition(index) }
 
     /**
      * Gives song [id] a new start and end ([trim] null: the whole song), kept on this phone, and rebuilds its places in
@@ -254,7 +214,7 @@ class PlayerController(
      * [skip]): then the next song starts.
      */
     // ponytail: the rebuilt item reloads, so the music stops for a moment (instant when cached); a seamless swap needs Media3 to update clipping in place
-    fun setTrim(id: String, trim: Trim?, skip: Boolean = false) = run { c ->
+    override fun setTrim(id: String, trim: Trim?, skip: Boolean) = run { c ->
         saveTrim(id, trim)
         val cur = c.currentMediaItemIndex
         val playing = c.currentMediaItem?.mediaId == id
@@ -276,7 +236,7 @@ class PlayerController(
     private var listening: kotlinx.coroutines.Job? = null
 
     /** The Trim sheet's ▶: plays from [atMs] of the whole song; with [forMs], pauses again after that long. */
-    fun listen(atMs: Long, forMs: Long? = null) = run { c ->
+    override fun listen(atMs: Long, forMs: Long?) = run { c ->
         listening?.cancel()
         val start = c.currentMediaItem?.trim?.startMs ?: 0
         // only the part the player has now can play: an earlier start or later end is heard from Save on

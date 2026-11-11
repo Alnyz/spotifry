@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.spotifry.music.data.DownloadRepository
 import com.spotifry.music.data.DownloadState
 import com.spotifry.music.data.db.SongDao
-import com.spotifry.music.player.PlayerController
+import com.spotifry.music.player.MusicPlayer
 import com.spotifry.music.player.PlayerUiState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,7 +39,7 @@ sealed interface LyricsUi {
 }
 
 class NowPlayingViewModel(
-    val player: PlayerController,
+    val player: MusicPlayer,
     private val downloads: DownloadRepository,
     songs: SongDao,
     private val lyricsSource: LyricsSource? = null,

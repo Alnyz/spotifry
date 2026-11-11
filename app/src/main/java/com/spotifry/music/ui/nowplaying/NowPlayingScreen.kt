@@ -63,7 +63,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.media3.common.Player
+import com.spotifry.music.player.RepeatMode
 import com.spotifry.music.player.PlayerUiState
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.components.Cover
@@ -327,12 +327,12 @@ private fun Controls(
         }
         IconButton(onNext, Modifier.size(56.dp)) { Icon(Icons.Next, "Next song", Modifier.size(36.dp)) }
         ToggleIcon(
-            if (state.repeatMode == Player.REPEAT_MODE_ONE) Icons.RepeatOne else Icons.Repeat,
-            when (state.repeatMode) { Player.REPEAT_MODE_ALL -> "Repeat all"; Player.REPEAT_MODE_ONE -> "Repeat this song"; else -> "Repeat off" },
-            state.repeatMode != Player.REPEAT_MODE_OFF,
+            if (state.repeatMode == RepeatMode.ONE) Icons.RepeatOne else Icons.Repeat,
+            when (state.repeatMode) { RepeatMode.ALL -> "Repeat all"; RepeatMode.ONE -> "Repeat this song"; else -> "Repeat off" },
+            state.repeatMode != RepeatMode.OFF,
         ) {
             // the order the button steps through: off, all, this song, off
-            say(when (state.repeatMode) { Player.REPEAT_MODE_OFF -> "Repeat all songs"; Player.REPEAT_MODE_ALL -> "Repeat this song"; else -> "Repeat off" })
+            say(when (state.repeatMode) { RepeatMode.OFF -> "Repeat all songs"; RepeatMode.ALL -> "Repeat this song"; else -> "Repeat off" })
             onRepeat()
         }
     }
@@ -357,8 +357,8 @@ private fun ComingUp(state: PlayerUiState, saved: Set<String>, color: Color, onP
         if (next.isEmpty()) {
             // says what the player will really do: the same rules as shouldAppend
             val note = when {
-                state.repeatMode == Player.REPEAT_MODE_ONE -> "This song plays again when it ends."
-                state.repeatMode == Player.REPEAT_MODE_ALL && state.queue.size > 1 -> "The list starts again when this one ends."
+                state.repeatMode == RepeatMode.ONE -> "This song plays again when it ends."
+                state.repeatMode == RepeatMode.ALL && state.queue.size > 1 -> "The list starts again when this one ends."
                 else -> "Similar songs are added as this one plays."
             }
             Text(note, Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = Faint)
