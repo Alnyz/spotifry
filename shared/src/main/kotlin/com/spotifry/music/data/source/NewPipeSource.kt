@@ -95,7 +95,7 @@ class NewPipeSource : MusicSource {
 private const val MAX_SECONDS = 1200L
 
 /** Found videos as songs. Drops live streams (duration -1) and anything over 20 minutes. */
-internal fun List<InfoItem>.toSongs(): List<Song> = filterIsInstance<StreamInfoItem>().mapNotNull { item ->
+fun List<InfoItem>.toSongs(): List<Song> = filterIsInstance<StreamInfoItem>().mapNotNull { item ->
     if (item.duration !in 1..MAX_SECONDS) return@mapNotNull null
     val id = YoutubeStreamLinkHandlerFactory.getInstance().getId(item.url)
     Song(id, item.name, item.uploaderName.orEmpty(), item.duration, item.thumbnails.maxByOrNull { it.height }?.url)
@@ -110,7 +110,7 @@ private fun filterOf(type: SearchType) = when (type) {
 }
 
 /** A found album, playlist or artist; null for anything else. Artists lose YouTube's " - Topic" ending. */
-internal fun linkOf(item: InfoItem, type: SearchType): PageLink? {
+fun linkOf(item: InfoItem, type: SearchType): PageLink? {
     val art = item.thumbnails.maxByOrNull { it.height }?.url
     return when (item) {
         is PlaylistInfoItem -> PageLink(type, item.url, item.name, item.uploaderName.orEmpty(), art)
@@ -120,10 +120,10 @@ internal fun linkOf(item: InfoItem, type: SearchType): PageLink? {
 }
 
 /** Only what the channel at [channelUrl] put out: an artist's own songs and albums in a search for their name. */
-internal fun List<InfoItem>.from(channelUrl: String) = filter {
+fun List<InfoItem>.from(channelUrl: String) = filter {
     (it as? StreamInfoItem)?.uploaderUrl == channelUrl || (it as? PlaylistInfoItem)?.uploaderUrl == channelUrl
 }
 
 /** YouTube names an album page "Album – Kid A" (or Single, EP): the kind and the bare name. */
-internal fun albumKind(title: String): Pair<String, String> =
+fun albumKind(title: String): Pair<String, String> =
     Regex("^(Album|Single|EP) – (.+)$").find(title)?.destructured?.let { (k, n) -> k to n } ?: ("Album" to title)

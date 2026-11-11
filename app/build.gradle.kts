@@ -77,6 +77,7 @@ dependencies {
     implementation(libs.media3.okhttp)
     implementation(libs.okhttp)
     implementation(libs.newpipe)
+    implementation(project(":shared"))
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(libs.coroutines.android)
     implementation(libs.haze)
