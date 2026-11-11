@@ -3,7 +3,16 @@ package com.spotifry.music.ui.spotifried
 import android.app.Activity
 import android.content.ContextWrapper
 import android.graphics.Bitmap
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import com.spotifry.music.ui.listening.rememberNoMotion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -184,12 +193,15 @@ internal fun StoryCard(id: CardId, state: SpotifriedState, still: Boolean = fals
 
 @Composable
 internal fun StoryShell(cards: List<CardId>, index: Int, onIndex: (Int) -> Unit, card: @Composable (CardId) -> Unit) {
+    val calm = rememberNoMotion()
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), Arrangement.spacedBy(4.dp)) {
             cards.indices.forEach { i ->
+                // a segment fills as its card comes in, not before: the last one is never full over a card still appearing
+                val fill by animateFloatAsState(if (i <= index) 1f else .18f, if (calm) snap() else tween(SWAP_MS, SWAP_MS / 2), label = "segment")
                 Box(
                     Modifier.weight(1f).height(3.dp).testTag("segment").clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = if (i <= index) 1f else .18f)),
+                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = fill)),
                 )
             }
         }
@@ -208,6 +220,17 @@ internal fun StoryShell(cards: List<CardId>, index: Int, onIndex: (Int) -> Unit,
                 }
             },
             Alignment.Center,
-        ) { card(cards[index.coerceIn(cards.indices)]) }
+        ) {
+            // the card going out stays and fades while the next one draws its first lines, so there is never an empty
+            // screen between two cards; the new one comes in on its own timing, on top
+            AnimatedContent(
+                cards[index.coerceIn(cards.indices)], Modifier.fillMaxSize(),
+                transitionSpec = { EnterTransition.None togetherWith (if (calm) ExitTransition.None else fadeOut(tween(SWAP_MS))) },
+                contentAlignment = Alignment.Center, label = "card",
+            ) { card(it) }
+        }
     }
 }
+
+/** How long a card takes to hand over to the next one. */
+private const val SWAP_MS = 300

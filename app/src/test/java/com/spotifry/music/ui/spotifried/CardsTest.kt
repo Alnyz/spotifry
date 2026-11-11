@@ -253,7 +253,7 @@ class CardsTest {
         androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
         rule.mainClock.advanceTimeBy(500)
         rule.onNodeWithText("You listen like someone who was 14 in 1997.").assertIsDisplayed()
-        rule.onNodeWithText("0").assertIsDisplayed() // counting up from the start, not already at the end
+        rule.onNodeWithText("43").assertDoesNotExist() // counting up from the start, not already at the end
         rule.mainClock.advanceTimeBy(6000)
         rule.onNodeWithText("43").assertIsDisplayed()
     }

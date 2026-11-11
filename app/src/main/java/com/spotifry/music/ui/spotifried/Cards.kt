@@ -32,6 +32,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.text.rememberTextMeasurer
 import android.os.SystemClock
@@ -190,17 +192,31 @@ private fun progress(calm: Boolean, delayMs: Int, durationMs: Int): Animatable<F
     return p
 }
 
+/** A number counting up; [started] is false until it moves, and till then it is hidden, so a 0 never shows as if real. */
+internal class CountUp(val text: String, val started: Boolean)
+
+/** Counts to [to] from [delayMs] (once what it sits in has come in), quickly; already there when [calm]. */
 @Composable
-private fun countUp(to: Int, calm: Boolean): String = count((to * progress(calm, 500, 1500).value).roundToInt())
+private fun countUp(to: Int, calm: Boolean, delayMs: Int): CountUp {
+    val p = progress(calm, delayMs, 900).value
+    return CountUp(count((to * p).roundToInt()), p > 0f)
+}
+
+/** The number as a span: transparent before its count starts, so the line around it keeps its place and never shows 0. */
+private fun androidx.compose.ui.text.AnnotatedString.Builder.countSpan(c: CountUp, style: SpanStyle, text: String = c.text) =
+    withStyle(if (c.started) style else style.copy(color = Color.Transparent)) { append(text) }
 
 /** Fades in and lifts into place; [order] staggers the lines of a card one after another. */
 @Composable
 private fun Modifier.rise(order: Int, calm: Boolean): Modifier = riseAt(order * 180, calm)
 
+/** How far a line lifts as it comes in. */
+private val RISE = 18.dp
+
 @Composable
 private fun Modifier.riseAt(delayMs: Int, calm: Boolean, durationMs: Int = 900): Modifier {
     val p = progress(calm, delayMs, durationMs)
-    val lift = with(LocalDensity.current) { 18.dp.toPx() }
+    val lift = with(LocalDensity.current) { RISE.toPx() }
     return graphicsLayer { alpha = p.value; translationY = (1 - p.value) * lift }
 }
 
@@ -275,7 +291,8 @@ internal fun TopSongCard(s: SpotifriedStats, still: Boolean = false) {
 @Composable
 private fun TopSong(top: com.spotifry.music.data.TopSong, calm: Boolean) {
     val accent = MaterialTheme.colorScheme.primary
-    val plays = countUp(top.plays, calm)
+    // starts once its row has risen in
+    val plays = countUp(top.plays, calm, 700)
     val ring = if (calm) null else rememberInfiniteTransition("rings").animateFloat(0f, 1f, infiniteRepeatable(tween(3200, easing = LinearEasing), RepeatMode.Restart), "ring")
     val shape = RoundedCornerShape(18.dp)
     // the rings are drawn behind the whole card, centred on the cover, so they pass under the headline, not over it
@@ -287,11 +304,15 @@ private fun TopSong(top: com.spotifry.music.data.TopSong, calm: Boolean) {
         val c = cover?.takeIf { it.isAttached } ?: return@drawBehind
         val rings = from.localPositionOf(c, Offset(c.size.width / 2f, c.size.height / 2f))
         val base = 10.dp.toPx()
+        val line = 1.5.dp.toPx()
+        // the widest ring, its stroke included, just meets the nearest edge of the card, so no ring is ever cut by it
+        val far = minOf(rings.x, size.width - rings.x, rings.y, size.height - rings.y)
+        val most = maxOf(1f, far / (base + line / 2))
         repeat(3) { k ->
             val q = Ease.transform((t + k / 3f) % 1f)
-            val grow = 1 + 21 * q
+            val grow = 1 + (most - 1) * q
             // quieter than the mockup's .7: wide rings at that strength made the headline busy on a phone
-            drawCircle(accent, base * grow, rings, alpha = .4f * (1 - q), style = Stroke(1.5.dp.toPx() * grow))
+            drawCircle(accent, base * grow, rings, alpha = .4f * (1 - q), style = Stroke(line * grow))
         }
     }) { CardColumn {
         Column(Modifier.weight(1f)) {
@@ -299,8 +320,9 @@ private fun TopSong(top: com.spotifry.music.data.TopSong, calm: Boolean) {
             Text("You couldn't leave this one alone.", Modifier.rise(0, calm), maxLines = 3, overflow = TextOverflow.Ellipsis, style = Headline.copy(fontSize = 38.sp, lineHeight = 37.sp, letterSpacing = (-1.3).sp))
             Box(
                 // up to 300 dp: on a tall phone the cover takes the room rather than leaving it empty under the plays
-                Modifier.padding(top = 20.dp).weight(1f, fill = false).widthIn(max = 300.dp).aspectRatio(1f, matchHeightConstraintsFirst = true)
-                    .onPlaced { cover = it }.testTag("top_cover").rise(1, calm),
+                // centred, so a cover narrower than the card (a short phone) and the rings round it sit in the middle, not to the left
+                Modifier.align(Alignment.CenterHorizontally).padding(top = 20.dp).weight(1f, fill = false).widthIn(max = 300.dp)
+                    .aspectRatio(1f, matchHeightConstraintsFirst = true).onPlaced { cover = it }.testTag("top_cover").rise(1, calm),
             ) {
                 // a soft accent glow under the cover: inset 18 dp, 24 dp lower, blurred. The blur needs Android 12.
                 if (Build.VERSION.SDK_INT >= 31) Box(
@@ -317,7 +339,7 @@ private fun TopSong(top: com.spotifry.music.data.TopSong, calm: Boolean) {
         }
         Row(Modifier.rise(3, calm), Arrangement.spacedBy(8.dp)) {
             Text(
-                plays, Modifier.alignByBaseline(), accent,
+                plays.text, Modifier.alignByBaseline().graphicsLayer { alpha = if (plays.started) 1f else 0f }, accent,
                 style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 64.sp, lineHeight = 58.sp, letterSpacing = (-3.2).sp, fontFeatureSettings = TABULAR),
             )
             Text(if (top.plays == 1) "play" else "plays", Modifier.alignByBaseline(), soft(), style = Sub)
@@ -338,7 +360,8 @@ private fun Hours(s: SpotifriedStats, calm: Boolean) {
     val faint = MaterialTheme.colorScheme.onBackground.copy(alpha = .2f)
     val hours = (s.seconds / 3600.0).roundToInt()
     val (total, unit) = if (hours >= 1) hours to (if (hours == 1) "hour." else "hours.") else minutesOf(s.seconds).let { it to if (it == 1) "minute." else "minutes." }
-    val shown = countUp(total, calm)
+    // starts once the headline is mostly in, and runs while the bars grow
+    val shown = countUp(total, calm, 450)
     val days = s.daySeconds.size
     val longest = s.longestDay?.let { ChronoUnit.DAYS.between(s.start, it).toInt() }?.takeIf { it in 0 until days }
     // one clock for all the bars; each starts a little after the one before, so they grow left to right
@@ -347,7 +370,7 @@ private fun Hours(s: SpotifriedStats, calm: Boolean) {
     LaunchedEffect(clock) { clock.animateTo(end, tween(end.toInt(), easing = LinearEasing)) }
     CardColumn {
         Text(
-            buildAnnotatedString { append(hoursLead(s.period)); withStyle(SpanStyle(color = accent, fontFeatureSettings = TABULAR)) { append("$shown $unit") } },
+            buildAnnotatedString { append(hoursLead(s.period)); countSpan(shown, SpanStyle(color = accent, fontFeatureSettings = TABULAR), "${shown.text} $unit") },
             Modifier.rise(0, calm), style = Headline,
         )
         if (s.seconds >= 86_400) {
@@ -380,7 +403,7 @@ private fun Hours(s: SpotifriedStats, calm: Boolean) {
             val date = s.start.plusDays(longest.toLong())
             Text(
                 "Longest day: ${amount(s.daySeconds[longest])}, ${date.format(DateTimeFormatter.ofPattern(if (s.start.year != s.period.to.year) "d MMMM yyyy" else "d MMMM", english))}",
-                Modifier.padding(top = 8.dp).rise(3, calm), accent, style = Sub.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                Modifier.padding(top = 10.dp).rise(3, calm), accent, style = Sub.copy(fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold),
             )
         }
     }
@@ -412,6 +435,9 @@ internal fun topDecade(years: List<Int>): Int? = years.groupingBy { it / 10 * 10
 internal fun decadeName(d: Int) = if (d in 1910..1990) "${d % 100}s" else "${d}s"
 
 /** Space between dots in a stack: 10 dp at most, squeezed so the tallest stack ([levels] above its first dot) stays within [room]. */
+/** When the listening age starts to show on its card's clock: after the dots have fallen and the typical year is marked. */
+private const val AGE_AT = 3000f
+
 internal fun stackStep(levels: Int, room: Dp): Dp = if (levels == 0) 10.dp else minOf(10.dp, room.coerceAtLeast(0.dp) / levels)
 
 /** Card 4: a dot per song falls onto its release year, the typical year is marked, then the listening age counts up. */
@@ -448,9 +474,14 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
         BoxWithConstraints(Modifier.weight(if (centred) .7f else 1f).fillMaxWidth().clipToBounds()) {
             val axis = maxHeight - 22.dp
             fun xOf(y: Int) = 4.dp + (maxWidth - 8.dp) * ((y - lo).toFloat() / (hi - lo))
-            val step = stackStep(dots.maxOfOrNull { it.second } ?: 0, axis - 12.dp - 44.dp)
+            val small = Sub.copy(fontSize = 11.sp, lineHeight = 14.sp)
+            val density = LocalDensity.current
+            val labelH = with(density) { small.lineHeight.toDp() }
+            // above the stacks: the typical year's label (22 dp), the oldest one's line, and 8 dp of air over the top dot
+            val step = stackStep(dots.maxOfOrNull { it.second } ?: 0, axis - 12.dp - (22.dp + labelH + 8.dp + 4.dp))
             val dot = (step * .8f).coerceIn(3.dp, 8.dp)
-            val lift = with(LocalDensity.current) { 18.dp.toPx() }
+            val lift = with(density) { 18.dp.toPx() }
+            val measurer = rememberTextMeasurer()
             Canvas(Modifier.fillMaxSize()) {
                 val ax = axis.toPx()
                 drawRect(faint, Offset(0f, ax), Size(size.width, 1.dp.toPx()))
@@ -465,7 +496,6 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
                     drawRoundRect(accent, Offset(xOf(typical).toPx() - 1.dp.toPx(), ax - (ax - top) * p), Size(2.dp.toPx(), (ax - top) * p), CornerRadius(1.dp.toPx()))
                 }
             }
-            val small = Sub.copy(fontSize = 11.sp, lineHeight = 14.sp)
             val every = if (hi - lo > 100) 40 else 20
             (((lo + every - 1) / every * every)..hi step every).forEach {
                 Text("$it", Modifier.align(Alignment.BottomStart).anchorAt(xOf(it)), soft(), style = small)
@@ -476,29 +506,39 @@ private fun Age(s: SpotifriedStats, checked: Int, unchecked: Int, calm: Boolean)
                 accent, style = small.copy(fontSize = 12.sp, fontWeight = FontWeight.ExtraBold),
             )
             a.oldestYear?.let { old ->
-                // ends at the oldest dot, so it stays left of the typical year's line; lifted above the stacks under its ~90 dp
-                val left = (xOf(old) + 4.dp - 90.dp).coerceAtLeast(0.dp)
-                val under = dots.filter { xOf(it.first) in left..left + 90.dp }.maxOfOrNull { it.second } ?: 0
-                // room for its line above the dots: 26 dp at normal text size, more with large text
-                val y = axis - 12.dp - step * under - 12.dp - with(LocalDensity.current) { 14.sp.toDp() }
+                val text = "$old, your oldest"
+                // its real width, at any text size; it ends at the oldest dot, so it stays left of the typical year's line
+                val wide = with(density) { measurer.measure(text, small).size.width.toDp() }
+                val left = (xOf(old) + 4.dp - wide).coerceAtLeast(0.dp)
+                // lifted above every stack under it (a dot is 4 dp either side of its x), with 8 dp of air over the top dot
+                val under = dots.filter { xOf(it.first) in left - 4.dp..left + wide + 4.dp }.maxOfOrNull { it.second } ?: 0
+                val y = axis - 12.dp - step * under - 4.dp - 8.dp - labelH
                 // while waiting, a timeline squeezed by large text has no room for it above the dots
                 if (typical == null && y < 0.dp) return@let
+                // fades in where it stays: rising from below would pass over the dots
                 Text(
-                    "$old, your oldest", Modifier.offset(y = if (typical == null) y else y.coerceAtLeast(22.dp)).anchorAt(xOf(old) + 4.dp, 1f)
-                        .graphicsLayer { val p = stepAt(t.value, 1800f, 600f); alpha = p; translationY = (1 - p) * lift },
-                    soft(), style = small,
+                    text, Modifier.offset(y = if (typical == null) y else y.coerceAtLeast(22.dp)).anchorAt(xOf(old) + 4.dp, 1f)
+                        .graphicsLayer { alpha = stepAt(t.value, 1800f, 600f) },
+                    soft(), maxLines = 1, style = small,
                 )
             }
         }
         if (typical != null) {
-            val shown = count((a.age!! * stepAt(t.value, 3100f, 1500f)).roundToInt())
+            // the age and its line come in together once the dots and the typical year are in; the number is hidden till then
+            // rather than sitting at 0, and counts up quickly. A plain fade, so the line doesn't pop in on the fast curve.
+            val shown = count((a.age!! * stepAt(t.value, AGE_AT, 900f)).roundToInt())
+            val fade = { ((t.value - AGE_AT) / 500f).coerceIn(0f, 1f) }
             val line = "Your listening age." + (topDecade(a.years)?.let { " Most of your songs are from the ${decadeName(it)}." } ?: "")
             Row(Modifier.padding(top = 6.dp), Arrangement.spacedBy(10.dp)) {
                 Text(
-                    shown, Modifier.alignByBaseline(), accent,
+                    shown, Modifier.alignByBaseline().graphicsLayer { alpha = fade() }, accent,
                     style = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 112.sp, lineHeight = 96.sp, letterSpacing = (-5.6).sp, fontFeatureSettings = TABULAR),
                 )
-                Text(line, Modifier.alignByBaseline().graphicsLayer { val p = stepAt(t.value, 3100f, 800f); alpha = p; translationY = (1 - p) * 18.dp.toPx() }, soft(), style = Sub)
+                // balanced lines, so the last word never sits alone on its own line
+                Text(
+                    line, Modifier.alignByBaseline().graphicsLayer { val p = fade(); alpha = p; translationY = (1 - p) * 12.dp.toPx() }, soft(),
+                    style = Sub.copy(lineBreak = LineBreak(LineBreak.Strategy.Balanced, LineBreak.Strictness.Normal, LineBreak.WordBreak.Default)),
+                )
             }
         } else {
             // the progress takes the age's place, with a quiet bar under it
@@ -548,7 +588,8 @@ private fun Day(s: SpotifriedStats, day: com.spotifry.music.data.spotifried.Obse
     // a long day of plays still lands within about two seconds
     val gap = minOf(70f, 2000f / ticks.size.coerceAtLeast(1))
     val t = clock(calm, 500 + gap * ticks.size + 550)
-    val times = countUp(day.plays, calm)
+    // starts once its line has risen in
+    val times = countUp(day.plays, calm, 450)
     CardColumn {
         Text(
             buildAnnotatedString { append("On ${dayText(day.date, s.start.year != s.period.to.year)}, "); withStyle(SpanStyle(color = accent)) { append("something happened.") } },
@@ -557,7 +598,7 @@ private fun Day(s: SpotifriedStats, day: com.spotifry.music.data.spotifried.Obse
         Text(
             buildAnnotatedString {
                 append("You played “${shortTitle(day.song.title)}” ")
-                withStyle(SpanStyle(color = ink, fontWeight = FontWeight.Bold, fontFeatureSettings = TABULAR)) { append("$times ${if (day.plays == 1) "time" else "times"}") }
+                countSpan(times, SpanStyle(color = ink, fontWeight = FontWeight.Bold, fontFeatureSettings = TABULAR), "${times.text} ${if (day.plays == 1) "time" else "times"}")
                 append(" in one day. We won't ask.")
             },
             Modifier.padding(top = 14.dp).rise(1, calm), soft(), style = Sub,
@@ -678,10 +719,15 @@ private fun SunPortrait(s: SpotifriedStats, calm: Boolean) {
                     }
                 },
             ) { Sun(s.hours, scale, live = false, motion = motion, modifier = Modifier.fillMaxSize(), labels = false) }
-            // a clock face: just inside the longest rays, as in the mockup, each shown once the sweep reaches it
-            // side labels are kept 8 dp inside the screen whatever their width, so large text never runs off it
+            // a clock face, each label shown once the sweep reaches it; side labels are kept 8 dp inside the screen whatever
+            // their width, so large text never runs off it
             val r = side * .44f
-            listOf(0 to (0.dp to -r), 6 to (r to 0.dp), 12 to (0.dp to r), 18 to (-r to 0.dp)).forEach { (h, at) ->
+            // top and bottom ones clear the ray tips by 8 dp where the card has the room, so they never touch them
+            val half = with(LocalDensity.current) { label.lineHeight.toDp() } / 2
+            val room = maxHeight / 2 - half
+            val up = minOf(maxOf(r, side * sunReach(s.hours, scale) + 8.dp + half), room)
+            val down = minOf(maxOf(r, side * sunReach(s.hours, scale, up = false) + 8.dp + half), room)
+            listOf(0 to (0.dp to -up), 6 to (r to 0.dp), 12 to (0.dp to down), 18 to (-r to 0.dp)).forEach { (h, at) ->
                 Text(
                     hourName(h),
                     Modifier.offset(y = at.second).padding(horizontal = 8.dp).anchorAt(maxWidth / 2 - 8.dp + at.first)
@@ -762,16 +808,19 @@ private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean, work
                     fun height(k: Float): Int = with(density) {
                         measurer.measure(lead, Sub, maxLines = 3, constraints = Constraints(maxWidth = constraints.maxWidth)).size.height + 6.dp.roundToPx() +
                             measurer.measure(title, titleStyle(k), maxLines = 3, constraints = Constraints(maxWidth = constraints.maxWidth)).size.height + 26.dp.roundToPx() +
-                            facts.sumOf { measurer.measure(it, factStyle(k), constraints = Constraints(maxWidth = factWidth)).size.height } + 2 * 12.dp.roundToPx()
+                            facts.sumOf { measurer.measure(it, factStyle(k), constraints = Constraints(maxWidth = factWidth)).size.height } + 2 * 12.dp.roundToPx() +
+                            RISE.roundToPx()
                     }
                     generateSequence(1f) { it - .05f }.takeWhile { it >= .5f }.firstOrNull { height(it) <= constraints.maxHeight } ?: .5f
                 }
-                Column(Modifier.verticalScroll(rememberScrollState())) {
+                // the scroll clips to its content, so room under the last fact for its rise: it is never cut while it comes in
+                Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = RISE)) {
+                    // the title comes in with the line above it, so the card is never only a faint "you are"
                     Text(lead, Modifier.rise(0, calm), soft(), maxLines = 3, overflow = TextOverflow.Ellipsis, style = Sub)
                     val cut = title.lastIndexOf(' ') + 1
                     Text(
                         buildAnnotatedString { append(title.take(cut)); withStyle(SpanStyle(color = accent)) { append(title.drop(cut)) } },
-                        Modifier.padding(top = 6.dp).rise(1, calm), maxLines = 3, style = titleStyle(fit),
+                        Modifier.padding(top = 6.dp).rise(0, calm), maxLines = 3, style = titleStyle(fit),
                     )
                     Column(Modifier.padding(top = 26.dp).widthIn(max = 280.dp).onGloballyPositioned { factsEnd = it.boundsInRoot().bottom }, Arrangement.spacedBy(12.dp)) {
                         facts.forEachIndexed { i, f ->
@@ -788,10 +837,19 @@ private fun Type(s: SpotifriedStats, onShare: (() -> Unit)?, calm: Boolean, work
                 }
             }
             val lift = with(LocalDensity.current) { 18.dp.toPx() }
+            val backdrop = MaterialTheme.colorScheme.background
             if (onShare != null) Button(
                 // a second tap within a second, while the share sheet is still opening, does nothing
                 { val now = SystemClock.uptimeMillis(); if (now - sharedAt >= 1000) { sharedAt = now; onShare() } },
                 Modifier.padding(top = 12.dp).heightIn(min = 48.dp).graphicsLayer { alpha = button.value; translationY = (1 - button.value) * lift }
+                    // a soft dark pool under the button: the rays fade out round it and stay whole everywhere else. It is drawn over
+                    // what comes before the button, so it reaches no higher than the 12 dp gap and never dims the facts.
+                    .drawBehind {
+                        val r = size.width * .5f + 40.dp.toPx()
+                        scale(1f, (size.height / 2 + 12.dp.toPx()) / r, center) {
+                            drawCircle(Brush.radialGradient(0f to backdrop, .55f to backdrop.copy(alpha = .85f), 1f to Color.Transparent, center = center, radius = r), r, center)
+                        }
+                    }
                     .then(if (ready) Modifier else Modifier.clearAndSetSemantics {}),
                 enabled = ready && !working,
                 colors = ButtonDefaults.buttonColors(

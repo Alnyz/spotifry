@@ -37,6 +37,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.MaterialTheme
+import com.spotifry.music.data.hourName
 import com.spotifry.music.ui.theme.LocalAccent
 import com.spotifry.music.ui.theme.isDark
 import kotlinx.coroutines.delay
@@ -135,8 +136,9 @@ fun Sun(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val labelStyle = MaterialTheme.typography.labelSmall
     val measurer = rememberTextMeasurer()
-    val midnight = remember(measurer, labelStyle) { measurer.measure("12 a.m.", TextStyle(fontFamily = labelStyle.fontFamily, fontSize = labelStyle.fontSize, fontWeight = labelStyle.fontWeight)) }
-    val noon = remember(measurer, labelStyle) { measurer.measure("noon", TextStyle(fontFamily = labelStyle.fontFamily, fontSize = labelStyle.fontSize, fontWeight = labelStyle.fontWeight)) }
+    // the same words as the story's sun
+    val midnight = remember(measurer, labelStyle) { measurer.measure(hourName(0), TextStyle(fontFamily = labelStyle.fontFamily, fontSize = labelStyle.fontSize, fontWeight = labelStyle.fontWeight)) }
+    val noon = remember(measurer, labelStyle) { measurer.measure(hourName(12), TextStyle(fontFamily = labelStyle.fontFamily, fontSize = labelStyle.fontSize, fontWeight = labelStyle.fontWeight)) }
 
     fun length(i: Int, moving: Boolean): Float {
         val a = i.toFloat() / rayCount * 2 * PI.toFloat()
