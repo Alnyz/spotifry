@@ -136,7 +136,7 @@ fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved:
         Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (number != null) Text(number.toString(), fontFamily = Serif, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Palette.ink.copy(alpha = 0.4f), fontSize = 14.sp, modifier = Modifier.width(24.dp))
+        if (number != null) Text(number.toString(), fontFamily = Serif, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Palette.ink.copy(alpha = 0.4f), fontSize = 14.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(36.dp))
         Cover(s.thumbnailUrl ?: s.localThumbPath, 44.dp, RoundedCornerShape(6.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
