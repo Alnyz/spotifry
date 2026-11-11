@@ -1,6 +1,11 @@
 package com.spotifry.music.ui.listening
 
+import android.content.Context
+import android.provider.Settings
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertTrue
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
@@ -54,7 +59,23 @@ class ListeningScreenTest {
 
     @Test fun tasteHasASpotifriedButton() {
         show(row(now - 240_000, "a", 240))
-        rule.onNodeWithText("Spotifried").performClick()
+        rule.onNodeWithContentDescription("Spotifried, 2027").assertIsDisplayed().assertHasClickAction().performClick()
+        assertEquals(true, opened)
+    }
+
+    @Test fun theGateSitsUnderTheTitleAboveTheSun() {
+        show(row(now - 240_000, "a", 240))
+        val title = rule.onNodeWithText("First spark.").fetchSemanticsNode().boundsInRoot.bottom
+        val gate = rule.onNodeWithContentDescription("Spotifried, 2027").fetchSemanticsNode().boundsInRoot
+        val sun = rule.onNodeWithContentDescription("Your listening by hour of the day. Most around 9 p.m.").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(gate.top >= title && gate.bottom <= sun)
+        assertTrue(gate.height >= 48f)
+    }
+
+    @Test fun theGateStillOpensWhenAnimationsAreOff() {
+        Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Context>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+        show(row(now - 240_000, "a", 240))
+        rule.onNodeWithContentDescription("Spotifried, 2027").performClick()
         assertEquals(true, opened)
     }
 

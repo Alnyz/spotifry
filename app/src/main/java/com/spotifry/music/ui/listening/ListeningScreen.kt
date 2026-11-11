@@ -197,6 +197,8 @@ internal fun ListeningContent(
             )
             Text(line, Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        // today's year, from the same clock the stats were counted with
+        item("spotifried") { SpotifriedGate(stats.firstDate.plusDays(stats.days.size - 1L).year, onSpotifried, Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) }
         item("sun") {
             // the hole in the sun has a fixed size, so text there stops growing past this; the line above says the same in full
             val density = LocalDensity.current
@@ -223,9 +225,6 @@ internal fun ListeningContent(
                     Centre(period, hour, Modifier.fillMaxWidth(.37f).semantics { liveRegion = LiveRegionMode.Polite })
                 }
             }
-        }
-        item("spotifried") {
-            Button(onSpotifried, Modifier.padding(horizontal = 20.dp, vertical = 8.dp).fillMaxWidth()) { Text("Spotifried") }
         }
         if (stats.periods.size > 1) item("tabs") {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).selectableGroup(), Arrangement.spacedBy(6.dp)) {
