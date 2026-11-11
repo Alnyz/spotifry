@@ -4,7 +4,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
@@ -143,9 +142,9 @@ internal fun NameStep(starters: List<Starter>, name: String, onName: (String) ->
             "What should\nwe call you?", Modifier.padding(horizontal = 20.dp).semantics { heading() }.graphicsLayer { translationY = (1 - ease(intro.seg(.1f, .6f))) * 42.dp.toPx(); alpha = ease(intro.seg(.1f, .5f)) },
             style = MediumHeading,
         )
-        // the keyboard is up: the picture gets shorter (its lower part is cut off) but stays; the page scrolls if even that doesn't fit
-        val artHeight by animateDpAsState(if (WindowInsets.isImeVisible) 130.dp else 260.dp, label = "art")
-        Collage(Modifier.height(artHeight).fillMaxWidth().padding(top = 16.dp), 300f) { NamePicture(starters, intro) }
+        // the keyboard is up: the picture gives its room to the field and the button, which stay in view
+        // the page scrolls, so at a large font with the keyboard up the heading, field and button stay reachable
+        if (!WindowInsets.isImeVisible) Collage(Modifier.height(260.dp).fillMaxWidth().padding(top = 16.dp), 300f) { NamePicture(starters, intro) }
         Foot {
             NameField(name, onName, onContinue = { if (ready) onContinue() })
             Pill(
