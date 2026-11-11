@@ -80,6 +80,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import com.spotifry.music.data.LyricLine
 import com.spotifry.music.data.LyricWord
 import com.spotifry.music.data.Lyrics
@@ -314,13 +319,15 @@ private fun LyricRow(i: Int, line: LyricLine, focus: State<Float>, pos: State<Lo
 internal fun LyricsScreen(
     state: PlayerUiState, position: () -> Long, lyrics: Lyrics, color: Color, onClose: () -> Unit, onSeek: (Long) -> Unit, onToggle: () -> Unit,
     speed: Float = 1f,
+    /** Milliseconds the lyrics run earlier (negative: later); [onShift] sets a new value for this song. */
+    shift: Int = 0, onShift: (Int) -> Unit = {},
 ) {
     val song = state.current ?: return
     val timed = lyrics as? Lyrics.Timed
     val lines = timed?.lines.orEmpty()
     // lyric times count from the whole song's start, the player from the trim's
     val trimStart = state.trim?.startMs ?: 0L
-    val sung = remember(trimStart) { { position() + trimStart } }
+    val sung = remember(trimStart, shift) { { position() + trimStart + shift } }
     val smooth = smoothPosition(sung, state.isPlaying && timed != null, speed)
     val starts = remember(timed) { LongArray(lines.size) { lines[it].atMs } }
     val focus = remember(starts) { derivedStateOf { focusPosition(starts, smooth.value) } }
@@ -393,7 +400,7 @@ internal fun LyricsScreen(
             if (timed != null) itemsIndexed(timed.lines) { i, line ->
                 LyricRow(i, line, focus, smooth, bus, calm, blurOn, { manual }) {
                     manual = false
-                    onSeek((line.atMs - trimStart).coerceAtLeast(0))
+                    onSeek((line.atMs - trimStart - shift).coerceAtLeast(0))
                 }
             }
             else itemsIndexed((lyrics as Lyrics.Plain).lines) { _, line -> Text(line, style = BigLine, color = Sung) }
@@ -405,9 +412,39 @@ internal fun LyricsScreen(
                     Icon(if (state.isPlaying) Icons.Pause else Icons.Play, if (state.isPlaying) "Pause" else "Play", Modifier.size(26.dp), tint = Color(0xFF0C0D10))
                 }
             }
+            // lyrics running ahead of or behind the singing are moved here, a tenth of a second a tap, kept for this song
+            if (timed != null) Row(Modifier.padding(start = 12.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                TimingButton("−", "Lyrics later") { onShift(nudgeShift(shift, -SHIFT_STEP_MS)) }
+                Text(
+                    shiftLabel(shift), Modifier.weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite },
+                    style = MaterialTheme.typography.labelLarge, color = if (shift == 0) Faint else Color.White,
+                )
+                TimingButton("+", "Lyrics earlier") { onShift(nudgeShift(shift, SHIFT_STEP_MS)) }
+                if (shift != 0) TimingButton("Reset", "Lyrics back on their own timing") { onShift(0) }
+            }
             Text(if (timed == null) "Lyrics from LRCLIB · not timed" else "Lyrics from ${timed.from}", Modifier.padding(start = 24.dp, top = 4.dp), style = MaterialTheme.typography.labelSmall, color = Faint)
         }
     }
+}
+
+internal const val SHIFT_STEP_MS = 100
+
+/** [ms] moved by [by], kept within [com.spotifry.music.data.Settings.LYRICS_SHIFT_MAX] either way. */
+internal fun nudgeShift(ms: Int, by: Int): Int {
+    val max = com.spotifry.music.data.Settings.LYRICS_SHIFT_MAX
+    return (ms + by).coerceIn(-max, max)
+}
+
+/** "Lyrics on time", "Lyrics 0.3 s earlier", "Lyrics 1.2 s later". */
+internal fun shiftLabel(ms: Int): String =
+    if (ms == 0) "Lyrics on time" else "Lyrics %.1f s %s".format(java.util.Locale.US, abs(ms) / 1000f, if (ms > 0) "earlier" else "later")
+
+@Composable
+private fun TimingButton(text: String, label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.defaultMinSize(48.dp, 48.dp).clip(CircleShape).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick).semantics { contentDescription = label }.padding(horizontal = 12.dp),
+        Alignment.Center,
+    ) { Text(text, style = MaterialTheme.typography.labelLarge, color = Faint) }
 }
 
 private val BigLine @Composable get() = MaterialTheme.typography.headlineSmall.copy(fontSize = 24.sp, lineHeight = 32.sp)

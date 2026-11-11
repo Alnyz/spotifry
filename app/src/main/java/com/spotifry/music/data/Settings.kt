@@ -163,7 +163,19 @@ class Settings(private val prefs: SharedPreferences) {
         prefs.edit().putString(LYRICS_OFF, _lyricsOff.value.joinToString(",")).apply()
     }
 
-    private val _firstLaunchSeen = MutableStateFlow(prefs.getBoolean(FIRST_LAUNCH_SEEN, false))
+    private val _lyricsShift = MutableStateFlow(
+        prefs.all.mapNotNull { (k, v) -> if (k.startsWith(LYRICS_SHIFT) && v is Int) k.removePrefix(LYRICS_SHIFT) to v else null }.toMap(),
+    )
+    /** By song id: milliseconds its lyrics run earlier (negative: later) to meet the singing. Songs on time aren't kept. */
+    val lyricsShift: StateFlow<Map<String, Int>> = _lyricsShift
+    /** Kept within [LYRICS_SHIFT_MAX] either way; 0 forgets the song. */
+    fun setLyricsShift(songId: String, ms: Int) {
+        val v = ms.coerceIn(-LYRICS_SHIFT_MAX, LYRICS_SHIFT_MAX)
+        _lyricsShift.value = if (v == 0) _lyricsShift.value - songId else _lyricsShift.value + (songId to v)
+        prefs.edit().apply { if (v == 0) remove(LYRICS_SHIFT + songId) else putInt(LYRICS_SHIFT + songId, v) }.apply()
+    }
+
+    private val _firstLaunchSeen =MutableStateFlow(prefs.getBoolean(FIRST_LAUNCH_SEEN, false))
     /** The first-launch screens were finished, skipped, or never needed (the app was updated, not installed). */
     val firstLaunchSeen: StateFlow<Boolean> = _firstLaunchSeen
     fun markFirstLaunchSeen() { _firstLaunchSeen.value = true; prefs.edit().putBoolean(FIRST_LAUNCH_SEEN, true).apply() }
@@ -191,6 +203,9 @@ class Settings(private val prefs: SharedPreferences) {
         const val MONOCHROME = "monochrome"
         const val HIDE_NON_MUSIC = "hide_non_music"
         const val LYRICS_OFF = "lyrics_off"
+        /** Followed by a song id. */
+        const val LYRICS_SHIFT = "lyrics_shift_"
+        const val LYRICS_SHIFT_MAX = 5_000
         const val ARTISTS = "picked_artists"
         const val NAME = "user_name"
         const val DATA_SAVER = "data_saver"

@@ -107,6 +107,8 @@ fun NowPlayingContent(
     onSuggestionMore: (Int) -> Unit = {},
     /** The scissors by the length of a trimmed song: opens the Trim sheet. */
     onTrim: () -> Unit = {},
+    /** Milliseconds this song's lyrics run earlier (negative: later), set from the full lyrics. */
+    lyricsShift: Int = 0, onLyricsShift: (Int) -> Unit = {},
 ) {
     val song = state.current ?: return
     // a new song closes the full lyrics of the old one
@@ -142,7 +144,7 @@ fun NowPlayingContent(
         val cover = coverSize(maxWidth, screen, textGrowth, bars.calculateTopPadding() + bars.calculateBottomPadding(), pills)
         // lyrics are timed to the whole song; the player counts from the trim's start
         val trimStart = state.trim?.startMs ?: 0L
-        val sung = remember(trimStart, position) { { position() + trimStart } }
+        val sung = remember(trimStart, position, lyricsShift) { { position() + trimStart + lyricsShift } }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // at least one screen tall (minus the peek of the card below), taller on small screens so nothing is cut off
             Column(
@@ -190,7 +192,7 @@ fun NowPlayingContent(
         }
         val ready = (lyrics as? LyricsUi.Ready)?.lyrics
         // back is handled by the app shell, which closes these lyrics first and Now playing after
-        if (showLyrics && ready != null) LyricsScreen(state, position, ready, lerp(top, Color.White, .14f), { onShowLyrics(false) }, onSeek, onToggle, speed)
+        if (showLyrics && ready != null) LyricsScreen(state, position, ready, lerp(top, Color.White, .14f), { onShowLyrics(false) }, onSeek, onToggle, speed, lyricsShift, onLyricsShift)
     }
     }
     }

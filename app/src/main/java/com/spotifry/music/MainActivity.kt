@@ -232,6 +232,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     var showSpeed by remember { mutableStateOf(false) }
     var showTrim by remember { mutableStateOf(false) }
     val speed by c.settings.speed.collectAsStateWithLifecycle()
+    val lyricsShifts by c.settings.lyricsShift.collectAsStateWithLifecycle()
     val pitch by c.settings.pitch.collectAsStateWithLifecycle()
     val speedLabel = com.spotifry.music.data.speedPitchLabel(speed, pitch)
 
@@ -437,6 +438,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                     sleep = sleep, sleepLeft = c.sleepTimer::remainingMs, onSleep = { showSleep = true },
                     speedLabel = speedLabel, onSpeed = { showSpeed = true }, speed = speed,
                     onSuggestionMore = suggestionMenu, onTrim = { showTrim = true },
+                    lyricsShift = player.current?.let { lyricsShifts[it.id] } ?: 0,
+                    onLyricsShift = { ms -> player.current?.let { c.settings.setLyricsShift(it.id, ms) } },
                 )
                 // the app's own snackbar sits under Now playing; this one shows the same message on top of it
                 Box(Modifier.fillMaxSize()) { SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) }
@@ -449,7 +452,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                 ) { incoming = null }
             }
             // lyric times count from the whole song's start, the player from the trim's
-            picture?.let { t -> MakePicturePage(t, c.lyrics, player.current?.id == t.songs.firstOrNull()?.id && !t.playlist, { position() + (player.trim?.startMs ?: 0) }) { picture = null } }
+            picture?.let { t -> MakePicturePage(t, c.lyrics, player.current?.id == t.songs.firstOrNull()?.id && !t.playlist, { position() + (player.trim?.startMs ?: 0) + (lyricsShifts[player.current?.id] ?: 0) }) { picture = null } }
             if (!firstSeen && fresh == null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
             if (!firstSeen && fresh == true) {
                 val vm: com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel = viewModel(key = "first-launch", factory = viewModelFactory { initializer { com.spotifry.music.ui.firstlaunch.FirstLaunchViewModel(c.source, c.settings, saved = createSavedStateHandle()) } })
