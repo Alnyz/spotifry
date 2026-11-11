@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.spotifry.music.data.db.AppDatabase
+import com.spotifry.music.data.db.androidMigration
 import com.spotifry.music.data.db.ListenEntity
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.Song
@@ -35,7 +36,7 @@ class ListenLogTest {
 
     @Test fun updatingFromThreeKeepsEverythingAndStartsAnEmptyLog() = runBlocking {
         val file = File.createTempFile("from3", ".db", ctx.cacheDir).also { it.delete() }
-        val v3 = JSONObject(File("schemas/com.spotifry.music.data.db.AppDatabase/3.json").readText()).getJSONObject("database")
+        val v3 = JSONObject(File("../shared/schemas/com.spotifry.music.data.db.AppDatabase/3.json").readText()).getJSONObject("database")
         SQLiteDatabase.openOrCreateDatabase(file, null).use { old ->
             val tables = v3.getJSONArray("entities")
             for (i in 0 until tables.length()) {
@@ -50,7 +51,7 @@ class ListenLogTest {
         }
         // Room checks the table against the schema when it opens, so a migration that doesn't match fails here
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, file.absolutePath)
-            .addMigrations(AppDatabase.ADD_PLAYS, AppDatabase.ADD_ADDED_AT, AppDatabase.ADD_LISTENS, AppDatabase.ADD_SONG_YEARS).allowMainThreadQueries().build()
+            .addMigrations(*AppDatabase.STEPS.map(::androidMigration).toTypedArray()).allowMainThreadQueries().build()
         assertEquals("Old song", db.songs().get("a")?.title)
         assertEquals(listOf("a"), db.plays().observeMostPlayed(5).first().map { it.id })
         assertTrue(db.listens().observeAll().first().isEmpty())

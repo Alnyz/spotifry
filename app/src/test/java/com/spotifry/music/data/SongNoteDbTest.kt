@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.spotifry.music.data.db.AppDatabase
+import com.spotifry.music.data.db.androidMigration
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.db.SongNoteEntity
 import kotlinx.coroutines.flow.first
@@ -43,7 +44,7 @@ class SongNoteDbTest {
         db.songs().upsert(SongEntity("s", "T", "A", 100, null, null, null, null))
         val sql = db.openHelper.writableDatabase
         sql.execSQL("DROP TABLE song_notes")
-        AppDatabase.ADD_SONG_NOTES.migrate(sql)
+        androidMigration(AppDatabase.ADD_SONG_NOTES).migrate(sql)
         db.notes().put(SongNoteEntity("s", "kept", 1))
         assertEquals("kept", db.notes().observe("s").first())
         assertEquals("T", db.songs().get("s")!!.title)

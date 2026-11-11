@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.spotifry.music.data.db.AppDatabase
+import com.spotifry.music.data.db.androidMigration
 import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.Song
@@ -57,7 +58,7 @@ class PlaylistOrderTest {
     /** A phone on version 0.1.0 keeps its playlists, and "Recently added" follows the old order. */
     @Test fun upgradeFromVersion2KeepsPlaylists() = runBlocking {
         val file = File(ctx.cacheDir, "upgrade-test.db").apply { delete() }
-        val v2 = JSONObject(File("schemas/com.spotifry.music.data.db.AppDatabase/2.json").readText()).getJSONObject("database")
+        val v2 = JSONObject(File("../shared/schemas/com.spotifry.music.data.db.AppDatabase/2.json").readText()).getJSONObject("database")
         SQLiteDatabase.openOrCreateDatabase(file, null).use { old ->
             val tables = v2.getJSONArray("entities")
             for (i in 0 until tables.length()) {
@@ -74,7 +75,7 @@ class PlaylistOrderTest {
             old.version = 2
         }
         val db = Room.databaseBuilder(ctx, AppDatabase::class.java, file.absolutePath)
-            .addMigrations(AppDatabase.ADD_PLAYS, AppDatabase.ADD_ADDED_AT, AppDatabase.ADD_LISTENS, AppDatabase.ADD_SONG_YEARS).allowMainThreadQueries().build()
+            .addMigrations(*AppDatabase.STEPS.map(::androidMigration).toTypedArray()).allowMainThreadQueries().build()
         assertEquals(listOf("a", "b", "c"), db.playlists().observeSongs(1).first().map { it.id })
         assertEquals(listOf("c", "b", "a"), db.playlists().observeSongsNewestFirst(1).first().map { it.id })
         db.close()

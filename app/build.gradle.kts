@@ -71,7 +71,6 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     implementation(libs.work.runtime)
-    ksp(libs.room.compiler)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
     implementation(libs.media3.okhttp)
@@ -100,4 +99,3 @@ dependencies {
     debugImplementation(libs.compose.ui.test.manifest)
 }
 
-ksp { arg("room.schemaLocation", "$projectDir/schemas") }

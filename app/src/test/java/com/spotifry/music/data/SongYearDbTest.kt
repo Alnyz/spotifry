@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.spotifry.music.data.db.AppDatabase
+import com.spotifry.music.data.db.androidMigration
 import com.spotifry.music.data.db.ListenEntity
 import com.spotifry.music.data.db.SongYearEntity
 import kotlinx.coroutines.flow.first
@@ -50,7 +51,7 @@ class SongYearDbTest {
         db.listens().insert(ListenEntity(1L, "s", 100))
         val sql = db.openHelper.writableDatabase
         sql.execSQL("DROP TABLE song_years")
-        AppDatabase.ADD_SONG_YEARS.migrate(sql)
+        androidMigration(AppDatabase.ADD_SONG_YEARS).migrate(sql)
         db.songYears().put(SongYearEntity("a", 2001, 9))
         assertEquals(1, db.songYears().all().size)
         assertEquals("s", db.listens().observeAll().first().single().songId)
