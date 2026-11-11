@@ -1,6 +1,5 @@
 package com.spotifry.music.data
 
-import android.content.SharedPreferences
 import com.spotifry.music.data.db.SongEntity
 
 /** How a playlist's songs are listed and played. */
@@ -22,7 +21,7 @@ fun SongEntity.matches(query: String): Boolean {
 }
 
 /** The order picked for each playlist, kept on the phone. Without prefs (tests) it only lives in memory. */
-class PlaylistOrders(private val prefs: SharedPreferences?) {
+class PlaylistOrders(private val prefs: Prefs? = null) {
     private val memory = mutableMapOf<Long, PlaylistOrder>()
     fun get(id: Long): PlaylistOrder = memory[id]
         ?: runCatching { PlaylistOrder.valueOf(prefs?.getString(key(id), null)!!) }.getOrDefault(PlaylistOrder.CUSTOM)

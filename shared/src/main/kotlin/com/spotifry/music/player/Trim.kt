@@ -1,6 +1,7 @@
 package com.spotifry.music.player
 
-import android.content.SharedPreferences
+import com.spotifry.music.data.Prefs
+
 
 /** Where a song plays from and to, in ms of the whole song; [endMs] null means to its natural end. */
 data class Trim(val startMs: Long = 0, val endMs: Long? = null) {
@@ -41,7 +42,7 @@ fun clipText(ms: Long): String {
 }
 
 /** Each song's trim, kept on this phone by song id. Nothing is cut from the files; sharing never carries it. */
-class Trims(private val prefs: SharedPreferences) {
+class Trims(private val prefs: Prefs) {
     operator fun get(id: String): Trim? {
         val parts = prefs.getString(id, null)?.split(',') ?: return null
         val start = parts[0].toLongOrNull() ?: return null

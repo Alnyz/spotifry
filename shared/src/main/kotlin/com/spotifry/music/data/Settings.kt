@@ -1,6 +1,5 @@
 package com.spotifry.music.data
 
-import android.content.SharedPreferences
 import com.spotifry.music.player.EQ_BANDS
 import com.spotifry.music.player.EQ_PRESETS
 import com.spotifry.music.player.AUTOEQ_PREFIX
@@ -13,7 +12,7 @@ enum class ThemeMode { PHONE, LIGHT, DARK }
 const val FIRST_LAUNCH_SEEN = "first_launch_seen"
 
 /** The few choices on the Settings page, kept on the phone. Each change is saved at once. */
-class Settings(private val prefs: SharedPreferences) {
+class Settings(private val prefs: Prefs) {
     private val _dataSaver = MutableStateFlow(prefs.getBoolean(DATA_SAVER, false))
     private val _saveLow = MutableStateFlow(prefs.getBoolean(SAVE_LOW, false))
     private val _theme = MutableStateFlow(runCatching { ThemeMode.valueOf(prefs.getString(THEME, null)!!) }.getOrDefault(ThemeMode.PHONE))

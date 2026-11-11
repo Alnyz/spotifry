@@ -1,6 +1,6 @@
 package com.spotifry.music.player
 
-import android.content.SharedPreferences
+import com.spotifry.music.data.Prefs
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.data.source.isLocal
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +56,7 @@ private const val CATEGORY = "music_offtopic"
  * skip, or "off" when the user chose to hear the song whole. Replays and offline play use no data.
  */
 // ponytail: "nothing to skip" is kept for good; ask again after a month or so if songs get marked later
-class SmartTrims(private val prefs: SharedPreferences, private val client: OkHttpClient) {
+class SmartTrims(private val prefs: Prefs, private val client: OkHttpClient) {
     private val trims = Trims(prefs)
 
     /** The smart trim kept for song [id], null when none, off or not asked yet. */

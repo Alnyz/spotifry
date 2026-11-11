@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 
 class PlaylistsViewModel(
     private val dao: PlaylistDao, private val songs: SongDao, private val player: SongPlayer,
-    private val orders: PlaylistOrders = PlaylistOrders(null),
+    private val orders: PlaylistOrders = PlaylistOrders(),
 ) : ViewModel() {
     /** False until the list has been read, so an empty [playlists] says nothing yet. */
     val playlistsRead = MutableStateFlow(false)

@@ -1,6 +1,5 @@
 package com.spotifry.music.data
 
-import android.content.SharedPreferences
 import com.spotifry.music.data.db.BackupDao
 import com.spotifry.music.data.db.HistoryEntity
 import com.spotifry.music.data.db.ListenEntity
@@ -17,15 +16,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.io.InputStream
 
+/** Settings only the desktop app has (folders, window) start with this, and stay out of every backup. */
+const val DESKTOP_KEY_PREFIX = "desktop_"
+
 /** Keys in the `app` prefs that describe this phone or this install, not the listener's choices. */
-private fun aboutThisPhone(key: String) = key == FIRST_LAUNCH_SEEN || key == Updates.LAST_CHECK || key == Updates.LATER || key.startsWith(PlaylistOrders.KEY_PREFIX)
+private fun aboutThisPhone(key: String) = key.startsWith(DESKTOP_KEY_PREFIX) || key == FIRST_LAUNCH_SEEN || key == UPDATE_LAST_CHECK || key == UPDATE_LATER || key.startsWith(PlaylistOrders.KEY_PREFIX)
 
 /**
  * What the app reads each setting as. Reading a pref as another type throws, and Settings reads them all as the app starts,
  * so one wrong value would stop the app opening until its data was cleared. A key added later and missing here is only
  * checked against this phone's value; add it here.
  */
-internal val SETTING_TYPES: Map<String, String> =
+val SETTING_TYPES: Map<String, String> =
     listOf(Settings.JIOSAAVN, Settings.MONOCHROME, Settings.DATA_SAVER, Settings.SAVE_LOW, Settings.KEEP_SCREEN_ON, Settings.SAME_LOUDNESS, Settings.SKIP_SILENCE, Settings.SMART_TRIM, Settings.EQ_ON, Settings.PURE_BLACK).associateWith { "boolean" } +
         listOf(Settings.PITCH, Settings.FADE, Settings.ACCENT_COLOR).associateWith { "int" } +
         (Settings.SPEED to "float") +
@@ -35,8 +37,8 @@ internal val SETTING_TYPES: Map<String, String> =
 /** Makes a [BackupFile] from this phone, and merges one into it. */
 class Backups(
     private val dao: BackupDao,
-    private val app: SharedPreferences,
-    private val trims: SharedPreferences,
+    private val app: Prefs,
+    private val trims: Prefs,
     private val waiting: RestoreQueue,
     private val appVersion: String,
     private val now: () -> Long = System::currentTimeMillis,
@@ -110,7 +112,7 @@ sealed interface RestoreStatus {
  * continues. A table and a foreground service if a long restore keeps getting killed.
  */
 class RestoreQueue(
-    private val prefs: SharedPreferences,
+    private val prefs: Prefs,
     private val songs: SongDao,
     private val save: suspend (com.spotifry.music.data.source.Song) -> Unit,
     private val metered: () -> Boolean,
@@ -144,7 +146,7 @@ class RestoreQueue(
     /** The song downloading now still finishes, like one the listener saved by hand. */
     fun stop() { job?.cancel(); _status.value = RestoreStatus.Idle }
 
-    internal suspend fun run(wifiOnly: Boolean) {
+    suspend fun run(wifiOnly: Boolean) {
         var failed = 0
         var inARow = 0
         for (id in _ids.value) {

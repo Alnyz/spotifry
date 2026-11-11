@@ -169,8 +169,8 @@ class Updates(
 
     companion object {
         private const val LATEST = "https://api.github.com/repos/Alnyz/spotifry/releases/latest"
-        const val LAST_CHECK = "update_last_check"
-        const val LATER = "update_later"
+        const val LAST_CHECK = UPDATE_LAST_CHECK
+        const val LATER = UPDATE_LATER
         private const val DAY_MS = 24 * 60 * 60 * 1000L
     }
 }
