@@ -51,7 +51,7 @@ class JioSaavnSource(
 }
 
 /** Cancelled with the coroutine, so the time cap holds even while a blocking call would still sit in a DNS lookup. */
-internal suspend fun <T> Call.read(answer: (Response) -> T): T = suspendCancellableCoroutine { waiting ->
+suspend fun <T> Call.read(answer: (Response) -> T): T = suspendCancellableCoroutine { waiting ->
     waiting.invokeOnCancellation { cancel() }
     enqueue(object : Callback {
         override fun onFailure(call: Call, e: IOException) = waiting.resumeWith(Result.failure(e))
@@ -80,7 +80,18 @@ fun parseSaavnResults(json: String): List<SaavnResult> {
 private fun names(list: JSONArray?) = List(list?.length() ?: 0) { list!!.getJSONObject(it).optString("name") }
 
 /** Their text comes with HTML entities: Tum Hi Ho (From &quot;Aashiqui 2&quot;). */
-private fun plainText(s: String) = android.text.Html.fromHtml(s, android.text.Html.FROM_HTML_MODE_LEGACY).toString()
+internal fun plainText(s: String): String = s.replace(Regex("<[^>]*>"), "")
+    .replace(Regex("&(#x?[0-9a-fA-F]+|[a-zA-Z]+);")) { m ->
+        val e = m.groupValues[1]
+        when {
+            e.startsWith("#x") || e.startsWith("#X") -> e.drop(2).toIntOrNull(16)?.let { String(Character.toChars(it)) }
+            e.startsWith("#") -> e.drop(1).toIntOrNull()?.let { String(Character.toChars(it)) }
+            else -> NAMED[e]
+        } ?: m.value
+    }
+
+// ponytail: the few entities their text uses; add a name here if one shows up undecoded
+private val NAMED = mapOf("quot" to "\"", "amp" to "&", "lt" to "<", "gt" to ">", "apos" to "'", "nbsp" to "\u00A0")
 
 /** The key is a public constant from their web player. */
 fun decryptMediaUrl(encrypted: String): String {
@@ -125,7 +136,7 @@ private val ARTIST_JOINS = Regex(",|&|/|;|\\s(feat\\.?|ft\\.?|featuring|x|vs\\.?
 /** Lowercase, no accents, words and digits only. */
 private fun plain(s: String) = NOT_WORD.replace(ACCENTS.replace(Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD), ""), " ").trim()
 
-internal fun cleanTitle(title: String): String = plain(
+fun cleanTitle(title: String): String = plain(
     GROUP.replace(title) { m ->
         val group = plain(m.value)
         if (EXTRA.containsMatchIn(group) && !VERSION.containsMatchIn(group)) "" else m.value
@@ -133,5 +144,5 @@ internal fun cleanTitle(title: String): String = plain(
 )
 
 /** Without spaces, so the channel ArijitSinghVEVO is Arijit Singh. */
-internal fun artistNames(artist: String): Set<String> =
+fun artistNames(artist: String): Set<String> =
     artist.removeSuffix(" - Topic").removeSuffix("VEVO").split(ARTIST_JOINS).map { plain(it).replace(" ", "") }.filter { it.isNotEmpty() }.toSet()

@@ -11,4 +11,9 @@ dependencies {
     api(libs.newpipe)
     api(libs.okhttp)
     api(libs.coroutines.core)
+    // org.json is built into Android, so it must not ship in the app; the desktop app adds it to its own run
+    compileOnly("org.json:json:20240303")
+
+    testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
 }
