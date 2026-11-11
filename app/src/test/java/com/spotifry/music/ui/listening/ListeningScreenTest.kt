@@ -3,6 +3,7 @@ package com.spotifry.music.ui.listening
 import android.content.Context
 import android.provider.Settings
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertTrue
@@ -77,6 +78,42 @@ class ListeningScreenTest {
         show(row(now - 240_000, "a", 240))
         rule.onNodeWithContentDescription("Spotifried, 2027").performClick()
         assertEquals(true, opened)
+    }
+
+    @Test fun theGateIsOneButtonWithItsDecorHiddenFromTalkBack() {
+        show(row(now - 240_000, "a", 240))
+        rule.onNodeWithContentDescription("Spotifried, 2027").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
+        assertTrue(rule.onAllNodesWithText("Spotifried").fetchSemanticsNodes().isEmpty())
+        assertTrue(rule.onAllNodesWithText("2027").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test @Config(fontScale = 2f) fun theGateKeepsItsSizeAndNameAtBigText() {
+        show(row(now - 240_000, "a", 240))
+        val gate = rule.onNodeWithContentDescription("Spotifried, 2027").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(gate.height >= 48f * rule.density.density && gate.right <= 360f * rule.density.density)
+    }
+
+    @Test fun theRecordComesOutTurnsIntoPlaceThenGlints() {
+        val start = vinylPose(0f)
+        assertEquals(96f, start.shift, .01f); assertEquals(-150f, start.turn, .01f); assertEquals(0f, start.glintAlpha, .01f)
+        assertEquals(0f, vinylPose(PULL_MS).shift, .01f)
+        assertEquals(0f, vinylPose(1000f).glintAlpha, .01f) // the glint waits until the record has nearly settled
+        assertTrue(vinylPose(PULL_MS).glintAlpha > .5f)
+        for (rest in listOf(vinylPose(OPEN_MS), vinylPose(OPEN_MS * 5))) {
+            assertEquals(0f, rest.shift, .001f); assertEquals(0f, rest.turn, .001f)
+            assertEquals(.85f, rest.glintAlpha, .001f); assertEquals(1f, rest.glintScale, .001f); assertEquals(0f, rest.glintTurn, .001f)
+        }
+    }
+
+    @Test fun withAnimationsOffTheGateIsStillAtRest() {
+        Settings.Global.putFloat(ApplicationProvider.getApplicationContext<Context>().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+        rule.mainClock.autoAdvance = false
+        show(row(now - 240_000, "a", 240))
+        // nothing is waiting for a frame: no pull-out, no glint, no turning label
+        rule.mainClock.advanceTimeByFrame()
+        rule.waitForIdle()
+        val recomposer = rule.runOnIdle { androidx.compose.runtime.Recomposer.runningRecomposers.value.single() }
+        assertEquals(false, recomposer.hasPendingWork)
     }
 
     @Test fun firstDayIsASparkWithNoTabsNoDaysAndOneFirstSong() {
