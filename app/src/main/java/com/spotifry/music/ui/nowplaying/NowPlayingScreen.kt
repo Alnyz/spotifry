@@ -345,7 +345,13 @@ private fun ComingUp(state: PlayerUiState, saved: Set<String>, color: Color, onP
             )
         }
         if (next.isEmpty()) {
-            Text("Similar songs are added when this one ends.", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = Faint)
+            // says what the player will really do: the same rules as shouldAppend
+            val note = when {
+                state.repeatMode == Player.REPEAT_MODE_ONE -> "This song plays again when it ends."
+                state.repeatMode == Player.REPEAT_MODE_ALL && state.queue.size > 1 -> "The list starts again when this one ends."
+                else -> "Similar songs are added when this one ends."
+            }
+            Text(note, Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = Faint)
         }
         next.forEach { i ->
             val s = state.queue[i]
