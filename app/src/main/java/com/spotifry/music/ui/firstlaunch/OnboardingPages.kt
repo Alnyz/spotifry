@@ -313,7 +313,7 @@ private fun Sticker(x: Int, y: Int, intro: Entrance) {
     val letters = remember {
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD; textSize = 8.6f }
         val adv = text.map { paint.measureText(it.toString()) }
-        val gap = (2f * PI.toFloat() * 34f - adv.sum()) / text.length
+        val gap = (2f * PI.toFloat() * 31f - adv.sum()) / text.length
         var d = 0f
         text.indices.map { i ->
             val mid = d + adv[i] / 2f
