@@ -154,9 +154,21 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // the manifest's starting theme only paints the splash; the app itself keeps the plain theme
+        setTheme(android.R.style.Theme_DeviceDefault_NoActionBar)
         super.onCreate(savedInstanceState)
         // only on a fresh start: after turning the phone the same message would be read again
         if (savedInstanceState == null) shared.value = sharedText(intent)
+        val splash = if (com.spotifry.music.ui.shouldPlaySplash(savedInstanceState == null, splashPlayed, com.spotifry.music.ui.components.animationsOff(this))) com.spotifry.music.ui.SplashStart() else null
+        splashPlayed = true
+        if (splash != null && Build.VERSION.SDK_INT >= 31) splashScreen.setOnExitAnimationListener { view ->
+            // our first frame already draws the same logo: note where Android put its icon, and take the system's splash away at once
+            view.iconView?.let { icon ->
+                val at = IntArray(2).also { icon.getLocationInWindow(it) }
+                splash.icon.value = androidx.compose.ui.geometry.Offset(at[0] + icon.width / 2f, at[1] + icon.height / 2f)
+            }
+            view.remove()
+        }
         enableEdgeToEdge()
         val container = (application as MusicApp).container
         setContent {
@@ -168,8 +180,13 @@ class MainActivity : ComponentActivity() {
                 com.spotifry.music.ui.theme.accentFor(com.spotifry.music.ui.theme.AccentChoice.of(accent), accentColor, context)
             }
             val black by container.settings.pureBlack.collectAsStateWithLifecycle()
-            MusicTheme(theme, colors, black) { AppShell(container, shared.value) { shared.value = null } }
+            MusicTheme(theme, colors, black) { AppShell(container, shared.value, splash) { shared.value = null } }
         }
+    }
+
+    private companion object {
+        /** Once per process: coming back to a living app is not a cold start. */
+        var splashPlayed = false
     }
 }
 
@@ -177,7 +194,7 @@ class MainActivity : ComponentActivity() {
 private data class MenuTarget(val song: Song, val playlistId: Long? = null, val fromPlayer: Boolean = false, val queueIndex: Int? = null)
 
 @Composable
-fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Unit = {}) {
+fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.music.ui.SplashStart? = null, onSharedRead: () -> Unit = {}) {
     val nav = rememberNavController()
     val backEntry by nav.currentBackStackEntryAsState()
     val route = backEntry?.destination?.route
@@ -307,8 +324,15 @@ fun AppShell(c: AppContainer, sharedText: String? = null, onSharedRead: () -> Un
     val plCovers by plVm.covers.collectAsStateWithLifecycle()
     val covered = (!firstSeen && fresh != false) || (pickArtists > 0 && pickingOpen)
 
+    // the splash's bars fly only to Home or Welcome when nothing covers them; anything else gets its plain fade
+    val splashPage by androidx.compose.runtime.rememberUpdatedState(when {
+        !firstSeen -> if (fresh == true) com.spotifry.music.ui.SplashPage.WELCOME else null
+        route == Routes.LISTEN && incoming == null && picture == null && !showPlayer && !covered -> com.spotifry.music.ui.SplashPage.HOME
+        else -> null
+    })
+
     CompositionLocalProvider(LocalImageClient provides c.imageClient) {
-        Box(Modifier.fillMaxSize()) {
+        com.spotifry.music.ui.SplashHost(splash, { splashPage }) {
             // under the first-launch screens the app is not drawn, so touches and screen readers can't reach it
             if (!covered) Scaffold(
                 // the Spotifried story is dark on either theme, up under the status bar too

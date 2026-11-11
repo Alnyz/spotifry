@@ -114,6 +114,7 @@ import com.spotifry.music.data.cutName
 import com.spotifry.music.ui.components.CoverArt
 import com.spotifry.music.ui.components.Pill
 import com.spotifry.music.ui.components.rememberStill
+import com.spotifry.music.ui.splashTarget
 import com.spotifry.music.ui.theme.Albert
 import kotlin.math.PI
 import kotlin.math.pow
@@ -130,6 +131,10 @@ private val Paper = Color(0xFFE9E4D4)
 private val Vinyl = Color(0xFF0E0F12)
 private const val ART_W = 390f
 
+/** The welcome heading, "Spotifry." in [accent]; the splash writes the same words. */
+internal fun welcomeHeading(accent: Color) = buildAnnotatedString { append("Welcome to\n"); withStyle(SpanStyle(color = accent)) { append("Spotifry.") } }
+internal const val WELCOME_QUESTION = "Do you have a backup to bring back?"
+
 /** Welcome: restore a backup, or start fresh. [starters] only lend their photos to the collage. */
 @Composable
 internal fun WelcomeStep(starters: List<Starter>, onFresh: () -> Unit, onRestore: (() -> Unit)?) {
@@ -138,15 +143,13 @@ internal fun WelcomeStep(starters: List<Starter>, onFresh: () -> Unit, onRestore
     Column(Modifier.fillMaxSize()) {
         TopRow(null, "", false, {})
         Collage(Modifier.weight(1f).fillMaxWidth().padding(top = 20.dp), 440f) { Welcome(starters, intro) }
-        Column(Modifier.graphicsLayer { translationY = (1 - ease(intro.seg(.1f, .6f))) * 42.dp.toPx(); alpha = ease(intro.seg(.1f, .5f)) }) {
-            Text(
-                buildAnnotatedString { append("Welcome to\n"); withStyle(SpanStyle(color = scheme.primary)) { append("Spotifry.") } },
-                Modifier.padding(horizontal = 20.dp).semantics { heading() }, style = BigHeading,
-            )
-            Text("Do you have a backup to bring back?", Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
+        // the splash reads where the words end up, before their rise
+        Column(Modifier.splashTarget("welcome").graphicsLayer { translationY = (1 - ease(intro.seg(.1f, .6f))) * 42.dp.toPx(); alpha = ease(intro.seg(.1f, .5f)) }) {
+            Text(welcomeHeading(scheme.primary), Modifier.padding(horizontal = 20.dp).semantics { heading() }, style = BigHeading)
+            Text(WELCOME_QUESTION, Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp), style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
         }
         Foot {
-            Pill(null, "Start fresh", scheme.primary, scheme.onPrimary, onFresh, Modifier.fillMaxWidth())
+            Pill(null, "Start fresh", scheme.primary, scheme.onPrimary, onFresh, Modifier.fillMaxWidth().splashTarget("fresh"))
             if (onRestore != null) Pill(null, "Restore a backup", scheme.surfaceContainerHigh, scheme.onSurface, onRestore, Modifier.fillMaxWidth().padding(top = 10.dp))
         }
     }
@@ -188,7 +191,7 @@ internal fun NameStep(name: String, onName: (String) -> Unit, stepLabel: String,
     }
 }
 
-private val BigHeading = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 58.sp, lineHeight = 55.sp, letterSpacing = (-2.6).sp)
+internal val BigHeading = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 58.sp, lineHeight = 55.sp, letterSpacing = (-2.6).sp)
 private val Question = TextStyle(fontFamily = Albert, fontWeight = FontWeight.Black, fontSize = 30.sp, lineHeight = 1.02.em, letterSpacing = (-0.025).em, lineBreak = LineBreak.Heading)
 
 @Composable
@@ -391,7 +394,7 @@ private fun Record(x: Int, y: Int, diameter: Int, intro: Entrance) {
     val turn = if (still) 0f else rememberInfiniteTransition(label = "record").animateFloat(0f, 360f, infiniteRepeatable(tween(16000, easing = LinearEasing), RepeatMode.Restart), label = "turn").value
     val label = MaterialTheme.colorScheme.primary
     val bg = MaterialTheme.colorScheme.background
-    Canvas(Modifier.offset(x.dp, y.dp).size(diameter.dp).graphicsLayer { val p = ease(intro.seg(.06f, .5f)); scaleX = .6f + .4f * p; scaleY = scaleX; alpha = p; rotationZ = turn }) {
+    Canvas(Modifier.offset(x.dp, y.dp).size(diameter.dp).splashTarget("record").graphicsLayer { val p = ease(intro.seg(.06f, .5f)); scaleX = .6f + .4f * p; scaleY = scaleX; alpha = p; rotationZ = turn }) {
         val c = center; val r = size.minDimension / 2
         drawCircle(Vinyl, r, c)
         var rr = r - 6.dp.toPx()

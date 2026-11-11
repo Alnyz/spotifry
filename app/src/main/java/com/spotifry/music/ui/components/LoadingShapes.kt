@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.spotifry.music.ui.splashTarget
 import kotlinx.coroutines.delay
 
 private const val SHOW_AFTER_MS = 150L
@@ -79,7 +80,7 @@ fun LoadingRow(modifier: Modifier = Modifier, width: Dp = 52.dp, height: Dp = 52
 
 /** A sideways row of cards as in Home's shelves: a [size] cover, then a title line and an artist line. Three, cut off by the screen edge. */
 @Composable
-fun CardRowShape(size: Dp, gapAboveTitle: Dp, modifier: Modifier = Modifier, title: String? = null) {
+fun CardRowShape(size: Dp, gapAboveTitle: Dp, modifier: Modifier = Modifier, title: String? = null, splashKey: String? = null) {
     LoadingShapes(modifier) {
         // inside the group, so the heading waits with the shapes: a shelf whose read comes back empty never flashes its name
         title?.let { SectionTitle(it) }
@@ -88,7 +89,7 @@ fun CardRowShape(size: Dp, gapAboveTitle: Dp, modifier: Modifier = Modifier, tit
         ) {
             items(3) {
                 Column(Modifier.width(size)) {
-                    LoadingBox(Modifier.size(size), RoundedCornerShape(14.dp))
+                    LoadingBox(Modifier.size(size).splashTarget(splashKey?.plus(it)), RoundedCornerShape(14.dp))
                     Box(Modifier.padding(top = gapAboveTitle).height(20.dp), Alignment.CenterStart) { LoadingBox(Modifier.size(100.dp, 12.dp), RoundedCornerShape(3.dp)) }
                     Box(Modifier.height(16.dp), Alignment.CenterStart) { LoadingBox(Modifier.size(70.dp, 10.dp), RoundedCornerShape(3.dp)) }
                 }

@@ -84,6 +84,7 @@ import com.spotifry.music.ui.components.LoadingShapes
 import com.spotifry.music.ui.components.PlaylistTile
 import com.spotifry.music.ui.components.SectionTitle
 import com.spotifry.music.ui.components.SongRow
+import com.spotifry.music.ui.splashTarget
 import java.time.LocalTime
 
 @Composable
@@ -148,7 +149,7 @@ fun HomeContent(
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 20.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Greeting(Modifier.weight(1f))
+                Greeting(Modifier.weight(1f).splashTarget("greeting"))
                 Box(
                     Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface).clickable(onClickLabel = "Settings", onClick = onOpenSettings),
                     Alignment.Center,
@@ -195,7 +196,8 @@ fun HomeContent(
         }
         // reads not finished: each shelf is a shape of its real size in its real place, and goes if its read comes back empty
         if (loading) {
-            item { CardRowShape(140.dp, 9.dp, title = "Recently played") }
+            item { ShortcutShape() }
+            item { CardRowShape(140.dp, 9.dp, title = "Recently played", splashKey = "card") }
             item { CardRowShape(132.dp, 8.dp, title = "Your playlists") }
             artistItems(artists, onOpenArtist, { list, i -> onPlay(list, i, "From your artists") }, onPickArtists)
             mostPlayedShape()
@@ -206,9 +208,9 @@ fun HomeContent(
         // both are in the bottom bar too, and with nothing in them they'd open empty pages
         if (savedIds.isNotEmpty() || playlists.isNotEmpty()) item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), Arrangement.spacedBy(10.dp)) {
-                Shortcut(Icons.Download, "Saved", onOpenSaved)
-                Shortcut(Icons.List, "Playlists", onOpenPlaylists)
-                if (savedIds.isNotEmpty()) Shortcut(Icons.Shuffle, "Shuffle", onShuffleSaved)
+                Shortcut(Icons.Download, "Saved", 0, onOpenSaved)
+                Shortcut(Icons.List, "Playlists", 1, onOpenPlaylists)
+                if (savedIds.isNotEmpty()) Shortcut(Icons.Shuffle, "Shuffle", 2, onShuffleSaved)
             }
         }
         item { listening() }
@@ -216,8 +218,8 @@ fun HomeContent(
             item { SectionTitle("Recently played") }
             item {
                 LazyRow(Modifier.fadeIn(fade), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    items(otherSongs, key = { it.value.id }) { (i, s) ->
-                        RecentCard(s, { onPlay(songs, i, "Recently played") }, { onMore(songs[i]) })
+                    itemsIndexed(otherSongs, key = { _, it -> it.value.id }) { at, (i, s) ->
+                        RecentCard(s, { onPlay(songs, i, "Recently played") }, { onMore(songs[i]) }, if (at < 3) "card$at" else null)
                     }
                 }
             }
@@ -269,12 +271,15 @@ private fun LazyListScope.mostPlayedShape() {
 /** Past this many songs in the history, Home has enough of your own to show. */
 private const val MOODS_UNTIL_PLAYED = 5
 
+/** "Good evening." for [hour], the full stop in [accent]; the splash writes the same words. */
+fun greetingText(hour: Int, accent: Color) = buildAnnotatedString {
+    val part = when (hour) { in 5..11 -> "morning"; in 12..17 -> "afternoon"; in 18..21 -> "evening"; else -> "night" }
+    append("Good $part"); withStyle(SpanStyle(color = accent)) { append(".") }
+}
+
 @Composable
 private fun Greeting(modifier: Modifier = Modifier) {
-    val hour = LocalTime.now().hour
-    val part = when (hour) { in 5..11 -> "morning"; in 12..17 -> "afternoon"; in 18..21 -> "evening"; else -> "night" }
-    val accent = MaterialTheme.colorScheme.primary
-    Text(buildAnnotatedString { append("Good $part"); withStyle(SpanStyle(color = accent)) { append(".") } }, modifier, style = MaterialTheme.typography.displaySmall)
+    Text(greetingText(LocalTime.now().hour, MaterialTheme.colorScheme.primary), modifier, style = MaterialTheme.typography.displaySmall)
 }
 
 /** [ACTIVE] is playing, or loading with the intent to play: either way the button must be able to stop it. */
@@ -313,7 +318,7 @@ private fun Hero(
     val shape = RoundedCornerShape(22.dp)
     val scheme = MaterialTheme.colorScheme
     Box(
-        Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().clip(shape)
+        Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().splashTarget("hero").clip(shape)
             .clickable(onClickLabel = openLabel, onClick = onOpen),
     ) {
         Box(Modifier.matchParentSize()) { art() }
@@ -349,14 +354,24 @@ private fun HeroTag(label: String) {
 
 @Composable
 private fun HeroShape() {
-    LoadingShapes { LoadingBox(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().height(212.dp), RoundedCornerShape(22.dp)) }
+    LoadingShapes { LoadingBox(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().height(212.dp).splashTarget("hero"), RoundedCornerShape(22.dp)) }
+}
+
+/** The shortcut row while the reads run, so the shelves under it don't step down when it arrives. */
+@Composable
+private fun ShortcutShape() {
+    LoadingShapes {
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), Arrangement.spacedBy(10.dp)) {
+            repeat(3) { LoadingBox(Modifier.weight(1f).height(56.dp).splashTarget("shortcut$it"), CircleShape) }
+        }
+    }
 }
 
 /** Nothing played, no artists, no playlists: says so, and what to do. */
 @Composable
 private fun StartCard(onSearch: () -> Unit, onImport: () -> Unit, onPickArtists: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(scheme.surface)) {
+    Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().splashTarget("hero").clip(RoundedCornerShape(22.dp)).background(scheme.surface)) {
         Text("Nothing played yet", Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 2.dp), style = MaterialTheme.typography.headlineSmall)
         Text("What you play shows up here.", Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
         HorizontalDivider(color = scheme.outlineVariant)
@@ -401,9 +416,9 @@ private fun MoodsTitle(onSeeAll: () -> Unit) {
 }
 
 @Composable
-private fun RowScope.Shortcut(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun RowScope.Shortcut(icon: ImageVector, label: String, at: Int, onClick: () -> Unit) {
     Row(
-        Modifier.weight(1f).height(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick),
+        Modifier.weight(1f).height(56.dp).splashTarget("shortcut$at").clip(CircleShape).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick),
         Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), Alignment.CenterVertically,
     ) {
         Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
@@ -413,10 +428,10 @@ private fun RowScope.Shortcut(icon: ImageVector, label: String, onClick: () -> U
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecentCard(s: SongEntity, onPlay: () -> Unit, onMore: () -> Unit) {
+private fun RecentCard(s: SongEntity, onPlay: () -> Unit, onMore: () -> Unit, splashKey: String? = null) {
     Column(Modifier.width(140.dp).combinedClickable(onClickLabel = "Play", onLongClickLabel = "More options", onLongClick = onMore, onClick = onPlay)) {
         Box {
-            CoverArt(s.id, s.thumbnailUrl, s.thumbPath, Modifier.size(140.dp), RoundedCornerShape(14.dp), shelf = true)
+            CoverArt(s.id, s.thumbnailUrl, s.thumbPath, Modifier.size(140.dp).splashTarget(splashKey), RoundedCornerShape(14.dp), shelf = true)
             Box(Modifier.align(Alignment.BottomEnd).padding(8.dp).size(34.dp).clip(CircleShape).background(Color(0xB80C0D10)), Alignment.Center) {
                 Icon(Icons.Play, null, Modifier.size(18.dp), tint = Color.White)
             }

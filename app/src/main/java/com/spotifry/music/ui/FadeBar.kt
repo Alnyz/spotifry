@@ -37,6 +37,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -168,6 +170,15 @@ fun FadeBar(
             Row(
                 Modifier.fillMaxWidth().height(FadeBarSpec.TAB_ROW).padding(horizontal = 8.dp).selectableGroup()
                     .onSizeChanged { pill.width = it.width }
+                    // the splash's last bar lands on the selected tab's pill
+                    .onGloballyPositioned {
+                        if (SplashTargets.active && selected >= 0) {
+                            val w = FadeBarSpec.PILL_W.value * density.density
+                            val h = FadeBarSpec.PILL_H.value * density.density
+                            val x = it.size.width.toFloat() / tabs.size * (selected + .5f) - w / 2
+                            SplashTargets.report("tab", Rect(it.localToRoot(Offset(x, (it.size.height - h) / 2)), Size(w, h)))
+                        }
+                    }
                     .drawBehind {
                         // read here, in the draw step, so a moving pill redraws only this row and an idle one draws nothing
                         val l = pill.left.value.coerceAtLeast(0f)

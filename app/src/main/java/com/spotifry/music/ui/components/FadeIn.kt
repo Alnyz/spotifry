@@ -17,8 +17,10 @@ const val FADE_MS = 250
 @Composable
 fun rememberStill(): Boolean {
     val context = LocalContext.current
-    return remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+    return remember { animationsOff(context) }
 }
+
+fun animationsOff(context: android.content.Context) = Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 
 /**
  * Fades in once when it first appears, over [FADE_MS]; nothing runs after that. Off ([on] false, or animations removed in
