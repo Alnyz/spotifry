@@ -66,7 +66,7 @@ class MpvPlayer(
     private val listens = ListenTracker()
     private val plays = PlayCounter()
 
-    private val mpv = Mpv(mpvArgs, ::onMpv).also {
+    private val mpv = Mpv(mpvArgs, onEvent = ::onMpv).also {
         it.observe(1, "time-pos"); it.observe(2, "duration"); it.observe(3, "paused-for-cache")
     }
 

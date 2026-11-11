@@ -9,11 +9,14 @@ import java.nio.channels.Channels
 import java.nio.channels.SocketChannel
 import java.nio.file.Files
 
+/** mpv is not installed (or won't start): the app can't play anything and says so at the start. */
+class MpvMissing(cause: Throwable) : Exception("Spotifry plays music through mpv, and mpv isn't installed.", cause)
+
 /**
  * One mpv process with no window, driven over its JSON socket. [onEvent] gets every event mpv sends (property changes
  * we asked for, start-file, end-file, playback-restart) on a background thread.
  */
-class Mpv(extraArgs: List<String> = emptyList(), private val onEvent: (name: String, event: JSONObject) -> Unit) : AutoCloseable {
+class Mpv(extraArgs: List<String> = emptyList(), binary: String = "mpv", private val onEvent: (name: String, event: JSONObject) -> Unit) : AutoCloseable {
     private val dir = Files.createTempDirectory("spotifry-mpv")
     private val socket = dir.resolve("mpv.sock")
     private val process: Process
@@ -21,11 +24,11 @@ class Mpv(extraArgs: List<String> = emptyList(), private val onEvent: (name: Str
     private val reader: java.io.BufferedReader
 
     init {
-        process = ProcessBuilder(
+        process = try { ProcessBuilder(
             // --no-config: a listener's own mpv.conf (keep-open=yes, say) must not change how the player behaves
-            listOf("mpv", "--no-config", "--idle=yes", "--keep-open=no", "--no-video", "--no-terminal", "--audio-display=no", "--ytdl=no",
+            listOf(binary, "--no-config", "--idle=yes", "--keep-open=no", "--no-video", "--no-terminal", "--audio-display=no", "--ytdl=no",
                 "--audio-client-name=Spotifry", "--input-ipc-server=$socket") + extraArgs,
-        ).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+        ).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start() } catch (e: java.io.IOException) { throw MpvMissing(e) }
         // the socket shows up a moment after mpv starts
         val until = System.currentTimeMillis() + 5_000
         while (!Files.exists(socket)) {

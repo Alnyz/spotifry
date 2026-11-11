@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.ImageComposeScene
 import androidx.compose.ui.unit.Density
 import com.spotifry.music.data.source.MusicSource
@@ -103,6 +104,16 @@ class SnapshotTest {
         draw("firstlaunch", fresh)
         val full = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library(), fakePlayer, setVolume = {})
         draw("import", full, Route.Playlists) { full.importer.open() }
+    }
+
+    /** Draws the logo as a 512 pixel picture for the AppImage; it lands in packaging/ when this test runs. */
+    @Test fun logoPicture() {
+        val scene = ImageComposeScene(512, 512, Density(1f)) {
+            androidx.compose.foundation.Image(androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.image), null, androidx.compose.ui.Modifier.fillMaxSize())
+        }
+        val png = scene.render(0).encodeToData(EncodedImageFormat.PNG)!!.bytes
+        File("packaging").apply { mkdirs() }.resolve("spotifry.png").writeBytes(png)
+        scene.close()
     }
 
     @Test fun pages() {

@@ -27,7 +27,7 @@ fun FirstLaunch(services: Services, flow: BackupFlow, onDone: () -> Unit) {
     var name by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().padding(horizontal = 120.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         if (step == 0) {
-            Box(Modifier.size(84.dp).clip(RoundedCornerShape(24.dp)).background(Palette.accent))
+            androidx.compose.foundation.Image(androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.image), null, Modifier.size(84.dp))
             Text("Welcome to\nSpotifry.", fontSize = 46.sp, lineHeight = 52.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 26.dp))
             Text("Music from YouTube, with no ads and no skip limit.", color = Palette.ink2, fontSize = 17.sp, modifier = Modifier.padding(top = 10.dp))
             Box(Modifier.padding(top = 30.dp).width(420.dp).height(52.dp).clip(RoundedCornerShape(26.dp)).background(Palette.surface).border(1.dp, Palette.line, RoundedCornerShape(26.dp)), contentAlignment = Alignment.Center) {
