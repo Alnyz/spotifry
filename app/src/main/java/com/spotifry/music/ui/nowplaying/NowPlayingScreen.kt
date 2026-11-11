@@ -349,7 +349,7 @@ private fun ComingUp(state: PlayerUiState, saved: Set<String>, color: Color, onP
             val note = when {
                 state.repeatMode == Player.REPEAT_MODE_ONE -> "This song plays again when it ends."
                 state.repeatMode == Player.REPEAT_MODE_ALL && state.queue.size > 1 -> "The list starts again when this one ends."
-                else -> "Similar songs are added when this one ends."
+                else -> "Similar songs are added as this one plays."
             }
             Text(note, Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.bodyMedium, color = Faint)
         }

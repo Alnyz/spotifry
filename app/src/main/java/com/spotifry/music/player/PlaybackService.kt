@@ -126,6 +126,9 @@ class PlaybackService : MediaSessionService() {
                 if (on) spreadOrder(player) else { smart = false; dropSuggestions(player) }
             }
 
+            // repeat turned off (or to all) while the last songs play: fill the queue now, not at the next song
+            override fun onRepeatModeChanged(repeatMode: Int) = appendSimilarIfNeeded(player)
+
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
                 // a jump within the song or a skip with Next: no fade-in, the sound comes straight in
                 if (reason == Player.DISCONTINUITY_REASON_SEEK) fadeIn = false
