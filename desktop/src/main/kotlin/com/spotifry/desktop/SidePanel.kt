@@ -22,6 +22,7 @@ import dev.chrisbanes.haze.hazeEffect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spotifry.music.data.Lyrics
+import kotlinx.coroutines.launch
 import com.spotifry.music.data.indexAt
 import com.spotifry.music.player.MusicPlayer
 import com.spotifry.music.player.PlayerUiState
@@ -47,6 +48,7 @@ fun SidePanel(services: Services, state: PlayerUiState, width: Dp, height: Dp, m
         }
         Text(song.title, fontFamily = Serif, fontSize = 26.sp, lineHeight = 28.sp, maxLines = 1, color = Palette.ink, modifier = Modifier.padding(top = 20.dp))
         Text(song.artist, color = Palette.accent, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+        state.quality?.let { QualityPill(it, Modifier.padding(top = 12.dp)) }
         MiniLyrics(services, song, Modifier.padding(top = 12.dp).fillMaxWidth().weight(1f))
         UpNext(services, state, Modifier.padding(bottom = 16.dp))
     }
@@ -96,9 +98,14 @@ private fun UpNext(services: Services, state: PlayerUiState, modifier: Modifier)
     }
 }
 
-/** The player along the bottom of the Now playing page: song on the left, controls and seek in the middle, volume on the right. */
+/** One round icon button in the bar, with its name shown on hover. */
 @Composable
-fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haze.HazeState, modifier: Modifier = Modifier) {
+private fun BarIcon(icon: ImageVector, name: String, tint: Color, pad: Dp = 6.dp, onClick: () -> Unit) =
+    Tip(name) { Icon(icon, name, Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onClick).padding(pad), tint = tint) }
+
+/** The player along the bottom: song on the left, controls and seek in the middle, save, more, queue and volume on the right. */
+@Composable
+fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haze.HazeState, queueOpen: Boolean, onQueue: () -> Unit, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val player = services.player
     val song = state.current ?: return
     Row(
@@ -119,20 +126,36 @@ fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haz
         }
         Column(Modifier.weight(1.6f), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                Icon(Icons.Shuffle, "Shuffle", Modifier.size(34.dp).clip(CircleShape).clickable { player.cycleShuffle() }.padding(6.dp), tint = if (state.shuffle) Palette.accent else Palette.ink2)
-                Icon(Icons.Prev, "Previous", Modifier.size(34.dp).clip(CircleShape).clickable { player.previous() }.padding(4.dp), tint = Palette.ink)
-                Box(Modifier.size(42.dp).clip(CircleShape).background(Palette.ink).clickable { player.toggle() }, contentAlignment = Alignment.Center) {
-                    Icon(if (state.wantsPlay) Icons.Pause else Icons.Play, if (state.wantsPlay) "Pause" else "Play", Modifier.size(26.dp), tint = Palette.bg)
+                BarIcon(Icons.Shuffle, if (state.shuffle) "Shuffle on" else "Shuffle off", if (state.shuffle) Palette.accent else Palette.ink2) { player.cycleShuffle() }
+                BarIcon(Icons.Prev, "Previous", Palette.ink, 4.dp) { player.previous() }
+                Tip(if (state.wantsPlay) "Pause" else "Play") {
+                    Box(Modifier.size(42.dp).clip(CircleShape).background(Palette.ink).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
+                        Icon(if (state.wantsPlay) Icons.Pause else Icons.Play, if (state.wantsPlay) "Pause" else "Play", Modifier.size(26.dp), tint = Palette.bg)
+                    }
                 }
-                Icon(Icons.Next, "Next", Modifier.size(34.dp).clip(CircleShape).clickable { player.next() }.padding(4.dp), tint = Palette.ink)
-                Icon(Icons.Repeat, "Repeat", Modifier.size(34.dp).clip(CircleShape).clickable { player.cycleRepeat() }.padding(6.dp), tint = if (state.repeatMode != RepeatMode.OFF) Palette.accent else Palette.ink2)
+                BarIcon(Icons.Next, "Next", Palette.ink, 4.dp) { player.next() }
+                BarIcon(Icons.Repeat, when (state.repeatMode) { RepeatMode.ALL -> "Repeat all"; RepeatMode.ONE -> "Repeat this song"; else -> "Repeat off" }, if (state.repeatMode != RepeatMode.OFF) Palette.accent else Palette.ink2) { player.cycleRepeat() }
             }
             BarSeek(player, state)
         }
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            val lib = services.library
+            val scope = rememberCoroutineScope()
+            val savedSongs by lib.db.songs().observeSaved().collectAsState(emptyList())
+            val saved = savedSongs.any { it.id == song.id }
+            BarIcon(if (saved) Icons.Check else Icons.Download, if (saved) "Saved on this computer" else "Save on this computer", if (saved) Palette.accent else Palette.ink2, 7.dp) {
+                scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
+            }
+            var menu by remember { mutableStateOf(false) }
+            Box {
+                BarIcon(Icons.More, "More", Palette.ink2) { menu = true }
+                if (menu) SongMenu(services, song, { menu = false }) {}
+            }
+            BarIcon(Icons.Queue, "Queue", if (queueOpen) Palette.accent else Palette.ink2, 6.dp, onQueue)
+            Spacer(Modifier.width(6.dp))
             Icon(Icons.Volume, "Volume", Modifier.size(20.dp), tint = Palette.ink2)
             var volume by remember { mutableStateOf(100f) }
-            Track(volume, 100f, Palette.ink2, { volume = it; services.setVolume(it.toInt()) }, {}, Modifier.padding(start = 8.dp).width(120.dp))
+            Track(volume, 100f, Palette.ink2, { volume = it; services.setVolume(it.toInt()) }, {}, Modifier.padding(start = 8.dp).width(110.dp))
         }
     }
 }

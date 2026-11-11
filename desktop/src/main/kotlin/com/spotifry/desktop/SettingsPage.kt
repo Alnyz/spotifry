@@ -87,8 +87,8 @@ fun SettingsPage(services: Services, flow: BackupFlow, modifier: Modifier = Modi
 @Composable
 private fun Group(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.padding(top = 26.dp)) {
-        Text(title, color = Palette.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Palette.surface).border(1.dp, Palette.line, RoundedCornerShape(18.dp)), content = content)
+        Kicker(title, Modifier.padding(start = 4.dp, bottom = 10.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Palette.ink.copy(alpha = 0.05f)).border(1.dp, Palette.ink.copy(alpha = 0.1f), RoundedCornerShape(14.dp)), content = content)
     }
 }
 
@@ -111,7 +111,7 @@ private fun Value(text: String) = Text(text, color = Palette.ink2, fontSize = 14
 
 @Composable
 private fun Segments(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    androidx.compose.foundation.layout.Row(Modifier.clip(RoundedCornerShape(18.dp)).background(Palette.high).padding(3.dp)) {
+    androidx.compose.foundation.layout.Row(Modifier.clip(RoundedCornerShape(18.dp)).background(Palette.ink.copy(alpha = 0.08f)).padding(3.dp)) {
         options.forEachIndexed { i, o ->
             Box(
                 Modifier.height(30.dp).clip(RoundedCornerShape(15.dp)).background(if (i == selected) Palette.accent.copy(alpha = 0.2f) else androidx.compose.ui.graphics.Color.Transparent).clickable { onSelect(i) }.padding(horizontal = 14.dp),

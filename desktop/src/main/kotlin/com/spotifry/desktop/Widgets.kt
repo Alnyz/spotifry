@@ -8,6 +8,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,9 +90,13 @@ fun Mosaic(covers: List<String?>, size: Dp, radius: Dp = 14.dp) {
 /** A cover with the name under it, the way Home and Playlists show a song or a playlist. */
 @Composable
 fun CoverCard(title: String, subtitle: String, cover: @Composable (Dp) -> Unit, width: Dp = 180.dp, onClick: () -> Unit) {
-    Column(Modifier.width(width).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
-        cover(width)
-        Text(title, fontFamily = Serif, fontSize = 17.sp, maxLines = 1, modifier = Modifier.padding(top = 10.dp))
+    val src = remember { MutableInteractionSource() }
+    val hot by src.collectIsHoveredAsState()
+    val lift by animateFloatAsState(if (hot) 1.04f else 1f, tween(200))
+    // no grey box: the cover lifts a little and the name warms up
+    Column(Modifier.width(width).hoverable(src).clickable(src, null, onClick = onClick)) {
+        Box(Modifier.graphicsLayer { scaleX = lift; scaleY = lift }) { cover(width) }
+        Text(title, fontFamily = Serif, fontSize = 17.sp, maxLines = 1, color = if (hot) Palette.accent else Palette.ink, modifier = Modifier.padding(top = 10.dp))
         Text(subtitle, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
     }
 }
@@ -96,7 +107,7 @@ fun NameDialog(title: String, confirm: String, initial: String, onDismiss: () ->
     var text by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Palette.surface,
-        title = { Text(title, fontWeight = FontWeight.Bold) },
+        title = { Text(title, fontFamily = Serif, fontSize = 22.sp) },
         text = {
             OutlinedTextField(
                 text, { text = it }, singleLine = true, label = { Text("Name") }, shape = RoundedCornerShape(16.dp),
@@ -110,7 +121,7 @@ fun NameDialog(title: String, confirm: String, initial: String, onDismiss: () ->
 
 @Composable
 fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () -> Unit, onDone: () -> Unit) = AlertDialog(
-    onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontWeight = FontWeight.Bold) }, text = { Text(text, color = Palette.ink2) },
+    onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontFamily = Serif, fontSize = 22.sp) }, text = { Text(text, color = Palette.ink2) },
     confirmButton = { TextButton(onDone) { Text(confirm, color = Palette.danger) } },
     dismissButton = { TextButton(onDismiss) { Text("Cancel", color = Palette.ink2) } },
 )
@@ -143,7 +154,7 @@ fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved:
 }
 
 @Composable
-private fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composable (() -> Unit) -> Unit) {
+fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composable (() -> Unit) -> Unit) {
     val lib = services.library
     val scope = rememberCoroutineScope()
     var saved by remember { mutableStateOf(false) }
@@ -154,14 +165,20 @@ private fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @
     val state by services.player.state.collectAsState()
     DropdownMenu(true, close, containerColor = Palette.surface) {
         if (!choosing) {
-            DropdownMenuItem({ Text("Play next") }, onClick = {
-                if (state.queue.isEmpty()) services.player.playList(listOf(song), 0) else services.player.insert(state.currentIndex + 1, song, null)
-                close()
-            })
-            DropdownMenuItem({ Text("Add to queue") }, onClick = {
-                if (state.queue.isEmpty()) services.player.playList(listOf(song), 0) else services.player.insert(state.queue.size, song, null)
-                close()
-            })
+            // the playing song is already there, and a song already waiting is moved or left alone, never listed twice
+            val playingThis = state.current?.id == song.id
+            val waiting = (state.currentIndex + 1 until state.queue.size).filter { state.queue[it].id == song.id }
+            if (!playingThis) {
+                DropdownMenuItem({ Text("Play next") }, onClick = {
+                    if (state.queue.isEmpty()) services.player.playList(listOf(song), 0)
+                    else { waiting.sortedDescending().forEach { services.player.remove(it, song.id) }; services.player.insert(state.currentIndex + 1, song, null) }
+                    close()
+                })
+                if (waiting.isEmpty()) DropdownMenuItem({ Text("Add to queue") }, onClick = {
+                    if (state.queue.isEmpty()) services.player.playList(listOf(song), 0) else services.player.insert(state.queue.size, song, null)
+                    close()
+                })
+            }
             DropdownMenuItem({ Text(if (saved) "Remove from saved" else "Save on this computer") }, onClick = {
                 scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
                 close()

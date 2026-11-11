@@ -40,10 +40,9 @@ internal sealed interface LyricsState {
 /** The big view of the song playing: its cover, the lyrics following the singing, and what comes next. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun NowPlayingPage(services: Services, modifier: Modifier = Modifier) {
+fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUiState, queueOpen: Boolean, onShowQueue: () -> Unit, modifier: Modifier = Modifier) {
     val player = services.player
     val lib = services.library
-    val state by player.state.collectAsState()
     val song = state.current
     val scope = rememberCoroutineScope()
     val savedIds by lib.db.songs().observeSaved().collectAsState(emptyList())
@@ -66,16 +65,10 @@ fun NowPlayingPage(services: Services, modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
             Column(Modifier.width(340.dp).fillMaxHeight().padding(top = 8.dp)) {
                 Cover(song.thumbnailUrl ?: song.localThumbPath, cover, RoundedCornerShape(12.dp), large = true)
-                Row(Modifier.padding(top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(song.title, fontFamily = Serif, fontSize = 28.sp, lineHeight = 30.sp, maxLines = 2, color = Palette.ink)
-                        Text(song.artist, color = Palette.accent, fontSize = 15.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
-                    }
-                    Tool(if (saved) Icons.Check else Icons.Download, if (saved) "Saved" else "Save", saved) {
-                        scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
-                    }
-                }
-                QueueList(services, state, Modifier.weight(1f).fillMaxWidth())
+                Text(song.title, fontFamily = Serif, fontSize = 28.sp, lineHeight = 30.sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 18.dp))
+                Text(song.artist, color = Palette.accent, fontSize = 15.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
+                state.quality?.let { QualityPill(it, Modifier.padding(top = 12.dp)) }
+                QueueList(services, state, queueOpen, onShowQueue, Modifier.weight(1f).fillMaxWidth())
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 if (has) LyricsPanel(services, song, shift[song.id] ?: 0, Modifier.padding(top = 8.dp).fillMaxSize())
@@ -156,8 +149,9 @@ private fun lineText(line: LyricLine, current: Boolean, at: Long): AnnotatedStri
 
 /** What plays next, with a button to drop a song from the queue. */
 @Composable
-private fun QueueList(services: Services, state: com.spotifry.music.player.PlayerUiState, modifier: Modifier) {
-    val upcoming = state.upNextIndices().filter { it != state.currentIndex }.take(60)
+private fun QueueList(services: Services, state: com.spotifry.music.player.PlayerUiState, queueOpen: Boolean, onShowQueue: () -> Unit, modifier: Modifier) {
+    val all = state.upNextIndices().filter { it != state.currentIndex }
+    val upcoming = all.take(4)
     Column(modifier) {
         SectionTitle(if (state.from != null) "Coming up · from ${state.from}" else "Coming up")
         if (upcoming.isEmpty()) Text("Nothing after this song.", color = Palette.ink2, fontSize = 14.sp)
@@ -178,6 +172,7 @@ private fun QueueList(services: Services, state: com.spotifry.music.player.Playe
                     }
                 }
             }
+            if (all.size > upcoming.size) item { Text(if (queueOpen) "Hide queue" else "Show all ${all.size}", color = Palette.accent, fontSize = 14.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onShowQueue).padding(horizontal = 10.dp, vertical = 8.dp)) }
         }
     }
 }

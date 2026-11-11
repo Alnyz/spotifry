@@ -63,11 +63,15 @@ class MpvPlayer(
     private var failsOfThisSong = 0
     private var loading: Job? = null
     private var lastTick = 0L
+    private var codec: String? = null
+    private var bitrate: Double? = null
+    private var rate: Int? = null
     private val listens = ListenTracker()
     private val plays = PlayCounter()
 
     private val mpv = Mpv(mpvArgs, onEvent = ::onMpv).also {
         it.observe(1, "time-pos"); it.observe(2, "duration"); it.observe(3, "paused-for-cache")
+        it.observe(4, "audio-codec-name"); it.observe(6, "audio-params/samplerate")
     }
 
     init {
@@ -221,6 +225,7 @@ class MpvPlayer(
         index = i
         order = if (!shuffle) null else order?.let { o -> o.indexOf(i).takeIf { it >= 0 }?.let(o::drop) } ?: newOrder()
         loaded = false; buffering = true; failed = false; ended = false
+        codec = null; bitrate = null; rate = null
         durationMs = queue[i].durationSec * 1000
         val at = startAtMs; startAtMs = 0
         _position.value = at
@@ -230,9 +235,13 @@ class MpvPlayer(
         recorder?.let { r -> r.listenLog.write(listens.moved(song.id, byListener)); scope.launch { r.history.onPlayed(song) } }
         loading = scope.launch(Dispatchers.IO) {
             try {
-                val url = localFile(song) ?: resolver.get(song).url
+                val local = localFile(song)
+                val stream = if (local == null) resolver.get(song) else null
+                val url = local ?: stream!!.url
                 synchronized(lock) {
                     if (queue.getOrNull(index)?.id != song.id) return@launch
+                    // the source's own bitrate figure: mpv's live reading of a stream keeps moving, so it makes a restless label
+                    bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
                     mpv.set("pause", !wants)
                     if (at > 0) mpv.command("loadfile", url, "replace", -1, "start=${at / 1000.0}") else mpv.command("loadfile", url, "replace")
                 }
@@ -264,6 +273,8 @@ class MpvPlayer(
                 }
                 "duration" -> if (!e.isNull("data")) { durationMs = (e.getDouble("data") * 1000).toLong(); publish() }
                 "paused-for-cache" -> { buffering = loaded && e.optBoolean("data"); publish() }
+                "audio-codec-name" -> { codec = if (e.isNull("data")) null else e.optString("data"); publish() }
+                "audio-params/samplerate" -> { rate = if (e.isNull("data")) null else e.optInt("data"); publish() }
             }
             "playback-restart" -> {
                 if (!loaded) {
@@ -293,6 +304,7 @@ class MpvPlayer(
             ended = ended, buffering = buffering && wants, failed = failed,
             durationMs = durationMs, wholeMs = durationMs,
             queue = queue, currentIndex = index, shuffle = shuffle, repeatMode = repeat, order = order, from = from,
+            quality = if (loaded) qualityLabel(codec, bitrate, rate) else null,
         )
     }
 

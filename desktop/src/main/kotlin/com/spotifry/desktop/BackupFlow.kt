@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -82,18 +83,18 @@ fun BackupDialogs(flow: BackupFlow) {
     when (val s = flow.step) {
         BackupStep.None -> Unit
         is BackupStep.Working -> AlertDialog(
-            onDismissRequest = {}, containerColor = Palette.surface, title = { Text(s.text, fontWeight = FontWeight.Bold) },
+            onDismissRequest = {}, containerColor = Palette.surface, title = { Text(s.text, fontFamily = Serif, fontSize = 22.sp) },
             text = { CircularProgressIndicator(color = Palette.accent, modifier = androidx.compose.ui.Modifier.padding(8.dp)) }, confirmButton = {},
         )
         is BackupStep.Note -> AlertDialog(
-            onDismissRequest = flow::dismiss, containerColor = Palette.surface, title = { Text(s.title, fontWeight = FontWeight.Bold) }, text = { Text(s.text, color = Palette.ink2) },
+            onDismissRequest = flow::dismiss, containerColor = Palette.surface, title = { Text(s.title, fontFamily = Serif, fontSize = 22.sp) }, text = { Text(s.text, color = Palette.ink2) },
             confirmButton = { TextButton(flow::dismiss) { Text("OK", color = Palette.accent) } },
         )
         is BackupStep.Confirm -> {
             val left = s.unusableSettings
             val skipped = if (left == 0) "" else " $left ${if (left == 1) "setting" else "settings"} in the file can't be used here and ${if (left == 1) "stays" else "stay"} as ${if (left == 1) "it is" else "they are"}."
             AlertDialog(
-                onDismissRequest = flow::dismiss, containerColor = Palette.surface, title = { Text("Restore this backup?", fontWeight = FontWeight.Bold) },
+                onDismissRequest = flow::dismiss, containerColor = Palette.surface, title = { Text("Restore this backup?", fontFamily = Serif, fontSize = 22.sp) },
                 text = { Text("${s.file.summary()}.\n\nThese join what's on this computer; nothing newer is overwritten. Your settings are replaced by the ones in the backup.$skipped The app restarts, so music stops.", color = Palette.ink2) },
                 confirmButton = { TextButton({ flow.restore(s.file) }) { Text("Restore", color = Palette.accent) } },
                 dismissButton = { TextButton(flow::dismiss) { Text("Cancel", color = Palette.ink2) } },
