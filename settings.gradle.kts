@@ -3,4 +3,4 @@ dependencyResolutionManagement {
     repositories { google(); mavenCentral(); maven("https://jitpack.io") }
 }
 rootProject.name = "music"
-include(":app", ":shared")
+include(":app", ":shared", ":desktop")
