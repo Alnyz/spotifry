@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The splash logo: the Ember disc (160 dp across) with the launcher icon's five bars, at the splash icon size
+     (288 dp box, 192 dp visible circle). The viewport is the 108 icon grid widened by 10.8 on each side, so the bars
+     sit exactly as on a 240 dp icon. The app's first frame (ui/Splash.kt) draws this same picture. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="288dp" android:height="288dp" android:viewportWidth="129.6" android:viewportHeight="129.6">
+    <group android:translateX="10.8" android:translateY="10.8">
+        <path android:pathData="M18,54 A36,36 0 1,0 90,54 A36,36 0 1,0 18,54 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="54" android:startY="0" android:endX="54" android:endY="108"
+                    android:startColor="#FFFF8A3D" android:endColor="#FFC2410C"/>
+            </aapt:attr>
+        </path>
+        <path android:fillColor="#FFFFFF" android:pathData="M42.49,30.02 H42.49 A3.5,3.5 0 0 1 45.99,33.52 V74.48 A3.5,3.5 0 0 1 42.49,77.98 H42.49 A3.5,3.5 0 0 1 38.99,74.48 V33.52 A3.5,3.5 0 0 1 42.49,30.02 Z M52,35.51 H52 A3.5,3.5 0 0 1 55.5,39.01 V68.99 A3.5,3.5 0 0 1 52,72.49 H52 A3.5,3.5 0 0 1 48.5,68.99 V39.01 A3.5,3.5 0 0 1 52,35.51 Z M61.51,41 H61.51 A3.5,3.5 0 0 1 65.01,44.5 V63.5 A3.5,3.5 0 0 1 61.51,67 H61.51 A3.5,3.5 0 0 1 58.01,63.5 V44.5 A3.5,3.5 0 0 1 61.51,41 Z M71.01,46.49 H71.01 A3.5,3.5 0 0 1 74.51,49.99 V58.01 A3.5,3.5 0 0 1 71.01,61.51 H71.01 A3.5,3.5 0 0 1 67.51,58.01 V49.99 A3.5,3.5 0 0 1 71.01,46.49 Z M80.52,50.5 H80.52 A3.5,3.5 0 0 1 84.02,54 V54 A3.5,3.5 0 0 1 80.52,57.5 H80.52 A3.5,3.5 0 0 1 77.02,54 V54 A3.5,3.5 0 0 1 80.52,50.5 Z" />
+    </group>
+</vector>

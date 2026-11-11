@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Only while the app starts: MainActivity switches back to the plain theme before drawing anything. -->
+    <style name="Theme.Spotifry.Starting" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@drawable/splash_window</item>
+    </style>
+</resources>

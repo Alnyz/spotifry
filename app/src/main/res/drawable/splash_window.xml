@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 8 to 11: the window shows the splash logo centred on the dark background until the app's first frame. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><color android:color="#FF0C0D10"/></item>
+    <item android:gravity="center" android:drawable="@drawable/splash_logo"/>
+</layer-list>
