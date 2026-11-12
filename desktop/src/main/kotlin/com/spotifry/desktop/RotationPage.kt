@@ -102,7 +102,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Se
                     Kicker("Your rotation")
                     Text(
                         buildAnnotatedString { append(listenerTitle(period, stats.firstDay)); withStyle(SpanStyle(color = Palette.accent)) { append(".") } },
-                        fontFamily = Display, fontSize = 52.sp, lineHeight = 54.sp, letterSpacing = (-1.5).sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
+                        fontFamily = Heading, fontSize = 52.sp, lineHeight = 54.sp, letterSpacing = (-1.5).sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
                     )
                     Text(listenerLine(period, stats.firstDay), color = Palette.ink2, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
                     if (stats.periods.size > 1) @OptIn(ExperimentalLayoutApi::class) FlowRow(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -119,7 +119,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Se
     if (!stats.firstDay) item("days") {
         SectionTitle("Every day you've played")
         DaysGrid(stats)
-        Text("${stats.longestRun} ${if (stats.longestRun == 1) "day" else "days"} in a row, your longest.", fontFamily = Display, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(top = 16.dp))
+        Text("${stats.longestRun} ${if (stats.longestRun == 1) "day" else "days"} in a row, your longest.", fontFamily = Heading, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(top = 16.dp))
         Text("You've played on ${stats.daysPlayed} of ${stats.days.size} days.", color = Palette.ink2, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp))
     }
     item("end") {
@@ -142,7 +142,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Se
             }
         }
         val all = stats.periods.last()
-        if (stats.days.size > 7) Text("${stats.days.size} days. ${count(all.songs)} songs. Still going.", fontFamily = Display, fontSize = 28.sp, color = Palette.ink, modifier = Modifier.padding(top = 32.dp))
+        if (stats.days.size > 7) Text("${stats.days.size} days. ${count(all.songs)} songs. Still going.", fontFamily = Heading, fontSize = 28.sp, color = Palette.ink, modifier = Modifier.padding(top = 32.dp))
     }
 }
 
@@ -294,7 +294,7 @@ fun RotationCard(services: Services, modifier: Modifier = Modifier, glass: Boole
             Kicker("Your rotation · this week")
             Text(
                 buildAnnotatedString { append(if (minutes == 0) "Still warm" else "${hourKind(peak)} listener"); withStyle(SpanStyle(color = Palette.accent)) { append(".") } },
-                fontFamily = Display, fontSize = if (glass) 27.sp else 30.sp, lineHeight = 32.sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
+                fontFamily = Heading, fontSize = if (glass) 27.sp else 30.sp, lineHeight = 32.sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
             )
             Text(
                 if (minutes == 0) "Nothing yet this week. Play something." else "${longDuration(minutes)} · ${count(songs)} ${if (songs == 1) "song" else "songs"}\nMost around ${hourName(peak)}",

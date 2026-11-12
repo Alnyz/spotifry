@@ -54,7 +54,7 @@ import kotlin.math.roundToInt
 fun PageHeader(title: String, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
-            Text(title, fontFamily = Display, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink)
+            Text(title, fontFamily = Heading, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink)
             if (subtitle != null) Text(subtitle, color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), content = actions)
@@ -111,14 +111,14 @@ fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun SectionTitle(text: String, line: Boolean = true) = Column(Modifier.padding(top = 28.dp, bottom = 8.dp)) {
-    Text(text, fontFamily = Display, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(bottom = if (line) 8.dp else 4.dp))
+    Text(text, fontFamily = Heading, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(bottom = if (line) 8.dp else 4.dp))
     if (line) Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.ink.copy(alpha = 0.14f)))
 }
 
 @Composable
 fun EmptyState(title: String, text: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, fontFamily = Display, fontSize = 24.sp, color = Palette.ink)
+        Text(title, fontFamily = Heading, fontSize = 24.sp, color = Palette.ink)
         Text(text, color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
     }
 }
@@ -156,7 +156,7 @@ fun NameDialog(title: String, confirm: String, initial: String, onDismiss: () ->
     var text by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Palette.surface,
-        title = { Text(title, fontFamily = Display, fontSize = 22.sp) },
+        title = { Text(title, fontFamily = Heading, fontSize = 22.sp) },
         text = {
             OutlinedTextField(
                 text, { text = it }, singleLine = true, label = { Text("Name") }, shape = RoundedCornerShape(16.dp),
@@ -170,7 +170,7 @@ fun NameDialog(title: String, confirm: String, initial: String, onDismiss: () ->
 
 @Composable
 fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () -> Unit, onDone: () -> Unit) = AlertDialog(
-    onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontFamily = Display, fontSize = 22.sp) }, text = { Text(text, color = Palette.ink2) },
+    onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontFamily = Heading, fontSize = 22.sp) }, text = { Text(text, color = Palette.ink2) },
     confirmButton = { TextButton(onDone) { Text(confirm, color = Palette.danger) } },
     dismissButton = { TextButton(onDismiss) { Text("Cancel", color = Palette.ink2) } },
 )
@@ -341,7 +341,7 @@ fun NoteDialog(services: Services, songId: String, initial: String, onDismiss: (
     }
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Palette.surface,
-        title = { Text(if (initial.isEmpty()) "Add a note" else "Edit note", fontFamily = Display, fontSize = 22.sp) },
+        title = { Text(if (initial.isEmpty()) "Add a note" else "Edit note", fontFamily = Heading, fontSize = 22.sp) },
         text = {
             OutlinedTextField(
                 text, { text = cutName(it.replace('\n', ' '), NOTE_MAX) }, maxLines = 4, placeholder = { Text("What this song means to you") },
@@ -365,7 +365,7 @@ fun SpeedPitchDialog(settings: Settings, onDismiss: () -> Unit) {
     val pitch by settings.pitch.collectAsState()
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Palette.surface,
-        title = { Text("Speed and pitch", fontFamily = Display, fontSize = 22.sp) },
+        title = { Text("Speed and pitch", fontFamily = Heading, fontSize = 22.sp) },
         text = {
             Column(Modifier.width(340.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

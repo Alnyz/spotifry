@@ -67,7 +67,7 @@ private fun RecentTab(services: Services) {
 }
 
 @Composable
-private fun Heading(text: String) = Text(text, fontFamily = Display, fontSize = 20.sp, color = Palette.ink, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+private fun Heading(text: String) = Text(text, fontFamily = Heading, fontSize = 20.sp, color = Palette.ink, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
 
 @Composable
 private fun SongRow(s: Song, accent: Boolean = false, onClick: () -> Unit, onRemove: (() -> Unit)? = null, services: Services? = null) {

@@ -208,7 +208,7 @@ fun ShareDialog(services: Services, onPicture: (ShareTarget) -> Unit) {
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     AlertDialog(
         onDismissRequest = close, containerColor = Palette.surface,
-        title = { Text("Share “${t.title}”", fontFamily = Display, fontSize = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        title = { Text("Share “${t.title}”", fontFamily = Heading, fontSize = 22.sp, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(Modifier.width(520.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("Nothing is sent from here. It is copied or saved, and you send it yourself.", color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp))

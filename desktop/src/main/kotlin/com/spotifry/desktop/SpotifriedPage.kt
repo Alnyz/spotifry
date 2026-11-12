@@ -215,7 +215,7 @@ fun SpotifriedPage(services: Services, onBack: () -> Unit, modifier: Modifier = 
         Row(Modifier.padding(top = 6.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 buildAnnotatedString { append("Spotifried"); withStyle(SpanStyle(color = Palette.accent)) { append(".") } },
-                fontFamily = Display, fontSize = 30.sp, color = Palette.ink, modifier = Modifier.padding(end = 24.dp),
+                fontFamily = Heading, fontSize = 30.sp, color = Palette.ink, modifier = Modifier.padding(end = 24.dp),
             )
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -304,7 +304,7 @@ private fun Segments(count: Int, index: Int) {
 
 @Composable
 private fun NotEnough(more: Int?) = Column(Modifier.fillMaxSize().padding(horizontal = 26.dp), Arrangement.Center) {
-    Text("Not enough listening yet", fontFamily = Albert, fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold, fontSize = 30.sp, lineHeight = 34.sp)
+    Text("Not enough listening yet", fontFamily = Heading, fontSize = 30.sp, lineHeight = 34.sp)
     if (more != null) Text("$more more ${if (more == 1) "play" else "plays"} to go", Modifier.padding(top = 8.dp), Color(0xFFF2F3F5).copy(alpha = .64f), fontSize = 16.sp, fontFamily = Albert)
 }
 
@@ -378,7 +378,7 @@ fun SpotifriedBand(onOpen: () -> Unit, modifier: Modifier = Modifier) {
             Kicker("Spotifried")
             Text(
                 buildAnnotatedString { append("Your year, in cards"); withStyle(SpanStyle(color = Palette.accent)) { append(".") } },
-                fontFamily = Display, fontSize = 34.sp, lineHeight = 38.sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
+                fontFamily = Heading, fontSize = 34.sp, lineHeight = 38.sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
             )
             Text(SPOTIFRIED_LINE, color = Palette.ink2, fontSize = 15.sp, lineHeight = 22.sp, modifier = Modifier.padding(top = 8.dp))
         }
@@ -395,7 +395,7 @@ fun SpotifriedTall(onOpen: () -> Unit, modifier: Modifier = Modifier) {
         SpotifriedGate(remember { LocalDate.now().year }, onOpen)
         Text(
             buildAnnotatedString { append("Your year, in cards"); withStyle(SpanStyle(color = Palette.accent)) { append(".") } },
-            fontFamily = Display, fontSize = 24.sp, lineHeight = 28.sp, color = Palette.ink, modifier = Modifier.padding(top = 16.dp),
+            fontFamily = Heading, fontSize = 24.sp, lineHeight = 28.sp, color = Palette.ink, modifier = Modifier.padding(top = 16.dp),
         )
         Text(SPOTIFRIED_LINE, color = Palette.ink2, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 6.dp))
     }

@@ -51,7 +51,7 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
 
     if (song == null) {
         Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-            Text("Nothing playing", fontFamily = Display, fontSize = 40.sp, color = Palette.ink)
+            Text("Nothing playing", fontFamily = Heading, fontSize = 40.sp, color = Palette.ink)
             Text("Pick a song and it shows up here.", color = Palette.ink2, modifier = Modifier.padding(top = 8.dp))
         }
         return

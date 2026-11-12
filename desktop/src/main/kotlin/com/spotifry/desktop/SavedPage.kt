@@ -44,7 +44,7 @@ fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modi
             Kicker("Your music")
             Text(androidx.compose.ui.text.buildAnnotatedString {
                 append("Saved"); if (songs.isNotEmpty()) { append(", "); pushStyle(androidx.compose.ui.text.SpanStyle(color = Palette.accent, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)); append(songs.size.toString()); pop(); append(if (songs.size == 1) " song." else " songs.") }
-            }, fontFamily = Display, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 14.dp))
+            }, fontFamily = Heading, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 14.dp))
             SavedFilters(Route.Saved, go)
             Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SavedFilter.entries.forEach { f -> Chip(f.desktopLabel, f == filter) { savedFilter = f } }

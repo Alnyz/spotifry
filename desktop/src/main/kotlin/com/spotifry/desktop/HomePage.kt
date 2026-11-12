@@ -74,7 +74,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
     LazyColumn(modifier, state = list) {
         if (hero == null && lists.isEmpty()) item {
             Kicker("Welcome")
-            Text("Nothing played yet.", fontFamily = Display, fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-1.5).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp))
+            Text("Nothing played yet.", fontFamily = Heading, fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-1.5).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp))
             Text("What you play shows up here.", color = Palette.ink2, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp))
             Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Pill("Import a playlist", Icons.Download, accent = true) { services.importer.open() }

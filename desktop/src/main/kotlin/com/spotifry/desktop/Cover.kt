@@ -19,7 +19,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.awt.image.BufferedImage
 import java.util.concurrent.ConcurrentHashMap
+import javax.imageio.ImageIO
 
 /** Covers fetched once and kept for the session. */
 object Covers {
@@ -29,12 +31,30 @@ object Covers {
     suspend fun load(url: String): ImageBitmap? = cache[url] ?: withContext(Dispatchers.IO) {
         runCatching {
             // a song from the music folder: its picture is read from the disk
-            if (url.startsWith("file://")) return@runCatching MusicFolder.art(url.removePrefix("file://"))!!.let { org.jetbrains.skia.Image.makeFromEncoded(it).toComposeImageBitmap() }
-            client.newCall(Request.Builder().url(url).build()).execute().use { r ->
-                org.jetbrains.skia.Image.makeFromEncoded(r.body!!.bytes()).toComposeImageBitmap()
-            }
+            val bytes = if (url.startsWith("file://")) MusicFolder.art(url.removePrefix("file://"))!!
+            else client.newCall(Request.Builder().url(url).build()).execute().use { it.body!!.bytes() }
+            ImageIO.read(bytes.inputStream())?.let(::trimBars)?.toComposeImageBitmap()
+                ?: org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
         }.getOrNull()?.also { cache[url] = it }
     }
+}
+
+/**
+ * The picture without the black bars a video's picture often has baked in (a wide film in a 16:9 frame), so a square
+ * cover shows the picture and not a band. A row or column counts as a bar when every pixel in it is near black.
+ */
+internal fun trimBars(img: BufferedImage): BufferedImage {
+    fun dark(x: Int, y: Int) = img.getRGB(x, y).let { maxOf(it shr 16 and 255, it shr 8 and 255, it and 255) < 28 }
+    fun row(y: Int) = (0 until img.width step 4).all { dark(it, y) }
+    fun col(x: Int) = (0 until img.height step 4).all { dark(x, it) }
+    var top = 0; var bottom = img.height; var left = 0; var right = img.width
+    while (top < bottom - 1 && row(top)) top++
+    while (bottom - 1 > top && row(bottom - 1)) bottom--
+    while (left < right - 1 && col(left)) left++
+    while (right - 1 > left && col(right - 1)) right--
+    // an all-dark picture, or one trimmed to a sliver, is left whole
+    if (bottom - top < img.height * 0.3 || right - left < img.width * 0.3) return img
+    return if (top == 0 && left == 0 && bottom == img.height && right == img.width) img else img.getSubimage(left, top, right - left, bottom - top)
 }
 
 /** A cover, or a plain square while it loads or when there is none. */

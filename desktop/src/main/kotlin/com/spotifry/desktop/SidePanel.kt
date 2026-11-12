@@ -37,7 +37,7 @@ fun SidePanel(services: Services, state: PlayerUiState, width: Dp, height: Dp, m
     Column(modifier.width(width).fillMaxHeight().edgeLine().background(if (Palette.dark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.45f)).padding(top = 30.dp, bottom = 112.dp, start = if (width < 380.dp) 24.dp else 32.dp, end = if (width < 380.dp) 24.dp else 32.dp)) {
         if (song == null) {
             Spacer(Modifier.weight(1f))
-            Text("Nothing playing", fontFamily = Display, fontSize = 24.sp, color = Palette.ink)
+            Text("Nothing playing", fontFamily = Heading, fontSize = 24.sp, color = Palette.ink)
             Text("Pick a song and it shows up here.", color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
             Spacer(Modifier.weight(1f))
             return@Column
