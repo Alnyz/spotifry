@@ -58,6 +58,7 @@ fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit =
                 }
             }
         }
+        item { MusicGroup(services) }
         item {
             Group("Storage") {
                 Row("Save quality", "Songs you save to this computer") { Segments(listOf("High", "Low"), if (saveLow) 1 else 0) { settings.setSaveLow(it == 1) } }
@@ -120,6 +121,34 @@ private fun Segments(options: List<String>, selected: Int, onSelect: (Int) -> Un
                 contentAlignment = Alignment.Center,
             ) { Text(o, fontSize = 13.sp, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.SemiBold, color = if (i == selected) Palette.accent else Palette.ink2) }
         }
+    }
+}
+
+/** A folder as ~/Music, or ~/…/music when the whole path is too long to read at a glance. */
+internal fun shortPath(dir: java.io.File): String {
+    val p = dir.path.replaceFirst(System.getProperty("user.home"), "~")
+    if (p.length <= 32) return p
+    val first = p.substringBefore('/', "").ifEmpty { "/" + p.removePrefix("/").substringBefore('/') }
+    return "$first/…/${dir.name}"
+}
+
+@Composable
+private fun MusicGroup(services: Services) {
+    val folder = services.library.musicFolder
+    val dir by folder.folder.collectAsState()
+    val songs by folder.songs.collectAsState()
+    val reading by folder.reading.collectAsState()
+    val hide by services.library.settings.hideNonMusic.collectAsState()
+    val scope = rememberCoroutineScope()
+    Group("Music on this computer") {
+        Row("Music folder", if (reading) "Looking for songs…" else "${songs.size} ${if (songs.size == 1) "song" else "songs"}, shown under Saved, On this computer", onClick = {
+            scope.launch { FilePicker.folder("Pick your music folder", dir)?.let { folder.choose(it); folder.refresh() } }
+        }) {
+            // a long path keeps its start and its last folder, so the words on the left keep their room
+            Text(shortPath(dir), color = Palette.ink2, fontSize = 14.sp, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 280.dp))
+        }
+        Toggle("Hide non-music audio", "Clips under 30 seconds and recordings.", hide, services.library.settings::setHideNonMusic)
     }
 }
 

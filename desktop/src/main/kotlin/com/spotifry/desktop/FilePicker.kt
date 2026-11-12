@@ -37,6 +37,18 @@ object FilePicker {
         }
     }
 
+    /** A folder, starting in [start]. */
+    suspend fun folder(title: String, start: File): File? = withContext(Dispatchers.IO) {
+        when {
+            has("kdialog") -> run("kdialog", "--title", title, "--getexistingdirectory", start.path)
+            has("zenity") -> run("zenity", "--file-selection", "--directory", "--title=$title", "--filename=${start.path}/")
+            else -> javax.swing.JFileChooser(start).run {
+                fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY; dialogTitle = title
+                if (showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) selectedFile else null
+            }
+        }?.takeIf { it.isDirectory }
+    }
+
     private fun awt(title: String, mode: Int, name: String?): File? {
         val d = FileDialog(null as Frame?, title, mode)
         if (name != null) d.file = name

@@ -28,6 +28,8 @@ object Covers {
 
     suspend fun load(url: String): ImageBitmap? = cache[url] ?: withContext(Dispatchers.IO) {
         runCatching {
+            // a song from the music folder: its picture is read from the disk
+            if (url.startsWith("file://")) return@runCatching MusicFolder.art(url.removePrefix("file://"))!!.let { org.jetbrains.skia.Image.makeFromEncoded(it).toComposeImageBitmap() }
             client.newCall(Request.Builder().url(url).build()).execute().use { r ->
                 org.jetbrains.skia.Image.makeFromEncoded(r.body!!.bytes()).toComposeImageBitmap()
             }

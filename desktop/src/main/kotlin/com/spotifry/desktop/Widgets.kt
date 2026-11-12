@@ -204,7 +204,7 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
                         close()
                     })
                 }
-                DropdownMenuItem({ Text(if (saved) "Remove from saved" else "Save on this computer") }, onClick = {
+                if (!song.isLocal) DropdownMenuItem({ Text(if (saved) "Remove from saved" else "Save on this computer") }, onClick = {
                     scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
                     close()
                 })

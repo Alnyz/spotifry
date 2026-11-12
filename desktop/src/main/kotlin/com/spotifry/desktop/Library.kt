@@ -13,6 +13,7 @@ import com.spotifry.music.data.Settings
 import com.spotifry.music.data.StreamResolver
 import com.spotifry.music.data.db.AppDatabase
 import com.spotifry.music.data.db.AppDatabase_Impl
+import com.spotifry.music.data.source.isLocal
 import com.spotifry.music.player.Trims
 import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
@@ -39,6 +40,9 @@ class Library(
     val restoreQueue = RestoreQueue(restorePrefs, db.songs(), downloads::save, metered = { false })
     val backups = Backups(db.backup(), prefs, trimPrefs, restoreQueue, APP_VERSION)
 
+    /** The music folder's songs, shown under Saved, On this computer. */
+    val musicFolder = MusicFolder(File(dir, "music_folder.json"), prefs, settings.hideNonMusic)
+
     val recorder = PlayRecorder(history, listenLog) { id -> db.plays().count(id, System.currentTimeMillis()) }
 
     /** Songs marked "Not this song": Smart shuffle never suggests them again. The phone's key, so a backup carries it. */
@@ -48,7 +52,8 @@ class Library(
 
     /** The file of a song saved on this computer, if it is still there. */
     suspend fun localFile(song: com.spotifry.music.data.source.Song): String? =
-        db.songs().get(song.id)?.filePath?.takeIf { File(it).isFile }
+        if (song.isLocal) song.id.removePrefix(com.spotifry.music.data.LOCAL_PREFIX).takeIf { File(it).isFile }
+        else db.songs().get(song.id)?.filePath?.takeIf { File(it).isFile }
 
     companion object {
         /** The real library in [dir]: a database file and a few settings files. */

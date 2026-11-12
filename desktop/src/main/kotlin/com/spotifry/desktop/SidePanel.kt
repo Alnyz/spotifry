@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import com.spotifry.music.data.source.isLocal
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -144,7 +145,7 @@ fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haz
             val scope = rememberCoroutineScope()
             val savedSongs by lib.db.songs().observeSaved().collectAsState(emptyList())
             val saved = savedSongs.any { it.id == song.id }
-            BarIcon(if (saved) Icons.Check else Icons.Download, if (saved) "Saved on this computer" else "Save on this computer", if (saved) Palette.accent else Palette.ink2, 7.dp) {
+            if (!song.isLocal) BarIcon(if (saved) Icons.Check else Icons.Download, if (saved) "Saved on this computer" else "Save on this computer", if (saved) Palette.accent else Palette.ink2, 7.dp) {
                 scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
             }
             var menu by remember { mutableStateOf(false) }

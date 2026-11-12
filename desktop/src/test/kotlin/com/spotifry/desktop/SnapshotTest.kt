@@ -92,6 +92,21 @@ class SnapshotTest {
         }
     }
 
+    @Test fun musicFolder() {
+        val lib = library()
+        val dir = MusicFolderTest.makeSongs()
+        kotlinx.coroutines.runBlocking { lib.musicFolder.choose(dir); lib.musicFolder.refresh() }
+        savedFilter = com.spotifry.music.ui.saved.SavedFilter.Phone
+        shoot("saved-folder", Route.Saved, lib)
+        savedFilter = com.spotifry.music.ui.saved.SavedFilter.All
+        shoot("saved-all", Route.Saved, lib)
+        kotlinx.coroutines.runBlocking { lib.musicFolder.choose(File(dir, "a very long folder name that goes on/and another one inside it/nothing")); lib.musicFolder.refresh() }
+        savedFilter = com.spotifry.music.ui.saved.SavedFilter.Phone
+        shoot("saved-folder-empty", Route.Saved, lib)
+        shoot("settings-folder", Route.Settings, lib, height = 1400)
+        savedFilter = com.spotifry.music.ui.saved.SavedFilter.All
+    }
+
     @Test fun share() {
         val lib = library()
         val song = ShareTarget.of(songs[3])

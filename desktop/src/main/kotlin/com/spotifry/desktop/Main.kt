@@ -111,6 +111,7 @@ fun productionServices(): Services {
     services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay, listening = player::listening,
         lookUpYears = { lookUpSongYears(library, scope, brainz) })
     services.lookUpYears()
+    scope.launch { library.musicFolder.refresh() }
     services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
     return services
 }

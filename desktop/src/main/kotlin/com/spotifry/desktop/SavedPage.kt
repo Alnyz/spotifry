@@ -16,32 +16,57 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spotifry.music.data.RestoreStatus
-import com.spotifry.music.data.db.SongEntity
+import com.spotifry.music.ui.saved.SavedFilter
+import kotlinx.coroutines.launch
+import com.spotifry.music.ui.saved.filterSaved
+
+/** The chip picked on Saved; kept outside the page so it stays when you go to another page and back. */
+internal var savedFilter by mutableStateOf(SavedFilter.All)
+
+/** The phone's filters in the desktop's words. */
+private val SavedFilter.desktopLabel get() = if (this == SavedFilter.Phone) "On this computer" else label
+private val SavedFilter.desktopQueue get() = if (this == SavedFilter.Phone) "On this computer" else queueName
 
 @Composable
 fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modifier) {
     val lib = services.library
     val saved by lib.db.songs().observeSaved().collectAsState(emptyList())
+    val files by lib.musicFolder.songs.collectAsState()
+    val recent by lib.db.history().observeRecent().collectAsState(emptyList())
     val state by services.player.state.collectAsState()
-    val songs = saved.map(SongEntity::toSong)
+    val filter = savedFilter
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { lib.musicFolder.refresh() }
+    val rows = remember(filter, saved, files, recent) { filterSaved(filter, saved, files, recent) }
+    val songs = rows.map { it.song }
     LazyColumn(modifier) {
         item {
-            Kicker("On this computer")
+            Kicker("Your music")
             Text(androidx.compose.ui.text.buildAnnotatedString {
                 append("Saved"); if (songs.isNotEmpty()) { append(", "); pushStyle(androidx.compose.ui.text.SpanStyle(color = Palette.accent, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)); append(songs.size.toString()); pop(); append(if (songs.size == 1) " song." else " songs.") }
             }, fontFamily = Display, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 14.dp))
             SavedFilters(Route.Saved, go)
+            Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SavedFilter.entries.forEach { f -> Chip(f.desktopLabel, f == filter) { savedFilter = f } }
+            }
             if (songs.isNotEmpty()) Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Pill("Play all", Icons.Play, primary = true) { services.player.playList(songs, 0, "Saved") }
-                Pill("Shuffle", Icons.Shuffle) { services.player.shuffleList(songs, "Saved") }
+                Pill("Play all", Icons.Play, primary = true) { services.player.playList(songs, 0, filter.desktopQueue) }
+                Pill("Shuffle", Icons.Shuffle) { services.player.shuffleList(songs, filter.desktopQueue) }
             }
         }
         item { RestoreCard(services) }
         if (songs.isEmpty()) item {
-            EmptyState("Nothing saved yet", "Open any song's menu and choose Save on this computer. It plays here without internet.")
+            when (filter) {
+                SavedFilter.Phone -> Column {
+                    EmptyState("No music files here", "Spotifry looks for songs in ${lib.musicFolder.folder.value.path.replaceFirst(System.getProperty("user.home"), "~")} and every folder inside it.")
+                    Box(Modifier.fillMaxWidth().padding(top = 18.dp), contentAlignment = Alignment.Center) { Pill("Pick another folder") { scope.launch { FilePicker.folder("Pick your music folder", lib.musicFolder.folder.value)?.let { lib.musicFolder.choose(it); lib.musicFolder.refresh() } } } }
+                }
+                SavedFilter.Lately -> EmptyState("Nothing played lately", "Songs you play from Saved show up here.")
+                else -> EmptyState("Nothing saved yet", "Open any song's menu and choose Save on this computer. It plays here without internet.")
+            }
         }
-        itemsIndexed(songs, key = { _, s -> s.id }) { i, s ->
-            SongLine(services, i + 1, s, state.current?.id == s.id, saved = true, onClick = { services.player.playList(songs, i, "Saved") })
+        itemsIndexed(rows, key = { _, r -> r.song.id }) { i, r ->
+            SongLine(services, i + 1, r.song, state.current?.id == r.song.id, saved = r.saved, onClick = { services.player.playList(songs, i, filter.desktopQueue) })
         }
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }
