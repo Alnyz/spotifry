@@ -142,11 +142,20 @@ class SnapshotTest {
             com.spotifry.music.data.LyricLine(100_000, "Pagi ini terasa lain"), com.spotifry.music.data.LyricLine(120_000, "Lampu jalan belum padam"),
         )
         val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library(), fakePlayer, setVolume = {}, lyrics = { com.spotifry.music.data.Lyrics.Timed(lines) })
-        val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startNowPlaying = true) } }
-        var t = 0L
-        repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
-        File("build/snapshots").apply { mkdirs() }.resolve("nowplaying.png").writeBytes(scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes)
-        scene.close()
+        // a cover from disk, so the record and the blurred picture behind show
+        val before = fakePlayer.state.value
+        val art = File("src/main/resources/banner/evening.jpg").absolutePath
+        fakePlayer.state.value = before.copy(current = before.current!!.copy(thumbnailUrl = "file://$art"), from = "Road trip 2019")
+        for ((name, w, h) in listOf(Triple("nowplaying", 1280, 800), Triple("nowplaying-wide", 1920, 1040), Triple("fulllyrics", 1280, 800))) {
+            startFullLyrics = name == "fulllyrics"
+            val scene = ImageComposeScene(w, h, Density(1f)) { SpotifryTheme { App(services, startNowPlaying = true) } }
+            var t = 0L
+            repeat(60) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
+            File("build/snapshots").apply { mkdirs() }.resolve("$name.png").writeBytes(scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            scene.close()
+        }
+        startFullLyrics = false
+        fakePlayer.state.value = before
     }
 
     @Test fun firstLaunchAndImport() {

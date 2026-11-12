@@ -317,7 +317,7 @@ private fun Slide(shown: Boolean, left: Boolean, modifier: Modifier, onClick: ()
     }
 
 @Composable
-private fun Chevron(left: Boolean) {
+internal fun Chevron(left: Boolean) {
     val ink = Palette.ink
     Canvas(Modifier.size(14.dp)) {
         val w = size.width; val x0 = if (left) w * .68f else w * .32f; val x1 = if (left) w * .3f else w * .7f

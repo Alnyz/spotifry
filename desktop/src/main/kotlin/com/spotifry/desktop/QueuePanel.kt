@@ -1,6 +1,8 @@
 package com.spotifry.desktop
 
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,7 +46,12 @@ private fun QueueTab(services: Services, state: PlayerUiState) {
     LazyColumn(Modifier.fillMaxSize().padding(end = 12.dp), contentPadding = PaddingValues(bottom = 130.dp)) {
         if (cur != null) {
             item { Heading("Now playing") }
-            item { SongRow(cur, accent = true, onClick = {}) }
+            // the song playing on a card of its own, with a little beat beside it
+            item {
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Palette.ink.copy(alpha = 0.07f)).border(1.dp, Palette.ink.copy(alpha = 0.1f), RoundedCornerShape(12.dp)).padding(vertical = 4.dp, horizontal = 4.dp)) {
+                    SongRow(cur, onClick = {}, playing = state.wantsPlay)
+                }
+            }
         }
         item { Heading(if (state.from != null) "Next from: ${state.from}" else "Next") }
         if (upcoming.isEmpty()) item { Text(nothingNextNote(state), color = Palette.ink2, fontSize = 14.sp) }
@@ -70,7 +77,7 @@ private fun RecentTab(services: Services) {
 private fun Heading(text: String) = Text(text, fontFamily = Heading, fontSize = 20.sp, color = Palette.ink, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
 
 @Composable
-private fun SongRow(s: Song, accent: Boolean = false, onClick: () -> Unit, onRemove: (() -> Unit)? = null, services: Services? = null) {
+private fun SongRow(s: Song, accent: Boolean = false, onClick: () -> Unit, onRemove: (() -> Unit)? = null, services: Services? = null, playing: Boolean? = null) {
     Row(
         Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -80,6 +87,7 @@ private fun SongRow(s: Song, accent: Boolean = false, onClick: () -> Unit, onRem
             Text(s.title, fontFamily = Display, fontSize = 16.sp, maxLines = 1, color = if (accent) Palette.accent else Palette.ink)
             Artist(s, 12.5.sp)
         }
+        if (playing != null) Bars(playing)
         // a suggestion's menu has "Not this song"
         if (services != null) Box {
             var menu by remember { mutableStateOf(false) }
@@ -95,4 +103,17 @@ fun nothingNextNote(state: PlayerUiState): String = when {
     state.repeatMode == com.spotifry.music.player.RepeatMode.ONE -> "This song plays again when it ends."
     state.repeatMode == com.spotifry.music.player.RepeatMode.ALL && state.queue.size > 1 -> "The list starts again when this one ends."
     else -> "Similar songs are added as this one plays."
+}
+
+/** Three accent bars that bounce while the song plays and rest when it is paused. */
+@Composable
+private fun Bars(playing: Boolean) {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition()
+    val phase by t.animateFloat(0f, (2 * Math.PI).toFloat(), androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.LinearEasing)))
+    Row(Modifier.padding(end = 8.dp).height(18.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        listOf(0f, 2.1f, 4.2f).forEach { o ->
+            val h = if (playing) 0.35f + 0.65f * ((kotlin.math.sin(phase + o) + 1f) / 2f) else 0.35f
+            Box(Modifier.width(3.dp).fillMaxHeight(h).clip(RoundedCornerShape(1.5.dp)).background(Palette.accent))
+        }
+    }
 }

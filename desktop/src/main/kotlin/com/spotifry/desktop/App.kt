@@ -84,6 +84,8 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     var nowPlaying by remember { mutableStateOf(startNowPlaying) }
     var query by remember { mutableStateOf(initialQuery) }
     var queueOpen by remember { mutableStateOf(false) }
+    // on Now playing the queue stands on the right in place of the side panel, until it is closed
+    var npQueue by remember { mutableStateOf(true) }
     // the words last searched for stay as the page's title even after the bar is emptied
     var searchTerm by remember { mutableStateOf(initialQuery) }
     var searchRun by remember { mutableStateOf(if (initialQuery.isBlank()) 0 else 1) }
@@ -131,6 +133,9 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                 androidx.compose.animation.AnimatedVisibility(route == Route.Home && !nowPlaying, enter = androidx.compose.animation.fadeIn(tween(350)), exit = androidx.compose.animation.fadeOut(tween(350))) {
                     HomeBanner(services, homeList, base, Modifier.hazeSource(bannerHaze, zIndex = 1f))
                 }
+                androidx.compose.animation.AnimatedVisibility(nowPlaying, enter = androidx.compose.animation.fadeIn(tween(350)), exit = androidx.compose.animation.fadeOut(tween(350))) {
+                    NowPlayingBackdrop(state.current, base, Modifier.hazeSource(bannerHaze, zIndex = 1f))
+                }
                 androidx.compose.runtime.CompositionLocalProvider(LocalBannerHaze provides bannerHaze) {
                 Column(Modifier.fillMaxSize()) {
                     TopBar(
@@ -144,7 +149,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                         val pad = Modifier.widthIn(max = if (nowPlaying || route.page == Page.Home) 1400.dp else 1180.dp).fillMaxHeight().padding(top = 10.dp)
                         // pages fade into each other instead of snapping
                         androidx.compose.runtime.CompositionLocalProvider(LocalBottomInset provides (if (state.current != null) 112.dp else 0.dp)) { androidx.compose.animation.Crossfade(if (nowPlaying) "now" else route, animationSpec = tween(350)) { shown ->
-                            if (shown == "now") NowPlayingPage(services, state, queueOpen, { queueOpen = !queueOpen }, pad)
+                            if (shown == "now") NowPlayingPage(services, state, pad)
                             else when (val r = shown as Route) {
                                 Route.Home -> HomePage(services, { route = it }, homeList, pad)
                                 Route.Search -> SearchPage(services, state, searchTerm, searchRun, pad)
@@ -162,16 +167,18 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                 }
                 }
                 }
-                // on Now playing the song is shown in the page itself, so the side panel slides away
+                // on Now playing the song is shown in the page itself, so the queue takes the side panel's place
+                val showQueue = if (nowPlaying) npQueue else queueOpen
                 androidx.compose.animation.AnimatedVisibility(
-                    !nowPlaying || queueOpen, enter = androidx.compose.animation.fadeIn(tween(350)) + androidx.compose.animation.expandHorizontally(tween(350)),
+                    !nowPlaying || npQueue, enter = androidx.compose.animation.fadeIn(tween(350)) + androidx.compose.animation.expandHorizontally(tween(350)),
                     exit = androidx.compose.animation.fadeOut(tween(350)) + androidx.compose.animation.shrinkHorizontally(tween(350)),
                 ) {
-                    if (queueOpen) QueuePanel(services, state, if (compact) 330.dp else 380.dp, { queueOpen = false })
+                    // on Now playing it stays the queue while it slides away, so the side panel's cover never flashes in
+                    if (showQueue || nowPlaying) QueuePanel(services, state, if (compact) 330.dp else 380.dp, { if (nowPlaying) npQueue = false else queueOpen = false })
                     else SidePanel(services, state, if (compact) 330.dp else 380.dp, this@BoxWithConstraints.maxHeight)
                 }
             }
-            PlayerBar(services, state, haze, queueOpen, { queueOpen = !queueOpen }, { if (last != null) services.player.playList(listOf(last), 0, "Home") else services.player.toggle() }, Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 20.dp))
+            PlayerBar(services, state, haze, if (nowPlaying) npQueue else queueOpen, { if (nowPlaying) npQueue = !npQueue else queueOpen = !queueOpen }, { if (last != null) services.player.playList(listOf(last), 0, "Home") else services.player.toggle() }, Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 20.dp))
         }
         BackupDialogs(flow)
         ImportDialog(services) { route = Route.Playlist(it) }
