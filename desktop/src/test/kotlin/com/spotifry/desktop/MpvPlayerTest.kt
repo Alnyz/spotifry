@@ -233,6 +233,58 @@ class MpvPlayerTest {
         assertEquals("asked once for the same end of the queue", 1, asked)
     }
 
+    @Test fun crossfadeBringsTheNextSongInUnderTheEndOfThisOne() {
+        val two = (0..1).map { Song("j$it", "J$it", "A", 8, null) }
+        two.forEach { File(dir, "${it.id}.wav").writeBytes(silence(seconds = 8)) }
+        player!!.close()
+        val p = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), fadeSeconds = { 2 }, beatsAllowed = { false }).also { player = it }
+        p.playList(two, 0)
+        wait("sound to start") { p.state.first { it.isPlaying } }
+        val began = System.currentTimeMillis()
+        wait("the next song") { p.state.first { it.currentIndex == 1 } }
+        val at = System.currentTimeMillis() - began
+        assertTrue("the next song came in at $at ms, under the last 2 s of 8", at in 5_000..7_300)
+        assertTrue(p.state.value.isPlaying)
+        wait("the end") { p.state.first { it.ended } }
+    }
+
+    @Test fun twoSongsWithTheSameBeatJoinOverWholeBars() {
+        val two = (0..1).map { Song("b$it", "B$it", "A", 20, null) }
+        two.forEachIndexed { i, s -> File(dir, "${s.id}.wav").writeBytes(clicks(seconds = 20, bpm = 120, offsetMs = 130 * i)) }
+        player!!.close()
+        val p = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), fadeSeconds = { 2 }).also { player = it }
+        p.playList(two, 0)
+        wait("sound to start") { p.state.first { it.isPlaying } }
+        val began = System.currentTimeMillis()
+        wait("the next song", ms = 30_000) { p.state.first { it.currentIndex == 1 } }
+        val at = System.currentTimeMillis() - began
+        // three bars at 120 BPM: 6 s of overlap, not the 2 s of a plain one
+        assertTrue("the overlap began at $at ms", at in 12_500..14_600)
+        assertTrue(p.state.value.isPlaying)
+    }
+
+    /** A click every beat, the first [offsetMs] in, at full level over silence. */
+    private fun clicks(seconds: Int, bpm: Int, offsetMs: Int): ByteArray {
+        val rate = 8000; val n = rate * seconds
+        val pcm = ShortArray(n)
+        var at = offsetMs * rate / 1000
+        val r = java.util.Random(1)
+        while (at < n) { for (i in 0 until 160) if (at + i < n) pcm[at + i] = ((r.nextGaussian() * 9000) * Math.exp(-i / 30.0)).toInt().toShort(); at += rate * 60 / bpm }
+        return ByteBuffer.allocate(44 + n * 2).order(ByteOrder.LITTLE_ENDIAN).apply {
+            put("RIFF".toByteArray()); putInt(36 + n * 2); put("WAVEfmt ".toByteArray()); putInt(16); putShort(1); putShort(1)
+            putInt(rate); putInt(rate * 2); putShort(2); putShort(16); put("data".toByteArray()); putInt(n * 2); pcm.forEach { putShort(it) }
+        }.array()
+    }
+
+    @Test fun theBeatReaderFindsTheTempoAndTheClicks() {
+        val f = File(dir, "clicks.wav").apply { writeBytes(clicks(seconds = 20, bpm = 120, offsetMs = 130)) }
+        val g = readBeats(f.path, 2_000, 18_000)!!
+        assertEquals(120.0, g.bpm, 1.0)
+        assertTrue("sure: ${g.confidence}", g.isSure && g.whole)
+        val miss = ((g.firstBeatMs - 130) % 500 + 500) % 500
+        assertTrue("beats on the clicks, off by $miss ms", miss < 30 || miss > 470)
+    }
+
     @Test fun theQueueComesBackAfterARestart() {
         val p = player!!
         p.playList(songs, 1, "Saved")

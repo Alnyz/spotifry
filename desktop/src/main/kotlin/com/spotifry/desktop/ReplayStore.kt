@@ -42,17 +42,18 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         executor = java.util.concurrent.Executors.newCachedThreadPool { r -> Thread(r, "local-copy").apply { isDaemon = true } }
         start()
     }
-    @Volatile private var current: Copy? = null
+    /** Copies being played: one, or two while one song runs into the next (the newest last). */
+    @Volatile private var live = emptyList<Copy>()
     private var count = 0
     /** The whole size of each half-kept song, by its kept name: the part on disk says only how much is there. */
     private val sizes by lazy { FilePrefs(File(dir, "parts.json")) }
 
     /**
      * Where mpv plays song [id] from [origin] (youtube, saavn, monochrome): its kept file, else [url] copied as it plays.
-     * The copy before it stops; a song left half-way is not kept.
+     * The copies before it stop, except, [alongside], the newest one, still being heard; a song left half-way is not kept.
      */
-    @Synchronized fun open(id: String, origin: String, url: String): String {
-        drop()
+    @Synchronized fun open(id: String, origin: String, url: String, alongside: Boolean = false): String {
+        (if (alongside) live.dropLast(1) else live).forEach(::stop)
         // the source is in the name: a song kept from YouTube is another file than the same song in lossless
         val done = File(dir, "${id.replace(Regex("[^A-Za-z0-9_-]"), "_")}.$origin")
         if (done.isFile) { done.setLastModified(System.currentTimeMillis()); return done.path }
@@ -61,7 +62,7 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         // half-kept from an earlier play: what is there plays at once, the rest comes from where it stopped
         if (c.file.isFile) { c.have = c.file.length(); c.total = sizes.getLong(done.name, -1L).takeIf { c.have > 0 } ?: -1L }
         c.job = scope.launch(Dispatchers.IO) { download(c, url); keep(c) }
-        current = c
+        live = live + c
         return "http://127.0.0.1:${server.address.port}/${c.n}"
     }
 
@@ -83,7 +84,7 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
     }
 
     /** Kept songs, whole or half, but not the one coming in now. */
-    private fun kept() = dir.listFiles { f -> f.isFile && f.name != "parts.json" && f != current?.file }.orEmpty().toList()
+    private fun kept() = dir.listFiles { f -> f.isFile && f.name != "parts.json" && live.none { c -> c.file == f } }.orEmpty().toList()
 
     /** Space the kept songs take. */
     fun usedBytes() = kept().sumOf { it.length() }
@@ -120,7 +121,7 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
     }
 
     private fun serve(ex: HttpExchange) {
-        val c = current?.takeIf { "/${it.n}" == ex.requestURI.path }
+        val c = live.firstOrNull { "/${it.n}" == ex.requestURI.path }
         if (c == null) { ex.sendResponseHeaders(404, -1); return }
         if (!waitFor(c) { c.total >= 0 }) { ex.sendResponseHeaders(503, -1); return }
         val range = ex.requestHeaders.getFirst("Range")?.removePrefix("bytes=")?.split('-')
@@ -166,17 +167,18 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
     private fun waitFor(c: Copy, ready: () -> Boolean): Boolean {
         var last = c.have; var still = 0
         while (!ready()) {
-            if (c.gone || current !== c) return false
+            if (c.gone || c !in live) return false
             Thread.sleep(50)
             if (c.have == last) { if (++still > 600) return false } else { last = c.have; still = 0 } // 30 s with nothing new
         }
         return true
     }
 
-    /** Stops the copy in use; a song not finished is not kept. A finished one becomes kept as it finishes, not here. */
-    @Synchronized fun drop() {
-        val c = current ?: return
-        current = null
+    /** Stops the copies in use; a song not finished is not kept. A finished one becomes kept as it finishes, not here. */
+    @Synchronized fun drop() = live.forEach(::stop)
+
+    private fun stop(c: Copy) {
+        live = live - c
         if (c.total >= 0 && c.have >= c.total) return // finished: kept as it finishes
         // only what came in order from the start is kept: parts fetched far ahead for a jump are let go
         synchronized(c) { c.gone = true; runCatching { RandomAccessFile(c.file, "rw").use { it.setLength(c.have) } } }

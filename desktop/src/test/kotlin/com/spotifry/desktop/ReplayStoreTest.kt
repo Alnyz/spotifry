@@ -87,6 +87,15 @@ class ReplayStoreTest {
         runBlocking { withTimeout(10_000) { while (!java.io.File(store, "h.youtube").isFile) kotlinx.coroutines.delay(50) } }
     }
 
+    @Test fun theNextSongOpenedAlongsideLeavesTheOneStillHeard() {
+        data = ByteArray(1_000_000) { (it % 249).toByte() }
+        val heard = copy.open("old", "youtube", url)
+        val next = copy.open("new", "youtube", url, alongside = true)
+        for (local in listOf(heard, next)) assertArrayEquals(data, client.newCall(Request.Builder().url(local).build()).execute().use { it.body!!.bytes() })
+        copy.open("after", "youtube", url)
+        assertEquals(404, client.newCall(Request.Builder().url(heard).build()).execute().use { it.code })
+    }
+
     @Test fun theSongsPlayedLongestAgoMakeRoom() {
         data = ByteArray(1_000_000) { 7 }
         limitMb = 2
@@ -113,7 +122,7 @@ class ReplayStoreTest {
             override suspend fun related(song: Song) = emptyList<Song>()
             override suspend fun resolve(song: Song, low: Boolean) = ResolvedStream(url, "audio/wav", 0, Long.MAX_VALUE, fromMonochrome = true)
         }
-        val player = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), playFrom = { song, st -> copy.open(song.id, st.origin, st.url) })
+        val player = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), playFrom = { song, st, alongside -> copy.open(song.id, st.origin, st.url, alongside) })
         try {
             player.playList(listOf(Song("m", "M", "A", 8, null)), 0)
             runBlocking { withTimeout(15_000) { player.state.first { it.isPlaying } } }
