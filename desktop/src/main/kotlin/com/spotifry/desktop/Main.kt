@@ -32,6 +32,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.drop
 import okhttp3.OkHttpClient
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.localization.Localization
@@ -50,6 +51,8 @@ class Services(
     val close: () -> Unit = {},
     /** Null in tests that have no real player. */
     val sleep: SleepTimer? = null,
+    /** Played songs kept on this computer; null in tests. */
+    val replay: ReplayStore? = null,
 ) {
     /** Set by the window: bring it to the front (the media widget's "open"), and quit. */
     var raise: () -> Unit = {}
@@ -67,17 +70,30 @@ fun productionServices(): Services {
     Covers.client = client
     NewPipe.init(OkHttpDownloader(client), Localization("en", "US"))
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    val source = NewPipeSource()
+    lateinit var library: Library
+    // a song's sound from Monochrome (lossless) or JioSaavn when turned on and sure of the match, else YouTube
+    val source = com.spotifry.music.data.source.ChoosingSource(
+        NewPipeSource(), com.spotifry.music.data.source.JioSaavnSource(client)::find, { library.settings.jioSaavn.value },
+        com.spotifry.music.data.source.MonochromeSource(client)::find, { library.settings.monochrome.value },
+    )
     val resolver = StreamResolver(source, scope)
     val dir = dataDir()
-    val library = Library.open(dir, client, resolver)
+    library = Library.open(dir, client, resolver)
+    val settings = library.settings
     // SPOTIFRY_MPV_ARGS="--ao=null" turns the sound off, for tests
     val args = System.getenv("SPOTIFRY_MPV_ARGS")?.split(' ')?.filter { it.isNotBlank() }.orEmpty()
-    val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder, trims = library.trims)
-    val settings = library.settings
+    val replay = ReplayStore(client, scope, File(dir, "replay")) { settings.cacheMb.value }
+    val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder, trims = library.trims,
+        smartTrims = library.smartTrims, smartTrimOn = { settings.smartTrim.value }, fadeSeconds = { settings.fadeSeconds.value },
+        playFrom = { song, s -> replay.open(song.id, s.origin, s.url) },
+    )
     scope.launch { kotlinx.coroutines.flow.combine(settings.speed, settings.pitch, ::Pair).collect { (s, p) -> player.setSpeedPitch(s, p) } }
+    scope.launch { settings.sameLoudness.collect { player.setFilter("loud", if (it) Sound.LOUDNESS else null) } }
+    scope.launch { settings.skipSilence.collect { player.setFilter("quiet", if (it) Sound.SKIP_QUIET else null) } }
+    // a song already looked up keeps its old source; forget the links so the next play asks again
+    scope.launch { kotlinx.coroutines.flow.combine(settings.jioSaavn, settings.monochrome, ::Pair).drop(1).collect { resolver.clear() } }
     lateinit var services: Services
-    services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); library.db.close() }, sleep = SleepTimer(scope, player))
+    services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay)
     services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
     return services
 }

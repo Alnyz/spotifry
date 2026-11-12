@@ -27,7 +27,10 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = "mpv", private
         process = try { ProcessBuilder(
             // --no-config: a listener's own mpv.conf (keep-open=yes, say) must not change how the player behaves
             listOf(binary, "--no-config", "--idle=yes", "--keep-open=no", "--no-video", "--no-terminal", "--audio-display=no", "--ytdl=no",
-                "--audio-client-name=Spotifry", "--input-ipc-server=$socket") + extraArgs,
+                "--audio-client-name=Spotifry", "--input-ipc-server=$socket",
+                // the whole song is fetched ahead: a lossless file's server takes seconds per request, and a jump into a
+                // part not yet fetched could need several (mpv has to search the file for the spot)
+                "--cache=yes", "--demuxer-max-bytes=200MiB", "--demuxer-readahead-secs=3600") + extraArgs,
         ).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start() } catch (e: java.io.IOException) { throw MpvMissing(e) }
         // the socket shows up a moment after mpv starts
         val until = System.currentTimeMillis() + 5_000

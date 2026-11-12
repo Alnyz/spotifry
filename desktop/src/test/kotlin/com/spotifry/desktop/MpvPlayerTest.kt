@@ -35,6 +35,7 @@ class MpvPlayerTest {
         override suspend fun related(song: Song) = emptyList<Song>()
         override suspend fun resolve(song: Song, low: Boolean): ResolvedStream {
             if (song.id == "bad") throw java.io.FileNotFoundException("no audio")
+            if (song.id == "slow") kotlinx.coroutines.delay(1_500) // a link that takes a while, like YouTube's
             return ResolvedStream(File(dir, "${song.id}.wav").path, "audio/wav", 0, Long.MAX_VALUE)
         }
     }
@@ -150,6 +151,47 @@ class MpvPlayerTest {
         p.setTrim("long", com.spotifry.music.player.Trim(500, 1_000), skip = true)
         wait("the next song after End here") { p.state.first { it.currentIndex == 1 } }
         assertEquals(com.spotifry.music.player.Trim(500, 1_000), trims["long"])
+    }
+
+    @Test fun aSmartTrimPlaysWhileOnAndPlayTheWholeSongKeepsItAway() {
+        File(dir, "long.wav").writeBytes(silence(seconds = 4))
+        val prefs = FilePrefs(File(dir, "smart.json"))
+        com.spotifry.music.player.Trims(prefs)["long"] = com.spotifry.music.player.Trim(1_000) // as if SponsorBlock had answered
+        val smart = com.spotifry.music.player.SmartTrims(prefs, okhttp3.OkHttpClient())
+        var on = false
+        player!!.close()
+        val p = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), smartTrims = smart, smartTrimOn = { on }).also { player = it }
+        val long = Song("long", "Long", "A", 4, null)
+        p.playList(listOf(long), 0)
+        wait("the whole song with smart trim off") { p.state.first { it.isPlaying && it.wholeMs > 3_500 } }
+        assertEquals(null, p.state.value.trim)
+        on = true
+        p.playList(listOf(long), 0)
+        wait("the smart trim") { p.state.first { it.isPlaying && it.trim != null } }
+        assertEquals(1_000L, p.state.value.trim!!.startMs)
+        p.setTrim("long", null)
+        assertEquals(null, p.state.value.trim)
+        assertEquals(null, smart["long"])
+    }
+
+    @Test fun soundFiltersGoOnAndOffWhilePlaying() {
+        val p = player!!
+        p.playList(songs, 0)
+        wait("sound to start") { p.state.first { it.isPlaying } }
+        p.setFilter("loud", Sound.LOUDNESS); p.setFilter("quiet", Sound.SKIP_QUIET)
+        p.setFilter("loud", null)
+        wait("the queue to end with filters on") { p.state.first { it.ended } }
+    }
+
+    @Test fun aJumpWhileTheSongIsStillStartingIsKept() {
+        File(dir, "slow.wav").writeBytes(silence(seconds = 6))
+        val p = player!!
+        p.playList(listOf(Song("slow", "Slow", "A", 6, null)), 0)
+        Thread.sleep(300) // still asking for the link
+        p.seekTo(4_000)
+        wait("the song to play") { p.state.first { it.isPlaying } }
+        Thread.sleep(500)
+        assertTrue("plays from the jump, not from the start: ${p.position.value}", p.position.value >= 3_900)
     }
 
     @Test fun theQueueComesBackAfterARestart() {

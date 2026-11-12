@@ -40,6 +40,7 @@ fun SettingsPage(services: Services, flow: BackupFlow, modifier: Modifier = Modi
 
     LazyColumn(modifier.widthIn(max = 760.dp)) {
         item { PageHeader("Settings") }
+        item { SoundGroup(settings) }
         item {
             Group("Look") {
                 Row("Name", "Shown in the greeting", onClick = { editName = true }) { Value(name.ifEmpty { "Not set" }) }
@@ -58,9 +59,10 @@ fun SettingsPage(services: Services, flow: BackupFlow, modifier: Modifier = Modi
             }
         }
         item {
-            Group("Saved songs") {
+            Group("Storage") {
                 Row("Save quality", "Songs you save to this computer") { Segments(listOf("High", "Low"), if (saveLow) 1 else 0) { settings.setSaveLow(it == 1) } }
                 Row("Saved songs", "$savedCount ${if (savedCount == 1) "song" else "songs"} · ${lib.saveFolder.path}")
+                services.replay?.let { ReplayRows(settings, it) }
             }
         }
         item {
@@ -119,4 +121,64 @@ private fun Segments(options: List<String>, selected: Int, onSelect: (Int) -> Un
             ) { Text(o, fontSize = 13.sp, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.SemiBold, color = if (i == selected) Palette.accent else Palette.ink2) }
         }
     }
+}
+
+/** The fade lengths offered for Crossfade, in seconds; the same as the phone's. */
+private val FADES = listOf(0, 2, 5, 8, 12)
+
+@Composable
+private fun SoundGroup(settings: com.spotifry.music.data.Settings) {
+    val monochrome by settings.monochrome.collectAsState()
+    val jioSaavn by settings.jioSaavn.collectAsState()
+    val sameLoudness by settings.sameLoudness.collectAsState()
+    val skipSilence by settings.skipSilence.collectAsState()
+    val smartTrim by settings.smartTrim.collectAsState()
+    val fade by settings.fadeSeconds.collectAsState()
+    Group("Sound") {
+        Toggle("Lossless (Monochrome)", "FLAC, 5–10× the data. Unofficial, can stop working any day.", monochrome, settings::setMonochrome)
+        Toggle("JioSaavn 320 kbps", "Unofficial, may not work outside India.", jioSaavn, settings::setJioSaavn)
+        Toggle("Same loudness for every song", "Quiet songs up, loud ones down.", sameLoudness, settings::setSameLoudness)
+        Toggle("Skip quiet parts", "Jumps over long silences.", skipSilence, settings::setSkipSilence)
+        Toggle("Smart trim", "Skips talking at the start and end of music videos.", smartTrim, settings::setSmartTrim)
+        Row("Crossfade", "The end of a song fades out and the next fades in.") {
+            Segments(FADES.map { if (it == 0) "Off" else "$it s" }, FADES.indexOf(fade).coerceAtLeast(0)) { settings.setFadeSeconds(FADES[it]) }
+        }
+    }
+}
+
+/** A row with a switch; a click anywhere on it flips it. */
+@Composable
+private fun Toggle(title: String, subtitle: String, on: Boolean, set: (Boolean) -> Unit) = Row(title, subtitle, onClick = { set(!on) }) {
+    androidx.compose.material3.Switch(
+        on, null,
+        colors = androidx.compose.material3.SwitchDefaults.colors(
+            checkedThumbColor = Palette.bg, checkedTrackColor = Palette.accent,
+            uncheckedThumbColor = Palette.ink2, uncheckedTrackColor = Palette.ink.copy(alpha = 0.08f), uncheckedBorderColor = Palette.ink.copy(alpha = 0.25f),
+        ),
+    )
+}
+
+/** The phone's choices: 512 MB to 5 GB, or no limit (0). */
+private val CACHE_MB = listOf(512, 1024, 2048, 5120, 0)
+private fun cacheLabel(mb: Int) = when { mb == 0 -> "∞"; mb >= 1024 -> "${mb / 1024} GB"; else -> "$mb MB" }
+
+@Composable
+private fun ReplayRows(settings: com.spotifry.music.data.Settings, replay: ReplayStore) {
+    val cacheMb by settings.cacheMb.collectAsState()
+    var cleared by remember { mutableStateOf(0) }
+    val used by produceState(-1L, cleared) { value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { replay.usedBytes() } }
+    Row("Replay storage", "Most space for played songs. ∞ keeps them all.") {
+        Segments(CACHE_MB.map(::cacheLabel), CACHE_MB.indexOf(cacheMb).coerceAtLeast(0)) { settings.setCacheMb(CACHE_MB[it]) }
+    }
+    Row(
+        "Clear played songs kept for replay",
+        if (used < 0) "Counting…" else "${sizeText(used)} of ${if (cacheMb == 0) "no limit" else cacheLabel(cacheMb)}",
+        onClick = { replay.clear(); cleared++ },
+    )
+}
+
+private fun sizeText(bytes: Long) = when {
+    bytes >= 1L shl 30 -> "%.1f GB".format(bytes / (1L shl 30).toDouble())
+    bytes >= 1L shl 20 -> "${bytes shr 20} MB"
+    else -> "${bytes shr 10} KB"
 }

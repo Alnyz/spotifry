@@ -12,6 +12,9 @@ import com.spotifry.music.player.PlayerUiState
 import com.spotifry.music.player.RepeatMode
 import com.spotifry.music.player.Trim
 import com.spotifry.music.player.Trims
+import com.spotifry.music.player.SmartTrims
+import com.spotifry.music.player.fadeGain
+import com.spotifry.music.player.trimFor
 import com.spotifry.music.player.spreadShuffle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +43,13 @@ class MpvPlayer(
     private val recorder: PlayRecorder? = null,
     /** Each song's own start and end, the same store the phone backup fills. */
     private val trims: Trims? = null,
+    /** Talking at the start and end of music videos, from SponsorBlock, used while [smartTrimOn]. */
+    private val smartTrims: SmartTrims? = null,
+    private val smartTrimOn: () -> Boolean = { false },
+    /** Seconds a song fades out at its end and the next fades in; 0 is off. */
+    private val fadeSeconds: () -> Int = { 0 },
+    /** Where mpv reads a song found online: its link, or replay storage ([ReplayStore]). */
+    private val playFrom: (Song, com.spotifry.music.data.source.ResolvedStream) -> String = { _, s -> s.url },
 ) : MusicPlayer, SleepTimer.Target {
     private val _state = MutableStateFlow(PlayerUiState())
     override val state: StateFlow<PlayerUiState> = _state
@@ -67,9 +77,19 @@ class MpvPlayer(
     private val durationMs get() = ((trim?.endMs ?: wholeMs) - startMs).coerceAtLeast(0)
     private var volume = 100
     private var gain = 1f
+    /** The fade between songs, apart from the sleep timer's [gain]. */
+    private var songGain = 1f
+    /** The playing song began by running on from the one before, so it fades in. */
+    private var ranOn = false
+    /** mpv's sound filters by name, in the order the sound goes through them. */
+    private val filters = linkedMapOf<String, String?>("loud" to null, "eq" to null, "quiet" to null)
     override var pauseAtEnd: (() -> Unit)? = null
     /** Where to start the next load, from a restored queue. */
     private var startAtMs = 0L
+    /** Where the song being started begins, until mpv is told; a jump while starting moves it. */
+    private var pendingStart = 0L
+    /** A jump made after mpv was told to start the song but before it plays: done when it plays. */
+    private var seekOnStart: Long? = null
     private var failsOfThisSong = 0
     private var loading: Job? = null
     private var lastTick = 0L
@@ -88,7 +108,7 @@ class MpvPlayer(
         lastQueueFile?.let { f -> runCatching { f.readText() }.getOrNull()?.let(LastQueue::decode) }?.let { last ->
             queue = last.songs; index = last.index; from = last.from; shuffle = last.shuffle; repeat = last.repeatMode
             startAtMs = last.positionMs; _position.value = last.positionMs
-            wholeMs = queue[index].durationSec * 1000; trim = trims?.get(queue[index].id)
+            wholeMs = queue[index].durationSec * 1000; trim = trimOf(queue[index].id)
             order = newOrder()
             publish()
         }
@@ -106,9 +126,26 @@ class MpvPlayer(
         }
     }
 
-    fun setVolume(percent: Int) = synchronized(lock) { volume = percent.coerceIn(0, 100); mpv.set("volume", volume * gain) }
+    fun setVolume(percent: Int): Unit = synchronized(lock) { volume = percent.coerceIn(0, 100); applyVolume() }
 
-    override fun fade(gain: Float) = synchronized(lock) { if (gain != this.gain) { this.gain = gain; mpv.set("volume", volume * gain) } }
+    override fun fade(gain: Float): Unit = synchronized(lock) { if (gain != this.gain) { this.gain = gain; applyVolume() } }
+
+    private fun applyVolume(): Unit = mpv.set("volume", volume * gain * songGain)
+
+    /** Turns a sound filter on ([spec], in mpv's words) or off (null). The whole chain is set again, which mpv does without a gap. */
+    fun setFilter(name: String, spec: String?): Unit = synchronized(lock) {
+        require(name in filters)
+        if (filters[name] == spec) return
+        filters[name] = spec
+        // a change in the last moments of a song can keep mpv from ever ending it: the next song gets it instead
+        if (loaded && !ended && durationMs - _position.value < 2_000) filtersWaiting = true else applyFilters()
+    }
+
+    private var filtersWaiting = false
+    private fun applyFilters() { filtersWaiting = false; mpv.set("af", filters.mapNotNull { (n, f) -> f?.let { "@$n:$it" } }.joinToString(",")) }
+
+    /** The trim a song plays with: the listener's own, else the smart one while that is on. */
+    private fun trimOf(id: String): Trim? = trimFor(trims?.get(id), smartTrims?.get(id), smartTrimOn())
 
     override fun songLeftMs(): Long? = synchronized(lock) { if (loaded && !ended) durationMs - _position.value else null }
 
@@ -153,9 +190,12 @@ class MpvPlayer(
         if (prev == null) seekTo(0) else { wants = true; load(prev) }
     }
 
-    override fun seekTo(ms: Long) {
+    override fun seekTo(ms: Long): Unit = synchronized(lock) {
         _position.value = ms
-        if (loaded) mpv.command("seek", (ms + startMs) / 1000.0, "absolute") else startAtMs = ms
+        if (loaded) mpv.command("seek", (ms + startMs) / 1000.0, "absolute")
+        else if (loading == null) startAtMs = ms
+        // still starting: the song starts there, or jumps there as soon as it can if mpv already has it
+        else { pendingStart = ms; seekOnStart = ms }
     }
 
     override fun cycleShuffle() = synchronized(lock) {
@@ -207,7 +247,13 @@ class MpvPlayer(
 
     override fun setTrim(id: String, trim: Trim?, skip: Boolean) = synchronized(lock) {
         trims?.set(id, trim)
-        if (queue.getOrNull(index)?.id != id) return
+        // "Play the whole song" is meant for good: a smart trim doesn't come back
+        if (trim == null) smartTrims?.turnOff(id)
+        if (queue.getOrNull(index)?.id == id) applyTrim(trim, skip)
+    }
+
+    /** Gives the playing song [trim]; it goes on from the same moment unless that is now cut. */
+    private fun applyTrim(trim: Trim?, skip: Boolean = false) {
         val at = _position.value + startMs
         this.trim = trim
         val end = trim?.endMs
@@ -216,8 +262,11 @@ class MpvPlayer(
             if (n != null) load(n) else { wants = false; mpv.set("pause", true); seekTo(0); publish() }
             return
         }
-        // the same moment of the song goes on; only the end can move under a song already playing
-        if (loaded) mpv.set("file-local-options/end", end?.let { "${it / 1000.0}" } ?: "none")
+        // the same moment of the song goes on, or the new start when that is later
+        if (loaded) {
+            mpv.set("file-local-options/end", end?.let { "${it / 1000.0}" } ?: "none")
+            if (at < startMs) mpv.command("seek", startMs / 1000.0, "absolute")
+        }
         _position.value = (at - startMs).coerceAtLeast(0)
         if (!loaded) startAtMs = _position.value
         publish()
@@ -262,23 +311,28 @@ class MpvPlayer(
         loaded = false; buffering = true; failed = false; ended = false
         codec = null; bitrate = null; rate = null
         wholeMs = queue[i].durationSec * 1000
-        trim = trims?.get(queue[i].id)
-        val at = startAtMs; startAtMs = 0
-        _position.value = at
+        trim = trimOf(queue[i].id)
+        ranOn = !byListener && fadeSeconds() > 0
+        songGain = if (ranOn) 0f else 1f; applyVolume()
+        if (filtersWaiting) applyFilters()
+        pendingStart = startAtMs; startAtMs = 0; seekOnStart = null
+        _position.value = pendingStart
         publish(); save()
         val song = queue[i]
         plays.restart(song.id)
         recorder?.let { r -> r.listenLog.write(listens.moved(song.id, byListener)); scope.launch { r.history.onPlayed(song) } }
+        lookUpSmartTrim(song)
         loading = scope.launch(Dispatchers.IO) {
             try {
                 val local = localFile(song)
                 val stream = if (local == null) resolver.get(song) else null
-                val url = local ?: stream!!.url
                 synchronized(lock) {
                     if (queue.getOrNull(index)?.id != song.id) return@launch
+                    val url = local ?: playFrom(song, stream!!)
                     // the source's own bitrate figure: mpv's live reading of a stream keeps moving, so it makes a restless label
                     bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
                     mpv.set("pause", !wants)
+                    val at = pendingStart; seekOnStart = null
                     val opts = listOfNotNull(
                         (at + startMs).takeIf { it > 0 }?.let { "start=${it / 1000.0}" },
                         trim?.endMs?.let { "end=${it / 1000.0}" },
@@ -304,11 +358,13 @@ class MpvPlayer(
         mpv.command("stop"); _position.value = 0; publish(); save()
     }
 
-    private fun onMpv(name: String, e: JSONObject) = synchronized(lock) {
+    private fun onMpv(name: String, e: JSONObject): Unit = synchronized(lock) {
         when (name) {
             "property-change" -> when (e.optString("name")) {
                 "time-pos" -> if (!e.isNull("data")) {
                     val ms = (e.getDouble("data") * 1000).toLong() - startMs; val now = System.currentTimeMillis()
+                    val g = fadeGain(ms, durationMs, fadeSeconds() * 1000L, ranOn)
+                    if (kotlin.math.abs(g - songGain) > .01f || (g == 1f) != (songGain == 1f)) { songGain = g; applyVolume() }
                     if (now - lastTick >= 400) { lastTick = now; _position.value = ms }
                 }
                 "duration" -> if (!e.isNull("data")) { wholeMs = (e.getDouble("data") * 1000).toLong(); publish() }
@@ -319,8 +375,9 @@ class MpvPlayer(
             "playback-restart" -> {
                 if (!loaded) {
                     loaded = true; buffering = false; failsOfThisSong = 0
+                    seekOnStart?.let { mpv.command("seek", (it + startMs) / 1000.0, "absolute"); seekOnStart = null }
                     publish()
-                    nextIndex(automatic = true)?.let { n -> scope.launch { resolver.prefetch(queue[n]) } }
+                    nextIndex(automatic = true)?.let { n -> scope.launch { resolver.prefetch(queue[n]) }; lookUpSmartTrim(queue[n]) }
                 }
             }
             "end-file" -> when (e.optString("reason")) {
@@ -333,6 +390,16 @@ class MpvPlayer(
                 }
                 "error" -> queue.getOrNull(index)?.let { fail(it) }
             }
+        }
+    }
+
+    /** Asks SponsorBlock about [song] once; a trim found for the song playing now is used at once. */
+    private fun lookUpSmartTrim(song: Song) {
+        val st = smartTrims ?: return
+        if (!smartTrimOn() || trims?.get(song.id) != null) return
+        scope.launch {
+            runCatching { st.lookUp(song) }
+            synchronized(lock) { if (queue.getOrNull(index)?.id == song.id && trim == null) st[song.id]?.let { applyTrim(it) } }
         }
     }
 

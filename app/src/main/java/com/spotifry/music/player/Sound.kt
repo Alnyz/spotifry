@@ -8,17 +8,6 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Volume for the fade between songs: the last [fadeMs] of a song go down to silent and, when the song began by
- * running on from the one before ([fadeIn]), its first [fadeMs] come up from silent. 1 everywhere else.
- */
-fun fadeGain(positionMs: Long, durationMs: Long, fadeMs: Long, fadeIn: Boolean): Float {
-    if (fadeMs <= 0) return 1f
-    val out = if (durationMs > 0) (durationMs - positionMs).toFloat() / fadeMs else 1f
-    val inn = if (fadeIn) positionMs.toFloat() / fadeMs else 1f
-    return minOf(out, inn).coerceIn(0f, 1f)
-}
-
-/**
  * Live picture of the sound for the Equalizer page. Filled by the player only while [listening].
  * The player works through the song in bursts (a quarter second at a time), so pictures are queued and handed
  * out at the pace the music plays instead of all at once.

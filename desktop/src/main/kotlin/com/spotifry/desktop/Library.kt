@@ -31,6 +31,7 @@ class Library(
     val saveFolder = File(dir, "songs")
     val orders = PlaylistOrders(prefs)
     val trims = Trims(trimPrefs)
+    val smartTrims = com.spotifry.music.player.SmartTrims(FilePrefs(File(dir, "smart_trims.json")), client)
     val downloads = DownloadRepository(dir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })
     val lyrics = com.spotifry.music.data.LyricsSource(client) { settings.lyricsOff.value }
     val history = HistoryRecorder(db.history(), db.songs())
