@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import dev.chrisbanes.haze.hazeEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -74,6 +75,28 @@ fun Pill(text: String, icon: ImageVector? = null, primary: Boolean = false, acce
         Text(text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = ink)
     }
 }
+
+/** The window's background and Home's picture, for frosted glass over them (Home's rotation card). */
+val LocalBannerHaze = androidx.compose.runtime.compositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
+
+/**
+ * Frosted glass: what is behind is blurred, then darkened. No fill colour of its own, so in the moment Home's picture
+ * comes or goes it never flashes another colour.
+ */
+@Composable
+fun Modifier.frosted(darken: Float = 0.45f): Modifier {
+    val haze = LocalBannerHaze.current
+    val tint = (if (Palette.dark) Color.Black else Color.White).copy(alpha = if (Palette.dark) darken else 0.6f)
+    return if (haze == null) background(tint)
+    else hazeEffect(haze) { style = dev.chrisbanes.haze.HazeStyle(backgroundColor = Color.Transparent, tint = dev.chrisbanes.haze.HazeTint(tint), blurRadius = 6.dp) }
+}
+
+/**
+ * The search bar's and gear's fill: dark and see-through, the same on every page. No blur here: the blur catches up a
+ * frame late when Home's picture comes or goes, and on the top row, seen on every page, that showed as a flash.
+ */
+@Composable
+fun Modifier.glassFill(): Modifier = background((if (Palette.dark) Color.Black else Color.White).copy(alpha = if (Palette.dark) 0.45f else 0.6f))
 
 /** A hairline down the left edge: where a side panel meets the page. */
 fun Modifier.edgeLine() = drawBehind { drawLine(Palette.ink.copy(alpha = 0.1f), androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(0f, size.height), 1.dp.toPx()) }

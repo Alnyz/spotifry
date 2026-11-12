@@ -54,8 +54,8 @@ fun TopBar(
         Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 8.dp)) { Tab.entries.forEach { TabPill(it, it == tab) { onTab(it) } } }
         Spacer(Modifier.weight(1f))
         jumpBar()
-        Box(Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
-            Icon(Icons.Settings, "Settings", Modifier.size(22.dp), tint = if (settingsOn) Palette.accent else Palette.ink.copy(alpha = 0.62f))
+        Box(Modifier.size(38.dp).clip(CircleShape).glassFill().clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
+            Icon(Icons.Settings, "Settings", Modifier.size(22.dp), tint = if (settingsOn) Palette.accent else Palette.ink.copy(alpha = 0.85f))
         }
     }
 }

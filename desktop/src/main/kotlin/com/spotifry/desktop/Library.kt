@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
 import java.io.File
 
+const val HOME_PICTURE_KEY = "desktop_home_picture"
 const val APP_VERSION = "desktop-0.2.0"
 /** The same version as gradle/libs.versions.toml, for the About line. */
 const val NEWPIPE_VERSION = "v0.26.5"
@@ -42,6 +43,13 @@ class Library(
 
     /** The music folder's songs, shown under Saved, On this computer. */
     val musicFolder = MusicFolder(File(dir, "music_folder.json"), prefs, settings.hideNonMusic)
+
+    /** A picture of your own for Home's banner, instead of the one for the time of day; a desktop-only setting. */
+    val homePicture = kotlinx.coroutines.flow.MutableStateFlow(prefs.getString(HOME_PICTURE_KEY, null)?.takeIf { File(it).isFile })
+    fun setHomePicture(path: String?) {
+        prefs.edit().apply { if (path == null) remove(HOME_PICTURE_KEY) else putString(HOME_PICTURE_KEY, path) }.apply()
+        homePicture.value = path
+    }
 
     val recorder = PlayRecorder(history, listenLog) { id -> db.plays().count(id, System.currentTimeMillis()) }
 

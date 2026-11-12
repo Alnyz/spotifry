@@ -44,6 +44,7 @@ fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit =
         item {
             Group("Look") {
                 Row("Name", "Shown in the greeting", onClick = { editName = true }) { Value(name.ifEmpty { "Not set" }) }
+                HomePictureRow(services)
                 Row("Theme") { Segments(listOf("System", "Light", "Dark"), when (theme) { ThemeMode.PHONE -> 0; ThemeMode.LIGHT -> 1; ThemeMode.DARK -> 2 }) { settings.setTheme(ThemeMode.entries[it]) } }
                 Row("Accent colour", AccentChoice.of(accent).label) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -81,6 +82,8 @@ fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit =
             Group("About") {
                 Row("Spotifry", "Version $APP_VERSION")
                 Row("Music from YouTube", "Through NewPipe Extractor $NEWPIPE_VERSION.")
+                // the photos' licences ask for the photographer and the licence to be named
+                Row("Home pictures", "Photos from Wikimedia Commons: morning by Jakub Hałun (CC BY-SA 4.0), afternoon by PattayaPatrol (CC BY-SA 4.0), evening by Martin St-Amant (CC BY-SA 3.0), night by Vincent Lock (CC BY 2.0).")
             }
         }
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
@@ -130,6 +133,21 @@ internal fun shortPath(dir: java.io.File): String {
     if (p.length <= 32) return p
     val first = p.substringBefore('/', "").ifEmpty { "/" + p.removePrefix("/").substringBefore('/') }
     return "$first/…/${dir.name}"
+}
+
+/** Home's banner: the picture for the time of day, or one you pick. */
+@Composable
+private fun HomePictureRow(services: Services) {
+    val lib = services.library
+    val own by lib.homePicture.collectAsState()
+    val scope = rememberCoroutineScope()
+    Row("Home picture", own?.let { java.io.File(it).name } ?: "Changes with the time of day", onClick = {
+        scope.launch { FilePicker.picture("Pick a picture for Home")?.let { lib.setHomePicture(it.path) } }
+    }) {
+        if (own != null) Text("Use time of day", color = Palette.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { lib.setHomePicture(null) }.padding(horizontal = 6.dp, vertical = 4.dp))
+        else Value("Choose")
+    }
 }
 
 @Composable

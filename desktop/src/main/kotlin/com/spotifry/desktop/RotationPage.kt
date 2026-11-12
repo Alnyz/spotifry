@@ -279,7 +279,7 @@ fun RotationCard(services: Services, modifier: Modifier = Modifier, glass: Boole
     Row(
         // glass: over Home's picture, a dark see-through card with a thin edge
         modifier.clip(RoundedCornerShape(24.dp))
-            .then(if (glass) Modifier.background(Color.Black.copy(alpha = 0.62f)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)) else Modifier.background(Palette.ink.copy(alpha = 0.05f)))
+            .then(if (glass) Modifier.frosted(0.5f).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)) else Modifier.background(Palette.ink.copy(alpha = 0.05f)))
             .clickable(onClick = onOpen).padding(start = 8.dp, end = 26.dp, top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically,
     ) {

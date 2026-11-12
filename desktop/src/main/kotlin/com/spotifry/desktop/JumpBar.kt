@@ -1,5 +1,7 @@
 package com.spotifry.desktop
 
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,7 +42,7 @@ val isMac = System.getProperty("os.name").orEmpty().lowercase().contains("mac")
 val jumpShortcut = if (isMac) "⌘ K" else "Ctrl K"
 
 /** One line in the jump list: what it is, a small hint on the right, and what happens when it is picked. */
-private class JumpItem(val group: String, val title: String, val hint: String = "", val run: () -> Unit)
+private class JumpItem(val group: String, val title: String, val hint: String = "", val icon: androidx.compose.ui.graphics.vector.ImageVector? = null, val cover: String? = null, val run: () -> Unit)
 
 /**
  * The bar in the top row. Empty, it lists the places to go; typing narrows them and adds your playlists and the songs you
@@ -65,14 +67,14 @@ fun JumpBar(
     val items = remember(q, saved, recent, lists) {
         val has = { s: String -> q.isEmpty() || s.contains(q, ignoreCase = true) }
         buildList {
-            listOf("Home" to Route.Home, "Saved" to Route.Saved, "Playlists" to Route.Playlists, "Settings" to Route.Settings).filter { has(it.first) }
-                .forEach { (name, r) -> add(JumpItem("Go to", name) { done { goPage(r) }() }) }
-            if (has("Now playing")) add(JumpItem("Go to", "Now playing") { done { goNowPlaying() }() })
+            listOf(Triple("Home", Route.Home, Icons.Home), Triple("Saved", Route.Saved, Icons.Saved), Triple("Playlists", Route.Playlists, Icons.Playlists), Triple("Settings", Route.Settings, Icons.Settings))
+                .filter { has(it.first) }.forEach { (name, r, icon) -> add(JumpItem("Go to", name, icon = icon) { done { goPage(r) }() }) }
+            if (has("Now playing")) add(JumpItem("Go to", "Now playing", icon = Icons.Wave) { done { goNowPlaying() }() })
             if (q.isNotEmpty()) {
-                lists.filter { has(it.name) }.take(4).forEach { p -> add(JumpItem("Playlists", p.name, "${p.songCount} songs") { done { goPage(Route.Playlist(p.id)) }() }) }
+                lists.filter { has(it.name) }.take(4).forEach { p -> add(JumpItem("Playlists", p.name, "${p.songCount} songs", Icons.Playlists) { done { goPage(Route.Playlist(p.id)) }() }) }
                 val own = (saved + recent.map { it }).distinctBy(SongEntity::id).filter { has(it.title) || has(it.artist) }.take(5).map(SongEntity::toSong)
-                own.forEach { s -> add(JumpItem("Your songs", s.title, s.artist) { done { services.player.playList(listOf(s), 0, "Search") }() }) }
-                add(JumpItem("Search", "Search for “$q”") { leave(); onSearch() })
+                own.forEach { s -> add(JumpItem("Your songs", s.title, s.artist, cover = s.thumbnailUrl ?: s.localThumbPath ?: "") { done { services.player.playList(listOf(s), 0, "Search") }() }) }
+                add(JumpItem("Search", "Search for “$q”", icon = Icons.Search) { leave(); onSearch() })
             }
         }
     }
@@ -81,7 +83,7 @@ fun JumpBar(
 
     Box {
         Row(
-            Modifier.width(width).height(34.dp).clip(CircleShape).background(Palette.ink.copy(alpha = 0.04f)).border(1.dp, Palette.ink.copy(alpha = if (focused) 0.3f else 0.14f), CircleShape).padding(start = 14.dp, end = 8.dp),
+            Modifier.width(width).height(34.dp).clip(CircleShape).glassFill().border(1.dp, Palette.ink.copy(alpha = if (focused) 0.35f else 0.2f), CircleShape).padding(start = 14.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -100,23 +102,34 @@ fun JumpBar(
                     },
                 )
             }
-            Text(jumpShortcut, fontSize = 11.sp, color = Palette.ink.copy(alpha = 0.62f), modifier = Modifier.border(1.dp, Palette.ink.copy(alpha = 0.14f), RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+            // the shortcut as quiet text at the end, no box
+            Text(jumpShortcut, fontSize = 12.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = Palette.ink.copy(alpha = 0.5f), modifier = Modifier.padding(end = 8.dp))
         }
         if (focused && items.isNotEmpty()) Popup(popupPositionProvider = object : PopupPositionProvider {
             override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
                 IntOffset(anchorBounds.right - popupContentSize.width, anchorBounds.bottom + 8)
         }) {
-            Column(Modifier.width(360.dp).clip(RoundedCornerShape(14.dp)).background(Palette.surface).border(1.dp, Palette.ink.copy(alpha = 0.14f), RoundedCornerShape(14.dp)).padding(8.dp)) {
+            // dark glass like the player bar (a popup can't blur what is under it), the picked line in the accent like the top row
+            val shape = RoundedCornerShape(20.dp)
+            val glass = androidx.compose.ui.graphics.lerp(Palette.bg, Palette.glow ?: Palette.accent, 0.06f).copy(alpha = 0.97f)
+            Column(Modifier.width(380.dp).shadow(28.dp, shape).clip(shape).background(glass).border(1.dp, Palette.ink.copy(alpha = 0.1f), shape).padding(10.dp)) {
                 var last = ""
                 items.forEachIndexed { i, item ->
-                    if (item.group != last) { last = item.group; Kicker(item.group, Modifier.padding(start = 10.dp, top = if (i == 0) 4.dp else 12.dp, bottom = 4.dp)) }
+                    if (item.group != last) { last = item.group; Kicker(item.group, Modifier.padding(start = 12.dp, top = if (i == 0) 6.dp else 14.dp, bottom = 6.dp)) }
+                    val on = i == sel
+                    val tint = if (on) Palette.accent else Palette.ink
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (i == sel) Palette.ink.copy(alpha = 0.09f) else androidx.compose.ui.graphics.Color.Transparent).clickable { item.run() }.padding(horizontal = 10.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (on) Palette.accent.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.Transparent)
+                            .clickable { item.run() }.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(item.title, fontFamily = Display, fontSize = 15.sp, color = Palette.ink, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
-                        Spacer(Modifier.weight(1f))
-                        if (item.hint.isNotEmpty()) Text(item.hint, fontSize = 12.sp, color = Palette.ink2, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+                        if (item.cover != null) Cover(item.cover.ifEmpty { null }, 34.dp, RoundedCornerShape(8.dp))
+                        else Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(if (on) Palette.accent.copy(alpha = 0.18f) else Palette.ink.copy(alpha = 0.06f)), contentAlignment = Alignment.Center) {
+                            item.icon?.let { Icon(it, null, Modifier.size(18.dp), tint = tint.copy(alpha = if (on) 1f else 0.75f)) }
+                        }
+                        Text(item.title, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = 15.sp, color = tint, maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                        if (item.hint.isNotEmpty()) Text(item.hint, fontSize = 12.sp, color = Palette.ink2, maxLines = 1, modifier = Modifier.padding(end = 4.dp))
                     }
                 }
             }

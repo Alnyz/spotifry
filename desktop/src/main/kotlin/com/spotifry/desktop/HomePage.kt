@@ -43,6 +43,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -66,6 +67,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
     val hero: Song? = state.current ?: recentSongs.firstOrNull()
     val others = recentSongs.filter { it.id != hero?.id }
     val hour = LocalTime.now().hour
+    val name by lib.settings.name.collectAsState()
     var creating by remember { mutableStateOf(false) }
     if (creating) NameDialog("New playlist", "Create", "", { creating = false }) { name -> scope.launch { go(Route.Playlist(lib.db.playlists().create(name))) }; creating = false }
 
@@ -82,9 +84,10 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
             val playingThis = state.current?.id == hero.id
             val song: @Composable () -> Unit = {
                 Column {
+                    // "Good evening, Ali" with a name set in Settings; without one, a short line follows the greeting
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Kicker(buildGreeting(hour).trimEnd('.'))
-                        Box(Modifier.padding(start = 14.dp).width(70.dp).height(1.dp).background(Palette.ink.copy(alpha = 0.3f)))
+                        Kicker(buildGreeting(hour).trimEnd('.') + (name.trim().takeIf { it.isNotEmpty() }?.let { ", $it" } ?: ""))
+                        if (name.isBlank()) Box(Modifier.padding(start = 14.dp).width(70.dp).height(1.dp).background(Palette.ink.copy(alpha = 0.3f)))
                     }
                     BrushTitle(hero.title, Modifier.padding(top = 10.dp))
                     Text(hero.artist, color = Palette.ink.copy(alpha = 0.85f), fontSize = 20.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 26.dp))
@@ -165,20 +168,27 @@ private fun BrushTitle(title: String, modifier: Modifier = Modifier) {
     Box(
         modifier.fillMaxWidth().onSizeChanged { room = it.width.toFloat() }.drawBehind {
             if (textWidth <= 0f) return@drawBehind
-            // thick in the middle, thin at both ends, rising a little to the right
-            val y = baseline + 8.dp.toPx()
-            val w = minOf(textWidth, room) * .95f; val h = 16.dp.toPx(); val x0 = -8.dp.toPx()
+            // a brush stroke: a round, thick start on the left, sweeping up to the right and thinning to a point
+            val w = minOf(minOf(textWidth, room) * .82f, 560.dp.toPx())
+            val thick = 11.dp.toPx(); val x0 = -4.dp.toPx(); val y0 = baseline + 14.dp.toPx(); val rise = 9.dp.toPx()
+            fun center(s: Float) = androidx.compose.ui.geometry.Offset(x0 + w * s, y0 - rise * s * s + 2.dp.toPx() * s * (1 - s) * 4)
+            fun width(s: Float) = thick * (1f - s).let { it * (2f - it) }.coerceAtLeast(0.04f)
+            val n = 48
+            val top = (0..n).map { i -> val s = i / n.toFloat(); center(s).let { it.copy(y = it.y - width(s) / 2) } }
+            val bottom = (0..n).map { i -> val s = i / n.toFloat(); center(s).let { it.copy(y = it.y + width(s) / 2) } }
             val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(x0, y + h * .9f)
-                cubicTo(x0 + w * .3f, y + h * .1f, x0 + w * .7f, y - h * .15f, x0 + w, y)
-                cubicTo(x0 + w * .75f, y + h * .35f, x0 + w * .35f, y + h * .75f, x0 + w * .03f, y + h * 1.25f)
+                moveTo(top[0].x, top[0].y)
+                top.drop(1).forEach { lineTo(it.x, it.y) }
+                bottom.reversed().forEach { lineTo(it.x, it.y) }
                 close()
             }
-            drawPath(path, accent)
+            val paint = Brush.horizontalGradient(listOf(accent, accent.copy(alpha = 0.85f)), startX = x0, endX = x0 + w)
+            drawPath(path, paint)
+            drawCircle(accent, thick / 2, center(0f))
         },
     ) {
         Text(
-            title, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = size, letterSpacing = (-2).sp, color = Palette.ink, maxLines = 1, softWrap = false,
+            title, fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = size, letterSpacing = (-2).sp, color = Palette.ink, maxLines = 1, softWrap = false,
             onTextLayout = { textWidth = it.multiParagraph.intrinsics.maxIntrinsicWidth; baseline = it.firstBaseline },
             modifier = Modifier.fillMaxWidth()
                 .then(if (long) Modifier
@@ -192,9 +202,9 @@ private fun BrushTitle(title: String, modifier: Modifier = Modifier) {
 
 /** A section's name with an accent mark before it, and See all at the far end. */
 @Composable
-private fun HomeSection(title: String, onAll: () -> Unit) = Row(Modifier.fillMaxWidth().padding(top = 30.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun HomeSection(title: String, onAll: () -> Unit) = Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Box(Modifier.width(4.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(Palette.accent))
-    Text(title, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(start = 12.dp).weight(1f))
+    Text(title, fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(start = 12.dp).weight(1f))
     Text("See all →", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink2, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAll).padding(horizontal = 6.dp, vertical = 4.dp))
 }
 
@@ -224,9 +234,12 @@ private fun Tile(art: String? = null, onClick: () -> Unit, content: @Composable 
  * Without a picture there is only a soft glow.
  */
 @Composable
-fun HomeBanner(list: LazyListState, base: Color, modifier: Modifier = Modifier) {
-    val slot = when (LocalTime.now().hour) { in 5..11 -> "morning"; in 12..16 -> "afternoon"; in 17..20 -> "evening"; else -> "night" }
-    val image = remember(slot) { bannerImage(slot) }
+fun HomeBanner(services: Services, list: LazyListState, base: Color, modifier: Modifier = Modifier) {
+    val slot = when (bannerHour()) { in 5..11 -> "morning"; in 12..16 -> "afternoon"; in 17..20 -> "evening"; else -> "night" }
+    val own by services.library.homePicture.collectAsState()
+    val image by produceState(remember(slot) { bannerImage(slot) }, own, slot) {
+        value = own?.let { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { ownPicture(it) } } ?: bannerImage(slot)
+    }
     val shift by remember { derivedStateOf { if (list.firstVisibleItemIndex == 0) list.firstVisibleItemScrollOffset.toFloat() else Float.MAX_VALUE } }
     Box(
         modifier.fillMaxWidth().height(BANNER_HEIGHT)
@@ -234,12 +247,29 @@ fun HomeBanner(list: LazyListState, base: Color, modifier: Modifier = Modifier) 
             // the lower part melts into the window instead of ending in a line
             .drawWithContent { drawContent(); drawRect(Brush.verticalGradient(0.55f to Color.Black, 1f to Color.Transparent), blendMode = androidx.compose.ui.graphics.BlendMode.DstIn) },
     ) {
-        if (image != null) androidx.compose.foundation.Image(image, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop, alignment = Alignment.CenterEnd)
+        val shown = image
+        if (shown != null) androidx.compose.foundation.Image(shown, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop, alignment = Alignment.CenterEnd)
         else Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Palette.accent.copy(alpha = 0.22f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(1100f, 120f), radius = 900f)))
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to base.copy(alpha = 0.92f), 0.4f to base.copy(alpha = 0.55f), 0.75f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to base.copy(alpha = 0.45f), 0.18f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to base.copy(alpha = 0.7f), 0.24f to Color.Transparent)))
     }
 }
+
+/** A picture chosen in Settings, made 2400 wide by ffmpeg so a camera photo stays light; null when it can't be read. */
+private val own = HashMap<String, androidx.compose.ui.graphics.ImageBitmap?>()
+private fun ownPicture(path: String) = synchronized(own) { own.getOrPut(path) {
+    runCatching {
+        val bytes = runCatching {
+            val p = ProcessBuilder("ffmpeg", "-v", "quiet", "-i", path, "-frames:v", "1", "-vf", "scale='min(2400,iw)':-2", "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "3", "-")
+                .redirectError(ProcessBuilder.Redirect.DISCARD).start()
+            p.inputStream.readBytes().takeIf { p.waitFor() == 0 && it.isNotEmpty() }
+        }.getOrNull() ?: java.io.File(path).readBytes()
+        org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
+    }.getOrNull()
+} }
+
+/** The hour that picks Home's picture; tests set it to see each one. */
+internal var bannerHour: () -> Int = { LocalTime.now().hour }
 
 /** The picture for one time of day, read once; null until one is added to the app. */
 private val banners = HashMap<String, androidx.compose.ui.graphics.ImageBitmap?>()
@@ -261,10 +291,20 @@ private fun SlideRow(arrowTop: androidx.compose.ui.unit.Dp, content: LazyListSco
     val scope = rememberCoroutineScope()
     BoxWithConstraints {
         val step = with(androidx.compose.ui.platform.LocalDensity.current) { (maxWidth * .8f).toPx() }
-        LazyRow(state = list, horizontalArrangement = Arrangement.spacedBy(18.dp), content = content)
+        // room around the row for a cover or tile that grows a little under the pointer; the row is widened by the same
+        // amount on both sides so the first cover still lines up with the titles
+        val room = 10.dp
+        LazyRow(
+            Modifier.layout { m, c ->
+                val p = room.roundToPx()
+                val placed = m.measure(c.copy(minWidth = c.minWidth + 2 * p, maxWidth = if (c.hasBoundedWidth) c.maxWidth + 2 * p else c.maxWidth))
+                layout(placed.width - 2 * p, placed.height) { placed.place(-p, 0) }
+            },
+            state = list, contentPadding = PaddingValues(room), horizontalArrangement = Arrangement.spacedBy(18.dp), content = content,
+        )
         // on the middle of the covers or tiles
-        Slide(list.canScrollBackward, left = true, Modifier.align(Alignment.TopStart).padding(top = arrowTop).offset(x = (-22).dp)) { scope.launch { list.animateScrollBy(-step) } }
-        Slide(list.canScrollForward, left = false, Modifier.align(Alignment.TopEnd).padding(top = arrowTop).offset(x = 22.dp)) { scope.launch { list.animateScrollBy(step) } }
+        Slide(list.canScrollBackward, left = true, Modifier.align(Alignment.TopStart).padding(top = arrowTop + room).offset(x = (-22).dp)) { scope.launch { list.animateScrollBy(-step) } }
+        Slide(list.canScrollForward, left = false, Modifier.align(Alignment.TopEnd).padding(top = arrowTop + room).offset(x = 22.dp)) { scope.launch { list.animateScrollBy(step) } }
     }
 }
 

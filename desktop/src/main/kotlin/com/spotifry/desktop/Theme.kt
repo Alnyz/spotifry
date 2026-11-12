@@ -65,6 +65,9 @@ val Albert = albertAt()
  */
 val Display = albertAt(200)
 
+/** Manrope, bold and extra bold: Home's big song name and section titles, after Ali's mockup (on trial, 2026-11-12). */
+val Manrope = FontFamily(Font(resource = "font/manrope-700.ttf", weight = FontWeight.Bold), Font(resource = "font/manrope-800.ttf", weight = FontWeight.ExtraBold))
+
 private fun Typography.with(f: FontFamily) = copy(
     displayLarge = displayLarge.copy(fontFamily = f), displayMedium = displayMedium.copy(fontFamily = f), displaySmall = displaySmall.copy(fontFamily = f),
     headlineLarge = headlineLarge.copy(fontFamily = f), headlineMedium = headlineMedium.copy(fontFamily = f), headlineSmall = headlineSmall.copy(fontFamily = f),

@@ -49,6 +49,16 @@ object FilePicker {
         }?.takeIf { it.isDirectory }
     }
 
+    /** A picture file, starting in the Pictures folder. */
+    suspend fun picture(title: String): File? = withContext(Dispatchers.IO) {
+        val start = picturesDir().path + "/"
+        when {
+            has("kdialog") -> run("kdialog", "--title", title, "--getopenfilename", start, "*.jpg *.jpeg *.png *.webp|Pictures")
+            has("zenity") -> run("zenity", "--file-selection", "--title=$title", "--filename=$start", "--file-filter=Pictures | *.jpg *.jpeg *.png *.webp")
+            else -> awt(title, FileDialog.LOAD, null)
+        }?.takeIf { it.isFile }
+    }
+
     private fun awt(title: String, mode: Int, name: String?): File? {
         val d = FileDialog(null as Frame?, title, mode)
         if (name != null) d.file = name

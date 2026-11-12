@@ -106,6 +106,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
 
     val haze = remember { dev.chrisbanes.haze.HazeState() }
     val homeList = androidx.compose.foundation.lazy.rememberLazyListState()
+    val bannerHaze = remember { dev.chrisbanes.haze.HazeState() }
     val jump = remember { FocusRequester() }
     val root = remember { FocusRequester() }
     LaunchedEffect(Unit) { root.requestFocus() }
@@ -117,7 +118,9 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
             .pointerInput(Unit) { awaitPointerEventScope { while (true) { val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial); if (e.type == androidx.compose.ui.input.pointer.PointerEventType.Press) root.requestFocus() } } }
             .onPreviewKeyEvent { if (it.type == KeyEventType.KeyDown && (it.isCtrlPressed || (isMac && it.isMetaPressed)) && it.key == Key.K) { jump.requestFocus(); true } else false },
     ) {
-        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(glow.copy(alpha = if (Palette.dark) 0.42f else 0.22f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(1500f, -100f), radius = 1100f)))
+        // the window's colour and glow, and Home's picture over them, are what the frosted search bar, gear and card blur:
+        // the same glass on every page, with the picture only where there is one
+        Box(Modifier.fillMaxSize().hazeSource(bannerHaze, zIndex = 0f).background(base).background(Brush.radialGradient(listOf(glow.copy(alpha = if (Palette.dark) 0.42f else 0.22f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(1500f, -100f), radius = 1100f)))
         if (fresh == true && !welcomed) { FirstLaunch(services, flow) { welcomed = true }; BackupDialogs(flow); return@Box }
         if (fresh == null) return@Box
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -126,8 +129,9 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                 // Home's picture runs behind the top row
                 androidx.compose.animation.AnimatedVisibility(route == Route.Home && !nowPlaying, enter = androidx.compose.animation.fadeIn(tween(350)), exit = androidx.compose.animation.fadeOut(tween(350))) {
-                    HomeBanner(homeList, base)
+                    HomeBanner(services, homeList, base, Modifier.hazeSource(bannerHaze, zIndex = 1f))
                 }
+                androidx.compose.runtime.CompositionLocalProvider(LocalBannerHaze provides bannerHaze) {
                 Column(Modifier.fillMaxSize()) {
                     TopBar(
                         tab, { t -> when (t) { Tab.Home -> { route = Route.Home; nowPlaying = false }; Tab.NowPlaying -> nowPlaying = true; Tab.Saved -> { route = Route.Saved; nowPlaying = false } } },
@@ -155,6 +159,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                             }
                         } }
                     }
+                }
                 }
                 }
                 // on Now playing the song is shown in the page itself, so the side panel slides away
