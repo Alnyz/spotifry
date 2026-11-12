@@ -169,8 +169,8 @@ private fun BarSeek(player: MusicPlayer, s: PlayerUiState) {
     val max = s.durationMs.toFloat().coerceAtLeast(1f)
     val shown = (dragging ?: position.toFloat()).coerceIn(0f, max)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(clock(shown.toLong()), color = Palette.ink.copy(alpha = 0.5f), fontSize = 12.sp)
+        TimeText(clock(shown.toLong()), Palette.ink.copy(alpha = 0.5f), 12.sp)
         Track(shown, max, Palette.accent, { dragging = it }, { dragging?.let { player.seekTo(it.toLong()) }; dragging = null }, Modifier.weight(1f))
-        Text(clock(s.durationMs), color = Palette.ink.copy(alpha = 0.5f), fontSize = 12.sp)
+        TimeText(clock(s.durationMs), Palette.ink.copy(alpha = 0.5f), 12.sp)
     }
 }

@@ -4,7 +4,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -64,19 +75,19 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
             }
             // the song and your rotation side by side; on a narrow window the rotation goes under the song
             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                if (maxWidth > 900.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (maxWidth > 900.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(40.dp), verticalAlignment = Alignment.Top) {
                     Box(Modifier.weight(1f)) { song() }
-                    RotationCard(services, Modifier.width(500.dp)) { go(Route.Rotation) }
+                    RotationCard(services, Modifier.width(500.dp), { go(Route.Spotifried) }) { go(Route.Rotation) }
                 } else Column {
                     song()
-                    RotationCard(services, Modifier.padding(top = 24.dp).fillMaxWidth()) { go(Route.Rotation) }
+                    RotationCard(services, Modifier.padding(top = 24.dp).fillMaxWidth(), { go(Route.Spotifried) }) { go(Route.Rotation) }
                 }
             }
         }
         if (others.isNotEmpty()) {
-            item { SectionTitle("Recently played") }
+            item { SectionTitle("Recently played", line = false) }
             item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                SlideRow {
                     itemsIndexed(others.take(12)) { i, s ->
                         CoverCard(s.title, s.artist, { w -> Cover(s.thumbnailUrl ?: s.localThumbPath, w, RoundedCornerShape(8.dp)) }, onClick = { services.player.playList(others, i, "Recently played") })
                     }
@@ -84,9 +95,9 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
             }
         }
         if (lists.isNotEmpty()) {
-            item { SectionTitle("Your playlists") }
+            item { SectionTitle("Your playlists", line = false) }
             item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                SlideRow {
                     itemsIndexed(lists) { _, p ->
                         val art = covers.filter { it.playlistId == p.id }.take(4).map { it.song.thumbnailUrl }
                         CoverCard(p.name, "${p.songCount} songs · ${p.savedCount} saved", { w -> Mosaic(art, w) }, onClick = { go(Route.Playlist(p.id)) })
@@ -99,3 +110,33 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
 }
 
 fun buildGreeting(hour: Int) = when { hour < 12 -> "Good morning."; hour < 18 -> "Good afternoon."; else -> "Good evening." }
+
+/**
+ * A row of covers that slides sideways. Shift and the mouse wheel, or a touchpad, move it; round arrows at either end show
+ * when there is more that way, so nobody has to know that.
+ */
+@Composable
+private fun SlideRow(content: LazyListScope.() -> Unit) {
+    val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    BoxWithConstraints {
+        val step = with(androidx.compose.ui.platform.LocalDensity.current) { (maxWidth * .8f).toPx() }
+        LazyRow(state = list, horizontalArrangement = Arrangement.spacedBy(18.dp), content = content)
+        // on the covers' middle (they are 180 high)
+        Slide(list.canScrollBackward, left = true, Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 68.dp)) { scope.launch { list.animateScrollBy(-step) } }
+        Slide(list.canScrollForward, left = false, Modifier.align(Alignment.TopEnd).padding(end = 8.dp, top = 68.dp)) { scope.launch { list.animateScrollBy(step) } }
+    }
+}
+
+@Composable
+private fun Slide(shown: Boolean, left: Boolean, modifier: Modifier, onClick: () -> Unit) =
+    AnimatedVisibility(shown, modifier, enter = fadeIn(), exit = fadeOut()) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(Palette.bg.copy(alpha = .82f)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.size(14.dp)) {
+                val w = size.width; val x0 = if (left) w * .68f else w * .32f; val x1 = if (left) w * .3f else w * .7f
+                val ink = Palette.ink
+                drawLine(ink, Offset(x0, 0f), Offset(x1, w / 2), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(ink, Offset(x1, w / 2), Offset(x0, w), 2.dp.toPx(), StrokeCap.Round)
+            }
+        }
+    }

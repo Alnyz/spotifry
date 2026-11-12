@@ -57,7 +57,7 @@ private fun albertAt(shift: Int = 0) = FontFamily(listOf(400, 500, 600, 700, 800
     Font(resource = "font/albertsans-${minOf(w + shift, 800)}.ttf", weight = FontWeight(w))
 })
 
-private val albert = albertAt()
+val Albert = albertAt()
 
 /**
  * Headlines, song names and lyrics: Albert Sans like the rest, two steps heavier (regular shows semi-bold), the phone's
@@ -80,5 +80,5 @@ fun SpotifryTheme(content: @Composable () -> Unit) = MaterialTheme(
         outline = Palette.line, outlineVariant = Palette.line, onBackground = Palette.ink, onSurface = Palette.ink,
         onSurfaceVariant = Palette.ink2, primary = Palette.accent, onPrimary = Palette.onAccent,
     ),
-    typography = Typography().with(albert),
+    typography = Typography().with(Albert),
 ) { CompositionLocalProvider(LocalContentColor provides Palette.ink, content = content) }

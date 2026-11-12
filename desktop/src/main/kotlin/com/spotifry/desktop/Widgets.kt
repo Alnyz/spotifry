@@ -81,9 +81,9 @@ fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun SectionTitle(text: String) = Column(Modifier.padding(top = 28.dp, bottom = 8.dp)) {
-    Text(text, fontFamily = Display, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(bottom = 8.dp))
-    Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.ink.copy(alpha = 0.14f)))
+fun SectionTitle(text: String, line: Boolean = true) = Column(Modifier.padding(top = 28.dp, bottom = 8.dp)) {
+    Text(text, fontFamily = Display, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(bottom = if (line) 8.dp else 4.dp))
+    if (line) Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.ink.copy(alpha = 0.14f)))
 }
 
 @Composable
@@ -116,8 +116,8 @@ fun CoverCard(title: String, subtitle: String, cover: @Composable (Dp) -> Unit, 
     // no grey box: the cover lifts a little and the name warms up
     Column(Modifier.width(width).hoverable(src).clickable(src, null, onClick = onClick)) {
         Box(Modifier.graphicsLayer { scaleX = lift; scaleY = lift }) { cover(width) }
-        Text(title, fontFamily = Display, fontSize = 17.sp, maxLines = 1, color = if (hot) Palette.accent else Palette.ink, modifier = Modifier.padding(top = 10.dp))
-        Text(subtitle, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
+        Text(title, fontFamily = Display, fontSize = 17.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = if (hot) Palette.accent else Palette.ink, modifier = Modifier.padding(top = 10.dp))
+        Text(subtitle, color = Palette.ink2, fontSize = 13.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 
@@ -165,7 +165,7 @@ fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved:
             }
             Text(s.artist, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
         }
-        Text(clock(s.durationSec * 1000), color = Palette.ink2, fontSize = 13.sp)
+        TimeText(clock(s.durationSec * 1000), Palette.ink2, 13.sp)
         Box {
             Box(Modifier.size(32.dp).clip(CircleShape).clickable { menu = true }, contentAlignment = Alignment.Center) { Icon(Icons.More, "More", Modifier.size(20.dp), tint = Palette.ink2) }
             if (menu) SongMenu(services, s, { menu = false }, extra)
@@ -379,4 +379,16 @@ fun SpeedPitchDialog(settings: Settings, onDismiss: () -> Unit) {
 fun Artist(s: Song, size: androidx.compose.ui.unit.TextUnit) = Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
     if (s.suggested) Icon(Icons.Sparkle, null, Modifier.size(11.dp), tint = Palette.accent)
     Text(if (s.suggested) "${s.artist} · suggested for you" else s.artist, color = Palette.ink2, fontSize = size, maxLines = 1)
+}
+
+/**
+ * A time like 3:52 with every digit in a slot as wide as the widest one, so times in a column line up. Albert Sans has no
+ * equal-width digits of its own (no "tnum"); its 4 is the widest, .655 of the size.
+ */
+@Composable
+fun TimeText(text: String, color: Color, size: androidx.compose.ui.unit.TextUnit) = Row {
+    text.forEach { c ->
+        if (c.isDigit()) Box(Modifier.width((size.value * .66f).dp), contentAlignment = Alignment.Center) { Text(c.toString(), color = color, fontSize = size, maxLines = 1, softWrap = false) }
+        else Text(c.toString(), color = color, fontSize = size)
+    }
 }

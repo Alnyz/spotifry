@@ -12,6 +12,7 @@ import com.spotifry.music.player.RepeatMode
 import com.spotifry.music.player.Trim
 import com.spotifry.music.data.db.toEntity
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.Test
 import java.io.File
@@ -62,9 +63,9 @@ class SnapshotTest {
         return lib
     }
 
-    private fun shoot(name: String, route: Route, library: Library = library()) {
+    private fun shoot(name: String, route: Route, library: Library = library(), height: Int = 800, width: Int = 1280) {
         val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library, fakePlayer, setVolume = {})
-        val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startOn = route, initialQuery = if (route == Route.Search) "kala biru" else "") } }
+        val scene = ImageComposeScene(width, height, Density(1f)) { SpotifryTheme { App(services, startOn = route, initialQuery = if (route == Route.Search) "kala biru" else "") } }
         var t = 0L
         repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
         val png = scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes
@@ -75,6 +76,18 @@ class SnapshotTest {
     @Test fun homeAndRotation() {
         shoot("home", Route.Home)
         shoot("rotation", Route.Rotation)
+    }
+
+    @Test fun spotifried() {
+        val lib = library()
+        shoot("rotation-tall", Route.Rotation, lib, height = 1300)
+        shoot("spotifried", Route.Spotifried, lib)
+        shoot("rotation-wide", Route.Rotation, lib, height = 1040, width = 1920)
+        shoot("home-wide", Route.Home, lib, height = 1040, width = 1920)
+        kotlinx.coroutines.runBlocking {
+            val state = spotifriedState(lib.db.listens().observeAll().first(), emptyList(), null, "Ali")
+            savePictures(state, File("build/snapshots"))
+        }
     }
 
     @Test fun settingsLightAndDark() {

@@ -80,6 +80,8 @@ internal fun hourAt(x: Float, y: Float, width: Float): Int? {
 fun Sun(
     hours: List<Long>, scale: Float, live: Boolean, motion: SunMotion, modifier: Modifier = Modifier, small: Boolean = false,
     selected: Int? = null, onTap: ((Int?) -> Unit)? = null, labels: Boolean = true,
+    /** The dark theme's colours whatever the window's theme: the Spotifried story is always dark. */
+    dark: Boolean = Palette.dark,
 ) {
     val peak = (hours.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
     val target = remember(hours) { FloatArray(24) { hours[it] / peak } }
@@ -104,9 +106,8 @@ fun Sun(
         }
     }
 
-    val dark = Palette.dark
     val hot = Palette.accentChoice.dark
-    val line = Palette.accent
+    val line = if (dark) Palette.accentChoice.dark else Palette.accentChoice.light
     val stops = remember(hot, line, dark) {
         if (dark) arrayOf(0f to deeper(hot), .35f to hot, .72f to lerp(hot, Color.White, .45f), 1f to lerp(hot, Color.White, .85f))
         else arrayOf(0f to lerp(line, Color.Black, .37f), .45f to line, 1f to hot)
@@ -168,6 +169,20 @@ fun Sun(
             }
         }
     }
+}
+
+/** How far the rays reach from the centre at most, straight up ([up]) or down, as a share of the square's side; never a glow. */
+internal fun sunReach(hours: List<Long>, scale: Float, up: Boolean = true): Float {
+    val peak = (hours.maxOrNull() ?: 0L).coerceAtLeast(1L).toFloat()
+    val now = FloatArray(24) { hours[it] / peak }
+    var most = SUN_INNER
+    for (k in 0 until 96) {
+        val a = k / 96f * 2 * PI.toFloat()
+        val toward = if (up) cos(a) else -cos(a) // cos is 1 straight up at midnight, -1 straight down at noon
+        if (toward <= 0f) continue
+        most = maxOf(most, (SUN_INNER + SUN_REACH * valueAt(now, a).pow(.7f) * scale) * toward)
+    }
+    return most
 }
 
 /** Between two hours the length eases from one to the other, so an hour with listening shows as one round tongue. */

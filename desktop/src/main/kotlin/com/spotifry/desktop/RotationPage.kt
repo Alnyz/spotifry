@@ -49,7 +49,7 @@ import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.sqrt
 
-private fun count(n: Int) = "%,d".format(Locale.US, n)
+internal fun count(n: Int) = "%,d".format(Locale.US, n)
 
 /** The big title: what your own hours make you. The same words as the phone. */
 private fun listenerTitle(p: Period, firstDay: Boolean) = when {
@@ -66,32 +66,35 @@ private fun listenerLine(p: Period, firstDay: Boolean) = when {
 
 /** Your rotation: what this computer has counted, drawn as a sun, like the phone. Nothing here leaves the computer. */
 @Composable
-fun RotationPage(services: Services, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun RotationPage(services: Services, onBack: () -> Unit, onSpotifried: () -> Unit, modifier: Modifier = Modifier) {
     val lib = services.library
     val flow = remember(lib) { lib.db.listens().observeAll().map { listeningStats(it) }.flowOn(Dispatchers.Default) }
     val stats by flow.collectAsState(null)
     val state by services.player.state.collectAsState()
     val s = stats
-    LazyColumn(modifier.widthIn(max = 1100.dp)) {
+    LazyColumn(modifier) {
         item { Text("‹ Home", color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onBack).padding(vertical = 6.dp, horizontal = 4.dp)) }
         if (s == null) item { Text("Nothing heard yet. What you play is counted here, only on this computer.", color = Palette.ink2, fontSize = 16.sp, modifier = Modifier.padding(top = 24.dp)) }
-        else rotation(services, s, state.isPlaying, state.current?.id)
+        else rotation(services, s, state.isPlaying, state.current?.id, onSpotifried)
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Services, stats: ListeningStats, playing: Boolean, currentId: String?) {
+private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Services, stats: ListeningStats, playing: Boolean, currentId: String?, onSpotifried: () -> Unit) {
     item("head") {
         var picked by remember { mutableStateOf<PeriodId?>(null) }
         val period = stats.periods.firstOrNull { it.id == picked } ?: stats.periods.first { it.id == stats.opensOn }
         var hour by remember(period.id) { mutableStateOf<Int?>(null) }
         val motion = remember { SunMotion() }
-        Column {
+        // wide: Spotifried stands beside the numbers; narrower, it gets its own row under them
+        BoxWithConstraints { val wide = maxWidth > 1250.dp; Column {
             // the sun big on the left, what it says on the right
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.width(380.dp).offset(x = (-24).dp), contentAlignment = Alignment.Center) {
-                    Sun(period.hours, sunScale(period.minutes), playing, motion, Modifier.fillMaxWidth(), selected = hour, onTap = { h -> hour = if (h == hour) null else h })
-                    Centre(period, hour, Modifier.width(120.dp))
+                Tip("Click a ray to see that hour") {
+                    Box(Modifier.width(380.dp), contentAlignment = Alignment.Center) {
+                        Sun(period.hours, sunScale(period.minutes), playing, motion, Modifier.fillMaxWidth(), selected = hour, onTap = { h -> hour = if (h == hour) null else h })
+                        Centre(period, hour, Modifier.width(120.dp))
+                    }
                 }
                 Column(Modifier.weight(1f)) {
                     Kicker("Your rotation")
@@ -104,11 +107,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Se
                         stats.periods.forEach { p -> Chip("${p.label} · ${count(p.minutes)} min", p.id == period.id) { picked = p.id } }
                     }
                     if (period.seconds > 0) Column(Modifier.padding(top = 28.dp)) { Tally(period) }
-                    Text("Click a ray to see that hour.", color = Palette.ink2, fontSize = 12.sp, modifier = Modifier.padding(top = 18.dp))
                 }
+                if (wide) SpotifriedTall(onSpotifried, Modifier.width(360.dp))
             }
+            if (!wide) SpotifriedBand(onSpotifried, Modifier.padding(top = 36.dp))
             if (period.seconds > 0) TopLists(services, period, currentId)
-        }
+        } }
     }
     if (!stats.firstDay) item("days") {
         SectionTitle("Every day you've played")
@@ -253,7 +257,7 @@ private fun DaysGrid(stats: ListeningStats) {
  * been heard; a click opens Your rotation.
  */
 @Composable
-fun RotationCard(services: Services, modifier: Modifier = Modifier, onOpen: () -> Unit) {
+fun RotationCard(services: Services, modifier: Modifier = Modifier, onSpotifried: () -> Unit, onOpen: () -> Unit) {
     val lib = services.library
     val any by remember(lib) { lib.db.listens().observeAny() }.collectAsState(false)
     if (!any) return
@@ -264,7 +268,8 @@ fun RotationCard(services: Services, modifier: Modifier = Modifier, onOpen: () -
     val hours = remember(rows) { LongArray(24).also { a -> rows.forEach { a[Instant.ofEpochMilli(it.startedAt).atZone(zone).hour] += it.secondsHeard.toLong() } }.toList() }
     val days = remember(rows) { LongArray(7).also { a -> rows.forEach { a[Instant.ofEpochMilli(it.startedAt).atZone(zone).dayOfWeek.value - 1] += it.secondsHeard.toLong() } } }
     val minutes = minutesOf(rows.sumOf { it.secondsHeard.toLong() })
-    val songs = remember(rows) { rows.map { it.songId }.distinct().size }
+    // heard for 30 s or more, as Your rotation counts them
+    val songs = remember(rows) { rows.filter { it.secondsHeard * 1000L >= com.spotifry.music.player.LISTEN_MS }.map { it.songId }.distinct().size }
     val peak = hours.indices.maxBy { hours[it] }
     val playing by services.player.state.collectAsState()
     val motion = remember { SunMotion() }
@@ -287,8 +292,8 @@ fun RotationCard(services: Services, modifier: Modifier = Modifier, onOpen: () -
                 fontFamily = Display, fontSize = 30.sp, lineHeight = 32.sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
             )
             Text(
-                if (minutes == 0) "Nothing yet this week. Play something." else "${longDuration(minutes)} · ${count(songs)} ${if (songs == 1) "song" else "songs"}. Most around ${hourName(peak)}",
-                color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp),
+                if (minutes == 0) "Nothing yet this week. Play something." else "${longDuration(minutes)} · ${count(songs)} ${if (songs == 1) "song" else "songs"}\nMost around ${hourName(peak)}",
+                color = Palette.ink2, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 4.dp),
             )
             // the seven days, Monday first, brighter the more was played; days still to come stay empty
             val most = max(days.maxOrNull() ?: 1L, 1L).toFloat()
@@ -301,7 +306,13 @@ fun RotationCard(services: Services, modifier: Modifier = Modifier, onOpen: () -
                     }
                 }
             }
-            Text("See your rotation ›", color = Palette.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp))
+            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Text("See your rotation ›", color = Palette.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Spotifried ›", color = Palette.ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onSpotifried),
+                )
+            }
         }
     }
 }

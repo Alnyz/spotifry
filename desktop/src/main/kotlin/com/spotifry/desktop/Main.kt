@@ -56,6 +56,8 @@ class Services(
     val replay: ReplayStore? = null,
     /** The song heard (what mpv reads) and where it is in it, in ms; null when nothing plays or in tests. */
     val listening: () -> Pair<String, Long>? = { null },
+    /** Starts looking up release years for played songs, for Spotifried; nothing in tests. */
+    val lookUpYears: () -> Unit = {},
 ) {
     /** Set by the window: bring it to the front (the media widget's "open"), and quit. */
     var raise: () -> Unit = {}
@@ -101,8 +103,11 @@ fun productionServices(): Services {
     scope.launch { settings.skipSilence.collect { player.setFilter("quiet", if (it) Sound.SKIP_QUIET else null) } }
     // a song already looked up keeps its old source; forget the links so the next play asks again
     scope.launch { kotlinx.coroutines.flow.combine(settings.jioSaavn, settings.monochrome, ::Pair).drop(1).collect { resolver.clear() } }
+    val brainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = "Spotifry/$APP_VERSION (https://github.com/Alnyz/spotifry)")
     lateinit var services: Services
-    services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay, listening = player::listening)
+    services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay, listening = player::listening,
+        lookUpYears = { lookUpSongYears(library, scope, brainz) })
+    services.lookUpYears()
     services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
     return services
 }

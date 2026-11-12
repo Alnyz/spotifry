@@ -62,6 +62,7 @@ sealed interface Route {
     data object Settings : Route { override val page = Page.Settings }
     data object Equalizer : Route { override val page = Page.Settings }
     data object Rotation : Route { override val page = Page.Home }
+    data object Spotifried : Route { override val page = Page.Home }
 }
 
 enum class Page(val label: String, val icon: ImageVector) {
@@ -128,7 +129,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                         JumpBar(services, query, { query = it }, jump, { root.requestFocus() }, if (compact) 220.dp else 260.dp, { route = it; nowPlaying = false }, { nowPlaying = true }, ::search)
                     }
                     Box(Modifier.weight(1f).fillMaxWidth().padding(start = if (compact) 28.dp else 40.dp, end = if (compact) 28.dp else 40.dp)) {
-                        val pad = Modifier.widthIn(max = if (nowPlaying) 1400.dp else 1180.dp).fillMaxHeight().padding(top = 10.dp)
+                        val pad = Modifier.widthIn(max = if (nowPlaying || route.page == Page.Home) 1400.dp else 1180.dp).fillMaxHeight().padding(top = 10.dp)
                         // pages fade into each other instead of snapping
                         androidx.compose.runtime.CompositionLocalProvider(LocalBottomInset provides (if (state.current != null) 112.dp else 0.dp)) { androidx.compose.animation.Crossfade(if (nowPlaying) "now" else route, animationSpec = tween(350)) { shown ->
                             if (shown == "now") NowPlayingPage(services, state, queueOpen, { queueOpen = !queueOpen }, pad)
@@ -140,7 +141,8 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                                 is Route.Playlist -> PlaylistPage(services, r.id, { route = it }, pad)
                                 Route.Settings -> SettingsPage(services, flow, { route = Route.Equalizer }, pad)
                                 Route.Equalizer -> EqualizerPage(services, { route = Route.Settings }, pad)
-                                Route.Rotation -> RotationPage(services, { route = Route.Home }, pad)
+                                Route.Rotation -> RotationPage(services, { route = Route.Home }, { route = Route.Spotifried }, pad)
+                                Route.Spotifried -> SpotifriedPage(services, { route = Route.Rotation }, pad)
                             }
                         } }
                     }
