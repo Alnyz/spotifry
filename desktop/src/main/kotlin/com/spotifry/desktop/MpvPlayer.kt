@@ -51,7 +51,7 @@ class MpvPlayer(
     private val fadeSeconds: () -> Int = { 0 },
     /** Where mpv reads a song found online: its link, or replay storage ([ReplayStore]). */
     private val playFrom: (Song, com.spotifry.music.data.source.ResolvedStream) -> String = { _, s -> s.url },
-    /** Songs like this one, for Smart shuffle. */
+    /** Songs like this one, for Smart shuffle and for when the queue runs out. */
     private val related: suspend (Song) -> List<Song> = { emptyList() },
     /** Songs marked "Not this song": never suggested again. */
     private val notSuggested: () -> Set<String> = { emptySet() },
@@ -69,6 +69,8 @@ class MpvPlayer(
     /** Smart shuffle: shuffle with a similar song after every three of yours. */
     private var smart = false
     private var filling = false
+    /** The last song similar songs were asked for, so each end of the queue asks once. */
+    private var appendedFor: String? = null
     private var repeat = RepeatMode.OFF
     /** Queue positions in play order, the playing one first. Null when the list plays as it is. */
     private var order: List<Int>? = null
@@ -263,9 +265,37 @@ class MpvPlayer(
         }
     }
 
+    /**
+     * As on the phone: with one song or none left to play, up to 20 songs like the last one are added. Not on Repeat one, and
+     * on Repeat all only for a single song (that song alone is a mix to grow, then the mix repeats).
+     */
+    private fun appendSimilarIfNeeded() {
+        if (queue.isEmpty()) return
+        val o = order
+        val ahead = if (o != null) o.size - 1 else queue.size - 1 - index
+        val last = queue[o?.last() ?: queue.lastIndex]
+        val repeats = repeat == RepeatMode.ONE || (repeat == RepeatMode.ALL && queue.size > 1)
+        if (repeats || ahead > 1 || appendedFor == last.id) return
+        appendedFor = last.id
+        scope.launch {
+            val similar = try { related(last) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { return@launch }
+            synchronized(lock) {
+                val queued = queue.map { it.id }.toSet()
+                val add = similar.distinctBy { it.id }.filter { it.id !in queued }.take(20)
+                if (add.isEmpty()) return@launch
+                val start = queue.size
+                queue = queue + add
+                order = order?.let { it + add.indices.map { i -> start + i } }
+                publish(); save()
+            }
+        }
+    }
+
     override fun cycleRepeat() = synchronized(lock) {
         repeat = when (repeat) { RepeatMode.OFF -> RepeatMode.ALL; RepeatMode.ALL -> RepeatMode.ONE; else -> RepeatMode.OFF }
         publish(); save()
+        // repeat turned off while the last songs play: fill the queue now, not at the next song
+        appendSimilarIfNeeded()
     }
 
     override fun skipTo(index: Int) = synchronized(lock) {
@@ -382,6 +412,7 @@ class MpvPlayer(
         recorder?.let { r -> r.listenLog.write(listens.moved(song.id, byListener)); scope.launch { r.history.onPlayed(song) } }
         lookUpSmartTrim(song)
         fillSuggestions()
+        appendSimilarIfNeeded()
         loading = scope.launch(Dispatchers.IO) {
             try {
                 val local = localFile(song)

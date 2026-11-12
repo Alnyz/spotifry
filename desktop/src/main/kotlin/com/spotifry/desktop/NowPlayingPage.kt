@@ -155,7 +155,7 @@ private fun QueueList(services: Services, state: com.spotifry.music.player.Playe
     val upcoming = all.take(4)
     Column(modifier) {
         SectionTitle(if (state.from != null) "Coming up · from ${state.from}" else "Coming up")
-        if (upcoming.isEmpty()) Text("Nothing after this song.", color = Palette.ink2, fontSize = 14.sp)
+        if (upcoming.isEmpty()) Text(nothingNextNote(state), color = Palette.ink2, fontSize = 14.sp)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = LocalBottomInset.current)) {
             itemsIndexed(upcoming, key = { _, i -> "$i-${state.queue.getOrNull(i)?.id}" }) { _, i ->
                 val s = state.queue.getOrNull(i) ?: return@itemsIndexed

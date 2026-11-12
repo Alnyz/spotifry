@@ -47,7 +47,7 @@ private fun QueueTab(services: Services, state: PlayerUiState) {
             item { SongRow(cur, accent = true, onClick = {}) }
         }
         item { Heading(if (state.from != null) "Next from: ${state.from}" else "Next") }
-        if (upcoming.isEmpty()) item { Text("Nothing after this song.", color = Palette.ink2, fontSize = 14.sp) }
+        if (upcoming.isEmpty()) item { Text(nothingNextNote(state), color = Palette.ink2, fontSize = 14.sp) }
         itemsIndexed(upcoming, key = { _, i -> "$i-${state.queue.getOrNull(i)?.id}" }) { _, i ->
             val s = state.queue.getOrNull(i) ?: return@itemsIndexed
             SongRow(s, onClick = { services.player.skipTo(i) }, onRemove = { services.player.remove(i, s.id) }, services = services.takeIf { s.suggested })
@@ -88,4 +88,11 @@ private fun SongRow(s: Song, accent: Boolean = false, onClick: () -> Unit, onRem
         }
         if (onRemove != null) Box(Modifier.size(28.dp).clip(CircleShape).clickable(onClick = onRemove), contentAlignment = Alignment.Center) { Text("×", color = Palette.ink2, fontSize = 18.sp) }
     }
+}
+
+/** Says what the player will really do once this song ends; the same rules as its similar songs. */
+fun nothingNextNote(state: PlayerUiState): String = when {
+    state.repeatMode == com.spotifry.music.player.RepeatMode.ONE -> "This song plays again when it ends."
+    state.repeatMode == com.spotifry.music.player.RepeatMode.ALL && state.queue.size > 1 -> "The list starts again when this one ends."
+    else -> "Similar songs are added as this one plays."
 }

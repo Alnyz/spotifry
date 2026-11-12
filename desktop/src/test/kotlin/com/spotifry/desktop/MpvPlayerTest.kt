@@ -215,6 +215,24 @@ class MpvPlayerTest {
         assertEquals(mine, p.state.value.queue)
     }
 
+    @Test fun theQueueGrowsWithSimilarSongsNearItsEndButNotOnRepeatOne() {
+        val similar = (0 until 25).map { Song("s$it", "S$it", "Other", 60, null) } + songs[0]
+        var asked = 0
+        player!!.close()
+        val p = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), related = { asked++; similar }).also { player = it }
+        p.cycleRepeat(); p.cycleRepeat(); assertEquals(RepeatMode.ONE, p.state.value.repeatMode)
+        p.playList(songs.take(2), 0); p.pause()
+        Thread.sleep(300)
+        assertEquals(0, asked)
+        p.cycleRepeat() // off: the last songs are playing, so similar ones come now
+        wait("similar songs") { p.state.first { it.queue.size > 2 } }
+        val q = p.state.value.queue
+        assertEquals(22, q.size)
+        assertEquals(q.size, q.distinctBy { it.id }.size)
+        p.skipTo(1); Thread.sleep(300)
+        assertEquals("asked once for the same end of the queue", 1, asked)
+    }
+
     @Test fun theQueueComesBackAfterARestart() {
         val p = player!!
         p.playList(songs, 1, "Saved")
