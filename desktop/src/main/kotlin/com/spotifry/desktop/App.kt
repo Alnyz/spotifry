@@ -105,6 +105,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     val base by animateColorAsState(lerp(Palette.bg, tint ?: Palette.accent, if (Palette.dark) 0.12f else 0.10f), tween(600))
 
     val haze = remember { dev.chrisbanes.haze.HazeState() }
+    val homeList = androidx.compose.foundation.lazy.rememberLazyListState()
     val jump = remember { FocusRequester() }
     val root = remember { FocusRequester() }
     LaunchedEffect(Unit) { root.requestFocus() }
@@ -122,7 +123,12 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val compact = maxWidth < 1150.dp
             Row(Modifier.fillMaxSize().hazeSource(haze)) {
-                Column(Modifier.weight(1f).fillMaxHeight()) {
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                // Home's picture runs behind the top row
+                androidx.compose.animation.AnimatedVisibility(route == Route.Home && !nowPlaying, enter = androidx.compose.animation.fadeIn(tween(350)), exit = androidx.compose.animation.fadeOut(tween(350))) {
+                    HomeBanner(homeList, base)
+                }
+                Column(Modifier.fillMaxSize()) {
                     TopBar(
                         tab, { t -> when (t) { Tab.Home -> { route = Route.Home; nowPlaying = false }; Tab.NowPlaying -> nowPlaying = true; Tab.Saved -> { route = Route.Saved; nowPlaying = false } } },
                         { route = Route.Settings; nowPlaying = false }, route == Route.Settings && !nowPlaying,
@@ -136,7 +142,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                         androidx.compose.runtime.CompositionLocalProvider(LocalBottomInset provides (if (state.current != null) 112.dp else 0.dp)) { androidx.compose.animation.Crossfade(if (nowPlaying) "now" else route, animationSpec = tween(350)) { shown ->
                             if (shown == "now") NowPlayingPage(services, state, queueOpen, { queueOpen = !queueOpen }, pad)
                             else when (val r = shown as Route) {
-                                Route.Home -> HomePage(services, { route = it }, pad)
+                                Route.Home -> HomePage(services, { route = it }, homeList, pad)
                                 Route.Search -> SearchPage(services, state, searchTerm, searchRun, pad)
                                 Route.Saved -> SavedPage(services, { route = it }, pad)
                                 Route.Playlists -> PlaylistsPage(services, { route = it }, pad)
@@ -149,6 +155,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                             }
                         } }
                     }
+                }
                 }
                 // on Now playing the song is shown in the page itself, so the side panel slides away
                 androidx.compose.animation.AnimatedVisibility(

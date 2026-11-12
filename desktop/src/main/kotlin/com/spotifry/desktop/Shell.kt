@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** The three places in the top row. Search, Playlists and Settings are reached from the search bar, Saved and the gear. */
-enum class Tab(val label: String) { Home("Home"), NowPlaying("Now playing"), Saved("Saved") }
+enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) { Home("Home", Icons.Home), NowPlaying("Now playing", Icons.Wave), Saved("Saved", Icons.Saved) }
 
 /** The row on top: the logo, the three tabs, the search bar (Ctrl+K) and the settings gear. */
 @Composable
@@ -51,7 +51,7 @@ fun TopBar(
 ) {
     Row(modifier.fillMaxWidth().height(64.dp).padding(horizontal = if (compact) 28.dp else 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (compact) 18.dp else 28.dp)) {
         Text(buildLogo(), fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 21.sp)
-        Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) { Tab.entries.forEach { TabLabel(it.label, it == tab) { onTab(it) } } }
+        Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 8.dp)) { Tab.entries.forEach { TabPill(it, it == tab) { onTab(it) } } }
         Spacer(Modifier.weight(1f))
         jumpBar()
         Box(Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
@@ -66,8 +66,21 @@ private fun buildLogo() = androidx.compose.ui.text.buildAnnotatedString {
     pushStyle(androidx.compose.ui.text.SpanStyle(color = Palette.accent)); append("."); pop()
 }
 
+/** A page in the top row: its icon and name, sitting in a soft accent pill when it is the page shown. */
 @Composable
-private fun TabLabel(text: String, on: Boolean, onClick: () -> Unit) = HoverTab(text.uppercase(), on, 13.sp, 1.5.sp, onClick)
+private fun TabPill(tab: Tab, on: Boolean, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    val hot by src.collectIsHoveredAsState()
+    val ink by animateColorAsState(if (on) Palette.accent else if (hot) Palette.ink else Palette.ink.copy(alpha = 0.7f), tween(180))
+    val fill by animateColorAsState(if (on) Palette.accent.copy(alpha = 0.16f) else if (hot) Palette.ink.copy(alpha = 0.06f) else Color.Transparent, tween(180))
+    Row(
+        Modifier.height(40.dp).clip(CircleShape).background(fill).hoverable(src).clickable(src, null, onClick = onClick).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(tab.icon, null, Modifier.size(18.dp), tint = ink)
+        Text(tab.label.uppercase(), fontSize = 13.sp, letterSpacing = 1.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.SemiBold, color = ink, maxLines = 1)
+    }
+}
 
 /** A text tab with a line under it: the line and the colour fade in when the pointer is over it, no box. */
 @Composable

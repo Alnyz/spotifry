@@ -25,7 +25,7 @@ import com.spotifry.music.player.PlayerUiState
 @Composable
 fun QueuePanel(services: Services, state: PlayerUiState, width: Dp, onClose: () -> Unit, modifier: Modifier = Modifier) {
     var tab by remember { mutableStateOf(0) }
-    Column(modifier.width(width).fillMaxHeight().background(if (Palette.dark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.45f)).padding(top = 14.dp, start = 24.dp, end = 12.dp)) {
+    Column(modifier.width(width).fillMaxHeight().edgeLine().background(if (Palette.dark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.45f)).padding(top = 14.dp, start = 24.dp, end = 12.dp)) {
         Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             listOf("Queue", "Recently played").forEachIndexed { i, label ->
                 HoverTab(label, tab == i, 14.sp, 0.sp) { tab = i }

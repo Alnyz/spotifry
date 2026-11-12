@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -60,16 +61,22 @@ fun PageHeader(title: String, subtitle: String? = null, actions: @Composable Row
 }
 
 @Composable
-fun Pill(text: String, icon: ImageVector? = null, primary: Boolean = false, onClick: () -> Unit) {
+fun Pill(text: String, icon: ImageVector? = null, primary: Boolean = false, accent: Boolean = false, glass: Boolean = false, onClick: () -> Unit) {
+    // accent: filled with the accent colour; glass: a dark see-through fill, for buttons over a picture
+    val fill = when { accent -> Palette.accent; primary -> Palette.ink; glass -> Color.Black.copy(alpha = 0.35f); else -> Color.Transparent }
+    val ink = when { accent -> Color.White; primary -> Palette.bg; else -> Palette.ink }
     Row(
-        Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(if (primary) Palette.ink else Color.Transparent)
-            .then(if (primary) Modifier else Modifier.border(1.dp, Palette.ink.copy(alpha = 0.2f), RoundedCornerShape(22.dp))).clickable(onClick = onClick).padding(horizontal = 20.dp),
+        Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(fill)
+            .then(if (primary || accent) Modifier else Modifier.border(1.dp, Palette.ink.copy(alpha = 0.2f), RoundedCornerShape(22.dp))).clickable(onClick = onClick).padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (icon != null) Icon(icon, null, Modifier.size(20.dp), tint = if (primary) Palette.bg else Palette.ink)
-        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = if (primary) Palette.bg else Palette.ink)
+        if (icon != null) Icon(icon, null, Modifier.size(20.dp), tint = ink)
+        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = ink)
     }
 }
+
+/** A hairline down the left edge: where a side panel meets the page. */
+fun Modifier.edgeLine() = drawBehind { drawLine(Palette.ink.copy(alpha = 0.1f), androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(0f, size.height), 1.dp.toPx()) }
 
 @Composable
 fun Chip(text: String, on: Boolean, onClick: () -> Unit) {

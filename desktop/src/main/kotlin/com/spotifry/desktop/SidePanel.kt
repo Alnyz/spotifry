@@ -34,7 +34,7 @@ import com.spotifry.music.player.RepeatMode
 fun SidePanel(services: Services, state: PlayerUiState, width: Dp, height: Dp, modifier: Modifier = Modifier) {
     val player = services.player
     val song = state.current
-    Column(modifier.width(width).fillMaxHeight().background(if (Palette.dark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.45f)).padding(top = 30.dp, bottom = 112.dp, start = if (width < 380.dp) 24.dp else 32.dp, end = if (width < 380.dp) 24.dp else 32.dp)) {
+    Column(modifier.width(width).fillMaxHeight().edgeLine().background(if (Palette.dark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.45f)).padding(top = 30.dp, bottom = 112.dp, start = if (width < 380.dp) 24.dp else 32.dp, end = if (width < 380.dp) 24.dp else 32.dp)) {
         if (song == null) {
             Spacer(Modifier.weight(1f))
             Text("Nothing playing", fontFamily = Display, fontSize = 24.sp, color = Palette.ink)

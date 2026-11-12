@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -257,7 +259,7 @@ private fun DaysGrid(stats: ListeningStats) {
  * been heard; a click opens Your rotation.
  */
 @Composable
-fun RotationCard(services: Services, modifier: Modifier = Modifier, onSpotifried: () -> Unit, onOpen: () -> Unit) {
+fun RotationCard(services: Services, modifier: Modifier = Modifier, glass: Boolean = false, onSpotifried: () -> Unit, onOpen: () -> Unit) {
     val lib = services.library
     val any by remember(lib) { lib.db.listens().observeAny() }.collectAsState(false)
     if (!any) return
@@ -275,10 +277,13 @@ fun RotationCard(services: Services, modifier: Modifier = Modifier, onSpotifried
     val motion = remember { SunMotion() }
     val today = LocalDate.now(zone).dayOfWeek.value - 1
     Row(
-        modifier.clip(RoundedCornerShape(24.dp)).background(Palette.ink.copy(alpha = 0.05f)).clickable(onClick = onOpen).padding(start = 8.dp, end = 26.dp, top = 8.dp, bottom = 8.dp),
+        // glass: over Home's picture, a dark see-through card with a thin edge
+        modifier.clip(RoundedCornerShape(24.dp))
+            .then(if (glass) Modifier.background(Color.Black.copy(alpha = 0.62f)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp)) else Modifier.background(Palette.ink.copy(alpha = 0.05f)))
+            .clickable(onClick = onOpen).padding(start = 8.dp, end = 26.dp, top = 8.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(200.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(if (glass) 170.dp else 200.dp), contentAlignment = Alignment.Center) {
             Sun(hours, sunScale(minutes), playing.isPlaying, motion, Modifier.fillMaxSize(), labels = false)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(count(minutes), color = Palette.ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
@@ -289,7 +294,7 @@ fun RotationCard(services: Services, modifier: Modifier = Modifier, onSpotifried
             Kicker("Your rotation · this week")
             Text(
                 buildAnnotatedString { append(if (minutes == 0) "Still warm" else "${hourKind(peak)} listener"); withStyle(SpanStyle(color = Palette.accent)) { append(".") } },
-                fontFamily = Display, fontSize = 30.sp, lineHeight = 32.sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
+                fontFamily = Display, fontSize = if (glass) 27.sp else 30.sp, lineHeight = 32.sp, color = Palette.ink, modifier = Modifier.padding(top = 6.dp),
             )
             Text(
                 if (minutes == 0) "Nothing yet this week. Play something." else "${longDuration(minutes)} · ${count(songs)} ${if (songs == 1) "song" else "songs"}\nMost around ${hourName(peak)}",
@@ -300,7 +305,7 @@ fun RotationCard(services: Services, modifier: Modifier = Modifier, onSpotifried
             Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 "MTWTFSS".forEachIndexed { i, letter ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        val color = when { i > today -> Palette.high.copy(alpha = .45f); days[i] == 0L -> Palette.high; else -> lerp(Palette.bg, Palette.accent, .28f + .72f * sqrt(days[i] / most)) }
+                        val color = when { i > today -> Palette.high.copy(alpha = .45f); days[i] == 0L -> Palette.high; else -> lerp(Palette.bg, Palette.accent, .45f + .55f * sqrt(days[i] / most)) }
                         Box(Modifier.size(18.dp).clip(CircleShape).background(color))
                         Text(letter.toString(), color = if (i == today) Palette.ink else Palette.ink2, fontSize = 11.sp, fontWeight = if (i == today) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.padding(top = 4.dp))
                     }
