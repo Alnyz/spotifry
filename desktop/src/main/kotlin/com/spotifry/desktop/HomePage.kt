@@ -69,6 +69,11 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
     val hour = LocalTime.now().hour
     val name by lib.settings.name.collectAsState()
     var creating by remember { mutableStateOf(false) }
+    // the parts of the day with enough plays for a mix, the one it is now first
+    val listens by lib.db.listens().observeAll().collectAsState(emptyList())
+    val mixes by produceState(emptyList<com.spotifry.music.data.TimeMix>(), listens, hour) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { com.spotifry.music.data.pickTimeMixes(com.spotifry.music.data.timeMixes(listens), hour) }
+    }
     if (creating) NameDialog("New playlist", "Create", "", { creating = false }) { name -> scope.launch { go(Route.Playlist(lib.db.playlists().create(name))) }; creating = false }
 
     LazyColumn(modifier, state = list) {
@@ -117,6 +122,23 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
                 SlideRow(arrowTop = 68.dp) {
                     itemsIndexed(others.take(12)) { i, s ->
                         CoverCard(s.title, s.artist, { w -> Cover(s.thumbnailUrl ?: s.localThumbPath, w, RoundedCornerShape(12.dp)) }, onClick = { services.player.playList(others, i, "Recently played") })
+                    }
+                }
+            }
+        }
+        // the songs you play most at a time of day, as on the phone's "Keep listening"
+        if (mixes.isNotEmpty()) {
+            item { HomeSection("Keep listening", null) }
+            item {
+                SlideRow(arrowTop = 43.dp) {
+                    itemsIndexed(mixes) { _, m ->
+                        val songs = m.songs.map(SongEntity::toSong)
+                        Tile(songs.firstNotNullOfOrNull { it.thumbnailUrl ?: it.localThumbPath }, onClick = { services.player.playList(songs, 0, m.title) }) {
+                            Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+                                Text(m.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                Text(m.line, fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 }
             }
@@ -202,10 +224,10 @@ private fun BrushTitle(title: String, modifier: Modifier = Modifier) {
 
 /** A section's name with an accent mark before it, and See all at the far end. */
 @Composable
-private fun HomeSection(title: String, onAll: () -> Unit) = Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun HomeSection(title: String, onAll: (() -> Unit)?) = Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Box(Modifier.width(4.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(Palette.accent))
     Text(title, fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(start = 12.dp).weight(1f))
-    Text("See all →", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink2, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAll).padding(horizontal = 6.dp, vertical = 4.dp))
+    if (onAll != null) Text("See all →", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink2, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAll).padding(horizontal = 6.dp, vertical = 4.dp))
 }
 
 /** A wide playlist tile: a darkened cover behind, or a plain glass face for Create and More. */

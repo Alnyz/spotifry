@@ -27,6 +27,11 @@ class SnapshotTest {
         override suspend fun search(query: String) = songs
         override suspend fun resolve(song: Song, low: Boolean) = ResolvedStream("", "", 0, 0)
         override suspend fun related(song: Song) = emptyList<Song>()
+        override suspend fun searchPages(query: String, type: com.spotifry.music.data.source.SearchType) = listOf("Lagu Rindu", "Senja di Kota", "Hujan Bulan Juni", "Pulang", "Rumah Kaca").mapIndexed { i, n ->
+            com.spotifry.music.data.source.PageLink(type, "https://example.org/$i", n, if (type == com.spotifry.music.data.source.SearchType.ARTISTS) "" else "Kala Biru", null)
+        }
+        override suspend fun page(link: com.spotifry.music.data.source.PageLink) = com.spotifry.music.data.source.PageContent(link.name, "Kala Biru", "Album", null, songs)
+        override suspend fun playableSongs(link: com.spotifry.music.data.source.PageLink) = 6
     }
     private val fakePlayer = object : MusicPlayer {
         override val state = MutableStateFlow(PlayerUiState(current = songs[3], isPlaying = true, wantsPlay = true, durationMs = 211_000, queue = songs, currentIndex = 3, repeatMode = RepeatMode.ALL))
@@ -64,10 +69,10 @@ class SnapshotTest {
     }
 
     private fun shoot(name: String, route: Route, library: Library = library(), height: Int = 800, width: Int = 1280,
-        lyrics: com.spotifry.music.data.Lyrics? = null, setup: (Services) -> Unit = {}) {
+        lyrics: com.spotifry.music.data.Lyrics? = null, query: String? = null, setup: (Services) -> Unit = {}) {
         val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library, fakePlayer, setVolume = {}, lyrics = { lyrics })
         setup(services)
-        val scene = ImageComposeScene(width, height, Density(1f)) { SpotifryTheme { App(services, startOn = route, initialQuery = if (route == Route.Search) "kala biru" else "") } }
+        val scene = ImageComposeScene(width, height, Density(1f)) { SpotifryTheme { App(services, startOn = route, initialQuery = query ?: if (route == Route.Search) "kala biru" else "") } }
         var t = 0L
         repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
         val png = scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes
@@ -185,11 +190,30 @@ class SnapshotTest {
 
     @Test fun pages() {
         val lib = library()
+        kotlinx.coroutines.runBlocking {
+            val evening = java.time.LocalDate.now().atTime(20, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            for (k in 0 until 10) {
+                val s = Song("m$k", "Evening song $k", "Rumah Timur", 200, null)
+                lib.db.songs().upsert(s.toEntity())
+                repeat(2) { d -> lib.db.listens().insert(com.spotifry.music.data.db.ListenEntity(evening - d * 86_400_000L - k * 60_000L, s.id, 150)) }
+            }
+        }
         shoot("search", Route.Search, lib)
         shoot("home", Route.Home, lib)
         shoot("saved", Route.Saved, lib)
         shoot("playlists", Route.Playlists, lib)
         shoot("playlist", Route.Playlist(1), lib)
+        // 0.4: what Search finds besides songs, the empty Search with recent searches and moods, a page, a mood
+        lib.recentSearches.add("kala biru"); lib.recentSearches.add("hindia")
+        shoot("search-empty", Route.Search, lib, query = "")
+        searchType = com.spotifry.music.data.source.SearchType.ALBUMS
+        shoot("search-albums", Route.Search, lib)
+        searchType = com.spotifry.music.data.source.SearchType.SONGS
+        val link = com.spotifry.music.data.source.PageLink(com.spotifry.music.data.source.SearchType.ALBUMS, "https://example.org/a", "Lagu Rindu", "Kala Biru", null)
+        shoot("page-album", Route.Found(link, Route.Search), lib)
+        shoot("mood", Route.MoodList(MOODS[0]), lib)
+        shoot("home-tall", Route.Home, lib, height = 1500)
+        shoot("playlist-order", Route.Playlist(1), lib)
         lib.updates.available.value = DesktopRelease("0.3.0", "https://example.org")
         shoot("update", Route.Settings, lib, height = 1400)
     }

@@ -51,13 +51,14 @@ private class JumpItem(val group: String, val title: String, val hint: String = 
 @Composable
 fun JumpBar(
     services: Services, query: String, onQuery: (String) -> Unit, focus: FocusRequester, leave: () -> Unit, width: Dp,
-    goPage: (Route) -> Unit, goNowPlaying: () -> Unit, onSearch: () -> Unit,
+    goPage: (Route) -> Unit, goNowPlaying: () -> Unit, onSearch: () -> Unit, onBrowse: () -> Unit = {},
 ) {
     val lib = services.library
     val saved by lib.db.songs().observeSaved().collectAsState(emptyList())
     val recent by lib.db.history().observeRecent().collectAsState(emptyList())
     val lists by lib.db.playlists().observePlaylists().collectAsState(emptyList())
     val files by lib.musicFolder.songs.collectAsState()
+    val recentSearches by lib.recentSearches.list.collectAsState()
     var focused by remember { mutableStateOf(false) }
     var sel by remember { mutableStateOf(0) }
     val q = query.trim()
@@ -65,12 +66,15 @@ fun JumpBar(
     val field = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 13.sp, lineHeight = 18.sp)
 
     fun done(block: () -> Unit) = { onQuery(""); leave(); block() }
-    val items = remember(q, saved, recent, lists, files) {
+    val items = remember(q, saved, recent, lists, files, recentSearches) {
         val has = { s: String -> q.isEmpty() || s.contains(q, ignoreCase = true) }
         buildList {
             listOf(Triple("Home", Route.Home, Icons.Home), Triple("Saved", Route.Saved, Icons.Saved), Triple("Playlists", Route.Playlists, Icons.Playlists), Triple("Settings", Route.Settings, Icons.Settings))
                 .filter { has(it.first) }.forEach { (name, r, icon) -> add(JumpItem("Go to", name, icon = icon) { done { goPage(r) }() }) }
             if (has("Now playing")) add(JumpItem("Go to", "Now playing", icon = Icons.Wave) { done { goNowPlaying() }() })
+            if (has("Moods and genres")) add(JumpItem("Go to", "Moods and genres", icon = Icons.Search) { done { onBrowse() }() })
+            // with nothing typed, the last few searches, to run again in one click
+            if (q.isEmpty()) recentSearches.take(4).forEach { r -> add(JumpItem("Recent searches", r, icon = Icons.Search) { onQuery(r); leave(); onSearch() }) }
             if (q.isNotEmpty()) {
                 lists.filter { has(it.name) }.take(4).forEach { p -> add(JumpItem("Playlists", p.name, "${p.songCount} songs", Icons.Playlists) { done { goPage(Route.Playlist(p.id)) }() }) }
                 val own = (saved + recent.map { it }).distinctBy(SongEntity::id).filter { has(it.title) || has(it.artist) }.map(SongEntity::toSong)

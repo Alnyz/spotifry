@@ -15,6 +15,8 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation(libs.haze)
+    // drag to reorder a playlist and the queue, the same library as the phone
+    implementation(libs.reorderable)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.11.0")
     // Android has org.json built in; a desktop JVM needs it and SQLite brought along
     implementation("org.json:json:20240303")

@@ -1,5 +1,10 @@
 package com.spotifry.desktop
 
+import androidx.compose.foundation.background
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import sh.calvin.reorderable.ReorderableItem
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -56,8 +61,15 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
     val meta = loaded.firstOrNull { it.id == id }
     var order by remember(id) { mutableStateOf(lib.orders.get(id)) }
     val raw by remember(id, order) { if (order == PlaylistOrder.RECENT) db.playlists().observeSongsNewestFirst(id) else db.playlists().observeSongs(id) }.collectAsState(emptyList())
-    val rows = remember(raw, order) { order.arrange(raw) }
+    // in Your order the songs can be dragged: the list moves here while dragging and is written when the song is let go
+    var rows by remember(raw, order) { mutableStateOf(order.arrange(raw)) }
     val songs = rows.map(SongEntity::toSong)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val reorder = sh.calvin.reorderable.rememberReorderableLazyListState(listState) { from, to ->
+        val a = rows.indexOfFirst { it.id == from.key }; val b = rows.indexOfFirst { it.id == to.key }
+        if (a >= 0 && b >= 0) rows = rows.toMutableList().apply { add(b, removeAt(a)) }
+    }
+    val canDrag = order == PlaylistOrder.CUSTOM
     val state by services.player.state.collectAsState()
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
@@ -65,7 +77,7 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
     if (renaming) NameDialog("Rename playlist", "Rename", meta.name, { renaming = false }) { name -> scope.launch { db.playlists().rename(id, name) }; renaming = false }
     if (deleting) ConfirmDialog("Delete this playlist?", "The songs stay saved. Only the playlist goes.", "Delete", { deleting = false }) { scope.launch { db.playlists().delete(id) }; deleting = false; go(Route.Playlists) }
 
-    LazyColumn(modifier) {
+    LazyColumn(modifier, listState) {
         item { Text("‹ Playlists", color = Palette.ink2, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { go(Route.Playlists) }) }
         item {
             Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.Bottom) {
@@ -74,7 +86,9 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
                     Text("Playlist", color = Palette.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(meta.name, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, maxLines = 1)
                     Text("${meta.songCount} songs · ${meta.savedCount} saved on this computer", color = Palette.ink2, fontSize = 15.sp, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // the buttons wrap onto a second line on a narrow window instead of squeezing
+                    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (songs.isNotEmpty()) {
                             Pill("Play all", Icons.Play, primary = true) { services.player.playList(songs, 0, meta.name) }
                             Pill("Shuffle", Icons.Shuffle) { services.player.shuffleList(songs, meta.name) }
@@ -95,12 +109,24 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
             }
         }
         if (songs.isEmpty()) item { EmptyState("No songs yet", "Use the menu next to a song and choose Add to a playlist.") }
+        if (canDrag && songs.size > 1) item { Text("Drag a song by its handle to move it.", color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp)) }
         itemsIndexed(songs, key = { _, s -> s.id }) { i, s ->
-            SongLine(
-                services, i + 1, s, state.current?.id == s.id, saved = rows[i].isSaved,
-                extra = { close -> DropdownMenuItem({ Text("Remove from this playlist") }, onClick = { scope.launch { db.playlists().removeSong(id, s.id) }; close() }) },
-                onClick = { services.player.playList(songs, i, meta.name) },
-            )
+            ReorderableItem(reorder, key = s.id, enabled = canDrag) { dragging ->
+                Row(Modifier.clip(RoundedCornerShape(10.dp)).background(if (dragging) Palette.surface else androidx.compose.ui.graphics.Color.Transparent), verticalAlignment = Alignment.CenterVertically) {
+                    if (canDrag) Icon(
+                        Icons.DragHandle, "Drag to move ${s.title}",
+                        Modifier.size(30.dp).draggableHandle(onDragStopped = { scope.launch { db.playlists().setOrder(id, rows.map { it.id }) } }).padding(5.dp),
+                        tint = Palette.ink2,
+                    )
+                    Box(Modifier.weight(1f)) {
+                        SongLine(
+                            services, i + 1, s, state.current?.id == s.id, saved = rows[i].isSaved,
+                            extra = { close -> DropdownMenuItem({ Text("Remove from this playlist") }, onClick = { scope.launch { db.playlists().removeSong(id, s.id) }; close() }) },
+                            onClick = { services.player.playList(songs, i, meta.name) },
+                        )
+                    }
+                }
+            }
         }
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }

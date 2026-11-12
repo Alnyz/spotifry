@@ -63,6 +63,10 @@ sealed interface Route {
     data object Equalizer : Route { override val page = Page.Settings }
     data object Rotation : Route { override val page = Page.Home }
     data object Spotifried : Route { override val page = Page.Home }
+    /** An album, artist or playlist found in Search or a mood; [back] is where Back goes. */
+    data class Found(val link: com.spotifry.music.data.source.PageLink, val back: Route) : Route { override val page = back.page }
+    /** A mood tile's playlists, opened from the empty Search. */
+    data class MoodList(val mood: Mood) : Route { override val page = Page.Search }
     /** Make a picture of a song or playlist; [back] is where Back goes. */
     data class Picture(val target: ShareTarget, val back: Route) : Route { override val page = back.page }
 }
@@ -113,7 +117,11 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     val jump = remember { FocusRequester() }
     val root = remember { FocusRequester() }
     LaunchedEffect(Unit) { root.requestFocus() }
-    fun search() { if (query.isNotBlank()) { searchTerm = query.trim(); route = Route.Search; nowPlaying = false; searchRun++ } }
+    fun search(words: String = query) {
+        if (words.isBlank()) return
+        lib.recentSearches.add(words)
+        searchTerm = words.trim(); route = Route.Search; nowPlaying = false; searchRun++
+    }
     val tab = when { nowPlaying -> Tab.NowPlaying; route.page == Page.Home -> Tab.Home; route.page == Page.Saved || route.page == Page.Playlists -> Tab.Saved; else -> null }
 
     Box(
@@ -144,7 +152,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                         { route = Route.Settings; nowPlaying = false }, route == Route.Settings && !nowPlaying,
                         compact, update, { update?.let(services.library.updates::open) },
                     ) { tight ->
-                        JumpBar(services, query, { query = it }, jump, { root.requestFocus() }, if (tight) 200.dp else if (compact) 220.dp else 260.dp, { route = it; nowPlaying = false }, { nowPlaying = true }, ::search)
+                        JumpBar(services, query, { query = it }, jump, { root.requestFocus() }, if (tight) 200.dp else if (compact) 220.dp else 260.dp, { route = it; nowPlaying = false }, { nowPlaying = true }, { search() }, { searchTerm = ""; route = Route.Search; nowPlaying = false })
                     }
                     Box(Modifier.weight(1f).fillMaxWidth().padding(start = if (compact) 28.dp else 40.dp, end = if (compact) 28.dp else 40.dp)) {
                         val pad = Modifier.widthIn(max = if (nowPlaying || route.page == Page.Home) 1400.dp else 1180.dp).fillMaxHeight().padding(top = 10.dp)
@@ -153,7 +161,9 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                             if (shown == "now") NowPlayingPage(services, state, pad)
                             else when (val r = shown as Route) {
                                 Route.Home -> HomePage(services, { route = it }, homeList, pad)
-                                Route.Search -> SearchPage(services, state, searchTerm, searchRun, pad)
+                                Route.Search -> SearchPage(services, state, searchTerm, searchRun, { query = it; search(it) }, { route = Route.Found(it, Route.Search) }, { route = Route.MoodList(it) }, pad)
+                                is Route.MoodList -> MoodPage(services, r.mood, { route = Route.Search }, { route = Route.Found(it, r) }, pad)
+                                is Route.Found -> PageView(services, r.link, backName(r.back), { route = r.back }, { route = Route.Found(it, r) }, { route = it }, pad)
                                 Route.Saved -> SavedPage(services, { route = it }, pad)
                                 Route.Playlists -> PlaylistsPage(services, { route = it }, pad)
                                 is Route.Playlist -> PlaylistPage(services, r.id, { route = it }, pad)
@@ -204,4 +214,12 @@ fun Track(value: Float, max: Float, color: Color, onChange: (Float) -> Unit, onD
         Box(Modifier.fillMaxWidth(frac).height(4.dp).clip(CircleShape).background(color))
         Box(Modifier.offset { IntOffset((frac * width).toInt() - 6.dp.roundToPx(), 0) }.size(12.dp).clip(CircleShape).background(Palette.ink))
     }
+}
+
+/** What a Back link names: the page it goes back to. */
+private fun backName(r: Route): String = when (r) {
+    Route.Search -> "Search"
+    is Route.MoodList -> r.mood.name
+    is Route.Found -> r.link.name
+    else -> r.page.label
 }

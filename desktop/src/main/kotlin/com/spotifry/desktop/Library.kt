@@ -40,6 +40,10 @@ class Library(
     val listenLog = ListenLog(db.listens())
     val restoreQueue = RestoreQueue(restorePrefs, db.songs(), downloads::save, metered = { false })
     val updates = Updates(client, prefs)
+    /** The last ten searches, kept under the phone's key so a backup carries them both ways. */
+    val recentSearches = com.spotifry.music.data.RecentSearches(prefs.getString("recent_searches", "").orEmpty().split('\n').filter { it.isNotEmpty() }) {
+        prefs.edit().putString("recent_searches", it.joinToString("\n")).apply()
+    }
     val backups = Backups(db.backup(), prefs, trimPrefs, restoreQueue, APP_VERSION)
 
     /** The music folder's songs, shown under Saved, On this computer. */

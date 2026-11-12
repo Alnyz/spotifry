@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import sh.calvin.reorderable.ReorderableItem
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,7 +44,15 @@ fun QueuePanel(services: Services, state: PlayerUiState, width: Dp, onClose: () 
 private fun QueueTab(services: Services, state: PlayerUiState) {
     val cur = state.current
     val upcoming = state.upNextIndices().filter { it != state.currentIndex }
-    LazyColumn(Modifier.fillMaxSize().padding(end = 12.dp), contentPadding = PaddingValues(bottom = 130.dp)) {
+    // a drag moves the rows here; letting go tells the player, which counts places after the playing song (1 = next)
+    var list by remember(upcoming) { mutableStateOf(upcoming) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    fun key(i: Int) = "$i-${state.queue.getOrNull(i)?.id}"
+    val reorder = sh.calvin.reorderable.rememberReorderableLazyListState(listState) { from, to ->
+        val a = list.indexOfFirst { key(it) == from.key }; val b = list.indexOfFirst { key(it) == to.key }
+        if (a >= 0 && b >= 0) list = list.toMutableList().apply { add(b, removeAt(a)) }
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(end = 12.dp), listState, contentPadding = PaddingValues(bottom = 130.dp)) {
         if (cur != null) {
             item { Heading("Now playing") }
             // the song playing on a card of its own, with a little beat beside it
@@ -55,9 +64,17 @@ private fun QueueTab(services: Services, state: PlayerUiState) {
         }
         item { Heading(if (state.from != null) "Next from: ${state.from}" else "Next") }
         if (upcoming.isEmpty()) item { Text(nothingNextNote(state), color = Palette.ink2, fontSize = 14.sp) }
-        itemsIndexed(upcoming, key = { _, i -> "$i-${state.queue.getOrNull(i)?.id}" }) { _, i ->
+        itemsIndexed(list, key = { _, i -> key(i) }) { _, i ->
             val s = state.queue.getOrNull(i) ?: return@itemsIndexed
-            SongRow(s, onClick = { services.player.skipTo(i) }, onRemove = { services.player.remove(i, s.id) }, services = services.takeIf { s.suggested })
+            ReorderableItem(reorder, key = key(i)) { dragging ->
+                Row(Modifier.clip(RoundedCornerShape(8.dp)).background(if (dragging) Palette.surface else Color.Transparent), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.DragHandle, "Drag to move ${s.title}", Modifier.size(26.dp).draggableHandle(onDragStopped = {
+                        val a = upcoming.indexOf(i) + 1; val b = list.indexOf(i) + 1
+                        if (a != b) services.player.move(a, b)
+                    }).padding(4.dp), tint = Palette.ink2)
+                    Box(Modifier.weight(1f)) { SongRow(s, onClick = { services.player.skipTo(i) }, onRemove = { services.player.remove(i, s.id) }, services = services.takeIf { s.suggested }) }
+                }
+            }
         }
     }
 }
