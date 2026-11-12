@@ -53,7 +53,7 @@ import kotlin.math.roundToInt
 fun PageHeader(title: String, subtitle: String? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
-            Text(title, fontFamily = Serif, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink)
+            Text(title, fontFamily = Display, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink)
             if (subtitle != null) Text(subtitle, color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 4.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), content = actions)
@@ -82,14 +82,14 @@ fun Chip(text: String, on: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun SectionTitle(text: String) = Column(Modifier.padding(top = 28.dp, bottom = 8.dp)) {
-    Text(text, fontFamily = Serif, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(bottom = 8.dp))
+    Text(text, fontFamily = Display, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(bottom = 8.dp))
     Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.ink.copy(alpha = 0.14f)))
 }
 
 @Composable
 fun EmptyState(title: String, text: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(top = 60.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, fontFamily = Serif, fontSize = 24.sp, color = Palette.ink)
+        Text(title, fontFamily = Display, fontSize = 24.sp, color = Palette.ink)
         Text(text, color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
     }
 }
@@ -116,7 +116,7 @@ fun CoverCard(title: String, subtitle: String, cover: @Composable (Dp) -> Unit, 
     // no grey box: the cover lifts a little and the name warms up
     Column(Modifier.width(width).hoverable(src).clickable(src, null, onClick = onClick)) {
         Box(Modifier.graphicsLayer { scaleX = lift; scaleY = lift }) { cover(width) }
-        Text(title, fontFamily = Serif, fontSize = 17.sp, maxLines = 1, color = if (hot) Palette.accent else Palette.ink, modifier = Modifier.padding(top = 10.dp))
+        Text(title, fontFamily = Display, fontSize = 17.sp, maxLines = 1, color = if (hot) Palette.accent else Palette.ink, modifier = Modifier.padding(top = 10.dp))
         Text(subtitle, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
     }
 }
@@ -127,7 +127,7 @@ fun NameDialog(title: String, confirm: String, initial: String, onDismiss: () ->
     var text by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Palette.surface,
-        title = { Text(title, fontFamily = Serif, fontSize = 22.sp) },
+        title = { Text(title, fontFamily = Display, fontSize = 22.sp) },
         text = {
             OutlinedTextField(
                 text, { text = it }, singleLine = true, label = { Text("Name") }, shape = RoundedCornerShape(16.dp),
@@ -141,7 +141,7 @@ fun NameDialog(title: String, confirm: String, initial: String, onDismiss: () ->
 
 @Composable
 fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () -> Unit, onDone: () -> Unit) = AlertDialog(
-    onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontFamily = Serif, fontSize = 22.sp) }, text = { Text(text, color = Palette.ink2) },
+    onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontFamily = Display, fontSize = 22.sp) }, text = { Text(text, color = Palette.ink2) },
     confirmButton = { TextButton(onDone) { Text(confirm, color = Palette.danger) } },
     dismissButton = { TextButton(onDismiss) { Text("Cancel", color = Palette.ink2) } },
 )
@@ -156,11 +156,11 @@ fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved:
         Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        if (number != null) Text(number.toString(), fontFamily = Serif, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Palette.ink.copy(alpha = 0.4f), fontSize = 14.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(36.dp))
+        if (number != null) Text(number.toString(), fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Palette.ink.copy(alpha = 0.4f), fontSize = 14.sp, maxLines = 1, softWrap = false, modifier = Modifier.width(36.dp))
         Cover(s.thumbnailUrl ?: s.localThumbPath, 44.dp, RoundedCornerShape(6.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(s.title, fontFamily = Serif, fontSize = 18.sp, maxLines = 1, color = if (playing) Palette.accent else Palette.ink, modifier = Modifier.weight(1f, fill = false))
+                Text(s.title, fontFamily = Display, fontSize = 18.sp, maxLines = 1, color = if (playing) Palette.accent else Palette.ink, modifier = Modifier.weight(1f, fill = false))
                 if (saved) Icon(Icons.Saved, "Saved on this computer", Modifier.size(15.dp), tint = Palette.accent)
             }
             Text(s.artist, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
@@ -219,6 +219,11 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
                 })
                 DropdownMenuItem({ Text(if (note == null) "Add a note" else "Edit note") }, onClick = { noting = true })
                 extra(close)
+                // a Smart shuffle suggestion: out of the queue (the playing one skips on) and never suggested again
+                val tip = state.queue.indexOfFirst { it.id == song.id && it.suggested }
+                if (song.suggested && tip >= 0) DropdownMenuItem({ Text("Not this song") }, onClick = {
+                    lib.setNotSuggested(song.id, true); services.player.remove(tip, song.id); close()
+                })
                 if (playingThis) PlayingItems(services, state, { view = "sleep" }, { tuning = true }, close)
             }
             "lists" -> {
@@ -312,7 +317,7 @@ fun NoteDialog(services: Services, songId: String, initial: String, onDismiss: (
     }
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Palette.surface,
-        title = { Text(if (initial.isEmpty()) "Add a note" else "Edit note", fontFamily = Serif, fontSize = 22.sp) },
+        title = { Text(if (initial.isEmpty()) "Add a note" else "Edit note", fontFamily = Display, fontSize = 22.sp) },
         text = {
             OutlinedTextField(
                 text, { text = cutName(it.replace('\n', ' '), NOTE_MAX) }, maxLines = 4, placeholder = { Text("What this song means to you") },
@@ -336,7 +341,7 @@ fun SpeedPitchDialog(settings: Settings, onDismiss: () -> Unit) {
     val pitch by settings.pitch.collectAsState()
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Palette.surface,
-        title = { Text("Speed and pitch", fontFamily = Serif, fontSize = 22.sp) },
+        title = { Text("Speed and pitch", fontFamily = Display, fontSize = 22.sp) },
         text = {
             Column(Modifier.width(340.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -367,4 +372,11 @@ fun SpeedPitchDialog(settings: Settings, onDismiss: () -> Unit) {
             if (speed != 1f || pitch != 0) TextButton({ settings.setSpeed(1f); settings.setPitch(0) }) { Text("Back to normal", color = Palette.ink2) }
         },
     )
+}
+
+/** The artist under a song's name; a Smart shuffle suggestion gets the sparkle and says so. */
+@Composable
+fun Artist(s: Song, size: androidx.compose.ui.unit.TextUnit) = Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    if (s.suggested) Icon(Icons.Sparkle, null, Modifier.size(11.dp), tint = Palette.accent)
+    Text(if (s.suggested) "${s.artist} · suggested for you" else s.artist, color = Palette.ink2, fontSize = size, maxLines = 1)
 }

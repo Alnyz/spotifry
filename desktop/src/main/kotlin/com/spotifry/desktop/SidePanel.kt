@@ -36,7 +36,7 @@ fun SidePanel(services: Services, state: PlayerUiState, width: Dp, height: Dp, m
     Column(modifier.width(width).fillMaxHeight().background(if (Palette.dark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.45f)).padding(top = 30.dp, bottom = 112.dp, start = if (width < 380.dp) 24.dp else 32.dp, end = if (width < 380.dp) 24.dp else 32.dp)) {
         if (song == null) {
             Spacer(Modifier.weight(1f))
-            Text("Nothing playing", fontFamily = Serif, fontSize = 24.sp, color = Palette.ink)
+            Text("Nothing playing", fontFamily = Display, fontSize = 24.sp, color = Palette.ink)
             Text("Pick a song and it shows up here.", color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp))
             Spacer(Modifier.weight(1f))
             return@Column
@@ -46,7 +46,7 @@ fun SidePanel(services: Services, state: PlayerUiState, width: Dp, height: Dp, m
             val side = (height - 340.dp).coerceIn(150.dp, maxWidth)
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Cover(song.thumbnailUrl ?: song.localThumbPath, side, RoundedCornerShape(12.dp), large = true) }
         }
-        Text(song.title, fontFamily = Serif, fontSize = 26.sp, lineHeight = 28.sp, maxLines = 1, color = Palette.ink, modifier = Modifier.padding(top = 20.dp))
+        Text(song.title, fontFamily = Display, fontSize = 26.sp, lineHeight = 28.sp, maxLines = 1, color = Palette.ink, modifier = Modifier.padding(top = 20.dp))
         Text(song.artist, color = Palette.accent, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
         state.quality?.let { QualityPill(it, Modifier.padding(top = 12.dp)) }
         MiniLyrics(services, song, Modifier.padding(top = 12.dp).fillMaxWidth().weight(1f))
@@ -66,14 +66,14 @@ private fun MiniLyrics(services: Services, song: com.spotifry.music.data.source.
         val reach = if (maxHeight > 190.dp) 2 else 1
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
             if (timed == null) {
-                Text(when (lyrics) { LyricsState.Loading -> "Looking for lyrics…"; is LyricsState.Found -> "Lyrics without timing"; else -> "No lyrics for this song" }, fontFamily = Serif, fontSize = 15.sp, color = Palette.ink.copy(alpha = 0.4f))
+                Text(when (lyrics) { LyricsState.Loading -> "Looking for lyrics…"; is LyricsState.Found -> "Lyrics without timing"; else -> "No lyrics for this song" }, fontFamily = Display, fontSize = 15.sp, color = Palette.ink.copy(alpha = 0.4f))
                 return@Column
             }
             val i = timed.indexAt(position + (shift[song.id] ?: 0))
             fun line(k: Int) = timed.getOrNull(k)?.text?.ifBlank { "♪" } ?: ""
             for (k in -reach..reach) {
-                if (k == 0) Text(line(i), fontFamily = Serif, fontSize = 19.sp, color = Palette.ink, maxLines = 3, modifier = Modifier.padding(vertical = 4.dp))
-                else Text(line(i + k), fontFamily = Serif, fontSize = 15.sp, color = Palette.ink.copy(alpha = if (k == -1 || k == 1) 0.45f else 0.25f), maxLines = 1)
+                if (k == 0) Text(line(i), fontFamily = Display, fontSize = 19.sp, color = Palette.ink, maxLines = 3, modifier = Modifier.padding(vertical = 4.dp))
+                else Text(line(i + k), fontFamily = Display, fontSize = 15.sp, color = Palette.ink.copy(alpha = if (k == -1 || k == 1) 0.45f else 0.25f), maxLines = 1)
             }
         }
     }
@@ -90,8 +90,8 @@ private fun UpNext(services: Services, state: PlayerUiState, modifier: Modifier)
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { services.player.skipTo(i) }.padding(vertical = 5.dp, horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Cover(s.thumbnailUrl ?: s.localThumbPath, 32.dp, RoundedCornerShape(6.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(s.title, fontFamily = Serif, fontSize = 14.sp, maxLines = 1, color = Palette.ink)
-                    Text(s.artist, fontSize = 11.5.sp, maxLines = 1, color = Palette.ink2)
+                    Text(s.title, fontFamily = Display, fontSize = 14.sp, maxLines = 1, color = Palette.ink)
+                    Artist(s, 11.5.sp)
                 }
             }
         }
@@ -120,13 +120,14 @@ fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haz
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Cover(song.thumbnailUrl ?: song.localThumbPath, 56.dp, RoundedCornerShape(8.dp))
             Column {
-                Text(song.title, fontFamily = Serif, fontSize = 17.sp, maxLines = 1, color = Palette.ink)
+                Text(song.title, fontFamily = Display, fontSize = 17.sp, maxLines = 1, color = Palette.ink)
                 Text(song.artist, fontSize = 13.sp, maxLines = 1, color = Palette.ink2)
             }
         }
         Column(Modifier.weight(1.6f), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                BarIcon(Icons.Shuffle, if (state.shuffle) "Shuffle on" else "Shuffle off", if (state.shuffle) Palette.accent else Palette.ink2) { player.cycleShuffle() }
+                // steps through off, Shuffle, Smart shuffle, as on the phone
+                BarIcon(if (state.smart) Icons.SmartShuffle else Icons.Shuffle, when { state.smart -> "Smart shuffle on"; state.shuffle -> "Shuffle on"; else -> "Shuffle off" }, if (state.shuffle) Palette.accent else Palette.ink2) { player.cycleShuffle() }
                 BarIcon(Icons.Prev, "Previous", Palette.ink, 4.dp) { player.previous() }
                 Tip(if (state.wantsPlay) "Pause" else "Play") {
                     Box(Modifier.size(42.dp).clip(CircleShape).background(Palette.ink).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {

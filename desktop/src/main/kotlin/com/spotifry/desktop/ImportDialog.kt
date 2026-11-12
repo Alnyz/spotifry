@@ -69,7 +69,7 @@ private fun InputStep(error: String?, onStart: (String) -> Unit, onClose: () -> 
 
 @Composable
 private fun Shell(title: String, onDismiss: () -> Unit, dismissText: String = "Cancel", confirm: @Composable () -> Unit, content: @Composable () -> Unit) = AlertDialog(
-    onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontFamily = Serif, fontSize = 22.sp, maxLines = 2) },
+    onDismissRequest = onDismiss, containerColor = Palette.surface, title = { Text(title, fontFamily = Display, fontSize = 22.sp, maxLines = 2) },
     text = { Box(Modifier.widthIn(min = 420.dp)) { content() } }, confirmButton = confirm,
     dismissButton = { TextButton(onDismiss) { Text(dismissText, color = Palette.ink2) } },
 )

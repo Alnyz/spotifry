@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,7 +50,7 @@ private fun QueueTab(services: Services, state: PlayerUiState) {
         if (upcoming.isEmpty()) item { Text("Nothing after this song.", color = Palette.ink2, fontSize = 14.sp) }
         itemsIndexed(upcoming, key = { _, i -> "$i-${state.queue.getOrNull(i)?.id}" }) { _, i ->
             val s = state.queue.getOrNull(i) ?: return@itemsIndexed
-            SongRow(s, onClick = { services.player.skipTo(i) }, onRemove = { services.player.remove(i, s.id) })
+            SongRow(s, onClick = { services.player.skipTo(i) }, onRemove = { services.player.remove(i, s.id) }, services = services.takeIf { s.suggested })
         }
     }
 }
@@ -66,18 +67,24 @@ private fun RecentTab(services: Services) {
 }
 
 @Composable
-private fun Heading(text: String) = Text(text, fontFamily = Serif, fontSize = 20.sp, color = Palette.ink, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+private fun Heading(text: String) = Text(text, fontFamily = Display, fontSize = 20.sp, color = Palette.ink, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
 
 @Composable
-private fun SongRow(s: Song, accent: Boolean = false, onClick: () -> Unit, onRemove: (() -> Unit)? = null) {
+private fun SongRow(s: Song, accent: Boolean = false, onClick: () -> Unit, onRemove: (() -> Unit)? = null, services: Services? = null) {
     Row(
         Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Cover(s.thumbnailUrl ?: s.localThumbPath, 42.dp, RoundedCornerShape(6.dp))
         Column(Modifier.weight(1f)) {
-            Text(s.title, fontFamily = Serif, fontSize = 16.sp, maxLines = 1, color = if (accent) Palette.accent else Palette.ink)
-            Text(s.artist, color = Palette.ink2, fontSize = 12.5.sp, maxLines = 1)
+            Text(s.title, fontFamily = Display, fontSize = 16.sp, maxLines = 1, color = if (accent) Palette.accent else Palette.ink)
+            Artist(s, 12.5.sp)
+        }
+        // a suggestion's menu has "Not this song"
+        if (services != null) Box {
+            var menu by remember { mutableStateOf(false) }
+            Box(Modifier.size(28.dp).clip(CircleShape).clickable { menu = true }, contentAlignment = Alignment.Center) { Icon(Icons.More, "More", Modifier.size(18.dp), tint = Palette.ink2) }
+            if (menu) SongMenu(services, s, { menu = false }) {}
         }
         if (onRemove != null) Box(Modifier.size(28.dp).clip(CircleShape).clickable(onClick = onRemove), contentAlignment = Alignment.Center) { Text("×", color = Palette.ink2, fontSize = 18.sp) }
     }

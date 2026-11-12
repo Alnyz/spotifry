@@ -41,6 +41,11 @@ class Library(
 
     val recorder = PlayRecorder(history, listenLog) { id -> db.plays().count(id, System.currentTimeMillis()) }
 
+    /** Songs marked "Not this song": Smart shuffle never suggests them again. The phone's key, so a backup carries it. */
+    fun notSuggested(): Set<String> = prefs.getStringSet("not_suggested", null).orEmpty()
+    fun setNotSuggested(id: String, no: Boolean) =
+        prefs.edit().putStringSet("not_suggested", if (no) notSuggested() + id else notSuggested() - id).apply()
+
     /** The file of a song saved on this computer, if it is still there. */
     suspend fun localFile(song: com.spotifry.music.data.source.Song): String? =
         db.songs().get(song.id)?.filePath?.takeIf { File(it).isFile }

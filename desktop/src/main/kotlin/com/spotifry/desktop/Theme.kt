@@ -49,13 +49,21 @@ object Palette {
     val danger get() = if (dark) Color(0xFFF2877A) else Color(0xFFB3261E)
 }
 
-/** The serif used for headlines, song titles and lyrics. */
-val Serif = FontFamily(
-    Font(resource = "font/serif-regular.ttf", weight = FontWeight.Normal), Font(resource = "font/serif-medium.ttf", weight = FontWeight.Medium),
-    Font(resource = "font/serif-regular.ttf", weight = FontWeight.Bold), Font(resource = "font/serif-italic.ttf", weight = FontWeight.Normal, style = androidx.compose.ui.text.font.FontStyle.Italic),
-)
+/**
+ * Albert Sans at weights 400 to 800, one file each, cut from the phone's variable font: the desktop's text drawing
+ * ignores a variable font's weight setting. [shift] draws each weight that much heavier.
+ */
+private fun albertAt(shift: Int = 0) = FontFamily(listOf(400, 500, 600, 700, 800).map { w ->
+    Font(resource = "font/albertsans-${minOf(w + shift, 800)}.ttf", weight = FontWeight(w))
+})
 
-private val albert = FontFamily(listOf(FontWeight.Normal, FontWeight.Medium, FontWeight.SemiBold, FontWeight.Bold).map { Font(resource = "font/albertsans.ttf", weight = it) })
+private val albert = albertAt()
+
+/**
+ * Headlines, song names and lyrics: Albert Sans like the rest, two steps heavier (regular shows semi-bold), the phone's
+ * look for titles. Ali's choice, 2026-11-12; was Noto Serif, then Unbounded for a day.
+ */
+val Display = albertAt(200)
 
 private fun Typography.with(f: FontFamily) = copy(
     displayLarge = displayLarge.copy(fontFamily = f), displayMedium = displayMedium.copy(fontFamily = f), displaySmall = displaySmall.copy(fontFamily = f),

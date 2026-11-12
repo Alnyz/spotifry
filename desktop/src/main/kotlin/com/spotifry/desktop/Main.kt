@@ -86,6 +86,7 @@ fun productionServices(): Services {
     val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder, trims = library.trims,
         smartTrims = library.smartTrims, smartTrimOn = { settings.smartTrim.value }, fadeSeconds = { settings.fadeSeconds.value },
         playFrom = { song, s -> replay.open(song.id, s.origin, s.url) },
+        related = source::related, notSuggested = library::notSuggested,
     )
     scope.launch { kotlinx.coroutines.flow.combine(settings.speed, settings.pitch, ::Pair).collect { (s, p) -> player.setSpeedPitch(s, p) } }
     scope.launch { settings.sameLoudness.collect { player.setFilter("loud", if (it) Sound.LOUDNESS else null) } }

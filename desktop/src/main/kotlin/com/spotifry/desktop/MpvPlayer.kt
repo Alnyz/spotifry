@@ -16,6 +16,7 @@ import com.spotifry.music.player.SmartTrims
 import com.spotifry.music.player.fadeGain
 import com.spotifry.music.player.trimFor
 import com.spotifry.music.player.spreadShuffle
+import com.spotifry.music.player.interleave
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +51,10 @@ class MpvPlayer(
     private val fadeSeconds: () -> Int = { 0 },
     /** Where mpv reads a song found online: its link, or replay storage ([ReplayStore]). */
     private val playFrom: (Song, com.spotifry.music.data.source.ResolvedStream) -> String = { _, s -> s.url },
+    /** Songs like this one, for Smart shuffle. */
+    private val related: suspend (Song) -> List<Song> = { emptyList() },
+    /** Songs marked "Not this song": never suggested again. */
+    private val notSuggested: () -> Set<String> = { emptySet() },
 ) : MusicPlayer, SleepTimer.Target {
     private val _state = MutableStateFlow(PlayerUiState())
     override val state: StateFlow<PlayerUiState> = _state
@@ -61,6 +66,9 @@ class MpvPlayer(
     private var index = 0
     private var from: String? = null
     private var shuffle = false
+    /** Smart shuffle: shuffle with a similar song after every three of yours. */
+    private var smart = false
+    private var filling = false
     private var repeat = RepeatMode.OFF
     /** Queue positions in play order, the playing one first. Null when the list plays as it is. */
     private var order: List<Int>? = null
@@ -160,6 +168,8 @@ class MpvPlayer(
     override fun playList(songs: List<Song>, startIndex: Int, from: String?) = synchronized(lock) {
         if (songs.isEmpty()) return
         queue = songs; this.from = from
+        // shuffle stays on for a new list, but starts plain, as on the phone
+        smart = false
         wants = true; startAtMs = 0
         load(startIndex.coerceIn(songs.indices))
     }
@@ -198,10 +208,59 @@ class MpvPlayer(
         else { pendingStart = ms; seekOnStart = ms }
     }
 
+    /** The button steps through off, Shuffle, Smart shuffle, off. */
     override fun cycleShuffle() = synchronized(lock) {
-        shuffle = !shuffle
-        order = newOrder()
+        when {
+            !shuffle -> { shuffle = true; order = newOrder() }
+            !smart -> smart = true
+            else -> { shuffle = false; smart = false; dropSuggestions(); order = null }
+        }
         publish(); save()
+        fillSuggestions()
+    }
+
+    /** Shuffle off: suggestions leave the queue, except the one playing now, which finishes. */
+    private fun dropSuggestions() {
+        val cur = queue.getOrNull(index)
+        val kept = queue.withIndex().filter { (i, s) -> !s.suggested || i == index }
+        queue = kept.map { it.value }
+        index = kept.indexOfFirst { it.index == index }.coerceAtLeast(0)
+        if (cur == null) index = 0
+    }
+
+    /**
+     * Smart shuffle: after the last suggestion still to come, one similar song after every three of yours. Runs when it is
+     * turned on and at each song, so the mix keeps going through a long list. Offline or nothing found: plain Shuffle.
+     */
+    private fun fillSuggestions() {
+        if (!smart || filling || !shuffle || queue.isEmpty()) return
+        val ahead = (order ?: return).drop(1)
+        val lastTip = ahead.indexOfLast { queue[it].suggested }
+        if (lastTip >= 8 || ahead.size - lastTip - 1 < 3) return
+        filling = true
+        val seeds = (listOf(index) + ahead.drop(lastTip + 1).take(2)).map { queue[it] }
+        scope.launch {
+            try {
+                val found = seeds.flatMap { s ->
+                    try { related(s) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { emptyList() }
+                }
+                synchronized(lock) {
+                    // read again after the wait: the queue may have moved on
+                    if (!smart || !shuffle) return@launch
+                    val o = order ?: return@launch
+                    val next = o.drop(1)
+                    val stretch = next.drop(next.indexOfLast { queue[it].suggested } + 1)
+                    val queued = queue.map { it.id }.toSet()
+                    val no = notSuggested()
+                    val tips = found.distinctBy { it.id }.filter { it.id !in queued && it.id !in no }.shuffled(random).take(stretch.size / 3)
+                    if (tips.isEmpty()) return@launch
+                    val start = queue.size
+                    queue = queue + tips.map { it.copy(suggested = true) }
+                    order = o.dropLast(stretch.size) + interleave(stretch, tips.indices.map { start + it })
+                    publish(); save()
+                }
+            } finally { synchronized(lock) { filling = false } }
+        }
     }
 
     override fun cycleRepeat() = synchronized(lock) {
@@ -322,6 +381,7 @@ class MpvPlayer(
         plays.restart(song.id)
         recorder?.let { r -> r.listenLog.write(listens.moved(song.id, byListener)); scope.launch { r.history.onPlayed(song) } }
         lookUpSmartTrim(song)
+        fillSuggestions()
         loading = scope.launch(Dispatchers.IO) {
             try {
                 val local = localFile(song)
@@ -413,7 +473,7 @@ class MpvPlayer(
             wantsPlay = wants && !ended,
             ended = ended, buffering = buffering && wants, failed = failed,
             durationMs = durationMs, wholeMs = wholeMs, trim = trim,
-            queue = queue, currentIndex = index, shuffle = shuffle, repeatMode = repeat, order = order, from = from,
+            queue = queue, currentIndex = index, shuffle = shuffle, smart = smart && shuffle, repeatMode = repeat, order = order, from = from,
             quality = if (loaded) qualityLabel(codec, bitrate, rate) else null,
         )
     }

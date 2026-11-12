@@ -58,7 +58,7 @@ fun SearchPage(services: Services, state: PlayerUiState, query: String, run: Int
     }
     Column(modifier) {
         Kicker("Search")
-        Text(if (query.isBlank()) "Type in the bar on top." else query.trim(), fontFamily = Serif, fontSize = 40.sp, lineHeight = 42.sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+        Text(if (query.isBlank()) "Type in the bar on top." else query.trim(), fontFamily = Display, fontSize = 40.sp, lineHeight = 42.sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
         when {
             busy -> Text("Searching…", color = Palette.ink2)
             failed -> Text("Couldn't search. Check your connection, then try again.", color = Palette.ink2)

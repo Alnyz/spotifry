@@ -39,7 +39,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
     LazyColumn(modifier) {
         if (hero == null && lists.isEmpty()) item {
             Kicker("Welcome")
-            Text("Nothing played yet.", fontFamily = Serif, fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-1.5).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp))
+            Text("Nothing played yet.", fontFamily = Display, fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-1.5).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp))
             Text("What you play shows up here.", color = Palette.ink2, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp))
             Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Pill("Import a playlist", Icons.Download, primary = true) { services.importer.open() }
@@ -49,7 +49,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modif
             val playingThis = state.current?.id == hero.id
             val tag = when { playingThis && state.wantsPlay -> "Playing"; playingThis -> "Paused"; else -> "Last played" }
             Kicker("$tag · ${buildGreeting(hour).trimEnd('.').lowercase()}")
-            Text(hero.title, fontFamily = Serif, fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-1.5).sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 8.dp))
+            Text(hero.title, fontFamily = Display, fontSize = 56.sp, lineHeight = 58.sp, letterSpacing = (-1.5).sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 8.dp))
             Text(hero.artist, color = Palette.accent, fontSize = 16.sp, maxLines = 1, modifier = Modifier.padding(top = 8.dp))
             Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Pill(if (playingThis && state.wantsPlay) "Pause" else if (playingThis) "Play" else "Play again", if (playingThis && state.wantsPlay) Icons.Pause else Icons.Play, primary = true) {

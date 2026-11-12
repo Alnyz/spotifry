@@ -115,6 +115,7 @@ class MpvPlayerTest {
         p.cycleShuffle()
         val order = p.state.value.order!!
         assertEquals(1, order.first()); assertEquals(setOf(0, 1, 2), order.toSet())
+        p.cycleShuffle(); assertTrue(p.state.value.smart) // the second press: Smart shuffle
         p.cycleShuffle(); assertEquals(null, p.state.value.order)
     }
 
@@ -192,6 +193,26 @@ class MpvPlayerTest {
         wait("the song to play") { p.state.first { it.isPlaying } }
         Thread.sleep(500)
         assertTrue("plays from the jump, not from the start: ${p.position.value}", p.position.value >= 3_900)
+    }
+
+    @Test fun smartShuffleAddsOneSuggestionAfterEveryThreeAndShuffleOffTakesThemOut() {
+        val mine = (0 until 9).map { Song("m$it", "M$it", "Artist $it", 60, null) }
+        val similar = (0 until 10).map { Song("s$it", "S$it", "Other", 60, null) }
+        mine.forEach { File(dir, "${it.id}.wav").writeBytes(silence(seconds = 1)) }
+        player!!.close()
+        val p = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), related = { similar }, notSuggested = { setOf("s0") }).also { player = it }
+        p.playList(mine, 0); p.pause()
+        p.cycleShuffle(); assertTrue(p.state.value.shuffle); assertFalse(p.state.value.smart)
+        p.cycleShuffle(); assertTrue(p.state.value.smart)
+        wait("the suggestions") { p.state.first { s -> s.queue.any { it.suggested } } }
+        val s = p.state.value
+        val next = s.order!!.drop(1).map { s.queue[it] }
+        // every fourth song is a suggestion: three of yours, then one
+        next.forEachIndexed { i, song -> assertEquals("place $i", i % 4 == 3, song.suggested) }
+        assertFalse("never a song marked Not this song", s.queue.any { it.id == "s0" })
+        p.cycleShuffle()
+        assertFalse(p.state.value.shuffle)
+        assertEquals(mine, p.state.value.queue)
     }
 
     @Test fun theQueueComesBackAfterARestart() {

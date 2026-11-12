@@ -114,7 +114,7 @@ fun JumpBar(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (i == sel) Palette.ink.copy(alpha = 0.09f) else androidx.compose.ui.graphics.Color.Transparent).clickable { item.run() }.padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(item.title, fontFamily = Serif, fontSize = 15.sp, color = Palette.ink, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                        Text(item.title, fontFamily = Display, fontSize = 15.sp, color = Palette.ink, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
                         Spacer(Modifier.weight(1f))
                         if (item.hint.isNotEmpty()) Text(item.hint, fontSize = 12.sp, color = Palette.ink2, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
                     }

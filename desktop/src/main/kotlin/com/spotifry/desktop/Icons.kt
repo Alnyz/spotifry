@@ -26,5 +26,13 @@ object Icons {
     val Download = icon("download", "M11 4h2v8.2l2.6-2.6L17 11l-5 5-5-5 1.4-1.4L11 12.2zM5 18h14v2H5z")
     val Lyrics = icon("lyrics", "M4 5h16v2H4zm0 4h16v2H4zm0 4h10v2H4z")
     val Queue = icon("queue", "M3 6h14v2H3zm0 5h14v2H3zm0 5h9v2H3zm12 0v-2l6 3-6 3z")
+    /** The one mark for Smart shuffle's suggestions, everywhere. */
+    val Sparkle = icon("sparkle", "M12 3c.8 5.4 3.6 8.3 9 9-5.4.8-8.2 3.6-9 9-.8-5.4-3.6-8.2-9-9 5.4-.7 8.2-3.6 9-9z")
+    /** The shuffle arrows a touch smaller, with the sparkle in the top-left corner. */
+    val SmartShuffle = ImageVector.Builder("smart_shuffle", 24.dp, 24.dp, 24f, 24f)
+        .addGroup(scaleX = .82f, scaleY = .82f, translationX = 4.2f, translationY = 4.2f)
+        .addPath(addPathNodes("M10.6 9.2 5.4 4 4 5.4l5.2 5.2zM14.5 4l2 2L4 18.6 5.4 20 18 7.5l2 2V4zm.3 9.4-1.4 1.4 3.1 3.1-2 2.1H20v-5.5l-2 2z"), fill = SolidColor(Color.Black)).clearGroup()
+        .addPath(addPathNodes("M5 .8c.35 2.3 1.4 3.35 3.7 3.7-2.3.35-3.35 1.4-3.7 3.7C4.65 5.9 3.6 4.85 1.3 4.5 3.6 4.15 4.65 3.1 5 .8z"), fill = SolidColor(Color.Black))
+        .build()
     val Check = icon("check", "M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z")
 }

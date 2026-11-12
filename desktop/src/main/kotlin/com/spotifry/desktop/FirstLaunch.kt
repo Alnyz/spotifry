@@ -28,7 +28,7 @@ fun FirstLaunch(services: Services, flow: BackupFlow, onDone: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal = 120.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         if (step == 0) {
             androidx.compose.foundation.Image(androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.image), null, Modifier.size(84.dp))
-            Text("Welcome to\nSpotifry.", fontFamily = Serif, fontSize = 52.sp, lineHeight = 56.sp, letterSpacing = (-1).sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 26.dp))
+            Text("Welcome to\nSpotifry.", fontFamily = Display, fontSize = 52.sp, lineHeight = 56.sp, letterSpacing = (-1).sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 26.dp))
             Text("Music from YouTube, with no ads and no skip limit.", color = Palette.ink2, fontSize = 17.sp, modifier = Modifier.padding(top = 18.dp))
             Box(Modifier.padding(top = 30.dp).width(420.dp).height(52.dp).clip(RoundedCornerShape(26.dp)).background(Palette.ink.copy(alpha = 0.06f)).border(1.dp, Palette.ink.copy(alpha = 0.14f), RoundedCornerShape(26.dp)), contentAlignment = Alignment.Center) {
                 if (name.isEmpty()) Text("What should we call you?", color = Palette.ink2, fontSize = 16.sp)
@@ -40,7 +40,7 @@ fun FirstLaunch(services: Services, flow: BackupFlow, onDone: () -> Unit) {
             Text("Name or nickname. You can leave it empty.", color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
             Box(Modifier.padding(top = 26.dp)) { Pill("Continue", primary = true) { settings.setName(name); step = 1 } }
         } else {
-            Text("Do you have a backup\nto bring back?", fontFamily = Serif, fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-1).sp, textAlign = TextAlign.Center)
+            Text("Do you have a backup\nto bring back?", fontFamily = Display, fontSize = 44.sp, lineHeight = 48.sp, letterSpacing = (-1).sp, textAlign = TextAlign.Center)
             Text("A backup from Spotifry on your phone works here too: playlists, history, trims and settings come over.", color = Palette.ink2, fontSize = 17.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 10.dp).widthIn(max = 520.dp))
             Row(Modifier.padding(top = 34.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Choice("Restore a backup", "Pick the .zip file you saved from Settings, Save backup.", Icons.Download, primary = true, onClick = flow::choose)
@@ -57,7 +57,7 @@ private fun Choice(title: String, text: String, icon: androidx.compose.ui.graphi
             .border(1.dp, if (primary) Palette.accent.copy(alpha = 0.5f) else Palette.ink.copy(alpha = 0.12f), RoundedCornerShape(22.dp)).clickable(onClick = onClick).padding(26.dp),
     ) {
         Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Palette.high), contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(24.dp), tint = Palette.accent) }
-        Text(title, fontFamily = Serif, fontSize = 22.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+        Text(title, fontFamily = Display, fontSize = 22.sp, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
         Text(text, color = Palette.ink2, fontSize = 14.sp, lineHeight = 21.sp)
     }
 }

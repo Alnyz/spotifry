@@ -51,7 +51,7 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
 
     if (song == null) {
         Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-            Text("Nothing playing", fontFamily = Serif, fontSize = 40.sp, color = Palette.ink)
+            Text("Nothing playing", fontFamily = Display, fontSize = 40.sp, color = Palette.ink)
             Text("Pick a song and it shows up here.", color = Palette.ink2, modifier = Modifier.padding(top = 8.dp))
         }
         return
@@ -65,7 +65,7 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
             Column(Modifier.width(340.dp).fillMaxHeight().padding(top = 8.dp)) {
                 Cover(song.thumbnailUrl ?: song.localThumbPath, cover, RoundedCornerShape(12.dp), large = true)
-                Text(song.title, fontFamily = Serif, fontSize = 28.sp, lineHeight = 30.sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 18.dp))
+                Text(song.title, fontFamily = Display, fontSize = 28.sp, lineHeight = 30.sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 18.dp))
                 Text(song.artist, color = Palette.accent, fontSize = 15.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
                 SongNote(services, song.id)
                 state.quality?.let { QualityPill(it, Modifier.padding(top = 12.dp)) }
@@ -73,7 +73,7 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 if (has) LyricsPanel(services, song, shift[song.id] ?: 0, Modifier.padding(top = 8.dp).fillMaxSize())
-                else if (lyrics != LyricsState.Loading) Text("No lyrics for this song", fontFamily = Serif, fontSize = 20.sp, color = Palette.ink.copy(alpha = 0.4f), modifier = Modifier.padding(top = 12.dp))
+                else if (lyrics != LyricsState.Loading) Text("No lyrics for this song", fontFamily = Display, fontSize = 20.sp, color = Palette.ink.copy(alpha = 0.4f), modifier = Modifier.padding(top = 12.dp))
             }
         }
     }
@@ -105,14 +105,14 @@ private fun LyricsPanel(services: Services, song: Song, shiftMs: Int, modifier: 
     val lyrics = lyricsFor(services, song)
     Box(modifier) {
         when (val l = lyrics) {
-            LyricsState.Loading -> Text("Looking for lyrics…", fontFamily = Serif, fontSize = 22.sp, color = Palette.ink2)
+            LyricsState.Loading -> Text("Looking for lyrics…", fontFamily = Display, fontSize = 22.sp, color = Palette.ink2)
             LyricsState.None -> Unit
-            LyricsState.Failed -> Text("Couldn't load lyrics. Check your connection.", fontFamily = Serif, fontSize = 22.sp, color = Palette.ink2)
+            LyricsState.Failed -> Text("Couldn't load lyrics. Check your connection.", fontFamily = Display, fontSize = 22.sp, color = Palette.ink2)
             is LyricsState.Found -> when (val x = l.lyrics) {
                 is Lyrics.Timed -> TimedLyrics(services, x, shiftMs)
                 is Lyrics.Plain -> Column {
                     Text("Lyrics from ${Lyrics.LRCLIB} · not timed", color = Palette.ink2, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
-                    LazyColumn { itemsIndexed(x.lines) { _, line -> Text(line.ifBlank { " " }, fontFamily = Serif, fontSize = 24.sp, lineHeight = 32.sp, color = Palette.ink.copy(alpha = 0.85f)) } }
+                    LazyColumn { itemsIndexed(x.lines) { _, line -> Text(line.ifBlank { " " }, fontFamily = Display, fontSize = 24.sp, lineHeight = 32.sp, color = Palette.ink.copy(alpha = 0.85f)) } }
                 }
             }
         }
@@ -131,7 +131,7 @@ private fun TimedLyrics(services: Services, lyrics: Lyrics.Timed, shiftMs: Int) 
         itemsIndexed(lyrics.lines) { i, line ->
             val current = i == index
             Text(
-                lineText(line, current, at), fontFamily = Serif, fontSize = if (current) 30.sp else 22.sp, lineHeight = if (current) 36.sp else 28.sp, letterSpacing = (-0.5).sp,
+                lineText(line, current, at), fontFamily = Display, fontSize = if (current) 30.sp else 22.sp, lineHeight = if (current) 36.sp else 28.sp, letterSpacing = (-0.5).sp,
                 color = if (current) Palette.ink else Palette.ink.copy(alpha = 0.4f),
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { services.player.seekTo((line.atMs - shiftMs).coerceAtLeast(0)) },
             )
@@ -165,8 +165,8 @@ private fun QueueList(services: Services, state: com.spotifry.music.player.Playe
                 ) {
                     Cover(s.thumbnailUrl ?: s.localThumbPath, 40.dp, RoundedCornerShape(6.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(s.title, fontFamily = Serif, fontSize = 17.sp, maxLines = 1)
-                        Text(s.artist, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
+                        Text(s.title, fontFamily = Display, fontSize = 17.sp, maxLines = 1)
+                        Artist(s, 13.sp)
                     }
                     Box(Modifier.size(28.dp).clip(CircleShape).clickable { services.player.remove(i, s.id) }, contentAlignment = Alignment.Center) {
                         Text("×", color = Palette.ink2, fontSize = 18.sp)
@@ -186,7 +186,7 @@ private fun SongNote(services: Services, songId: String) {
     val text = note ?: return
     Tip("Edit note") {
         Text(
-            text, fontFamily = Serif, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 3, color = Palette.ink2,
+            text, fontFamily = Display, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 3, color = Palette.ink2,
             modifier = Modifier.padding(top = 8.dp).clip(RoundedCornerShape(6.dp)).clickable { editing = true },
         )
     }

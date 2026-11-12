@@ -50,7 +50,7 @@ fun TopBar(
     compact: Boolean, modifier: Modifier = Modifier, jumpBar: @Composable () -> Unit,
 ) {
     Row(modifier.fillMaxWidth().height(64.dp).padding(horizontal = if (compact) 28.dp else 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (compact) 18.dp else 28.dp)) {
-        Text(buildLogo(), fontFamily = Serif, fontWeight = FontWeight.Bold, fontSize = 21.sp)
+        Text(buildLogo(), fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 21.sp)
         Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) { Tab.entries.forEach { TabLabel(it.label, it == tab) { onTab(it) } } }
         Spacer(Modifier.weight(1f))
         jumpBar()
