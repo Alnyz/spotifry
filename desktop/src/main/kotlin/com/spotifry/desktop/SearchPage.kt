@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +51,9 @@ fun SearchPage(services: Services, state: PlayerUiState, query: String, run: Int
     var results by remember { mutableStateOf<List<Song>?>(null) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
+    val files by services.library.musicFolder.songs.collectAsState()
+    // songs from the music folder that match come first, like the phone's songs on the phone
+    val local = remember(run, files) { com.spotifry.music.data.localMatches(files, query) }
     androidx.compose.runtime.LaunchedEffect(run) {
         if (query.isBlank()) return@LaunchedEffect
         busy = true; failed = false
@@ -59,12 +63,19 @@ fun SearchPage(services: Services, state: PlayerUiState, query: String, run: Int
     Column(modifier) {
         Kicker("Search")
         Text(if (query.isBlank()) "Type in the bar on top." else query.trim(), fontFamily = Heading, fontSize = 40.sp, lineHeight = 42.sp, maxLines = 2, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-        when {
-            busy -> Text("Searching…", color = Palette.ink2)
-            failed -> Text("Couldn't search. Check your connection, then try again.", color = Palette.ink2)
-            results?.isEmpty() == true -> Text("No songs found.", color = Palette.ink2)
-            results != null -> LazyColumn(contentPadding = PaddingValues(bottom = LocalBottomInset.current)) {
-                itemsIndexed(results!!, key = { _, s -> s.id }) { i, s ->
+        LazyColumn(contentPadding = PaddingValues(bottom = LocalBottomInset.current)) {
+            if (local.isNotEmpty()) {
+                item { SectionTitle("On this computer", line = false) }
+                itemsIndexed(local, key = { _, s -> "file " + s.id }) { i, s ->
+                    SongLine(services, i + 1, s, state.current?.id == s.id) { player.playList(local, i, "Search") }
+                }
+                item { SectionTitle("From YouTube", line = false) }
+            }
+            when {
+                busy -> item { Text("Searching…", color = Palette.ink2) }
+                failed -> item { Text("Couldn't search. Check your connection, then try again.", color = Palette.ink2) }
+                results?.isEmpty() == true -> item { Text("No songs found.", color = Palette.ink2) }
+                results != null -> itemsIndexed(results!!, key = { _, s -> s.id }) { i, s ->
                     SongLine(services, i + 1, s, state.current?.id == s.id) { player.playList(results!!, i, "Search") }
                 }
             }

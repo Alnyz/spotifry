@@ -97,6 +97,7 @@ class SnapshotTest {
         val dir = MusicFolderTest.makeSongs()
         kotlinx.coroutines.runBlocking { lib.musicFolder.choose(dir); lib.musicFolder.refresh() }
         savedFilter = com.spotifry.music.ui.saved.SavedFilter.Phone
+        shoot("search-folder", Route.Search, lib)
         shoot("saved-folder", Route.Saved, lib)
         savedFilter = com.spotifry.music.ui.saved.SavedFilter.All
         shoot("saved-all", Route.Saved, lib)

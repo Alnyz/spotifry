@@ -57,6 +57,7 @@ fun JumpBar(
     val saved by lib.db.songs().observeSaved().collectAsState(emptyList())
     val recent by lib.db.history().observeRecent().collectAsState(emptyList())
     val lists by lib.db.playlists().observePlaylists().collectAsState(emptyList())
+    val files by lib.musicFolder.songs.collectAsState()
     var focused by remember { mutableStateOf(false) }
     var sel by remember { mutableStateOf(0) }
     val q = query.trim()
@@ -64,7 +65,7 @@ fun JumpBar(
     val field = androidx.compose.material3.LocalTextStyle.current.copy(fontSize = 13.sp, lineHeight = 18.sp)
 
     fun done(block: () -> Unit) = { onQuery(""); leave(); block() }
-    val items = remember(q, saved, recent, lists) {
+    val items = remember(q, saved, recent, lists, files) {
         val has = { s: String -> q.isEmpty() || s.contains(q, ignoreCase = true) }
         buildList {
             listOf(Triple("Home", Route.Home, Icons.Home), Triple("Saved", Route.Saved, Icons.Saved), Triple("Playlists", Route.Playlists, Icons.Playlists), Triple("Settings", Route.Settings, Icons.Settings))
@@ -72,7 +73,8 @@ fun JumpBar(
             if (has("Now playing")) add(JumpItem("Go to", "Now playing", icon = Icons.Wave) { done { goNowPlaying() }() })
             if (q.isNotEmpty()) {
                 lists.filter { has(it.name) }.take(4).forEach { p -> add(JumpItem("Playlists", p.name, "${p.songCount} songs", Icons.Playlists) { done { goPage(Route.Playlist(p.id)) }() }) }
-                val own = (saved + recent.map { it }).distinctBy(SongEntity::id).filter { has(it.title) || has(it.artist) }.take(5).map(SongEntity::toSong)
+                val own = (saved + recent.map { it }).distinctBy(SongEntity::id).filter { has(it.title) || has(it.artist) }.map(SongEntity::toSong)
+                    .plus(com.spotifry.music.data.localMatches(files, q, 5)).distinctBy { it.id }.take(5)
                 own.forEach { s -> add(JumpItem("Your songs", s.title, s.artist, cover = s.thumbnailUrl ?: s.localThumbPath ?: "") { done { services.player.playList(listOf(s), 0, "Search") }() }) }
                 add(JumpItem("Search", "Search for “$q”", icon = Icons.Search) { leave(); onSearch() })
             }
