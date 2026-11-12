@@ -18,7 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
 import java.io.File
 
-const val APP_VERSION = "desktop-0.1.0"
+const val APP_VERSION = "desktop-0.2.0"
 /** The same version as gradle/libs.versions.toml, for the About line. */
 const val NEWPIPE_VERSION = "v0.26.5"
 

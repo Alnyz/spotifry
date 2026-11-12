@@ -34,7 +34,7 @@ compose.desktop {
         nativeDistributions {
             // an app folder with its own Java inside; packaging/build-appimage.sh turns it into one AppImage file
             packageName = "spotifry"
-            packageVersion = "0.1.0"
+            packageVersion = "0.2.0"
             // only what the app needs (from suggestRuntimeModules); jdk.crypto.ec keeps the HTTPS connections working
             modules("java.instrument", "java.net.http", "jdk.dynalink", "jdk.security.auth", "jdk.unsupported", "jdk.crypto.ec")
             linux { iconFile.set(project.file("packaging/spotifry.png")); appCategory = "AudioVideo" }
