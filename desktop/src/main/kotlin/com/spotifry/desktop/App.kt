@@ -106,6 +106,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     val glow by animateColorAsState(tint ?: Palette.accent, tween(600))
     val base by animateColorAsState(lerp(Palette.bg, tint ?: Palette.accent, if (Palette.dark) 0.12f else 0.10f), tween(600))
 
+    val update by services.library.updates.available.collectAsState()
     val haze = remember { dev.chrisbanes.haze.HazeState() }
     val homeList = androidx.compose.foundation.lazy.rememberLazyListState()
     val bannerHaze = remember { dev.chrisbanes.haze.HazeState() }
@@ -141,9 +142,9 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                     TopBar(
                         tab, { t -> when (t) { Tab.Home -> { route = Route.Home; nowPlaying = false }; Tab.NowPlaying -> nowPlaying = true; Tab.Saved -> { route = Route.Saved; nowPlaying = false } } },
                         { route = Route.Settings; nowPlaying = false }, route == Route.Settings && !nowPlaying,
-                        compact,
-                    ) {
-                        JumpBar(services, query, { query = it }, jump, { root.requestFocus() }, if (compact) 220.dp else 260.dp, { route = it; nowPlaying = false }, { nowPlaying = true }, ::search)
+                        compact, update, { update?.let(services.library.updates::open) },
+                    ) { tight ->
+                        JumpBar(services, query, { query = it }, jump, { root.requestFocus() }, if (tight) 200.dp else if (compact) 220.dp else 260.dp, { route = it; nowPlaying = false }, { nowPlaying = true }, ::search)
                     }
                     Box(Modifier.weight(1f).fillMaxWidth().padding(start = if (compact) 28.dp else 40.dp, end = if (compact) 28.dp else 40.dp)) {
                         val pad = Modifier.widthIn(max = if (nowPlaying || route.page == Page.Home) 1400.dp else 1180.dp).fillMaxHeight().padding(top = 10.dp)

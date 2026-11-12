@@ -190,6 +190,8 @@ class SnapshotTest {
         shoot("saved", Route.Saved, lib)
         shoot("playlists", Route.Playlists, lib)
         shoot("playlist", Route.Playlist(1), lib)
+        lib.updates.available.value = DesktopRelease("0.3.0", "https://example.org")
+        shoot("update", Route.Settings, lib, height = 1400)
     }
 
     /** With SPOTIFRY_BACKUP set: restores a real backup and draws the pages with it, covers included. Pictures stay in build/. */

@@ -112,6 +112,7 @@ fun productionServices(): Services {
         lookUpYears = { lookUpSongYears(library, scope, brainz) })
     services.lookUpYears()
     scope.launch { library.musicFolder.refresh() }
+    library.updates.checkDaily()
     services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
     return services
 }

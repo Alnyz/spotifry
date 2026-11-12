@@ -80,7 +80,7 @@ fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit =
         }
         item {
             Group("About") {
-                Row("Spotifry", "Version $APP_VERSION")
+                UpdateRow(services)
                 Row("Music from YouTube", "Through NewPipe Extractor $NEWPIPE_VERSION.")
                 // the photos' licences ask for the photographer and the licence to be named
                 Row("Home pictures", "Photos from Wikimedia Commons: morning by Jakub Hałun (CC BY-SA 4.0), afternoon by PattayaPatrol (CC BY-SA 4.0), evening by Martin St-Amant (CC BY-SA 3.0), night by Vincent Lock (CC BY 2.0).")
@@ -235,4 +235,21 @@ private fun sizeText(bytes: Long) = when {
     bytes >= 1L shl 30 -> "%.1f GB".format(bytes / (1L shl 30).toDouble())
     bytes >= 1L shl 20 -> "${bytes shr 20} MB"
     else -> "${bytes shr 10} KB"
+}
+
+/** The version, when GitHub was last asked, and Check now; Update opens the download page when a newer one is out. */
+@Composable
+private fun UpdateRow(services: Services) {
+    val updates = services.library.updates
+    val available by updates.available.collectAsState()
+    val checking by updates.checking.collectAsState()
+    val checked by updates.lastChecked.collectAsState()
+    val when_ = if (checked == 0L) "Not checked yet" else "Checked " + java.time.format.DateTimeFormatter.ofPattern("d MMM, HH:mm").format(java.time.Instant.ofEpochMilli(checked).atZone(java.time.ZoneId.systemDefault()))
+    val next = available
+    Row("Spotifry", "Version $desktopVersion · " + when { checking -> "Checking…"; next != null -> "${next.version} is out"; else -> when_ }) {
+        if (next != null) Text("Update", color = Palette.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { updates.open(next) }.padding(horizontal = 6.dp, vertical = 4.dp))
+        else if (!checking) Text("Check now", color = Palette.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { updates.check() }.padding(horizontal = 6.dp, vertical = 4.dp))
+    }
 }

@@ -47,13 +47,27 @@ enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.
 @Composable
 fun TopBar(
     tab: Tab?, onTab: (Tab) -> Unit, onSettings: () -> Unit, settingsOn: Boolean,
-    compact: Boolean, modifier: Modifier = Modifier, jumpBar: @Composable () -> Unit,
-) {
-    Row(modifier.fillMaxWidth().height(64.dp).padding(horizontal = if (compact) 28.dp else 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (compact) 18.dp else 28.dp)) {
+    compact: Boolean, update: DesktopRelease? = null, onUpdate: () -> Unit = {}, modifier: Modifier = Modifier, jumpBar: @Composable (tight: Boolean) -> Unit,
+) = androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
+    // the row's own room, not the window's: beside the side panel a 1280 window leaves about 900, where the full
+    // spacing pushed the gear off the edge; there everything sits closer and the search bar is narrower
+    val tight = maxWidth < 1000.dp
+    val close = compact || tight
+    Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = if (close) 28.dp else 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (tight) 12.dp else if (compact) 18.dp else 28.dp)) {
         Text(buildLogo(), fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 21.sp)
-        Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 8.dp)) { Tab.entries.forEach { TabPill(it, it == tab) { onTab(it) } } }
+        Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(if (close) 2.dp else 8.dp)) { Tab.entries.forEach { TabPill(it, it == tab) { onTab(it) } } }
         Spacer(Modifier.weight(1f))
-        jumpBar()
+        jumpBar(tight)
+        // a newer version out: a small accent pill by the gear, which opens its download page
+        if (update != null) Tip("Spotifry ${update.version} is out. Opens the download page.") {
+            Row(
+                Modifier.height(38.dp).clip(CircleShape).background(Palette.accent).clickable(onClick = onUpdate).padding(horizontal = if (tight) 11.dp else 14.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(Icons.Download, "Update", Modifier.size(16.dp), tint = Color.White)
+                if (!tight) Text("Update", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
         Box(Modifier.size(38.dp).clip(CircleShape).glassFill().clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
             Icon(Icons.Settings, "Settings", Modifier.size(22.dp), tint = if (settingsOn) Palette.accent else Palette.ink.copy(alpha = 0.85f))
         }

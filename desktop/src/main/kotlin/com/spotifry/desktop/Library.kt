@@ -39,6 +39,7 @@ class Library(
     val history = HistoryRecorder(db.history(), db.songs())
     val listenLog = ListenLog(db.listens())
     val restoreQueue = RestoreQueue(restorePrefs, db.songs(), downloads::save, metered = { false })
+    val updates = Updates(client, prefs)
     val backups = Backups(db.backup(), prefs, trimPrefs, restoreQueue, APP_VERSION)
 
     /** The music folder's songs, shown under Saved, On this computer. */
