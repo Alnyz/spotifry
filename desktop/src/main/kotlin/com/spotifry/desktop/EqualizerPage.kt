@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeJoin
@@ -45,6 +46,7 @@ import com.spotifry.music.player.EQ_CENTERS_HZ
 import com.spotifry.music.player.EQ_MAX_MB
 import com.spotifry.music.player.EQ_PRESETS
 import com.spotifry.music.player.EqDesign
+import com.spotifry.music.player.Spectrum
 import com.spotifry.music.player.fitAutoEq
 import com.spotifry.music.player.searchAutoEq
 import kotlinx.coroutines.CancellationException
@@ -73,6 +75,7 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
     val preset by settings.eqPreset.collectAsState()
     val levels by settings.eqLevels.collectAsState()
     var tab by remember { mutableStateOf(0) }
+    val playing by services.player.state.collectAsState()
     val autoEq = remember { AutoEqSource(services.library.client, File(dataDir(), "autoeq")) }
     // any shaping means the listener wants to hear it, so it also turns the equalizer on; saved when the mouse lets go
     val shape = { changes: List<Pair<Int, Int>> ->
@@ -108,7 +111,7 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
         }
         item {
             when (tab) {
-                0 -> Column(Modifier.alpha(dim)) { Graph(levels, shape, settings::saveEq) }
+                0 -> Column(Modifier.alpha(dim)) { Graph(on, levels, shape, settings::saveEq, rememberLivePicture(services.listening, playing.isPlaying)) }
                 1 -> Column(Modifier.alpha(dim)) { Bands(levels, shape, settings::saveEq) }
                 // the headphone list works with the equalizer off, so it isn't dimmed like the rest
                 else -> Headphone(settings, autoEq, preset, on)
@@ -135,14 +138,60 @@ private fun dbText(mb: Int) = (if (mb > 0) "+" else if (mb < 0) "−" else "") +
 
 private fun Modifier.stage() = clip(RoundedCornerShape(14.dp)).background(Palette.ink.copy(alpha = 0.05f)).border(1.dp, Palette.ink.copy(alpha = 0.1f), RoundedCornerShape(14.dp))
 
-/** The real curve you hear, with one point per band: a press grabs the nearest point and it follows the mouse up and down. */
+private class LivePicture {
+    val shown = FloatArray(Spectrum.BANDS) { Spectrum.FLOOR_DB }
+    /** Counts drawn frames; reading it is what makes the graph redraw with the music. */
+    var frame by mutableStateOf(0)
+}
+
+/**
+ * The level of each [Spectrum] band to draw now, following the music smoothly; sinks to the floor when paused. The song
+ * heard is decoded once (a few seconds), then read at the moment playing, every frame.
+ */
 @Composable
-private fun Graph(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
+private fun rememberLivePicture(listening: () -> Pair<String, Long>?, isPlaying: Boolean): LivePicture {
+    val playing by rememberUpdatedState(isPlaying)
+    val picture = remember { LivePicture() }
+    LaunchedEffect(Unit) {
+        val raw = FloatArray(Spectrum.BANDS)
+        val target = FloatArray(Spectrum.BANDS) { Spectrum.FLOOR_DB }
+        var song: SongPicture? = null
+        while (true) {
+            withFrameNanos { }
+            val now = listening()
+            if (now != null && song?.url != now.first) { val next = SongPicture(now.first); song = next; launch(Dispatchers.IO) { next.load() } }
+            val have = now != null && playing && song?.bandsAt(now.second, raw) == true
+            // neighbours mixed in a little, so one loud band shows as a hill, not a spike
+            if (have) for (i in target.indices) target[i] = (raw[maxOf(i - 1, 0)] + 2 * raw[i] + raw[minOf(i + 1, raw.size - 1)]) / 4
+            for (i in picture.shown.indices) {
+                val to = if (have) target[i] else Spectrum.FLOOR_DB
+                picture.shown[i] += (to - picture.shown[i]) * if (to > picture.shown[i]) .3f else .12f
+            }
+            picture.frame++
+        }
+    }
+    return picture
+}
+
+/** Music gets quieter toward the high notes; tilting the picture up 3 dB an octave keeps the highs moving, like most music analyzers. */
+private val TILT = FloatArray(Spectrum.BANDS) { 3f * (kotlin.math.ln(Spectrum.bandCenterHz(it) / 1000f) / kotlin.math.ln(2f)) }
+
+/**
+ * The real curve you hear over the music as it plays, with one point per band: a press grabs the nearest point and it
+ * follows the mouse up and down.
+ */
+@Composable
+private fun Graph(on: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, picture: LivePicture) {
     val change by rememberUpdatedState(set)
     val finished by rememberUpdatedState(done)
     var dragging by remember { mutableStateOf(-1) }
     val design = remember(levels) { EqDesign(levels) }
     val curve = remember(design) { FloatArray(CURVE_HZ.size) { design.responseDb(CURVE_HZ[it]).toFloat() * 100 } }
+    // the music as it comes out: shaped by the curve and turned down by its preamp, only while the equalizer is on
+    val shaped = remember(design, on) {
+        val preampDb = 20 * log10(design.preamp).toFloat()
+        FloatArray(Spectrum.BANDS) { if (on) design.responseDb(Spectrum.bandCenterHz(it).toDouble()).toFloat() + preampDb else 0f }
+    }
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val ink = Palette.ink; val ink2 = Palette.ink2; val accent = Palette.accent
@@ -171,6 +220,20 @@ private fun Graph(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: 
             val t = measurer.measure(BAND_LABELS[b], label)
             drawText(t, topLeft = Offset(p.x(EQ_CENTERS_HZ[b]) - t.size.width / 2, p.bottom + 8.dp.toPx()))
         }
+        // the music, faintly, so you can see what you're shaping: -75 dB on the floor, 0 dB near the top
+        picture.frame
+        val px = { i: Int -> p.x(Spectrum.bandCenterHz(i).toDouble()) }
+        val py = { i: Int -> p.bottom - ((picture.shown[i] + TILT[i] + shaped[i] + 75f) / 75f).coerceIn(0f, 1f) * (p.bottom - p.top) * .7f }
+        val last = Spectrum.BANDS - 1
+        val line = Path().apply {
+            // the analysis covers 40 Hz to 16 kHz; its end values are held out to the edges
+            moveTo(p.left, py(0)); lineTo(px(0), py(0))
+            for (i in 1 until last) quadraticTo(px(i), py(i), (px(i) + px(i + 1)) / 2, (py(i) + py(i + 1)) / 2)
+            lineTo(px(last), py(last)); lineTo(p.right, py(last))
+        }
+        val under = Path().apply { addPath(line); lineTo(p.right, p.bottom); lineTo(p.left, p.bottom); close() }
+        drawPath(under, Brush.verticalGradient(listOf(ink.copy(alpha = .16f), ink.copy(alpha = .02f)), p.top, p.bottom))
+        drawPath(line, ink.copy(alpha = .18f), style = Stroke(1.dp.toPx()))
         val path = Path()
         CURVE_HZ.forEachIndexed { i, hz ->
             val x = p.x(hz); val y = p.y(curve[i].coerceIn(-EQ_MAX_MB.toFloat(), EQ_MAX_MB.toFloat()))

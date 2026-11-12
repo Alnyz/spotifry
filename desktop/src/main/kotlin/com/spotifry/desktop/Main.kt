@@ -54,6 +54,8 @@ class Services(
     val sleep: SleepTimer? = null,
     /** Played songs kept on this computer; null in tests. */
     val replay: ReplayStore? = null,
+    /** The song heard (what mpv reads) and where it is in it, in ms; null when nothing plays or in tests. */
+    val listening: () -> Pair<String, Long>? = { null },
 ) {
     /** Set by the window: bring it to the front (the media widget's "open"), and quit. */
     var raise: () -> Unit = {}
@@ -100,7 +102,7 @@ fun productionServices(): Services {
     // a song already looked up keeps its old source; forget the links so the next play asks again
     scope.launch { kotlinx.coroutines.flow.combine(settings.jioSaavn, settings.monochrome, ::Pair).drop(1).collect { resolver.clear() } }
     lateinit var services: Services
-    services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay)
+    services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay, listening = player::listening)
     services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
     return services
 }

@@ -213,6 +213,12 @@ class MpvPlayer(
     /** The trim a song plays with: the listener's own, else the smart one while that is on. */
     private fun trimOf(id: String): Trim? = trimFor(trims?.get(id), smartTrims?.get(id), smartTrimOn())
 
+    /** What mpv reads for the song heard and where it is in that file now (ms), for the Equalizer's picture; null when nothing plays. */
+    fun listening(): Pair<String, Long>? = synchronized(lock) {
+        val url = playingUrl?.takeIf { loaded && !ended } ?: return null
+        url to now(posNow, posAt, wants && !buffering) + startMs
+    }
+
     override fun songLeftMs(): Long? = synchronized(lock) { if (loaded && !ended) durationMs - _position.value else null }
 
     /** [speed] 0.5 to 2, [pitch] in semitones; mpv keeps the two apart. */
