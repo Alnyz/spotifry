@@ -61,6 +61,7 @@ sealed interface Route {
     data class Playlist(val id: Long) : Route { override val page = Page.Playlists }
     data object Settings : Route { override val page = Page.Settings }
     data object Equalizer : Route { override val page = Page.Settings }
+    data object Rotation : Route { override val page = Page.Home }
 }
 
 enum class Page(val label: String, val icon: ImageVector) {
@@ -139,6 +140,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                                 is Route.Playlist -> PlaylistPage(services, r.id, { route = it }, pad)
                                 Route.Settings -> SettingsPage(services, flow, { route = Route.Equalizer }, pad)
                                 Route.Equalizer -> EqualizerPage(services, { route = Route.Settings }, pad)
+                                Route.Rotation -> RotationPage(services, { route = Route.Home }, pad)
                             }
                         } }
                     }

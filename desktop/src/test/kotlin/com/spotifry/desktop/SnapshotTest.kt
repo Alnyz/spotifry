@@ -52,6 +52,12 @@ class SnapshotTest {
             val road = db.playlists().create("Road trip 2019"); songs.forEach { db.playlists().addSong(road, it.id) }
             val rain = db.playlists().create("Hujan"); songs.take(3).forEach { db.playlists().addSong(rain, it.id) }
             db.playlists().create("Fokus").also { songs.takeLast(2).forEach { s -> db.playlists().addSong(it, s.id) } }
+            // three weeks of evenings and a few mornings, so Your rotation has something to draw
+            val now = System.currentTimeMillis(); val day = 86_400_000L
+            for (d in 0 until 21) for (k in 0 until (d * 7 % 5)) {
+                val at = now - d * day - (k * 37 % 11) * 3_600_000L
+                db.listens().insert(com.spotifry.music.data.db.ListenEntity(at, songs[(d + k) % songs.size].id, 120 + (d * 13 + k * 29) % 180))
+            }
         }
         return lib
     }
@@ -64,6 +70,11 @@ class SnapshotTest {
         val png = scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes
         File("build/snapshots").apply { mkdirs() }.resolve("$name.png").writeBytes(png)
         scene.close()
+    }
+
+    @Test fun homeAndRotation() {
+        shoot("home", Route.Home)
+        shoot("rotation", Route.Rotation)
     }
 
     @Test fun settingsLightAndDark() {
