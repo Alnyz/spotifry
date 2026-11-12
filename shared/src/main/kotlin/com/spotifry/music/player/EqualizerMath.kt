@@ -15,6 +15,8 @@ const val EQ_BANDS = 10
 const val EQ_MAX_MB = 1200
 /** Each band's centre: one octave apart, 31 Hz to 16 kHz. */
 val EQ_CENTERS_HZ = DoubleArray(EQ_BANDS) { 31.25 * 2.0.pow(it) }
+/** Each band's width in octaves: wider than the one octave between bands; narrower leaves dips you can hear between them. */
+const val EQ_WIDTH_OCTAVES = 1.39
 
 /** Android's own equalizer values, so a preset saved from it keeps its name and its sound. */
 val EQ_PRESETS: List<Pair<String, List<Int>>> = listOf(
@@ -61,6 +63,8 @@ fun eqFromOldBands(levelsMb: List<Int>): List<Int> {
 class EqDesign(levelsMb: List<Int>, private val sampleRate: Int = 48_000) {
     /** b0, b1, b2, a1, a2 of each band. */
     val coefficients = DoubleArray(EQ_BANDS * 5)
+    /** Each band's own filter gain in dB, after the correction for overlap: what an RBJ peak filter [EQ_WIDTH_OCTAVES] wide is set to. */
+    val gainsDb: DoubleArray
     /** Turns everything down by the curve's highest boost, so a song already at full level can't clip when boosted. */
     val preamp: Double
 
@@ -74,6 +78,7 @@ class EqDesign(levelsMb: List<Int>, private val sampleRate: Int = 48_000) {
             for (i in 0 until EQ_BANDS) if (usable[i]) gains[i] = (gains[i] + CORRECTION * (want[i] - responseDb(EQ_CENTERS_HZ[i]))).coerceIn(-MAX_FILTER_DB, MAX_FILTER_DB)
         }
         build(gains)
+        gainsDb = gains
         var peak = 0.0
         for (i in 0 until PEAK_POINTS) peak = maxOf(peak, responseDb(20 * (sampleRate * .49 / 20).pow(i.toDouble() / (PEAK_POINTS - 1))))
         preamp = 10.0.pow(-peak / 20)
@@ -84,7 +89,7 @@ class EqDesign(levelsMb: List<Int>, private val sampleRate: Int = 48_000) {
         for (i in 0 until EQ_BANDS) {
             val w = 2 * PI * EQ_CENTERS_HZ[i].coerceAtMost(sampleRate * .49) / sampleRate
             // the cookbook's bandwidth form: it stays the same width near the top of the range, where the simpler one narrows
-            val alpha = sin(w) * sinh(ln(2.0) / 2 * OCTAVES * w / sin(w))
+            val alpha = sin(w) * sinh(ln(2.0) / 2 * EQ_WIDTH_OCTAVES * w / sin(w))
             val a = 10.0.pow(gains[i] / 40)
             val a0 = 1 + alpha / a
             coefficients[i * 5] = (1 + alpha * a) / a0
@@ -116,8 +121,6 @@ class EqDesign(levelsMb: List<Int>, private val sampleRate: Int = 48_000) {
     }
 
     private companion object {
-        /** Wider than the one octave between bands; narrower leaves dips you can hear between them. */
-        const val OCTAVES = 1.39
         const val DESIGN_ROUNDS = 24
         /** Each round fixes only part of the error: the wide filters overlap too much to fix it all in one go. */
         const val CORRECTION = .7

@@ -21,7 +21,7 @@ import com.spotifry.music.data.ThemeMode
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsPage(services: Services, flow: BackupFlow, modifier: Modifier = Modifier) {
+fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit = {}, modifier: Modifier = Modifier) {
     val lib = services.library
     val settings = lib.settings
     val name by settings.name.collectAsState()
@@ -40,7 +40,7 @@ fun SettingsPage(services: Services, flow: BackupFlow, modifier: Modifier = Modi
 
     LazyColumn(modifier.widthIn(max = 760.dp)) {
         item { PageHeader("Settings") }
-        item { SoundGroup(settings) }
+        item { SoundGroup(settings, onEqualizer) }
         item {
             Group("Look") {
                 Row("Name", "Shown in the greeting", onClick = { editName = true }) { Value(name.ifEmpty { "Not set" }) }
@@ -127,14 +127,17 @@ private fun Segments(options: List<String>, selected: Int, onSelect: (Int) -> Un
 private val FADES = listOf(0, 2, 5, 8, 12)
 
 @Composable
-private fun SoundGroup(settings: com.spotifry.music.data.Settings) {
+private fun SoundGroup(settings: com.spotifry.music.data.Settings, onEqualizer: () -> Unit) {
     val monochrome by settings.monochrome.collectAsState()
     val jioSaavn by settings.jioSaavn.collectAsState()
     val sameLoudness by settings.sameLoudness.collectAsState()
     val skipSilence by settings.skipSilence.collectAsState()
     val smartTrim by settings.smartTrim.collectAsState()
     val fade by settings.fadeSeconds.collectAsState()
+    val eqOn by settings.eqOn.collectAsState()
+    val eqPreset by settings.eqPreset.collectAsState()
     Group("Sound") {
+        Row("Equalizer", if (eqOn) "On · ${eqPreset?.removePrefix(com.spotifry.music.player.AUTOEQ_PREFIX) ?: "Custom"}" else "Off", onClick = onEqualizer) { Value("Open") }
         Toggle("Lossless (Monochrome)", "FLAC, 5–10× the data. Unofficial, can stop working any day.", monochrome, settings::setMonochrome)
         Toggle("JioSaavn 320 kbps", "Unofficial, may not work outside India.", jioSaavn, settings::setJioSaavn)
         Toggle("Same loudness for every song", "Quiet songs up, loud ones down.", sameLoudness, settings::setSameLoudness)
@@ -148,7 +151,11 @@ private fun SoundGroup(settings: com.spotifry.music.data.Settings) {
 
 /** A row with a switch; a click anywhere on it flips it. */
 @Composable
-private fun Toggle(title: String, subtitle: String, on: Boolean, set: (Boolean) -> Unit) = Row(title, subtitle, onClick = { set(!on) }) {
+private fun Toggle(title: String, subtitle: String, on: Boolean, set: (Boolean) -> Unit) = Row(title, subtitle, onClick = { set(!on) }) { OnOffSwitch(on) }
+
+/** A switch that only shows; the row or box around it takes the click. */
+@Composable
+fun OnOffSwitch(on: Boolean) {
     androidx.compose.material3.Switch(
         on, null,
         colors = androidx.compose.material3.SwitchDefaults.colors(

@@ -33,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.conflate
 import okhttp3.OkHttpClient
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.localization.Localization
@@ -90,6 +91,11 @@ fun productionServices(): Services {
     )
     scope.launch { kotlinx.coroutines.flow.combine(settings.speed, settings.pitch, ::Pair).collect { (s, p) -> player.setSpeedPitch(s, p) } }
     scope.launch { settings.sameLoudness.collect { player.setFilter("loud", if (it) Sound.LOUDNESS else null) } }
+    // a drag changes the levels many times a second; mpv gets the latest at most ten times a second
+    scope.launch {
+        kotlinx.coroutines.flow.combine(settings.eqOn, settings.eqLevels) { on, l -> if (on) Sound.equalizer(l) else null }.conflate()
+            .collect { player.setFilter("eq", it); kotlinx.coroutines.delay(100) }
+    }
     scope.launch { settings.skipSilence.collect { player.setFilter("quiet", if (it) Sound.SKIP_QUIET else null) } }
     // a song already looked up keeps its old source; forget the links so the next play asks again
     scope.launch { kotlinx.coroutines.flow.combine(settings.jioSaavn, settings.monochrome, ::Pair).drop(1).collect { resolver.clear() } }
