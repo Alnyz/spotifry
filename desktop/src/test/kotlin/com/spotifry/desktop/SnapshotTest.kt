@@ -63,8 +63,10 @@ class SnapshotTest {
         return lib
     }
 
-    private fun shoot(name: String, route: Route, library: Library = library(), height: Int = 800, width: Int = 1280) {
-        val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library, fakePlayer, setVolume = {})
+    private fun shoot(name: String, route: Route, library: Library = library(), height: Int = 800, width: Int = 1280,
+        lyrics: com.spotifry.music.data.Lyrics? = null, setup: (Services) -> Unit = {}) {
+        val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library, fakePlayer, setVolume = {}, lyrics = { lyrics })
+        setup(services)
         val scene = ImageComposeScene(width, height, Density(1f)) { SpotifryTheme { App(services, startOn = route, initialQuery = if (route == Route.Search) "kala biru" else "") } }
         var t = 0L
         repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
@@ -87,6 +89,22 @@ class SnapshotTest {
         kotlinx.coroutines.runBlocking {
             val state = spotifriedState(lib.db.listens().observeAll().first(), emptyList(), null, "Ali")
             savePictures(state, File("build/snapshots"))
+        }
+    }
+
+    @Test fun share() {
+        val lib = library()
+        val song = ShareTarget.of(songs[3])
+        val words = com.spotifry.music.data.Lyrics.Plain(listOf("Hujan turun di atas atap", "Kita diam, tak ada yang bicara, hanya suara hujan di jendela", "Kopi dingin di meja depan"))
+        shoot("share-dialog", Route.Home, lib) { it.sharing = song }
+        shoot("share-picture", Route.Picture(song, Route.Home), lib, lyrics = words)
+        val list = ShareTarget.of("Road trip 2019", songs)
+        shoot("share-playlist", Route.Playlists, lib) { it.sharing = list }
+        val ink = cardInk(CardBackground.COVER, null, Palette.accentChoice.dark)
+        kotlinx.coroutines.runBlocking {
+            File("build/snapshots/share-story.png").writeBytes(picturePng(song, words.lines[1], true, ink))
+            File("build/snapshots/share-square.png").writeBytes(picturePng(song, words.lines[0], false, cardInk(CardBackground.ACCENT, null, Palette.accentChoice.dark)))
+            File("build/snapshots/share-list.png").writeBytes(picturePng(list, null, false, cardInk(CardBackground.BLACK, null, Palette.accentChoice.dark)))
         }
     }
 

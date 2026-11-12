@@ -31,7 +31,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import com.spotifry.music.data.NOTE_MAX
 import com.spotifry.music.data.Settings
-import com.spotifry.music.data.ShareText
 import com.spotifry.music.data.cleanNote
 import com.spotifry.music.data.cutName
 import com.spotifry.music.data.db.SongNoteEntity
@@ -184,13 +183,10 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
     var naming by remember { mutableStateOf(false) }
     var noting by remember { mutableStateOf(false) }
     var tuning by remember { mutableStateOf(false) }
-    var copied by remember { mutableStateOf(false) }
     LaunchedEffect(song.id) { saved = lib.db.songs().get(song.id)?.isSaved == true }
-    LaunchedEffect(copied) { if (copied) { delay(900); close() } }
     val lists by lib.db.playlists().observePlaylists().collectAsState(emptyList())
     val note by remember(song.id) { lib.db.notes().observe(song.id) }.collectAsState(null)
     val state by services.player.state.collectAsState()
-    val clipboard = LocalClipboardManager.current
     val playingThis = state.current?.id == song.id
     DropdownMenu(!noting && !tuning, close, containerColor = Palette.surface) {
         when (view) {
@@ -213,10 +209,8 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
                     close()
                 })
                 DropdownMenuItem({ Text("Add to a playlist") }, onClick = { view = "lists" })
-                // the name and the link, the same text the phone shares; Spotifry reads it back in Import
-                if (!song.isLocal) DropdownMenuItem({ Text(if (copied) "Link copied" else "Copy link", color = if (copied) Palette.accent else Color.Unspecified) }, onClick = {
-                    clipboard.setText(AnnotatedString(ShareText.song(song))); copied = true
-                })
+                // the link (the phone's words, which Spotifry reads back in Import) or a picture
+                DropdownMenuItem({ Text("Share…") }, onClick = { services.sharing = ShareTarget.of(song); close() })
                 DropdownMenuItem({ Text(if (note == null) "Add a note" else "Edit note") }, onClick = { noting = true })
                 extra(close)
                 // a Smart shuffle suggestion: out of the queue (the playing one skips on) and never suggested again

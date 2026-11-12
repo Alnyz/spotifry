@@ -82,6 +82,7 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
                                 scope.launch { songs.forEach { s -> if (db.songs().get(s.id)?.isSaved != true) launch { lib.downloads.save(s) } } }
                             }
                         }
+                        if (songs.isNotEmpty()) Pill("Share") { services.sharing = ShareTarget.of(meta.name, songs) }
                         Pill("Rename") { renaming = true }
                         Pill("Delete") { deleting = true }
                     }

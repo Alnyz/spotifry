@@ -317,12 +317,12 @@ private fun Round(icon: androidx.compose.ui.graphics.vector.ImageVector, label: 
     ) { Icon(icon, label, Modifier.size(22.dp), tint = Palette.ink.copy(alpha = if (on) 1f else .3f)) }
 }
 
-/** The Spotifry mark over a saved picture, where the progress sits on screen: the phone's drawWatermark. */
+/** The Spotifry mark on a picture 360 dp wide: the phone's drawWatermark. [bars] tints the three bars. */
 @Composable
-private fun Watermark() {
+internal fun Watermark(modifier: Modifier = Modifier, text: Color = Color.White, bars: Color = MaterialTheme.colorScheme.primary) {
     val em = 18f * .78f // the phone's em is a twentieth of the width, the mark .78 of it
-    val accent = MaterialTheme.colorScheme.primary
-    Row(Modifier.padding(start = 28.8.dp, top = 30.6.dp), verticalAlignment = Alignment.CenterVertically) {
+    val accent = bars
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Canvas(Modifier.size(((3 * .2f + 2 * .14f) * em).dp, em.dp)) {
             val u = size.height
             listOf(.55f, 1f, .7f).forEachIndexed { i, k ->
@@ -331,12 +331,12 @@ private fun Watermark() {
             }
         }
         Spacer(Modifier.width((.4f * em).dp))
-        Text("Spotifry", color = Color.White.copy(alpha = .88f), fontSize = em.sp, fontFamily = Albert, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = (-.01f * em).sp)
+        Text("Spotifry", color = text.copy(alpha = text.alpha * .88f), fontSize = em.sp, fontFamily = Albert, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, letterSpacing = (-.01f * em).sp)
     }
 }
 
 /** Where pictures go: the desktop's Pictures folder, or ~/Pictures. */
-private fun picturesDir(): File {
+internal fun picturesDir(): File {
     val named = runCatching {
         ProcessBuilder("xdg-user-dir", "PICTURES").redirectErrorStream(true).start().let { p -> p.inputStream.bufferedReader().readText().trim().takeIf { p.waitFor() == 0 } }
     }.getOrNull()
@@ -352,7 +352,7 @@ internal suspend fun savePictures(state: SpotifriedState, into: File = picturesD
         val scene = ImageComposeScene(CARD_W * 3, CARD_H * 3, Density(3f)) {
             StoryTheme {
                 Box(Modifier.fillMaxSize().background(StoryBlack)) {
-                    Watermark()
+                    Watermark(Modifier.padding(start = 28.8.dp, top = 30.6.dp))
                     Box(Modifier.padding(top = WatermarkBand)) { StoryCard(id, state, still = true, onSave = null) }
                 }
             }

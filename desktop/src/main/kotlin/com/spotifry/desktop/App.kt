@@ -63,6 +63,8 @@ sealed interface Route {
     data object Equalizer : Route { override val page = Page.Settings }
     data object Rotation : Route { override val page = Page.Home }
     data object Spotifried : Route { override val page = Page.Home }
+    /** Make a picture of a song or playlist; [back] is where Back goes. */
+    data class Picture(val target: ShareTarget, val back: Route) : Route { override val page = back.page }
 }
 
 enum class Page(val label: String, val icon: ImageVector) {
@@ -143,6 +145,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                                 Route.Equalizer -> EqualizerPage(services, { route = Route.Settings }, pad)
                                 Route.Rotation -> RotationPage(services, { route = Route.Home }, { route = Route.Spotifried }, pad)
                                 Route.Spotifried -> SpotifriedPage(services, { route = Route.Rotation }, pad)
+                                is Route.Picture -> PicturePage(services, r.target, { route = r.back }, pad)
                             }
                         } }
                     }
@@ -160,6 +163,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
         }
         BackupDialogs(flow)
         ImportDialog(services) { route = Route.Playlist(it) }
+        ShareDialog(services) { route = Route.Picture(it, if (nowPlaying) Route.Home else route); nowPlaying = false }
     }
 }
 

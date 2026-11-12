@@ -65,6 +65,9 @@ class Services(
     /** Media keys and the desktop's player widget; null without a D-Bus session. */
     var mpris: Mpris? = null
 
+    /** A song or playlist whose Share dialog is open, from any menu. */
+    var sharing by androidx.compose.runtime.mutableStateOf<ShareTarget?>(null)
+
     /** Playlists brought in from Spotify or YouTube. Lives with the window, so changing pages doesn't stop an import. */
     val importer = com.spotifry.music.ui.playlists.PlaylistImport(scope, { com.spotifry.music.data.SpotifyImport.fetch(library.client, it) }, source, library.db.playlists(), library.db.songs())
 }
