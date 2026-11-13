@@ -36,6 +36,11 @@ object Icons {
         .build()
     /** Sound bars, for Now playing in the top row. */
     val Wave = icon("wave", "M3 10h2v4H3zm4-4h2v12H7zm4-3h2v18h-2zm4 5h2v8h-2zm4 2h2v4h-2z")
+    /** The lossless mark: a damped wave, strong at the start and fading out. */
+    val Lossless: ImageVector = ImageVector.Builder("lossless", 24.dp, 24.dp, 24f, 24f).addPath(
+        addPathNodes("M2.50 2.70 L2.71 3.18 L2.92 4.19 L3.13 5.64 L3.34 7.42 L3.56 9.42 L3.77 11.49 L3.98 13.50 L4.19 15.34 L4.40 16.90 L4.61 18.09 L4.82 18.86 L5.03 19.17 L5.24 19.02 L5.46 18.44 L5.67 17.49 L5.88 16.24 L6.09 14.77 L6.30 13.20 L6.51 11.61 L6.72 10.11 L6.93 8.78 L7.14 7.71 L7.36 6.94 L7.57 6.52 L7.78 6.46 L7.99 6.74 L8.20 7.33 L8.41 8.19 L8.62 9.26 L8.83 10.45 L9.04 11.69 L9.26 12.90 L9.47 14.02 L9.68 14.96 L9.89 15.69 L10.10 16.16 L10.31 16.35 L10.52 16.27 L10.73 15.93 L10.94 15.35 L11.16 14.59 L11.37 13.70 L11.58 12.73 L11.79 11.76 L12.00 10.83 L12.21 10.01 L12.42 9.35 L12.63 8.87 L12.84 8.60 L13.06 8.55 L13.27 8.72 L13.48 9.09 L13.69 9.62 L13.90 10.28 L14.11 11.02 L14.32 11.81 L14.53 12.57 L14.74 13.28 L14.96 13.88 L15.17 14.34 L15.38 14.65 L15.59 14.78 L15.80 14.73 L16.01 14.52 L16.22 14.16 L16.43 13.67 L16.64 13.10 L16.86 12.48 L17.07 11.84 L17.28 11.24 L17.49 10.70 L17.70 10.26 L17.91 9.94 L18.12 9.76 L18.33 9.72 L18.54 9.83 L18.76 10.06 L18.97 10.41 L19.18 10.85 L19.39 11.35 L19.60 11.87 L19.81 12.38 L20.02 12.86 L20.23 13.27 L20.44 13.59 L20.66 13.81 L20.87 13.90 L21.08 13.88 L21.29 13.73 L21.50 13.49"), fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f,
+        strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round, strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Round,
+    ).build()
     /** For a lossy song's sound label. */
     val Headphones = icon("headphones", "M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z")
     val Plus = icon("plus", "M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z")

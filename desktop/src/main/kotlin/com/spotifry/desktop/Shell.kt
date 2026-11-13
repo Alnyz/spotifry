@@ -148,8 +148,8 @@ fun QualityPill(text: String, modifier: Modifier = Modifier) {
         drawRect(Brush.linearGradient(listOf(ink, glint, ink), start = Offset(x, 0f), end = Offset(x + band, 0f)), blendMode = BlendMode.SrcIn)
     }
     Row(modifier.then(shiny), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        Icon(if (lossless) Icons.Wave else Icons.Headphones, null, Modifier.size(if (lossless) 20.dp else 18.dp), tint = ink)
-        Text(text, fontSize = 17.sp, fontWeight = FontWeight.Medium, color = ink, maxLines = 1)
+        Icon(if (lossless) Icons.Lossless else Icons.Headphones, null, Modifier.size(if (lossless) 22.dp else 18.dp), tint = ink)
+        Text(text, fontSize = 17.sp, fontWeight = FontWeight.Medium, fontStyle = if (lossless) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal, color = ink, maxLines = 1)
     }
 }
 
