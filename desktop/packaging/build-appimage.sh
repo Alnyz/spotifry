@@ -31,6 +31,8 @@ Exec=spotifry
 Icon=spotifry
 Categories=AudioVideo;Audio;Player;
 Terminal=false
+# the window's class, so a dock or taskbar can match the open window to this entry and its icon
+StartupWMClass=com-spotifry-desktop-MainKt
 DESKTOP
 cp "$here/spotifry.png" "$dir/spotifry.png"
 cp "$here/spotifry.png" "$dir/.DirIcon"
