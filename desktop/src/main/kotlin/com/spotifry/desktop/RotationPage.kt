@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import com.spotifry.music.data.source.Song
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -184,6 +185,25 @@ private fun Tally(p: Period) {
     )
 }
 
+/** The song heard most in the period: a big cover, how often and how long, and Play. */
+@Composable
+private fun NumberOne(t: com.spotifry.music.data.TopSong, list: List<Song>, onPlay: () -> Unit) {
+    val s = list[0]
+    Row(
+        Modifier.padding(top = 8.dp, bottom = 10.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Palette.ink.copy(alpha = 0.05f)).clickable(onClick = onPlay).padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Cover(t.song.thumbnailUrl ?: t.song.thumbPath, 150.dp, RoundedCornerShape(14.dp), large = true)
+        Column(Modifier.weight(1f)) {
+            Text("Your no. 1", color = Palette.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Palette.accent.copy(alpha = 0.15f)).padding(horizontal = 10.dp, vertical = 4.dp))
+            Text(s.title, fontFamily = Heading, fontSize = 28.sp, lineHeight = 30.sp, color = Palette.ink, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+            Text(s.artist, color = Palette.ink2, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${count(t.plays)} ${if (t.plays == 1) "play" else "plays"} · ${com.spotifry.music.data.longDuration(t.minutes)}", color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+        Box(Modifier.size(52.dp).clip(CircleShape).background(Palette.accent), contentAlignment = Alignment.Center) { Icon(Icons.Play, "Play", Modifier.size(26.dp), tint = Palette.onAccent) }
+    }
+}
+
 /** Top songs and top artists side by side. */
 @Composable
 private fun TopLists(services: Services, p: Period, currentId: String?) {
@@ -193,7 +213,8 @@ private fun TopLists(services: Services, p: Period, currentId: String?) {
             if (p.topSongs.size < MIN_TOP) Text("Your top songs show up once you've heard three.", color = Palette.ink2, fontSize = 15.sp)
             else {
                 val list = p.topSongs.map { it.song.toSong() }
-                list.forEachIndexed { i, s -> SongLine(services, i + 1, s, playing = s.id == currentId) { services.player.playList(list, i, "Your top songs") } }
+                NumberOne(p.topSongs[0], list) { services.player.playList(list, 0, "Your top songs") }
+                list.drop(1).forEachIndexed { i, s -> SongLine(services, i + 2, s, playing = s.id == currentId) { services.player.playList(list, i + 1, "Your top songs") } }
             }
         }
         Column(Modifier.weight(1f)) {

@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.background
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -73,6 +74,8 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
     val state by services.player.state.collectAsState()
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
+    // the order before Mix up, so it can be put back
+    var undoMix by remember(id) { mutableStateOf<List<String>?>(null) }
     if (meta == null) { LaunchedEffect(Unit) { go(Route.Playlists) }; return }
     if (renaming) NameDialog("Rename playlist", "Rename", meta.name, { renaming = false }) { name -> scope.launch { db.playlists().rename(id, name) }; renaming = false }
     if (deleting) ConfirmDialog("Delete this playlist?", "The songs stay saved. Only the playlist goes.", "Delete", { deleting = false }) { scope.launch { db.playlists().delete(id) }; deleting = false; go(Route.Playlists) }
@@ -97,6 +100,13 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
                             }
                         }
                         if (songs.isNotEmpty()) Pill("Share") { services.sharing = ShareTarget.of(meta.name, songs) }
+                        if (songs.size > 1) Pill("Mix up your order", Icons.Shuffle) {
+                            scope.launch {
+                                val old = db.playlists().observeSongs(id).first().map { it.id }
+                                db.playlists().setOrder(id, old.shuffled()); order = PlaylistOrder.CUSTOM; lib.orders.set(id, PlaylistOrder.CUSTOM); undoMix = old
+                            }
+                        }
+                        undoMix?.let { old -> Pill("Undo") { scope.launch { db.playlists().setOrder(id, old) }; undoMix = null } }
                         Pill("Rename") { renaming = true }
                         Pill("Delete") { deleting = true }
                     }

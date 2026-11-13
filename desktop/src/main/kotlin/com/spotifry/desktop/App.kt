@@ -63,6 +63,8 @@ sealed interface Route {
     data object Equalizer : Route { override val page = Page.Settings }
     data object Rotation : Route { override val page = Page.Home }
     data object Spotifried : Route { override val page = Page.Home }
+    /** Pick the artists Home is made from. */
+    data object Artists : Route { override val page = Page.Home }
     /** An album, artist or playlist found in Search or a mood; [back] is where Back goes. */
     data class Found(val link: com.spotifry.music.data.source.PageLink, val back: Route) : Route { override val page = back.page }
     /** A mood tile's playlists, opened from the empty Search. */
@@ -170,6 +172,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                                 Route.Settings -> SettingsPage(services, flow, { route = Route.Equalizer }, pad)
                                 Route.Equalizer -> EqualizerPage(services, { route = Route.Settings }, pad)
                                 Route.Rotation -> RotationPage(services, { route = Route.Home }, { route = Route.Spotifried }, pad)
+                                Route.Artists -> ArtistPicker(services, false, { route = Route.Home }, pad)
                                 Route.Spotifried -> SpotifriedPage(services, { route = Route.Rotation }, pad)
                                 is Route.Picture -> PicturePage(services, r.target, { route = r.back }, pad)
                             }

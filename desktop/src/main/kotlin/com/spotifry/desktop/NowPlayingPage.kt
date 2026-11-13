@@ -1,5 +1,8 @@
 package com.spotifry.desktop
 
+import com.spotifry.music.data.SHIFT_STEP_MS
+import com.spotifry.music.data.nudgeShift
+import com.spotifry.music.data.shiftLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -190,6 +193,16 @@ private fun FullLyrics(services: Services, song: Song, shiftMs: Int, onBack: () 
             }
             val from = ((lyrics as? LyricsState.Found)?.lyrics as? Lyrics.Timed)?.from
             if (from != null) Text("Lyrics from $from", color = Palette.ink2, fontSize = 12.sp)
+            // lyrics running ahead of or behind the singing: a tenth of a second a click, kept for this song
+            if (from != null) {
+                val set = services.library.settings::setLyricsShift
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill("−") { set(song.id, nudgeShift(shiftMs, -SHIFT_STEP_MS)) }
+                    Text(shiftLabel(shiftMs), color = if (shiftMs == 0) Palette.ink2 else Palette.ink, fontSize = 13.sp, modifier = Modifier.widthIn(min = 140.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Pill("+") { set(song.id, nudgeShift(shiftMs, SHIFT_STEP_MS)) }
+                    if (shiftMs != 0) Pill("Reset") { set(song.id, 0) }
+                }
+            }
         }
         LyricsPanel(services, song, shiftMs, Modifier.weight(1f).fillMaxWidth(), big = true)
     }

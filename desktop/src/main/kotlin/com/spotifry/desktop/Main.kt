@@ -1,5 +1,7 @@
 package com.spotifry.desktop
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.window.Tray
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -145,12 +147,29 @@ private fun ApplicationScope.StartFailedWindow(error: Throwable?) {
 
 @androidx.compose.runtime.Composable
 private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean, restart: () -> Unit) {
+    // with a tray the close button hides the window and the music goes on; the tray menu quits. Without one, closing quits as before.
+    val trayOk = remember { androidx.compose.ui.window.isTraySupported }
+    var shown by remember { mutableStateOf(true) }
+    val icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.image)
+    if (trayOk && !restarting) {
+        val st by services.player.state.collectAsState()
+        Tray(
+            androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.tray), tooltip = "Spotifry", onAction = { shown = true; services.raise() },
+            menu = {
+                Item("Open Spotifry", onClick = { shown = true; services.raise() })
+                Item(if (st.wantsPlay) "Pause" else "Play", onClick = { services.player.toggle() })
+                Item("Next", onClick = { services.player.next() })
+                Separator()
+                Item("Quit", onClick = { services.quit() })
+            },
+        )
+    }
     Window(
-        onCloseRequest = { services.close(); exitApplication() }, title = "Spotifry", icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.image),
+        visible = shown, onCloseRequest = { if (trayOk) shown = false else { services.close(); exitApplication() } }, title = "Spotifry", icon = icon,
         state = rememberWindowState(size = DpSize(1280.dp, 800.dp)),
     ) {
         LaunchedEffect(services) {
-            services.raise = { window.toFront(); window.requestFocus() }
+            services.raise = { shown = true; window.toFront(); window.requestFocus() }
             services.quit = { services.close(); exitApplication() }
         }
         window.minimumSize = java.awt.Dimension(900, 600)

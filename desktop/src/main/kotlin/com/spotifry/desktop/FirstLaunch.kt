@@ -25,6 +25,10 @@ fun FirstLaunch(services: Services, flow: BackupFlow, onDone: () -> Unit) {
     val settings = services.library.settings
     var step by remember { mutableStateOf(0) }
     var name by remember { mutableStateOf("") }
+    if (step == 2) {
+        Box(Modifier.fillMaxSize().padding(horizontal = 60.dp, vertical = 30.dp), Alignment.TopCenter) { ArtistPicker(services, true, { settings.markFirstLaunchSeen(); onDone() }) }
+        return
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 120.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         if (step == 0) {
             androidx.compose.foundation.Image(androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.image), null, Modifier.size(84.dp))
@@ -44,7 +48,7 @@ fun FirstLaunch(services: Services, flow: BackupFlow, onDone: () -> Unit) {
             Text("A backup from Spotifry on your phone works here too: playlists, history, trims and settings come over.", color = Palette.ink2, fontSize = 17.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 10.dp).widthIn(max = 520.dp))
             Row(Modifier.padding(top = 34.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Choice("Restore a backup", "Pick the .zip file you saved from Settings, Save backup.", Icons.Download, primary = true, onClick = flow::choose)
-                Choice("Start fresh", "Search for a song and go. You can restore a backup later in Settings.", Icons.Play, primary = false, onClick = { settings.markFirstLaunchSeen(); onDone() })
+                Choice("Start fresh", "Search for a song and go. You can restore a backup later in Settings.", Icons.Play, primary = false, onClick = { step = 2 })
             }
         }
     }

@@ -90,6 +90,7 @@ class SnapshotTest {
         shoot("home-no-artists", Route.Home, lib, height = 1500)
         lib.settings.setArtists(listOf("Kala Biru", "Rumah Timur", "Nara Senja", "Dewi Lintang").map { com.spotifry.music.data.PickedArtist(it, "https://example.org/$it", null) })
         shoot("home-artists", Route.Home, lib, height = 1500)
+        shoot("artists-page", Route.Artists, lib, height = 1300)
         lib.settings.setLyricsSource(com.spotifry.music.data.Lyrics.PORTATO, false)
         lib.recentSearches.add("kala biru")
         shoot("settings-lyrics", Route.Settings, lib, height = 2300)

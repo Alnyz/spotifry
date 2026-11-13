@@ -70,9 +70,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
     val hour = LocalTime.now().hour
     val name by lib.settings.name.collectAsState()
     var creating by remember { mutableStateOf(false) }
-    var editArtists by remember { mutableStateOf(false) }
     val yourArtists = rememberHomeArtists(services)
-    if (editArtists) ArtistsDialog(services) { editArtists = false }
     // the parts of the day with enough plays for a mix, the one it is now first
     val listens by lib.db.listens().observeAll().collectAsState(emptyList())
     val mixes by produceState(emptyList<com.spotifry.music.data.TimeMix>(), listens, hour) {
@@ -149,7 +147,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
         }
         // the artists picked for Home, then a few songs from each, as on the phone
         if (yourArtists.artists.isNotEmpty()) {
-            item { HomeSection("Your artists", { editArtists = true }, "Edit") }
+            item { HomeSection("Your artists", { go(Route.Artists) }, "Edit") }
             item {
                 SlideRow(arrowTop = 52.dp) {
                     itemsIndexed(yourArtists.artists, key = { _, a -> a.key }) { _, a ->
@@ -172,7 +170,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
                     }
                 }
             }
-        } else if (hero != null) item { Box(Modifier.padding(top = 22.dp)) { Pill("Pick artists for Home", Icons.Plus, glass = true) { editArtists = true } } }
+        } else if (hero != null) item { Box(Modifier.padding(top = 22.dp)) { Pill("Pick artists for Home", Icons.Plus, glass = true) { go(Route.Artists) } } }
         if (hero != null || lists.isNotEmpty()) {
             item { HomeSection("Your playlists", { go(Route.Playlists) }) }
             item {

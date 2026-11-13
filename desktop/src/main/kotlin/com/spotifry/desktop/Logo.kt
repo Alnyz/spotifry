@@ -24,4 +24,10 @@ object Logo {
         // the bars, moved so their middle (61.5, 54) lands on the square's middle (36, 36)
         group(translationX = -25.5f, translationY = -18f) { addPath(addPathNodes(BARS), fill = SolidColor(Color.White)) }
     }.build()
+
+    /** For the tray: a full square with no transparent corners, because Java's tray paints white behind transparent pixels. */
+    val tray: ImageVector = ImageVector.Builder("logo-tray", 72.dp, 72.dp, 72f, 72f).apply {
+        addPath(addPathNodes("M0,0 H72 V72 H0 Z"), fill = Brush.verticalGradient(listOf(Color(0xFFFF8A3D), Color(0xFFC2410C))))
+        group(translationX = -25.5f, translationY = -18f) { addPath(addPathNodes(BARS), fill = SolidColor(Color.White)) }
+    }.build()
 }

@@ -86,6 +86,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.spotifry.music.data.LyricLine
+import com.spotifry.music.data.SHIFT_STEP_MS
+import com.spotifry.music.data.nudgeShift
+import com.spotifry.music.data.shiftLabel
 import com.spotifry.music.data.LyricWord
 import com.spotifry.music.data.Lyrics
 import com.spotifry.music.data.indexAt
@@ -426,18 +429,6 @@ internal fun LyricsScreen(
         }
     }
 }
-
-internal const val SHIFT_STEP_MS = 100
-
-/** [ms] moved by [by], kept within [com.spotifry.music.data.Settings.LYRICS_SHIFT_MAX] either way. */
-internal fun nudgeShift(ms: Int, by: Int): Int {
-    val max = com.spotifry.music.data.Settings.LYRICS_SHIFT_MAX
-    return (ms + by).coerceIn(-max, max)
-}
-
-/** "Lyrics on time", "Lyrics 0.3 s earlier", "Lyrics 1.2 s later". */
-internal fun shiftLabel(ms: Int): String =
-    if (ms == 0) "Lyrics on time" else "Lyrics %.1f s %s".format(java.util.Locale.US, abs(ms) / 1000f, if (ms > 0) "earlier" else "later")
 
 @Composable
 private fun TimingButton(text: String, label: String, onClick: () -> Unit) {
