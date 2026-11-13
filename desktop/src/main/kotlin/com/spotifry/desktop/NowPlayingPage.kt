@@ -89,15 +89,14 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
                         Icon(Icons.Wave, null, Modifier.size(15.dp), tint = Palette.accent)
                         Text(state.from?.let { "Playing from $it" } ?: "Now playing", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink, maxLines = 1)
                     }
+                    // under the pill, not beside the artist (whose name length moves it); the height is kept while the sound isn't known yet
+                    Box(Modifier.padding(top = 10.dp).height(24.dp), Alignment.CenterStart) { state.quality?.let { QualityPill(it) } }
                     Text(
                         song.title, fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = if (song.title.length <= 18) 64.sp else 52.sp, letterSpacing = (-1.5).sp,
                         color = Palette.ink, maxLines = 1, softWrap = false,
-                        modifier = Modifier.padding(top = 14.dp).basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 2500, repeatDelayMillis = 2500, velocity = 40.dp),
+                        modifier = Modifier.padding(top = 4.dp).basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 2500, repeatDelayMillis = 2500, velocity = 40.dp),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(song.artist, color = Palette.ink.copy(alpha = 0.85f), fontSize = 22.sp, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
-                        state.quality?.let { QualityPill(it) }
-                    }
+                    Text(song.artist, color = Palette.ink.copy(alpha = 0.85f), fontSize = 22.sp, maxLines = 1)
                     SongNote(services, song.id)
                     Row(Modifier.padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (!song.isLocal) Pill(if (saved) "Saved" else "Save", if (saved) Icons.Check else Icons.Download, glass = true) {

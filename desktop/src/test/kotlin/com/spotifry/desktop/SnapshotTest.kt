@@ -96,6 +96,21 @@ class SnapshotTest {
         shoot("settings-lyrics", Route.Settings, lib, height = 2300)
     }
 
+    @Test fun qualityLabel() {
+        val before = fakePlayer.state.value
+        for ((n, q) in listOf("hires" to "Hi-Res Lossless", "opus" to "Opus 160 kbps")) {
+            fakePlayer.state.value = before.copy(quality = q)
+            shoot("quality-$n", Route.Home, height = 800)
+            val services = Services(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO), fakeSource, library(), fakePlayer, setVolume = {})
+            val scene = ImageComposeScene(1280, 800, Density(1f)) { SpotifryTheme { App(services, startNowPlaying = true) } }
+            var t = 0L
+            repeat(40) { scene.render(t); t += 50_000_000; Thread.sleep(25) }
+            File("build/snapshots").resolve("quality-np-$n.png").writeBytes(scene.render(t).encodeToData(EncodedImageFormat.PNG)!!.bytes)
+            scene.close()
+        }
+        fakePlayer.state.value = before
+    }
+
     @Test fun spotifried() {
         val lib = library()
         shoot("rotation-tall", Route.Rotation, lib, height = 1300)

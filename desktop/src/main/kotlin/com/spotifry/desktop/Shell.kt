@@ -1,5 +1,13 @@
 package com.spotifry.desktop
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -122,11 +130,28 @@ fun SavedFilters(on: Route, go: (Route) -> Unit) = Row(Modifier.padding(top = 10
 /** How much room the bottom player bar takes: lists end this far above the window's bottom so their last row can be scrolled clear of it. */
 val LocalBottomInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
 
-/** The small outlined pill for the song's sound, like the phone's quality label. */
+/**
+ * The song's sound as plain text. A lossless one ("Lossless", "Hi-Res Lossless") gets the bars mark and a glint of the accent colour
+ * that slides across it, like Apple Music's label; a lossy one has a headphones mark and stays still.
+ */
 @Composable
-fun QualityPill(text: String, modifier: Modifier = Modifier) =
-    Text(text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink.copy(alpha = 0.75f), maxLines = 1,
-        modifier = modifier.clip(CircleShape).border(1.dp, Palette.ink.copy(alpha = 0.28f), CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
+fun QualityPill(text: String, modifier: Modifier = Modifier) {
+    val lossless = text.contains("Lossless")
+    val ink = Palette.ink.copy(alpha = 0.9f)
+    val glint = androidx.compose.ui.graphics.lerp(Palette.accent, Color.White, 0.35f)
+    val shine = rememberInfiniteTransition(label = "shine").animateFloat(0f, 1f, infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "x")
+    // the glint is a gradient painted over the words and the mark only where they have pixels (SrcIn); read while drawing, so it never recomposes
+    val shiny = if (!lossless) Modifier else Modifier.graphicsLayer(compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen).drawWithContent {
+        drawContent()
+        val band = size.width * 0.7f
+        val x = -band + (size.width + 2 * band) * shine.value
+        drawRect(Brush.linearGradient(listOf(ink, glint, ink), start = Offset(x, 0f), end = Offset(x + band, 0f)), blendMode = BlendMode.SrcIn)
+    }
+    Row(modifier.then(shiny), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        Icon(if (lossless) Icons.Wave else Icons.Headphones, null, Modifier.size(if (lossless) 20.dp else 18.dp), tint = ink)
+        Text(text, fontSize = 17.sp, fontWeight = FontWeight.Medium, color = ink, maxLines = 1)
+    }
+}
 
 /** Shows [text] above the pointer after a short hover: the helper for icon-only buttons. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
