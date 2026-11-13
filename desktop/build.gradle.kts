@@ -39,7 +39,15 @@ compose.desktop {
             packageVersion = "0.6.0"
             // only what the app needs (from suggestRuntimeModules); jdk.crypto.ec keeps the HTTPS connections working
             modules("java.instrument", "java.net.http", "jdk.dynalink", "jdk.httpserver", "jdk.security.auth", "jdk.unsupported", "jdk.crypto.ec")
+            // files that travel inside the installed app: on Windows mpv.exe, ffmpeg.exe and ffprobe.exe, put in app-resources/windows
+            // by the build recipe (.github/workflows/windows.yml) before packaging; nothing in the repo
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("app-resources"))
             linux { iconFile.set(project.file("packaging/spotifry.png")); appCategory = "AudioVideo" }
+            windows {
+                iconFile.set(project.file("packaging/spotifry.ico"))
+                menuGroup = "Spotifry"; shortcut = true; perUserInstall = true; dirChooser = true
+                upgradeUuid = "6e0f4f0e-3f0c-4a54-9a8b-7a1f2c5d9b31"
+            }
         }
     }
 }

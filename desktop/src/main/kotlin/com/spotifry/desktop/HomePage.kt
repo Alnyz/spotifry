@@ -330,7 +330,7 @@ private val own = HashMap<String, androidx.compose.ui.graphics.ImageBitmap?>()
 private fun ownPicture(path: String) = synchronized(own) { own.getOrPut(path) {
     runCatching {
         val bytes = runCatching {
-            val p = ProcessBuilder("ffmpeg", "-v", "quiet", "-i", path, "-frames:v", "1", "-vf", "scale='min(2400,iw)':-2", "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "3", "-")
+            val p = ProcessBuilder(Platform.tool("ffmpeg"), "-v", "quiet", "-i", path, "-frames:v", "1", "-vf", "scale='min(2400,iw)':-2", "-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "3", "-")
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start()
             p.inputStream.readBytes().takeIf { p.waitFor() == 0 && it.isNotEmpty() }
         }.getOrNull() ?: java.io.File(path).readBytes()

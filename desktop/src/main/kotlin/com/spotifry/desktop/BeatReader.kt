@@ -18,7 +18,7 @@ import kotlin.math.sqrt
  * fast as it can (30 s take under half a second). The flag says the read went to the end, not cut short. Null when it
  * can't be read in [timeoutMs].
  */
-fun decodeMono(url: String, fromMs: Long, toMs: Long?, rate: Int, binary: String = "mpv", timeoutMs: Long = 15_000): Pair<FloatArray, Boolean>? {
+fun decodeMono(url: String, fromMs: Long, toMs: Long?, rate: Int, binary: String = Platform.tool("mpv"), timeoutMs: Long = 15_000): Pair<FloatArray, Boolean>? {
     val file = Files.createTempFile("spotifry-decode", ".raw")
     try {
         val p = ProcessBuilder(
@@ -37,7 +37,7 @@ fun decodeMono(url: String, fromMs: Long, toMs: Long?, rate: Int, binary: String
 }
 
 /** The beats of [fromMs] to [toMs] of a song, read by the phone's analysis. A grid that isn't [BeatGrid.whole] came from a read cut short. */
-fun readBeats(url: String, fromMs: Long, toMs: Long, binary: String = "mpv"): BeatGrid? {
+fun readBeats(url: String, fromMs: Long, toMs: Long, binary: String = Platform.tool("mpv")): BeatGrid? {
     val (mono, whole) = decodeMono(url, fromMs, toMs, ANALYSIS_RATE, binary) ?: return null
     return analyseBeats(mono, mono.size, fromMs)?.copy(whole = whole)
 }

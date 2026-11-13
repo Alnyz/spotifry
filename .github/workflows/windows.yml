@@ -1,0 +1,105 @@
+name: windows
+
+# Builds Spotifry for desktop on a Windows machine GitHub lends for a few minutes, runs the tests there, starts the
+# packaged app and takes a picture of it. The installer and the pictures are kept under "Artifacts" on the run's page.
+on:
+  push:
+    branches: [desktop]
+    paths: ["desktop/**", "shared/**", "buildSrc/**", "gradle/**", "*.kts", "gradle.properties", ".github/workflows/windows.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # mpv plays the music and ffmpeg reads covers and music folders; both travel inside the installed app.
+      # ponytail: the newest builds of both, not pinned; pin the release names if a new build ever breaks this.
+      - name: mpv and ffmpeg
+        shell: bash
+        run: |
+          mkdir -p desktop/app-resources/windows tools
+          gh release download -R shinchiro/mpv-winbuild-cmake --pattern "mpv-x86_64-[0-9]*.7z" -D tools
+          7z x tools/mpv-x86_64-*.7z -odesktop/app-resources/windows -y > /dev/null
+          gh release download -R BtbN/FFmpeg-Builds --pattern "ffmpeg-master-latest-win64-gpl.zip" -D tools
+          7z e tools/ffmpeg-master-latest-win64-gpl.zip "*/bin/ffmpeg.exe" "*/bin/ffprobe.exe" -odesktop/app-resources/windows -y > /dev/null
+          ls -la desktop/app-resources/windows
+
+      - name: Put mpv and ffmpeg on the PATH for the tests
+        shell: pwsh
+        run: Add-Content $env:GITHUB_PATH "$env:GITHUB_WORKSPACE\desktop\app-resources\windows"
+
+      - name: Tests
+        shell: bash
+        run: ./gradlew :shared:test :desktop:test --continue
+
+      - name: Installer
+        shell: bash
+        run: ./gradlew :desktop:packageMsi
+
+      - name: Start the packaged app and take a picture
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Recurse desktop/build/compose/binaries/main/app -Filter spotifry.exe | Select-Object -First 1
+          Write-Host "starting $($exe.FullName)"
+          $app = Start-Process $exe.FullName -PassThru
+          Start-Sleep -Seconds 30
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
+          $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($screen.Left, $screen.Top, 0, 0, $bmp.Size)
+          $bmp.Save("$env:GITHUB_WORKSPACE\app-started.png")
+          $mpv = Get-Process mpv -ErrorAction SilentlyContinue
+          Get-Process | Where-Object { $_.ProcessName -match "spotifry|mpv" } | Format-Table Id, ProcessName, StartTime
+          if ($app.HasExited) { throw "the app closed by itself" }
+          if (-not $mpv) { throw "mpv did not start: the app has no player" }
+          Stop-Process -Id $app.Id -Force
+          Stop-Process -Name mpv -Force -ErrorAction SilentlyContinue
+
+      - name: Name the installer
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p out
+          for f in desktop/build/compose/binaries/main/msi/*.msi; do cp "$f" "out/Spotifry-$(sed -n 's/.*packageVersion = "\(.*\)".*/\1/p' desktop/build.gradle.kts | head -1)-windows-x64.msi"; done
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-installer
+          path: out/*.msi
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-pictures
+          path: |
+            app-started.png
+            desktop/build/snapshots/*.png
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-test-reports
+          path: |
+            desktop/build/reports/tests
+            shared/build/reports/tests
+          if-no-files-found: warn

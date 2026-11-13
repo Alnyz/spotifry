@@ -11,7 +11,7 @@ import java.io.File
  * null when the dialog is cancelled. Blocks until it closes, so it runs off the window's thread.
  */
 object FilePicker {
-    private fun has(tool: String) = runCatching { ProcessBuilder("which", tool).redirectErrorStream(true).start().waitFor() == 0 }.getOrDefault(false)
+    private fun has(tool: String) = Platform.find(tool) != null
 
     private fun run(vararg cmd: String): File? = runCatching {
         val p = ProcessBuilder(*cmd).redirectError(ProcessBuilder.Redirect.DISCARD).start()

@@ -42,8 +42,8 @@ import org.schabi.newpipe.extractor.localization.Localization
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/** Where the desktop app keeps its files: $XDG_DATA_HOME/spotifry, else ~/.local/share/spotifry. */
-fun dataDir(): File = File(System.getenv("XDG_DATA_HOME") ?: (System.getProperty("user.home") + "/.local/share"), "spotifry").also { it.mkdirs() }
+/** Where the desktop app keeps its files: $XDG_DATA_HOME/spotifry, else ~/.local/share/spotifry; %APPDATA%\spotifry on Windows. */
+fun dataDir(): File = File(Platform.dataRoot(), "spotifry").also { it.mkdirs() }
 
 /** What the screens use. The real one is built by [productionServices]; tests build their own. */
 class Services(
@@ -118,7 +118,8 @@ fun productionServices(): Services {
     services.lookUpYears()
     scope.launch { library.musicFolder.refresh() }
     library.updates.checkDaily()
-    services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
+    // media keys and the desktop's player widget go through D-Bus, which only Linux has
+    if (Platform.isLinux) services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
     return services
 }
 
@@ -156,7 +157,7 @@ private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean,
     if (trayOk && !restarting) {
         val st by services.player.state.collectAsState()
         Tray(
-            androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.tray), tooltip = "Spotifry", onAction = { shown = true; services.raise() },
+            androidx.compose.ui.graphics.vector.rememberVectorPainter(if (Platform.isWindows) Logo.image else Logo.tray), tooltip = "Spotifry", onAction = { shown = true; services.raise() },
             menu = {
                 Item("Open Spotifry", onClick = { shown = true; services.raise() })
                 Item(if (st.wantsPlay) "Pause" else "Play", onClick = { services.player.toggle() })
@@ -188,7 +189,8 @@ fun StartFailed(error: Throwable?) {
     ) {
         androidx.compose.material3.Text(if (missing) "Spotifry needs mpv" else "Spotifry couldn't start", fontSize = 28.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
         androidx.compose.material3.Text(
-            if (missing) "Spotifry plays music through mpv, and mpv isn't installed. Install it with your package manager, for example:\n\n    sudo pacman -S mpv\n    sudo apt install mpv\n\nThen open Spotifry again."
+            if (missing && Platform.isWindows) "Spotifry plays music through mpv, which should come inside Spotifry, and it can't be started. Install Spotifry again, or put mpv.exe next to Spotifry's own files."
+            else if (missing) "Spotifry plays music through mpv, and mpv isn't installed. Install it with your package manager, for example:\n\n    sudo pacman -S mpv\n    sudo apt install mpv\n\nThen open Spotifry again."
             else "Something went wrong while starting: ${error?.message ?: "unknown error"}",
             color = Palette.ink2, fontSize = 15.sp, lineHeight = 22.sp, modifier = androidx.compose.ui.Modifier.padding(top = 14.dp),
         )

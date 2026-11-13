@@ -17,6 +17,12 @@ class UpdatesTest {
         assertNull(newestDesktopRelease("[" + release("desktop-v0.4.0", "Spotifry-0.4.0-x86_64.AppImage", draft = true) + "," + release("v0.14.0", "a.apk") + "]"))
     }
 
+    @Test fun eachSystemLooksForItsOwnFile() {
+        val json = "[" + release("desktop-v0.7.0", "Spotifry-0.7.0-windows-x64.msi") + "," + release("desktop-v0.6.0", "Spotifry-0.6.0-x86_64.AppImage") + "]"
+        assertEquals("0.7.0", newestDesktopRelease(json, windows = true)!!.version)
+        assertEquals("0.6.0", newestDesktopRelease(json, windows = false)!!.version)
+    }
+
     @Test fun theNewestWinsWhateverTheOrder() {
         val json = "[" + release("d2", "Spotifry-0.2.0-x86_64.AppImage") + "," + release("d10", "Spotifry-0.10.0-x86_64.AppImage") + "]"
         assertEquals("0.10.0", newestDesktopRelease(json)!!.version)

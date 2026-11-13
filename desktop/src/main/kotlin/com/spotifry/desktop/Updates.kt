@@ -15,16 +15,16 @@ import org.json.JSONArray
 data class DesktopRelease(val version: String, val page: String)
 
 /**
- * The newest desktop release in GitHub's list of releases. The phone's releases share the repository, so a release
- * counts only when it carries an AppImage, and its version is read from the AppImage's name
- * (Spotifry-<version>-x86_64.AppImage). Drafts and pre-releases are skipped.
+ * The newest desktop release in GitHub's list of releases for this system. The phone's releases share the repository, so a
+ * release counts only when it carries this system's file, and its version is read from the file's name:
+ * Spotifry-<version>-x86_64.AppImage on Linux, Spotifry-<version>-windows-x64.msi on Windows. Drafts and pre-releases are skipped.
  */
-fun newestDesktopRelease(json: String): DesktopRelease? {
+fun newestDesktopRelease(json: String, windows: Boolean = Platform.isWindows): DesktopRelease? {
+    val file = if (windows) Regex("^Spotifry-(.+)-windows-x64\\.msi$") else Regex("^Spotifry-(.+)-x86_64\\.AppImage$")
     val list = JSONArray(json)
     return (0 until list.length()).map(list::getJSONObject).filter { !it.optBoolean("draft") && !it.optBoolean("prerelease") }.mapNotNull { r ->
         val assets = r.optJSONArray("assets") ?: return@mapNotNull null
-        val name = (0 until assets.length()).map { assets.getJSONObject(it).optString("name") }.firstOrNull { it.endsWith(".AppImage") } ?: return@mapNotNull null
-        val version = Regex("^Spotifry-(.+)-x86_64\\.AppImage$").find(name)?.groupValues?.get(1) ?: return@mapNotNull null
+        val version = (0 until assets.length()).firstNotNullOfOrNull { file.find(assets.getJSONObject(it).optString("name"))?.groupValues?.get(1) } ?: return@mapNotNull null
         DesktopRelease(version, r.optString("html_url"))
     }.reduceOrNull { a, b -> if (isNewer(b.version, a.version)) b else a }
 }
@@ -34,7 +34,7 @@ val desktopVersion get() = APP_VERSION.removePrefix("desktop-")
 
 /**
  * Asks GitHub, at most once a day, whether a newer desktop Spotifry is out. Updating is opening the release page in the
- * browser and downloading the new AppImage there.
+ * browser and downloading the new file there.
  * ponytail: no download in the app; a self-replacing AppImage (AppImageUpdate, zsync) when the page gets tiresome.
  */
 class Updates(private val client: OkHttpClient, private val prefs: Prefs, private val now: () -> Long = System::currentTimeMillis) {

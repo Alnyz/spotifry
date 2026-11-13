@@ -111,13 +111,8 @@ class MusicFolder(private val cache: File, private val prefs: Prefs, hideNonMusi
     }
 
     companion object {
-        private val ffprobe: String? by lazy { which("ffprobe") }
-        private val ffmpeg: String? by lazy { which("ffmpeg") }
-
-        private fun which(tool: String) = runCatching {
-            val p = ProcessBuilder("which", tool).redirectError(ProcessBuilder.Redirect.DISCARD).start()
-            p.inputStream.bufferedReader().readText().trim().takeIf { p.waitFor() == 0 && it.isNotEmpty() }
-        }.getOrNull()
+        private val ffprobe: String? by lazy { Platform.find("ffprobe") }
+        private val ffmpeg: String? by lazy { Platform.find("ffmpeg") }
 
         /** A cover picture lying next to the songs: cover.jpg, folder.png and the like. */
         private fun folderArt(dir: File?): File? = dir?.listFiles()?.firstOrNull {
@@ -155,8 +150,5 @@ class MusicFolder(private val cache: File, private val prefs: Prefs, hideNonMusi
     }
 }
 
-/** The desktop's music folder (xdg-user-dir MUSIC), or ~/Music. */
-fun defaultMusicDir(): File = runCatching {
-    val p = ProcessBuilder("xdg-user-dir", "MUSIC").redirectError(ProcessBuilder.Redirect.DISCARD).start()
-    p.inputStream.bufferedReader().readText().trim().takeIf { p.waitFor() == 0 && it.isNotEmpty() && it != System.getProperty("user.home") }?.let(::File)
-}.getOrNull() ?: File(System.getProperty("user.home"), "Music")
+/** The desktop's music folder (xdg-user-dir MUSIC on Linux), or ~/Music. */
+fun defaultMusicDir(): File = Platform.userFolder("Music")

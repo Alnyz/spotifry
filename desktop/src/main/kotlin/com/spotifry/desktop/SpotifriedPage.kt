@@ -336,12 +336,7 @@ internal fun Watermark(modifier: Modifier = Modifier, text: Color = Color.White,
 }
 
 /** Where pictures go: the desktop's Pictures folder, or ~/Pictures. */
-internal fun picturesDir(): File {
-    val named = runCatching {
-        ProcessBuilder("xdg-user-dir", "PICTURES").redirectErrorStream(true).start().let { p -> p.inputStream.bufferedReader().readText().trim().takeIf { p.waitFor() == 0 } }
-    }.getOrNull()
-    return named?.takeIf { it.isNotEmpty() && it != System.getProperty("user.home") }?.let(::File) ?: File(System.getProperty("user.home"), "Pictures")
-}
+internal fun picturesDir(): File = Platform.userFolder("Pictures")
 
 /** Every card of [state] as a 1080 by 1920 picture, still, with the watermark, in "Spotifried <period>" under Pictures. */
 internal suspend fun savePictures(state: SpotifriedState, into: File = picturesDir()): File = withContext(Dispatchers.IO) {
