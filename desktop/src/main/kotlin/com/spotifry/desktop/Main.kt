@@ -147,8 +147,10 @@ private fun ApplicationScope.StartFailedWindow(error: Throwable?) {
 
 @androidx.compose.runtime.Composable
 private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean, restart: () -> Unit) {
-    // with a tray the close button hides the window and the music goes on; the tray menu quits. Without one, closing quits as before.
-    val trayOk = remember { androidx.compose.ui.window.isTraySupported }
+    // with "keep playing in the tray" on, the close button hides the window and the music goes on; Quit in Settings stops it.
+    // Off (the default), closing quits. The tray's own menu can't be trusted: on KDE it never opens.
+    val keepInTray by services.library.keepInTray.collectAsState()
+    val trayOk = remember { androidx.compose.ui.window.isTraySupported } && keepInTray
     var shown by remember { mutableStateOf(true) }
     val icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Logo.image)
     if (trayOk && !restarting) {

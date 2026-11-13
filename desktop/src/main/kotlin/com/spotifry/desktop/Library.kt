@@ -20,6 +20,7 @@ import okhttp3.OkHttpClient
 import java.io.File
 
 const val HOME_PICTURE_KEY = "desktop_home_picture"
+const val KEEP_IN_TRAY_KEY = "desktop_keep_in_tray"
 const val APP_VERSION = "desktop-0.2.0"
 /** The same version as gradle/libs.versions.toml, for the About line. */
 const val NEWPIPE_VERSION = "v0.26.5"
@@ -55,6 +56,10 @@ class Library(
         prefs.edit().apply { if (path == null) remove(HOME_PICTURE_KEY) else putString(HOME_PICTURE_KEY, path) }.apply()
         homePicture.value = path
     }
+
+    /** Closing the window hides it and the music goes on, with an icon in the tray. Off by default; a desktop-only setting. */
+    val keepInTray = kotlinx.coroutines.flow.MutableStateFlow(prefs.getBoolean(KEEP_IN_TRAY_KEY, false))
+    fun setKeepInTray(on: Boolean) { prefs.edit().putBoolean(KEEP_IN_TRAY_KEY, on).apply(); keepInTray.value = on }
 
     val recorder = PlayRecorder(history, listenLog) { id -> db.plays().count(id, System.currentTimeMillis()) }
 

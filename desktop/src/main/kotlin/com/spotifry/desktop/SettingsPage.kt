@@ -79,6 +79,13 @@ fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit =
             }
         }
         item {
+            val keep by lib.keepInTray.collectAsState()
+            Group("Window") {
+                Toggle("Keep playing in the tray", "Closing the window hides it and the music goes on. Use Quit below to stop. Not every desktop shows the tray icon's menu.", keep, lib::setKeepInTray)
+                Row("Quit Spotifry", "Stops the music and closes the app.", danger = true, onClick = { services.quit() })
+            }
+        }
+        item {
             Group("Backup") {
                 Row("Save backup", "Playlists, history, trims and settings in one file.", onClick = flow::save) { Value("Save") }
                 Row("Restore backup", "Brings a backup into this computer. A backup from the phone works too.", onClick = flow::choose) { Value("Restore") }

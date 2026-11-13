@@ -118,7 +118,7 @@ class SnapshotTest {
         val before = fakePlayer.state.value
         fakePlayer.state.value = before.copy(trim = com.spotifry.music.player.Trim(10_000, 200_000))
         shoot("small-home", Route.Home, lib, height = 1900)
-        shoot("small-settings", Route.Settings, lib, height = 1300)
+        shoot("small-settings", Route.Settings, lib, height = 2500)
         fakePlayer.state.value = before
     }
 
