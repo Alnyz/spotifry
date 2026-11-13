@@ -35,6 +35,8 @@ fun qualityLabel(f: Format?, knownKbps: Int? = null): String? {
         return if (tail.isEmpty()) name else "$name $tail"
     }
     val kbps = (f.averageBitrate.takeIf { it > 0 } ?: f.bitrate.takeIf { it > 0 })?.let { (it + 500) / 1000 } ?: knownKbps?.takeIf { it > 0 }
+        // no lossy file is this big: the figure belongs to another copy of the song (a lossless one)
+        ?.takeIf { it <= MAX_LOSSY_KBPS }
     return if (kbps != null) "$name $kbps kbps" else name
 }
 
@@ -43,3 +45,11 @@ private fun khz(hz: Int): String? = when {
     hz % 1000 == 0 -> "${hz / 1000} kHz"
     else -> "%.1f kHz".format(java.util.Locale.ROOT, hz / 1000f)
 }
+
+private const val MAX_LOSSY_KBPS = 512
+
+/**
+ * Right after a song change the player still holds the last song's tracks until the new one is ready, so the new song
+ * would wear the old one's format. Until it is ready, a song keeps the label it already had and a new song has none.
+ */
+fun qualityToShow(ready: Boolean, label: String?, before: String?, sameSong: Boolean): String? = if (ready) label else before.takeIf { sameSong }

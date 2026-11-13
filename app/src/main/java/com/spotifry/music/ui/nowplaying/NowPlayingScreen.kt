@@ -107,6 +107,8 @@ fun NowPlayingContent(
     onSuggestionMore: (Int) -> Unit = {},
     /** The scissors by the length of a trimmed song: opens the Trim sheet. */
     onTrim: () -> Unit = {},
+    /** The quality label under the cover: opens the Audio path sheet. */
+    onQuality: () -> Unit = {},
     /** Milliseconds this song's lyrics run earlier (negative: later), set from the full lyrics. */
     lyricsShift: Int = 0, onLyricsShift: (Int) -> Unit = {},
     /** The listener's note on this song, one quiet line under the artist; tapping it edits it. */
@@ -165,13 +167,8 @@ fun NowPlayingContent(
                 }
                 // the song's real sound, small and quiet under the cover (its own line, so a long artist name never crowds it)
                 // the space is kept while it's unknown, so the controls don't jump when it appears
-                Box(Modifier.fillMaxWidth().padding(top = 12.dp).height(20.dp), Alignment.Center) {
-                    state.quality?.let {
-                        Text(
-                            it, Modifier.border(1.dp, Faint.copy(alpha = .4f), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall, color = Faint, maxLines = 1,
-                        )
-                    }
+                Box(Modifier.fillMaxWidth().padding(top = 12.dp).height(22.dp), Alignment.Center) {
+                    state.quality?.let { QualityPill(it, Modifier.clickable(onClickLabel = "Show audio path", onClick = onQuality).padding(horizontal = 8.dp)) }
                 }
                 }
                 // its own place in the spread, so free space on a tall screen falls above and below it

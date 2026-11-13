@@ -45,6 +45,18 @@ class StreamResolverTest {
         assertEquals(1, src.resolveCalls)
     }
 
+    @Test fun aBitrateNotedForAnotherSourceIsNotUsed() = runTest {
+        val src = FakeMusicSource()
+        val r = StreamResolver(src) { 1_000L }
+        r.get(testSong) // 128 kbps, YouTube
+        assertEquals(128, r.knownKbps(testSong.id))
+        assertEquals(128, r.knownKbps(testSong.id, "youtube"))
+        // the lossless copy's bitrate must not label the YouTube file that is playing
+        r.put(testSong, ResolvedStream("https://x/flac", "audio/flac", 983, 10_000_000L, fromMonochrome = true))
+        assertEquals(null, r.knownKbps(testSong.id, "youtube"))
+        assertEquals(983, r.knownKbps(testSong.id, "monochrome"))
+    }
+
     @Test fun reResolvesNearExpiry() = runTest {
         val src = FakeMusicSource()
         var now = 1_000L

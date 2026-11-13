@@ -148,7 +148,10 @@ class PlayerController(
             repeatMode = c.repeatMode,
             order = playOrder(c),
             from = from,
-            quality = c.currentMediaItem?.let { qualityLabel(audioFormat(c), knownKbps(it.mediaId, wholeMs)) },
+            quality = qualityToShow(
+                c.playbackState == Player.STATE_READY, c.currentMediaItem?.let { qualityLabel(audioFormat(c), knownKbps(it.mediaId, wholeMs)) },
+                _state.value.quality, _state.value.current?.id == c.currentMediaItem?.mediaId,
+            ),
         )
     }
 

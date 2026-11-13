@@ -40,12 +40,22 @@ class AppContainer(private val context: Context) {
     val trims = com.spotifry.music.player.Trims(context.getSharedPreferences("trims", Context.MODE_PRIVATE))
     /** Talking skipped at the start and end of music videos, when the user's own trim doesn't say otherwise. */
     val smartTrims = com.spotifry.music.player.SmartTrims(context.getSharedPreferences("smart_trims", Context.MODE_PRIVATE), client)
-    val source: MusicSource = com.spotifry.music.data.source.ChoosingSource(
+    private val choosing = com.spotifry.music.data.source.ChoosingSource(
         NewPipeSource(), com.spotifry.music.data.source.JioSaavnSource(client)::find, { settings.jioSaavn.value },
         com.spotifry.music.data.source.MonochromeSource(client)::find, { settings.monochrome.value },
     )
+    val source: MusicSource = choosing
     val musicBrainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = "Spotifry/${BuildConfig.VERSION_NAME} (https://github.com/Alnyz/spotifry)")
     val resolver = StreamResolver(source)
+    /** Swaps a song's stored copy for a better one found after it started, between plays and not on mobile data. */
+    @get:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    val upgrader by lazy {
+        com.spotifry.music.player.QualityUpgrader(
+            songCache, choosing, resolver, androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(client).setUserAgent(com.spotifry.music.data.source.OkHttpDownloader.USER_AGENT),
+            onUnmetered = { !connectivity.isActiveNetworkMetered }, isSaved = { db.songs().get(it)?.filePath != null },
+        )
+    }
+    init { choosing.onBetter = { song, stream -> upgrader.offer(song, stream) } }
     // "Play the whole song" means whole: the smart trim is turned off for that song too
     val player by lazy { PlayerController(context.applicationContext, recentlyPlayed = ::recentlyPlayed, knownKbps = ::streamKbps, saveTrim = { id, t -> trims[id] = t; if (t == null) smartTrims.turnOff(id) }) }
     /**
@@ -54,13 +64,18 @@ class AppContainer(private val context: Context) {
      */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     fun streamKbps(id: String, wholeMs: Long): Int? {
-        resolver.knownKbps(id)?.let { return it }
+        resolver.knownKbps(id, songOrigin(id))?.let { return it }
         if (wholeMs <= 0) return null
         val songs = java.io.File(context.filesDir, "songs")
         val bytes = listOf("webm", "m4a", "flac").map { java.io.File(songs, "$id.$it") }.firstOrNull { it.exists() }?.length()
             ?: androidx.media3.datasource.cache.ContentMetadata.getContentLength(songCache.getContentMetadata(id)).takeIf { it > 0 }
         return bytes?.let { (it * 8 / wholeMs).toInt() } // bits per millisecond is kbps
     }
+
+    /** The service the playing song's cached copy came from; null when it isn't in the cache (a file on the phone). */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    fun songOrigin(id: String): String? =
+        if (songCache.getCachedSpans(id).isEmpty()) null else songCache.getContentMetadata(id).get(com.spotifry.music.player.SONG_SOURCE_KEY, null as String?) ?: "youtube"
 
     /** Songs listened to in the last 24 hours: Shuffle plays them in the second half. */
     suspend fun recentlyPlayed(): Set<String> = db.plays().playedSince(System.currentTimeMillis() - 24 * 60 * 60 * 1000L).toSet()

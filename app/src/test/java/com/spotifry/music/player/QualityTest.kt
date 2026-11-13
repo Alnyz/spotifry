@@ -18,4 +18,15 @@ class QualityTest {
     @Test fun losslessNeverGetsBitrate() = assertEquals("Lossless", qualityLabel(fmt(MimeTypes.AUDIO_FLAC) { setAverageBitrate(900_000) }, 160))
     @Test fun cdAtHigherRateIsHiRes() = assertEquals("Hi-Res Lossless", qualityLabel(fmt(MimeTypes.AUDIO_FLAC) { setPcmEncoding(C.ENCODING_PCM_16BIT); setSampleRate(96000) }))
     @Test fun unknownFormat() { assertNull(qualityLabel(fmt("audio/x-unknown"))); assertNull(qualityLabel(null)) }
+    @Test fun aLossyFileNeverReadsAsLossless() = assertEquals("Opus", qualityLabel(fmt(MimeTypes.AUDIO_OPUS), 1603))
+    @Test fun aNewSongShowsNoLabelUntilItsTracksAreReady() {
+        assertNull(qualityToShow(false, "Opus", "Opus 160 kbps", sameSong = false))
+        assertEquals("Opus 160 kbps", qualityToShow(false, "Opus", "Opus 160 kbps", sameSong = true))
+        assertEquals("Hi-Res Lossless", qualityToShow(true, "Hi-Res Lossless", "Opus 160 kbps", sameSong = false))
+    }
+    @Test fun aCutShortOrUnreadableCopyIsBroken() {
+        assertEquals(true, savedCopyBroken(androidx.media3.exoplayer.ExoPlaybackException.createForSource(java.io.EOFException(), 1000)))
+        assertEquals(true, savedCopyBroken(RuntimeException(androidx.media3.common.ParserException.createForMalformedContainer("x", null))))
+        assertEquals(false, savedCopyBroken(java.io.IOException("offline")))
+    }
 }

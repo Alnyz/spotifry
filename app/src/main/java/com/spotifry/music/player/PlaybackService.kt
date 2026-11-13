@@ -111,7 +111,7 @@ class PlaybackService : MediaSessionService() {
             while (true) {
                 val fadeMs = c.settings.fadeSeconds.value * 1000L
                 val matching = fadeMs > 0
-                if (matching && join == null) join = newJoin(player, dataSource, equalizer, loudness)
+                if (matching && join == null) join = newJoin(player, dataSource, equalizer, loudness, levels)
                 // null with the setting off, and whenever no join is under way: the fade below goes on as always
                 val joined = join?.tick(matching)
                 if (!matching && join?.idle == true) { join?.release(); join = null }
@@ -147,12 +147,17 @@ class PlaybackService : MediaSessionService() {
                 levelFor = mediaItem?.mediaId
                 loudness.startSong(levelFor?.let(levels::get))
                 mediaItem?.toSong()?.let { song -> scope.launch(Dispatchers.Default) { c.historyRecorder.onPlayed(song) } }
-                // warm the stream URL of the next song so skipping is instant
-                if (player.hasNextMediaItem()) {
-                    val next = player.getMediaItemAt(player.nextMediaItemIndex).toSong()
-                    scope.launch(Dispatchers.Default) { c.resolver.prefetch(next, c.streamLow()) }
-                    smartTrim(player, next.id)
+                // a better copy of an earlier song is swapped in now, unless it is the song heard or the one coming next
+                c.upgrader.upgradeWhenFree(setOfNotNull(mediaItem?.mediaId, player.takeIf { it.hasNextMediaItem() }?.getMediaItemAt(player.nextMediaItemIndex)?.mediaId))
+                // warm the stream URLs of the next few songs, so skipping (even twice) is instant: a lossless lookup takes seconds
+                var ahead = player.currentMediaItemIndex
+                for (n in 1..PREFETCH_AHEAD) {
+                    ahead = player.currentTimeline.getNextWindowIndex(ahead, player.repeatMode, player.shuffleModeEnabled)
+                    if (ahead == C.INDEX_UNSET) break
+                    val song = player.getMediaItemAt(ahead).toSong()
+                    scope.launch(Dispatchers.Default) { c.resolver.prefetch(song, c.streamLow()) }
                 }
+                if (player.hasNextMediaItem()) smartTrim(player, player.getMediaItemAt(player.nextMediaItemIndex).toSong().id)
                 mediaItem?.mediaId?.let { smartTrim(player, it) }
                 appendSimilarIfNeeded(player)
                 fillSuggestions(player)
@@ -173,6 +178,15 @@ class PlaybackService : MediaSessionService() {
                     return
                 }
                 c.resolver.invalidate(id)
+                // the bytes kept for this song are cut short or mixed: forget them and the note of where they came from, and load it again once
+                if (savedCopyBroken(error) && retries.allow(id)) {
+                    c.songCache.removeResource(id)
+                    c.songCache.applyContentMetadataMutations(
+                        id, androidx.media3.datasource.cache.ContentMetadataMutations().remove(SONG_SOURCE_KEY).remove(androidx.media3.datasource.cache.ContentMetadata.KEY_CONTENT_LENGTH),
+                    )
+                    player.prepare()
+                    return
+                }
                 // a link the server refuses (expired, or the phone switched networks): try a fresh one once before giving up on the song
                 val refused = generateSequence(error.cause) { it.cause }.any { it is HttpDataSource.InvalidResponseCodeException || it is SourceChangedException }
                 // prepare only: the player keeps wanting to play or not, so a Pause tapped while the song loaded still holds
@@ -265,7 +279,10 @@ class PlaybackService : MediaSessionService() {
             while (true) {
                 delay(1_000)
                 val id = player.currentMediaItem?.mediaId
-                if (plays.tick(id, player.isPlaying, 1_000) && id != null) launch(Dispatchers.IO) { c.db.plays().count(id, System.currentTimeMillis()) }
+                if (plays.tick(id, player.isPlaying, 1_000) && id != null) {
+                    launch(Dispatchers.IO) { c.db.plays().count(id, System.currentTimeMillis()) }
+                    player.currentMediaItem?.toSong()?.let { song -> launch(Dispatchers.IO) { c.upgrader.onHeard(song) } }
+                }
                 val at = android.os.SystemClock.elapsedRealtime()
                 c.listenLog.write(listens.tick(join?.tailSong ?: id, player.isPlaying || join?.tailHeard == true, at - last))
                 last = at
@@ -274,7 +291,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     /** Built only when the setting is on, so with it off nothing of this exists. */
-    private fun newJoin(player: ExoPlayer, dataSource: androidx.media3.datasource.DataSource.Factory, equalizer: EqualizerProcessor, loudness: LoudnessProcessor): BeatJoin {
+    private fun newJoin(player: ExoPlayer, dataSource: androidx.media3.datasource.DataSource.Factory, equalizer: EqualizerProcessor, loudness: LoudnessProcessor, levels: LoudnessMemory): BeatJoin {
         val c = (application as MusicApp).container
         val quiet = Dispatchers.IO.limitedParallelism(1)
         return BeatJoin(
@@ -323,6 +340,8 @@ class PlaybackService : MediaSessionService() {
             sleepGain = { c.sleepTimer.sleepGain },
             wanted = { androidx.media3.common.PlaybackParameters(c.settings.speed.value, 2.0.pow(c.settings.pitch.value / 12.0).toFloat()) },
             wake = { wakeTick.trySend(Unit) },
+            // the song playing now is still being measured; the next one is only known from an earlier play
+            matchDb = { outId, inId -> Leveler.matchDb(levels.get(outId) ?: loudness.lastMeasuredDb, levels.get(inId), c.settings.sameLoudness.value) },
         )
     }
 
@@ -445,6 +464,7 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = session
 
     companion object {
+        private const val PREFETCH_AHEAD = 3
         /** Sent by the Now playing button to turn on Smart shuffle. */
         const val SMART_SHUFFLE = "com.spotifry.music.SMART_SHUFFLE"
         /** Sets what plays after the current song while shuffle is on; [UPCOMING] holds the queue positions in order. */

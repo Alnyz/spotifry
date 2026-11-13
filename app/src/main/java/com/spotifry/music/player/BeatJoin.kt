@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.pow
 import kotlin.math.sin
 
 private const val TAG = "BeatJoin"
@@ -73,6 +74,8 @@ class BeatJoin(
     private val wanted: () -> PlaybackParameters,
     /** Asks for a [tick] now: while paused they are slow, and [main] may still be held silent from before the pause. */
     private val wake: () -> Unit = {},
+    /** How much louder (+) or quieter (-) the song with the second id sounds than the one with the first, when both play. */
+    private val matchDb: (String, String) -> Float = { _, _ -> 0f },
 ) : Player.Listener {
     private class Pair(val out: MediaItem, val nextIndex: Int, val next: MediaItem) {
         val key = "${out.mediaId} ${out.trim} ${next.mediaId} ${next.trim}"
@@ -203,9 +206,10 @@ class BeatJoin(
         val inMs = p.next.trim?.endMs?.let { it - inStart } ?: (p.next.toSong().durationSec * 1000 - inStart).coerceAtLeast(0)
         val fade = fadeMs()
         val beats = beatsAllowed()
+        val match = matchDb(p.out.mediaId, p.next.mediaId)
         if (!beats) {
             // nothing to read: skipping silence or saving data gets the plain overlap
-            val plan = plainJoin(outMs, outMs, inMs, fade, 0)
+            val plan = plainJoin(outMs, outMs, inMs, fade, 0)?.copy(matchDb = match)
             Log.i(TAG, "${p.key}: no beats wanted: $plan")
             stage = if (plan != null) Waiting(p.key, plan) else Done(p.key)
             return
@@ -215,7 +219,7 @@ class BeatJoin(
             val out = lookOnce(p.out, (outStart + outMs - STRETCH_MS).coerceAtLeast(outStart), outStart + outMs)?.takeIf { it.whole }?.shifted(-outStart)
             val inn = lookOnce(p.next, inStart, inStart + STRETCH_MS)?.shifted(-inStart)
             if (stage !== looking) return@launch
-            val plan = planJoin(out, inn, outMs, inMs, fade, leadMs)
+            val plan = planJoin(out, inn, outMs, inMs, fade, leadMs)?.copy(matchDb = match)
             Log.i(TAG, "${p.key}: ${out?.bpm}/${out?.confidence} to ${inn?.bpm}/${inn?.confidence}: $plan")
             stage = if (plan != null) Waiting(p.key, plan) else Done(p.key)
         }
@@ -327,8 +331,12 @@ class BeatJoin(
         if (f >= 1f) { finish(s.tail, "overlap done"); return null }
         // equal power: the two together stay about as loud as one
         val cut = 1 - OVERLAP_CUT * sin(f * PI).toFloat()
-        s.tail.volume = cos(f * PI / 2).toFloat() * cut * sleepGain()
-        return sin(f * PI / 2).toFloat() * cut
+        // the louder of the two comes down by the difference, the new song's share rising to full by the end
+        val m = 10f.pow(-abs(s.plan.matchDb) / 20f)
+        val tailTrim = if (s.plan.matchDb < 0) m else 1f
+        val newTrim = if (s.plan.matchDb > 0) m + (1 - m) * f else 1f
+        s.tail.volume = cos(f * PI / 2).toFloat() * cut * tailTrim * sleepGain()
+        return sin(f * PI / 2).toFloat() * cut * newTrim
     }
 
     private fun lineUpMain(line: Liner, off: Long): Boolean {

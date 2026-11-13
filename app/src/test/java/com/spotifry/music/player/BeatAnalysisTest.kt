@@ -205,4 +205,27 @@ class BeatAnalysisTest {
         assertTrue(p.onBeat)
         assertEquals(6_000, p.lengthMs)
     }
+
+    @Test fun aSongFadingOutReadsQuietAtItsEnd() {
+        val a = clicks(120.0)
+        for (i in 0 until rate * 8) a[a.size - 1 - i] *= i / (rate * 8f)
+        assertTrue(grid(a)!!.endLevel < .4f)
+        assertTrue(grid(clicks(120.0))!!.endLevel > .8f)
+    }
+
+    @Test fun aQuietEndGetsAShortPlainFade() {
+        val quiet = beats(120.0).copy(endLevel = .05f)
+        val p = planJoin(quiet, beats(120.0), 200_000, 180_000, 8_000, 1_500)!!
+        assertFalse(p.onBeat)
+        assertEquals(2_000, p.lengthMs)
+        assertEquals(8_000, fadeFor(beats(120.0), 8_000))
+        assertEquals(0, fadeFor(quiet, 0))
+    }
+
+    @Test fun theLouderSongIsBroughtDown() {
+        assertEquals(0f, Leveler.matchDb(null, -10f, false), 0f)
+        assertEquals(6f, Leveler.matchDb(-20f, -14f, false), .01f)
+        assertEquals(0f, Leveler.matchDb(-20f, -14f, true), .01f)
+        assertEquals(-9f, Leveler.matchDb(-10f, -30f, false), .01f)
+    }
 }

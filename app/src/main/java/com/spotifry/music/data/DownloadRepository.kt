@@ -73,12 +73,12 @@ class DownloadRepository(
         val part = File(songsDir, "${song.id}.part")
         try {
             songs.upsert(song.toEntity())
-            var stream = resolver.get(song, lowQuality())
+            var stream = resolver.get(song, lowQuality(), patient = true)
             var response = client.newCall(Request.Builder().url(withRange(stream.url)).build()).execute()
             if (response.code == 403) { // link expired or refused: resolve a fresh one once
                 response.close()
                 resolver.invalidate(song.id)
-                stream = resolver.get(song, lowQuality())
+                stream = resolver.get(song, lowQuality(), patient = true)
                 response = client.newCall(Request.Builder().url(withRange(stream.url)).build()).execute()
             }
             response.use { r ->

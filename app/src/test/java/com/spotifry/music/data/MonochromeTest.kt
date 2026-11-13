@@ -6,7 +6,11 @@ import com.spotifry.music.data.source.MusicSource
 import com.spotifry.music.data.source.ResolvedStream
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.data.source.parseMonochromeResults
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -89,11 +93,11 @@ class ChoosingLosslessTest {
     private val yt = FakeMusicSource()
 
     @Test fun losslessComesFirst() = runBlocking {
-        assertEquals(flac, ChoosingSource(yt, { aac }, { true }, { flac }, { true }).resolve(song))
+        assertEquals(flac, ChoosingSource(yt, { aac }, { true }, { flac }, { true }).resolve(song, false, true, null))
     }
     @Test fun aMissFallsToSaavnThenYoutube() = runBlocking {
-        assertEquals(aac, ChoosingSource(yt, { aac }, { true }, { null }, { true }).resolve(song))
-        assertEquals("https://x/1", ChoosingSource(yt, { null }, { true }, { error("down") }, { true }).resolve(song).url)
+        assertEquals(aac, ChoosingSource(yt, { aac }, { true }, { null }, { true }).resolve(song, false, true, null))
+        assertEquals("youtube", ChoosingSource(yt, { null }, { true }, { error("down") }, { true }).resolve(song, false, true, null).origin)
     }
     @Test fun switchedOffLowAndPhoneFilesNeverAsk() = runBlocking {
         val asked = mutableListOf<String>()
@@ -103,5 +107,52 @@ class ChoosingLosslessTest {
         ChoosingSource(yt, { null }, { false }, lossless, { true }).resolve(song.copy(id = "local:5"))
         assertEquals(emptyList<String>(), asked)
         assertFalse(flac.fromSaavn)
+    }
+
+    @Test fun aSongPlayedNowStartsFromTheFastestAndHearsOfTheBetterOne() = runBlocking {
+        val slowFlac: suspend (Song) -> ResolvedStream? = { delay(300); flac }
+        val better = CompletableDeferred<ResolvedStream>()
+        val src = ChoosingSource(yt, { null }, { true }, slowFlac, { true }).also { it.onBetter = { _, s -> better.complete(s) } }
+        assertEquals("youtube", src.resolve(song).origin)
+        assertEquals(flac, withTimeout(2_000) { better.await() })
+    }
+    @Test fun aSongTappedWhileLookedUpAheadDoesNotWaitForTheBestAnswer() = runBlocking {
+        val slowFlac: suspend (Song) -> ResolvedStream? = { delay(800); flac }
+        val src = ChoosingSource(yt, { null }, { true }, slowFlac, { true })
+        val ahead = async { src.resolve(song, false, true, null) }
+        delay(100)
+        val started = System.currentTimeMillis()
+        assertEquals("youtube", src.resolve(song).origin)
+        assertTrue(System.currentTimeMillis() - started < 500)
+        assertEquals(flac, ahead.await())
+    }
+    @Test fun aSongLookedUpAheadWaitsForTheBestAnswer() = runBlocking {
+        val slowFlac: suspend (Song) -> ResolvedStream? = { delay(300); flac }
+        assertEquals(flac, ChoosingSource(yt, { aac }, { true }, slowFlac, { true }).resolve(song, false, true, null))
+    }
+    @Test fun keptBytesOfOneSourceAreCarriedOnFromThatSource() = runBlocking {
+        val asked = mutableListOf<String>()
+        val src = ChoosingSource(yt, { asked += "saavn"; aac }, { true }, { asked += "lossless"; flac }, { true })
+        assertEquals("youtube", src.resolve(song, false, false, "youtube").origin)
+        assertEquals(emptyList<String>(), asked)
+        assertEquals(aac, src.resolve(song, false, false, "saavn"))
+        assertEquals(listOf("saavn"), asked)
+    }
+    @Test fun whenYoutubeFailsTheOtherSourceStillPlaysTheSong() = runBlocking {
+        yt.failResolve = true
+        assertEquals(aac, ChoosingSource(yt, { aac }, { true }).resolve(song))
+    }
+    @Test fun whenEveryoneFailsTheSongFails() {
+        yt.failResolve = true
+        assertTrue(runCatching { runBlocking { ChoosingSource(yt, { null }, { true }, { null }, { true }).resolve(song) } }.isFailure)
+    }
+    @Test fun anUpgradeIsLookedForOnlyWhenTheStoredCopyIsNotTheBestAllowed() {
+        assertTrue(com.spotifry.music.player.shouldLook("youtube", 3, null, null, 0))
+        assertFalse(com.spotifry.music.player.shouldLook("monochrome", 3, null, null, 0))
+        assertFalse(com.spotifry.music.player.shouldLook("youtube", 1, null, null, 0))
+        assertFalse(com.spotifry.music.player.shouldLook("youtube", 3, "monochrome", null, 0))
+        assertFalse(com.spotifry.music.player.shouldLook("youtube", 3, null, 0L, 60_000L))
+        assertTrue(com.spotifry.music.player.shouldLook("youtube", 3, null, 0L, 31 * 60_000L))
+        assertTrue(com.spotifry.music.player.shouldLook("saavn", 3, "saavn", null, 0))
     }
 }

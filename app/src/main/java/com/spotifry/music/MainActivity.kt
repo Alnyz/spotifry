@@ -234,6 +234,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     var showSleep by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
     var showTrim by remember { mutableStateOf(false) }
+    var showAudioPath by remember { mutableStateOf(false) }
     val speed by c.settings.speed.collectAsStateWithLifecycle()
     val lyricsShifts by c.settings.lyricsShift.collectAsStateWithLifecycle()
     val pitch by c.settings.pitch.collectAsStateWithLifecycle()
@@ -440,7 +441,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                     position = position,
                     sleep = sleep, sleepLeft = c.sleepTimer::remainingMs, onSleep = { showSleep = true },
                     speedLabel = speedLabel, onSpeed = { showSpeed = true }, speed = speed,
-                    onSuggestionMore = suggestionMenu, onTrim = { showTrim = true },
+                    onSuggestionMore = suggestionMenu, onTrim = { showTrim = true }, onQuality = { showAudioPath = true },
                     lyricsShift = player.current?.let { lyricsShifts[it.id] } ?: 0,
                     onLyricsShift = { ms -> player.current?.let { c.settings.setLyricsShift(it.id, ms) } },
                     note = note, onNote = { player.current?.let { editNote = it to note.orEmpty() } },
@@ -538,6 +539,14 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
             sleep, c.sleepTimer::remainingMs, onMinutes = c.sleepTimer::start, onEndOfSong = c.sleepTimer::startEndOfSong,
             onOff = c.sleepTimer::off, onDismiss = { showSleep = false },
         )
+        if (showAudioPath) player.current?.let { s ->
+            val eqOn by c.settings.eqOn.collectAsStateWithLifecycle()
+            val eqName by c.settings.eqPreset.collectAsStateWithLifecycle()
+            val leveling by c.settings.sameLoudness.collectAsStateWithLifecycle()
+            com.spotifry.music.ui.nowplaying.AudioPathSheet(
+                com.spotifry.music.player.audioPathRows(player.quality, c.songOrigin(s.id), leveling, eqOn, eqName, com.spotifry.music.player.outputName(context)),
+            ) { showAudioPath = false }
+        }
         if (showTrim) player.current?.let { s ->
             val old = player.trim
             com.spotifry.music.ui.TrimSheet(

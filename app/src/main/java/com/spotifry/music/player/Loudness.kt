@@ -76,6 +76,16 @@ class Leveler {
         const val SEED_BLOCKS = 300
         fun gainFor(levelDb: Float) = (TARGET_DB - levelDb).coerceIn(-12f, 6f)
 
+        /**
+         * How much louder (+) or quieter (-) the incoming song sounds than the outgoing one, from their remembered levels,
+         * counting what the leveler does when [leveling] is on. 0 when either level isn't known; at most 9 dB either way.
+         */
+        fun matchDb(outDb: Float?, inDb: Float?, leveling: Boolean): Float {
+            if (outDb == null || inDb == null) return 0f
+            fun heard(db: Float) = if (leveling) db + gainFor(db) else db
+            return (heard(inDb) - heard(outDb)).coerceIn(-9f, 9f)
+        }
+
         /** Loud peaks bend gently under full scale instead of clipping when a quiet song is turned up. */
         fun soften(x: Float): Float {
             val a = abs(x)

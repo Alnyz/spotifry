@@ -29,6 +29,10 @@ interface MusicSource {
     suspend fun search(query: String): List<Song>
     /** [low]: the smallest audio stream instead of the best one (data saver, low-quality saves). */
     suspend fun resolve(song: Song, low: Boolean = false): ResolvedStream
+    /** [patient]: nobody waits for this yet (looked up ahead), so the best answer is worth waiting for. [prefer]: the origin of bytes already kept for the song. */
+    suspend fun resolve(song: Song, low: Boolean, patient: Boolean, prefer: String?): ResolvedStream = resolve(song, low)
+    /** True when a better answer than the fastest may be worth waiting for, so a lookup ahead of time and a tap are not the same lookup. */
+    val waitsForBest: Boolean get() = false
     suspend fun related(song: Song): List<Song>
     suspend fun searchVideos(query: String): List<Song> = emptyList()
     /** Albums, artists or playlists, for those [type]s. */
