@@ -21,9 +21,9 @@ class MusicFolderTest {
         assertEquals(listOf("Hati-Hati di Jalan", "Kala Biru", "Morning Light", "Sore Hari"), songs.map { it.title })
         assertEquals(listOf("Tulus", "Hindia", "Nadin Amizah", "Barasuara"), songs.map { it.artist })
         assertEquals(184, songs[1].durationSec)
-        assertTrue(songs.all { it.id == "local:" + File(dir, it.id.substringAfter(dir.path + "/")).path })
-        assertTrue(songs[1].thumbnailUrl!!.endsWith("Album A/cover.jpg"))
-        assertTrue(songs[3].thumbnailUrl!!.endsWith("Loose/sore.mp3"))
+        assertTrue(songs.all { it.id == "local:" + File(dir, it.id.substringAfter(dir.path + File.separator)).path })
+        assertTrue(songs[1].thumbnailUrl!!.replace(File.separatorChar, '/').endsWith("Album A/cover.jpg"))
+        assertTrue(songs[3].thumbnailUrl!!.replace(File.separatorChar, '/').endsWith("Loose/sore.mp3"))
         assertTrue(MusicFolder.art(songs[3].thumbnailUrl!!.removePrefix("file://"))!!.isNotEmpty())
         hide.value = false
         settled(folder, 6)

@@ -102,4 +102,6 @@ jobs:
           path: |
             desktop/build/reports/tests
             shared/build/reports/tests
+            desktop/build/test-results/test/*.xml
+            shared/build/test-results/test/*.xml
           if-no-files-found: warn

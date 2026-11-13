@@ -66,9 +66,18 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         return "http://127.0.0.1:${server.address.port}/${c.n}"
     }
 
+    /**
+     * Renames [from] to [to]. Windows refuses while a request is still reading the file, and it lets go within a moment, so
+     * this asks again for a few seconds (the thread is a download's, nothing waits on it).
+     */
+    private fun renamed(from: File, to: File): Boolean {
+        repeat(20) { if (from.renameTo(to)) return true; Thread.sleep(250) }
+        return false
+    }
+
     /** A finished copy becomes a kept song, and the songs played longest ago make room for it. */
     private fun keep(c: Copy) {
-        if (c.gone || c.total < 0 || c.have < c.total || !c.file.renameTo(c.done)) return
+        if (c.gone || c.total < 0 || c.have < c.total || !renamed(c.file, c.done)) return
         c.file = c.done // later reads of the playing song find it under its new name
         sizes.edit().remove(c.done.name).apply()
         makeRoom(c.done)
