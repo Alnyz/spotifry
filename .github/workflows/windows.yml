@@ -50,7 +50,7 @@ jobs:
 
       - name: Installer
         shell: bash
-        run: ./gradlew :desktop:packageMsi
+        run: ./gradlew :desktop:packageMsi :desktop:createDistributable
 
       - name: Start the packaged app and take a picture
         shell: pwsh
