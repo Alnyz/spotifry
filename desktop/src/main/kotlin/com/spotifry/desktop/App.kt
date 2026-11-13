@@ -77,10 +77,13 @@ enum class Page(val label: String, val icon: ImageVector) {
     Home("Home", Icons.Home), Search("Search", Icons.Search), Saved("Saved", Icons.Saved), Playlists("Playlists", Icons.Playlists), Settings("Settings", Icons.Settings);
 }
 
+/**
+ * Sets the colours from the settings (theme, accent), which a restored backup can change. The window calls this before
+ * [SpotifryTheme], so the first frame already has the right colours; written later from inside, text without a colour of its
+ * own kept the first frame's light-on-light ink in the light theme.
+ */
 @Composable
-fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = "", restart: () -> Unit = {}, startNowPlaying: Boolean = false) {
-    val flow = remember(services) { BackupFlow(services.library, services.scope, restart) }
-    // the theme and accent come from the settings, which a restored backup can change
+fun ApplyTheme(services: Services) {
     val theme by services.library.settings.theme.collectAsState()
     val accent by services.library.settings.accent.collectAsState()
     val system = androidx.compose.foundation.isSystemInDarkTheme()
@@ -88,6 +91,12 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     val accentColor by services.library.settings.accentColor.collectAsState()
     Palette.accentChoice = AccentChoice.of(accent)
     Palette.custom = if (Palette.accentChoice == AccentChoice.CUSTOM) readableAccent(androidx.compose.ui.graphics.Color(accentColor)) else null
+}
+
+@Composable
+fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = "", restart: () -> Unit = {}, startNowPlaying: Boolean = false) {
+    val flow = remember(services) { BackupFlow(services.library, services.scope, restart) }
+    ApplyTheme(services)
     var route by remember { mutableStateOf(startOn) }
     var nowPlaying by remember { mutableStateOf(startNowPlaying) }
     var query by remember { mutableStateOf(initialQuery) }

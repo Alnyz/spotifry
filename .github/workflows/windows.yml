@@ -36,8 +36,10 @@ jobs:
           mkdir -p desktop/app-resources/windows tools
           gh release download -R shinchiro/mpv-winbuild-cmake --pattern "mpv-x86_64-[0-9]*.7z" -D tools
           7z x tools/mpv-x86_64-*.7z -odesktop/app-resources/windows -y > /dev/null
-          gh release download -R BtbN/FFmpeg-Builds --pattern "ffmpeg-master-latest-win64-gpl.zip" -D tools
-          7z e tools/ffmpeg-master-latest-win64-gpl.zip "*/bin/ffmpeg.exe" "*/bin/ffprobe.exe" -odesktop/app-resources/windows -y > /dev/null
+          # the LGPL build with shared libraries: ffmpeg.exe and ffprobe.exe are tiny and share the DLLs (the static ones are 170 MB each)
+          gh release download -R BtbN/FFmpeg-Builds --pattern "ffmpeg-master-latest-win64-lgpl-shared.zip" -D tools
+          7z e tools/ffmpeg-master-latest-win64-lgpl-shared.zip "*/bin/*.exe" "*/bin/*.dll" -odesktop/app-resources/windows -y > /dev/null
+          rm -f desktop/app-resources/windows/ffplay.exe
           ls -la desktop/app-resources/windows
 
       - name: Put mpv and ffmpeg on the PATH for the tests

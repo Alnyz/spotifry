@@ -176,6 +176,7 @@ private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean,
             services.quit = { services.close(); exitApplication() }
         }
         window.minimumSize = java.awt.Dimension(900, 600)
+        if (!restarting) ApplyTheme(services)
         SpotifryTheme { if (!restarting) App(services, restart = restart) }
     }
 }
