@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,8 +32,10 @@ fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit =
     val savedCount by produceState(0, lib) { value = lib.db.songs().savedCount() }
     var editName by remember { mutableStateOf(false) }
     var clearing by remember { mutableStateOf(false) }
+    var pickingColour by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    if (pickingColour) ColourDialog(Color(settings.accentColor.value), { pickingColour = false }) { settings.setAccent(AccentChoice.CUSTOM.name, it.toArgb()); pickingColour = false }
     if (editName) NameDialog("Your name", "Save", name, { editName = false }) { settings.setName(it); editName = false }
     if (clearing) ConfirmDialog("Clear listening history?", "Empties Recently played, Most played and your listening. Saved songs and playlists stay.", "Clear", { clearing = false }) {
         scope.launch { lib.db.history().clear(); lib.db.plays().clear(); lib.db.listens().clear() }; clearing = false
@@ -50,9 +53,14 @@ fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit =
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AccentChoice.entries.forEach { c ->
                             val on = AccentChoice.of(accent) == c
+                            val custom = c == AccentChoice.CUSTOM
+                            val fill = if (custom && on) Palette.accent else if (Palette.dark) c.dark else c.light
                             Box(
-                                Modifier.size(26.dp).clip(CircleShape).background(if (Palette.dark) c.dark else c.light)
-                                    .then(if (on) Modifier.border(2.dp, Palette.ink, CircleShape) else Modifier).clickable { settings.setAccent(c.name, (if (Palette.dark) c.dark else c.light).toArgb()) },
+                                Modifier.size(26.dp).clip(CircleShape)
+                                    // Custom is a rainbow until it is the one in use
+                                    .then(if (custom && !on) Modifier.background(androidx.compose.ui.graphics.Brush.sweepGradient(listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red))) else Modifier.background(fill))
+                                    .then(if (on) Modifier.border(2.dp, Palette.ink, CircleShape) else Modifier)
+                                    .clickable { if (custom) pickingColour = true else settings.setAccent(c.name, (if (Palette.dark) c.dark else c.light).toArgb()) },
                             )
                         }
                     }

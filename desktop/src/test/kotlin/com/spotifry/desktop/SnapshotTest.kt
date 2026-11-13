@@ -111,6 +111,17 @@ class SnapshotTest {
         fakePlayer.state.value = before
     }
 
+    @Test fun smallFour() {
+        val lib = library()
+        kotlinx.coroutines.runBlocking { songs.forEachIndexed { i, s -> repeat(6 - i) { lib.db.plays().count(s.id, 1000L + it) } } }
+        lib.settings.setAccent("CUSTOM", 0xFF8A5CF5.toInt())
+        val before = fakePlayer.state.value
+        fakePlayer.state.value = before.copy(trim = com.spotifry.music.player.Trim(10_000, 200_000))
+        shoot("small-home", Route.Home, lib, height = 1900)
+        shoot("small-settings", Route.Settings, lib, height = 1300)
+        fakePlayer.state.value = before
+    }
+
     @Test fun spotifried() {
         val lib = library()
         shoot("rotation-tall", Route.Rotation, lib, height = 1300)

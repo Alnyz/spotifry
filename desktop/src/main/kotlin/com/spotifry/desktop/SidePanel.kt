@@ -172,6 +172,8 @@ private fun BarSeek(player: MusicPlayer, s: PlayerUiState) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         TimeText(clock(shown.toLong()), Palette.ink.copy(alpha = 0.5f), 12.sp)
         Track(shown, max, Palette.accent, { dragging = it }, { dragging?.let { player.seekTo(it.toLong()) }; dragging = null }, Modifier.weight(1f))
+        // the only sign a song is trimmed: scissors before its length
+        if (s.trim?.isWhole == false) Tip("Trimmed") { Icon(Icons.Cut, "Trimmed", Modifier.size(13.dp), tint = Palette.ink.copy(alpha = 0.5f)) }
         TimeText(clock(s.durationMs), Palette.ink.copy(alpha = 0.5f), 12.sp)
     }
 }

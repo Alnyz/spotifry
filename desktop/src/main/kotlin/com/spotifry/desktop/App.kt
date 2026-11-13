@@ -85,7 +85,9 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     val accent by services.library.settings.accent.collectAsState()
     val system = androidx.compose.foundation.isSystemInDarkTheme()
     Palette.dark = when (theme) { com.spotifry.music.data.ThemeMode.DARK -> true; com.spotifry.music.data.ThemeMode.LIGHT -> false; else -> system }
+    val accentColor by services.library.settings.accentColor.collectAsState()
     Palette.accentChoice = AccentChoice.of(accent)
+    Palette.custom = if (Palette.accentChoice == AccentChoice.CUSTOM) readableAccent(androidx.compose.ui.graphics.Color(accentColor)) else null
     var route by remember { mutableStateOf(startOn) }
     var nowPlaying by remember { mutableStateOf(startNowPlaying) }
     var query by remember { mutableStateOf(initialQuery) }

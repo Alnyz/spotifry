@@ -62,6 +62,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
     val recent by lib.db.history().observeRecent().collectAsState(emptyList())
     val lists by lib.db.playlists().observePlaylists().collectAsState(emptyList())
     val covers by lib.db.playlists().observeCoverRows().collectAsState(emptyList())
+    val most by lib.db.plays().observeMostPlayed(5).collectAsState(emptyList())
     val state by services.player.state.collectAsState()
     val scope = rememberCoroutineScope()
     val recentSongs = recent.map(SongEntity::toSong)
@@ -128,11 +129,30 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
                 }
             }
         }
-        // the songs you play most at a time of day, as on the phone's "Keep listening"
-        if (mixes.isNotEmpty()) {
+        // five or nothing: a top list of two isn't a top list yet
+        if (most.size >= 5) {
+            item { HomeSection("Most played", null) }
+            val top = most.map(SongEntity::toSong)
+            itemsIndexed(top, key = { _, x -> "most-" + x.id }) { i, x ->
+                SongLine(services, i + 1, x, state.current?.id == x.id, saved = most[i].isSaved) { services.player.playList(top, i, "Most played") }
+            }
+        }
+        // a mix from the last song, then the songs you play most at a time of day, as on the phone's "Keep listening"
+        if (mixes.isNotEmpty() || recentSongs.isNotEmpty()) {
             item { HomeSection("Keep listening", null) }
             item {
                 SlideRow(arrowTop = 43.dp) {
+                    // one song queued alone: when it ends, the player adds similar songs, so this plays as a mix
+                    recentSongs.firstOrNull()?.let { last ->
+                        item {
+                            Tile(last.thumbnailUrl ?: last.localThumbPath, onClick = { services.player.playList(listOf(last), 0, "Mix from ${last.title}") }) {
+                                Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+                                    Text("Mix from ${last.title}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                    Text("Plays it, then similar songs", fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
                     itemsIndexed(mixes) { _, m ->
                         val songs = m.songs.map(SongEntity::toSong)
                         Tile(songs.firstNotNullOfOrNull { it.thumbnailUrl ?: it.localThumbPath }, onClick = { services.player.playList(songs, 0, m.title) }) {
