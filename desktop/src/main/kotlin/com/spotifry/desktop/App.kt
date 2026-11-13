@@ -171,7 +171,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                                 is Route.Playlist -> PlaylistPage(services, r.id, { route = it }, pad)
                                 Route.Settings -> SettingsPage(services, flow, { route = Route.Equalizer }, pad)
                                 Route.Equalizer -> EqualizerPage(services, { route = Route.Settings }, pad)
-                                Route.Rotation -> RotationPage(services, { route = Route.Home }, { route = Route.Spotifried }, pad)
+                                Route.Rotation -> RotationPage(services, { route = Route.Home }, { route = Route.Spotifried }, { route = Route.Found(it, Route.Rotation) }, pad)
                                 Route.Artists -> ArtistPicker(services, false, { route = Route.Home }, pad)
                                 Route.Spotifried -> SpotifriedPage(services, { route = Route.Rotation }, pad)
                                 is Route.Picture -> PicturePage(services, r.target, { route = r.back }, pad)
@@ -222,6 +222,7 @@ fun Track(value: Float, max: Float, color: Color, onChange: (Float) -> Unit, onD
 /** What a Back link names: the page it goes back to. */
 private fun backName(r: Route): String = when (r) {
     Route.Search -> "Search"
+    Route.Rotation -> "Your rotation"
     is Route.MoodList -> r.mood.name
     is Route.Found -> r.link.name
     else -> r.page.label

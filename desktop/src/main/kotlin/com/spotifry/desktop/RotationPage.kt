@@ -1,5 +1,7 @@
 package com.spotifry.desktop
 
+import kotlinx.coroutines.launch
+import com.spotifry.music.data.lookupArtist
 import com.spotifry.music.data.source.Song
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -69,7 +71,7 @@ private fun listenerLine(p: Period, firstDay: Boolean) = when {
 
 /** Your rotation: what this computer has counted, drawn as a sun, like the phone. Nothing here leaves the computer. */
 @Composable
-fun RotationPage(services: Services, onBack: () -> Unit, onSpotifried: () -> Unit, modifier: Modifier = Modifier) {
+fun RotationPage(services: Services, onBack: () -> Unit, onSpotifried: () -> Unit, onArtist: (com.spotifry.music.data.source.PageLink) -> Unit, modifier: Modifier = Modifier) {
     val lib = services.library
     val flow = remember(lib) { lib.db.listens().observeAll().map { listeningStats(it) }.flowOn(Dispatchers.Default) }
     val stats by flow.collectAsState(null)
@@ -78,12 +80,12 @@ fun RotationPage(services: Services, onBack: () -> Unit, onSpotifried: () -> Uni
     LazyColumn(modifier) {
         item { Text("‹ Home", color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onBack).padding(vertical = 6.dp, horizontal = 4.dp)) }
         if (s == null) item { Text("Nothing heard yet. What you play is counted here, only on this computer.", color = Palette.ink2, fontSize = 16.sp, modifier = Modifier.padding(top = 24.dp)) }
-        else rotation(services, s, state.isPlaying, state.current?.id, onSpotifried)
+        else rotation(services, s, state.isPlaying, state.current?.id, onSpotifried, onArtist)
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Services, stats: ListeningStats, playing: Boolean, currentId: String?, onSpotifried: () -> Unit) {
+private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Services, stats: ListeningStats, playing: Boolean, currentId: String?, onSpotifried: () -> Unit, onArtist: (com.spotifry.music.data.source.PageLink) -> Unit) {
     item("head") {
         var picked by remember { mutableStateOf<PeriodId?>(null) }
         val period = stats.periods.firstOrNull { it.id == picked } ?: stats.periods.first { it.id == stats.opensOn }
@@ -114,7 +116,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.rotation(services: Se
                 if (wide) SpotifriedTall(onSpotifried, Modifier.width(360.dp))
             }
             if (!wide) SpotifriedBand(onSpotifried, Modifier.padding(top = 36.dp))
-            if (period.seconds > 0) TopLists(services, period, currentId)
+            if (period.seconds > 0) TopLists(services, period, currentId, onArtist)
         } }
     }
     if (!stats.firstDay) item("days") {
@@ -206,7 +208,8 @@ private fun NumberOne(t: com.spotifry.music.data.TopSong, list: List<Song>, onPl
 
 /** Top songs and top artists side by side. */
 @Composable
-private fun TopLists(services: Services, p: Period, currentId: String?) {
+private fun TopLists(services: Services, p: Period, currentId: String?, onArtist: (com.spotifry.music.data.source.PageLink) -> Unit) {
+    val scope = rememberCoroutineScope()
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
         Column(Modifier.weight(1.3f)) {
             SectionTitle("You keep coming back")
@@ -224,7 +227,8 @@ private fun TopLists(services: Services, p: Period, currentId: String?) {
                 val first = p.artists[0].seconds
                 p.artists.forEachIndexed { i, a ->
                     val size = (16 + 18 * (a.seconds.toFloat() / first).pow(1.1f)).sp
-                    Column(Modifier.padding(vertical = 6.dp)) {
+                    // the artist's page, found by name
+                    Column(Modifier.padding(vertical = 6.dp).clip(RoundedCornerShape(8.dp)).clickable { scope.launch { runCatching { services.source.lookupArtist(a.name) }.getOrNull()?.let(onArtist) } }) {
                         Text(a.name, fontFamily = Display, fontSize = size, lineHeight = size * 1.08f, color = if (i == 0) Palette.accent else Palette.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(if (a.minutes >= 600) "${(a.minutes / 60f).toInt()} hours" else "${count(a.minutes)} min", color = Palette.ink2, fontSize = 13.sp)
                     }
