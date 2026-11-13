@@ -38,7 +38,7 @@ compose.desktop {
             packageName = "spotifry"
             // the Windows installer; Linux is packed by packaging/build-appimage.sh from createDistributable
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
-            packageVersion = "0.6.0"
+            packageVersion = "0.6.1"
             // only what the app needs (from suggestRuntimeModules); jdk.crypto.ec keeps the HTTPS connections working
             modules("java.instrument", "java.net.http", "jdk.dynalink", "jdk.httpserver", "jdk.security.auth", "jdk.unsupported", "jdk.crypto.ec")
             // files that travel inside the installed app: on Windows mpv.exe, ffmpeg.exe and ffprobe.exe, put in app-resources/windows
