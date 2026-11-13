@@ -65,6 +65,9 @@ class Services(
     /** Media keys and the desktop's player widget; null without a D-Bus session. */
     var mpris: Mpris? = null
 
+    /** Songs from the picked artists, kept for the run so Home doesn't reshuffle. */
+    val artistSongs = com.spotifry.music.data.ArtistSongs(source)
+
     /** A song or playlist whose Share dialog is open, from any menu. */
     var sharing by androidx.compose.runtime.mutableStateOf<ShareTarget?>(null)
 

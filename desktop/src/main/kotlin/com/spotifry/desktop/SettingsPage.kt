@@ -60,11 +60,14 @@ fun SettingsPage(services: Services, flow: BackupFlow, onEqualizer: () -> Unit =
             }
         }
         item { MusicGroup(services) }
+        item { LyricsGroup(settings) }
         item {
             Group("Storage") {
                 Row("Save quality", "Songs you save to this computer") { Segments(listOf("High", "Low"), if (saveLow) 1 else 0) { settings.setSaveLow(it == 1) } }
                 Row("Saved songs", "$savedCount ${if (savedCount == 1) "song" else "songs"} · ${lib.saveFolder.path}")
                 services.replay?.let { ReplayRows(settings, it) }
+                val recent by lib.recentSearches.list.collectAsState()
+                Row("Clear recent searches", if (recent.isEmpty()) "Nothing to clear" else "${recent.size} kept", onClick = if (recent.isEmpty()) null else lib.recentSearches::clear)
             }
         }
         item {
@@ -167,6 +170,25 @@ private fun MusicGroup(services: Services) {
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 280.dp))
         }
         Toggle("Hide non-music audio", "Clips under 30 seconds and recordings.", hide, services.library.settings::setHideNonMusic)
+    }
+}
+
+/** Each lyrics source on or off; a song's title, artist and length go to every source that is on. */
+@Composable
+private fun LyricsGroup(settings: com.spotifry.music.data.Settings) {
+    val off by settings.lyricsOff.collectAsState()
+    val L = com.spotifry.music.data.Lyrics
+    Group("Lyrics sources") {
+        L.SOURCES.forEach { name ->
+            val on = name !in off
+            Toggle(name, when (name) {
+                L.BETTER_LYRICS, L.LRC_RED -> "Word by word."
+                L.PORTATO -> "Word by word, a big catalogue."
+                L.UNISON -> "Written by listeners."
+                else -> "Line by line, the last choice."
+            }, on) { settings.setLyricsSource(name, it) }
+        }
+        Text("Each source gets the song's title, artist and length.", color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp))
     }
 }
 

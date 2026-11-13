@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import com.spotifry.music.data.lookupArtist
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -69,6 +70,9 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
     val hour = LocalTime.now().hour
     val name by lib.settings.name.collectAsState()
     var creating by remember { mutableStateOf(false) }
+    var editArtists by remember { mutableStateOf(false) }
+    val yourArtists = rememberHomeArtists(services)
+    if (editArtists) ArtistsDialog(services) { editArtists = false }
     // the parts of the day with enough plays for a mix, the one it is now first
     val listens by lib.db.listens().observeAll().collectAsState(emptyList())
     val mixes by produceState(emptyList<com.spotifry.music.data.TimeMix>(), listens, hour) {
@@ -117,7 +121,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
             }
         }
         if (others.isNotEmpty()) {
-            item { HomeSection("Recently played") { savedFilter = com.spotifry.music.ui.saved.SavedFilter.Lately; go(Route.Saved) } }
+            item { HomeSection("Recently played", { savedFilter = com.spotifry.music.ui.saved.SavedFilter.Lately; go(Route.Saved) }) }
             item {
                 SlideRow(arrowTop = 68.dp) {
                     itemsIndexed(others.take(12)) { i, s ->
@@ -143,8 +147,34 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
                 }
             }
         }
+        // the artists picked for Home, then a few songs from each, as on the phone
+        if (yourArtists.artists.isNotEmpty()) {
+            item { HomeSection("Your artists", { editArtists = true }, "Edit") }
+            item {
+                SlideRow(arrowTop = 52.dp) {
+                    itemsIndexed(yourArtists.artists, key = { _, a -> a.key }) { _, a ->
+                        ArtistCircle(a) {
+                            val link = if (a.url.isNotBlank()) a.link else null
+                            if (link != null) go(Route.Found(link, Route.Home)) else scope.launch {
+                                runCatching { services.source.lookupArtist(a.name) }.getOrNull()?.let { go(Route.Found(it, Route.Home)) }
+                            }
+                        }
+                    }
+                }
+            }
+            if (yourArtists.songs.isNotEmpty()) {
+                item { HomeSection("From your artists", null) }
+                item {
+                    SlideRow(arrowTop = 68.dp) {
+                        itemsIndexed(yourArtists.songs, key = { _, s -> "artist-" + s.id }) { i, s ->
+                            CoverCard(s.title, s.artist, { w -> Cover(s.thumbnailUrl ?: s.localThumbPath, w, RoundedCornerShape(12.dp)) }, onClick = { services.player.playList(yourArtists.songs, i, "Your artists") })
+                        }
+                    }
+                }
+            }
+        } else if (hero != null) item { Box(Modifier.padding(top = 22.dp)) { Pill("Pick artists for Home", Icons.Plus, glass = true) { editArtists = true } } }
         if (hero != null || lists.isNotEmpty()) {
-            item { HomeSection("Your playlists") { go(Route.Playlists) } }
+            item { HomeSection("Your playlists", { go(Route.Playlists) }) }
             item {
                 SlideRow(arrowTop = 43.dp) {
                     item { Tile(onClick = { creating = true }) {
@@ -224,10 +254,10 @@ private fun BrushTitle(title: String, modifier: Modifier = Modifier) {
 
 /** A section's name with an accent mark before it, and See all at the far end. */
 @Composable
-private fun HomeSection(title: String, onAll: (() -> Unit)?) = Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun HomeSection(title: String, onAll: (() -> Unit)?, allLabel: String = "See all →") = Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Box(Modifier.width(4.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(Palette.accent))
     Text(title, fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(start = 12.dp).weight(1f))
-    if (onAll != null) Text("See all →", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink2, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAll).padding(horizontal = 6.dp, vertical = 4.dp))
+    if (onAll != null) Text(allLabel, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink2, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAll).padding(horizontal = 6.dp, vertical = 4.dp))
 }
 
 /** A wide playlist tile: a darkened cover behind, or a plain glass face for Create and More. */

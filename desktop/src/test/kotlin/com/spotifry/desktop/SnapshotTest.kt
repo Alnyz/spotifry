@@ -85,6 +85,16 @@ class SnapshotTest {
         shoot("rotation", Route.Rotation)
     }
 
+    @Test fun artistsAndLyrics() {
+        val lib = library()
+        shoot("home-no-artists", Route.Home, lib, height = 1500)
+        lib.settings.setArtists(listOf("Kala Biru", "Rumah Timur", "Nara Senja", "Dewi Lintang").map { com.spotifry.music.data.PickedArtist(it, "https://example.org/$it", null) })
+        shoot("home-artists", Route.Home, lib, height = 1500)
+        lib.settings.setLyricsSource(com.spotifry.music.data.Lyrics.PORTATO, false)
+        lib.recentSearches.add("kala biru")
+        shoot("settings-lyrics", Route.Settings, lib, height = 2300)
+    }
+
     @Test fun spotifried() {
         val lib = library()
         shoot("rotation-tall", Route.Rotation, lib, height = 1300)
