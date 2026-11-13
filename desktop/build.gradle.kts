@@ -36,6 +36,8 @@ compose.desktop {
         nativeDistributions {
             // an app folder with its own Java inside; packaging/build-appimage.sh turns it into one AppImage file
             packageName = "spotifry"
+            // the Windows installer; Linux is packed by packaging/build-appimage.sh from createDistributable
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
             packageVersion = "0.6.0"
             // only what the app needs (from suggestRuntimeModules); jdk.crypto.ec keeps the HTTPS connections working
             modules("java.instrument", "java.net.http", "jdk.dynalink", "jdk.httpserver", "jdk.security.auth", "jdk.unsupported", "jdk.crypto.ec")
