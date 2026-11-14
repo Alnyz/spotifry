@@ -51,7 +51,7 @@ class LyricsTest {
         val body = if (path.endsWith("/get")) get?.toString() else search.toString()
         Response.Builder().request(c.request()).protocol(Protocol.HTTP_1_1).code(if (body == null) 404 else 200).message("x")
             .body((body ?: "").toResponseBody()).build()
-    }.build(), off = { setOf(Lyrics.BETTER_LYRICS, Lyrics.LRC_RED, Lyrics.PORTATO, Lyrics.UNISON) })
+    }.build(), off = { setOf(Lyrics.BETTER_LYRICS, Lyrics.LRC_RED, Lyrics.PORTATO, Lyrics.SIMPMUSIC, Lyrics.NETEASE, Lyrics.DEEZER, Lyrics.UNISON) })
 
     @Test fun instrumentalExactMatchIsFinalAndSkipsTheSearch() = runBlocking {
         val asked = mutableListOf<String>()
@@ -135,5 +135,66 @@ class LyricsTest {
         assertEquals("I guess right", lines[0].text)
         assertEquals(listOf("I ", "guess ", "right "), lines[0].words.map { it.text })
         assertEquals(5162L, lines[0].words[1].startMs)
+    }
+
+    @Test fun readsSimpMusicWordsAndDropsTags() {
+        val raw = "[00:27.39] <00:27.39>I <00:27.54>been <00:27.74>tryna <00:28.07>call\n[00:30.18] {agent:v2} <00:30.18>I've <00:30.39>been {bg}<00:30.64>on\n[00:31.00]\nnot a line"
+        val lines = LyricsSource.parseRichSync(raw)
+        assertEquals(listOf(27_390L, 30_180L), lines.map { it.atMs })
+        assertEquals("I been tryna call", lines[0].text)
+        assertEquals(listOf(27_390L, 27_540L, 27_740L, 28_070L), lines[0].words.map { it.startMs })
+        assertEquals(27_540L, lines[0].words[0].endMs)
+        assertEquals("I've been on", lines[1].text)
+        assertEquals(30_180L, lines[1].words.first().startMs)
+    }
+
+    @Test fun simpMusicPicksTheEntryNearestInLengthAndNeverBeyondThreeSeconds() {
+        val a = JSONObject().put("durationSeconds", 240).put("richSyncLyrics", "[00:01.00] <00:01.00>wrong <00:01.50>cut")
+        val b = JSONObject().put("durationSeconds", 201).put("richSyncLyrics", "[00:02.00] <00:02.00>right <00:02.50>cut")
+        assertEquals("right cut", LyricsSource.simpMusicLines(JSONArray().put(a).put(b), 200)!!.single().text)
+        assertNull(LyricsSource.simpMusicLines(JSONArray().put(a), 200))
+        assertNull(LyricsSource.simpMusicLines(JSONArray().put(JSONObject().put("durationSeconds", 200).put("syncedLyrics", "[00:01.00]line only")), 200))
+    }
+
+    @Test fun readsNetEaseWordsAndDropsCreditLines() {
+        val raw = "{\"t\":0,\"c\":[{\"tx\":\"meta\"}]}\n[0,1000](0,1000,0)作词 : Someone\n[1000,1000](1000,1000,0)Lyrics by: Other\n" +
+            "[22720,4620](22720,270,0)what (22990,180,0)you (23170,600,0)want (23770,210,0)me\n[30340,3300](30340,510,0)Don't (30850,240,0)know"
+        val lines = LyricsSource.parseYrc(raw)
+        assertEquals(listOf("what you want me", "Don't know"), lines.map { it.text })
+        assertEquals(listOf(22_720L, 22_990L, 23_170L, 23_770L), lines[0].words.map { it.startMs })
+        assertEquals(22_990L, lines[0].words[0].endMs)
+        assertEquals("what ", lines[0].words[0].text)
+    }
+
+    @Test fun deezerWordsGetTheirSpacesBack() {
+        fun line(vararg w: Pair<Long, String>) = JSONObject().put("words", JSONArray().also { a -> w.forEach { (t, x) -> a.put(JSONObject().put("start", t).put("end", t + 100).put("word", x)) } })
+        val lines = JSONArray().put(line(1000L to "Hey", 1200L to ",", 1400L to "you")).put(line(5000L to "夜", 5100L to "曲", 5200L to "(oh)"))
+        val out = LyricsSource.deezerLines(lines, 200)
+        assertEquals("Hey, you", out[0].text)
+        assertEquals("夜曲 (oh)", out[1].text)
+        assertEquals(listOf("Hey", ",", "you"), out[0].words.map { it.text.trim() })
+        assertTrue(LyricsSource.spaceBetween("don't", "know"))
+        assertTrue(!LyricsSource.spaceBetween("know", "!"))
+        assertTrue(!LyricsSource.spaceBetween("(", "oh"))
+    }
+
+    @Test fun deezerLyricsThatRunFarPastTheSongAreAnotherVersion() {
+        val w = JSONArray().put(JSONObject().put("words", JSONArray().put(JSONObject().put("start", 460_000).put("end", 466_000).put("word", "gone"))))
+        assertTrue(LyricsSource.deezerLines(w, 393).isEmpty())
+        assertEquals(1, LyricsSource.deezerLines(w, 466).size)
+    }
+
+    @Test fun neteaseAndDeezerHitsMustBeTheSameRecording() {
+        val ne = JSONArray()
+            .put(JSONObject().put("id", 1).put("name", "Numb (Live)").put("duration", 187_000).put("artists", JSONArray().put(JSONObject().put("name", "Linkin Park"))))
+            .put(JSONObject().put("id", 2).put("name", "Numb").put("duration", 195_000).put("artists", JSONArray().put(JSONObject().put("name", "Linkin Park"))))
+            .put(JSONObject().put("id", 3).put("name", "Numb").put("duration", 187_500).put("artists", JSONArray().put(JSONObject().put("name", "Cover Band"))))
+            .put(JSONObject().put("id", 4).put("name", "Numb").put("duration", 188_000).put("artists", JSONArray().put(JSONObject().put("name", "Linkin Park"))))
+        assertEquals(4L, LyricsSource.neteaseId(ne, "Numb", "Linkin Park", 187))
+        assertNull(LyricsSource.neteaseId(ne, "Numb", "Linkin Park", 170))
+        val dz = JSONArray()
+            .put(JSONObject().put("id", 9).put("title", "Numb - Remastered").put("title_short", "Numb").put("duration", 187).put("artist", JSONObject().put("name", "Linkin Park")))
+        assertEquals(9L, LyricsSource.deezerId(dz, "Numb", "Linkin Park", 188))
+        assertNull(LyricsSource.deezerId(dz, "Numb", "Someone Else", 188))
     }
 }

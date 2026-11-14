@@ -63,7 +63,7 @@ Needs Android 8 or newer.
 - **A client, not a service.** It shows content that YouTube and YouTube Music already make public, and, if you turn on the 320 kbps switch, JioSaavn's public website, much like a web browser does. Everything runs on your phone, and the app collects no account or personal data.
 - **No hosting.** Spotifry does not host, upload or share any music or video. Songs stream from YouTube's servers, or from JioSaavn's if you turn on the 320 kbps switch, and belong to their copyright owners. Songs you save, and songs kept for quick replay, stay on your own phone.
 - **Support the artists.** If you can, subscribe to [YouTube Music Premium](https://www.youtube.com/musicpremium) or [Spotify Premium](https://www.spotify.com/premium/), buy their music, or go to their shows. Spotifry is a hobby project, not a replacement for these.
-- **No affiliation.** Not affiliated with, funded, authorized or endorsed by YouTube, Google LLC, Spotify AB, Apple, JioSaavn, BetterLyrics, LRCLIB, SponsorBlock, or any of their affiliates. All trademarks belong to their owners.
+- **No affiliation.** Not affiliated with, funded, authorized or endorsed by YouTube, Google LLC, Spotify AB, Apple, JioSaavn, BetterLyrics, SimpMusic, Deezer, NetEase, LRCLIB, SponsorBlock, or any of their affiliates. All trademarks belong to their owners.
 - **As is.** Spotifry comes without warranty of any kind, as the [GPL-3.0 license](LICENSE) says. You are responsible for how you use it and for following the terms of the services it connects to and the laws of your country.
 
 ---
@@ -82,6 +82,8 @@ Without a release key, the build is signed with your debug key. The release key 
 - [Media3 / ExoPlayer](https://github.com/androidx/media) for playback
 - [BetterLyrics](https://github.com/better-lyrics/better-lyrics) for word-timed lyrics
 - [LRCLIB](https://lrclib.net) for lyrics
+- [SimpMusic Lyrics](https://lyrics.simpmusic.org) for word-timed lyrics written by listeners, used with the maintainer's permission
+- [Deezer](https://www.deezer.com) and [NetEase Cloud Music](https://music.163.com) for word-timed lyrics, only when you leave their switches on: Spotifry reads their public pages unofficially and is not affiliated with them
 - [SponsorBlock](https://sponsor.ajay.app) for the parts of music videos that aren't music
 - [JioSaavn](https://www.jiosaavn.com), only if you turn on the 320 kbps switch: Spotifry reads its public website, unofficially, and is not affiliated with it
 - [MusicBrainz](https://musicbrainz.org) for song years

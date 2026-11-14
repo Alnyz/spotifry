@@ -166,6 +166,9 @@ fun LyricsSettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp) {
                         Lyrics.BETTER_LYRICS -> "Word by word."
                         Lyrics.LRC_RED -> "Word by word."
                         Lyrics.PORTATO -> "Word by word, a big catalogue."
+                        Lyrics.SIMPMUSIC -> "Word by word, written by listeners. From SimpMusic Lyrics."
+                        Lyrics.NETEASE -> "Word by word, from NetEase Cloud Music. Unofficial, may stop working."
+                        Lyrics.DEEZER -> "Word by word, from Deezer. Unofficial, may stop working."
                         Lyrics.UNISON -> "Written by listeners."
                         else -> "Line by line, the last choice."
                     }, on,
