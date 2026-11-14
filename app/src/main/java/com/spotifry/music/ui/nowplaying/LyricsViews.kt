@@ -3,6 +3,7 @@ package com.spotifry.music.ui.nowplaying
 import androidx.compose.animation.animateColorAsState
 import android.provider.Settings
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -13,7 +14,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
@@ -381,7 +384,7 @@ internal fun LyricsScreen(
         }
         follow.last = tgt
     }
-    Column(Modifier.fillMaxSize().background(color).clickable(enabled = false) {}) {
+    Column(Modifier.fillMaxSize().drift(color, calm).clickable(enabled = false) {}) {
         Row(
             Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top)).padding(start = 4.dp, end = 20.dp, top = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -423,6 +426,33 @@ internal fun LyricsScreen(
                 if (shift != 0) TimingButton("Reset", "Lyrics back on their own timing") { onShift(0) }
             }
             Text(if (timed == null) "Lyrics from LRCLIB · not timed" else "Lyrics from ${timed.from}", Modifier.padding(start = 24.dp, top = 4.dp), style = MaterialTheme.typography.labelSmall, color = Faint)
+        }
+    }
+}
+
+/** [c] with its hue turned by [deg]: the cover gives one colour, the page makes its neighbours. */
+private fun hueShift(c: Color, deg: Float): Color {
+    val hsv = FloatArray(3); android.graphics.Color.colorToHSV(c.toArgb(), hsv)
+    hsv[0] = (hsv[0] + deg + 360f) % 360f
+    return Color(android.graphics.Color.HSVToColor(hsv))
+}
+
+/**
+ * The page's background: the cover colour with three soft blobs of its neighbouring hues drifting slowly over it,
+ * one full loop every 45 s. Drawn only (no recomposition); still when animations are off.
+ */
+@Composable
+private fun Modifier.drift(color: Color, calm: Boolean): Modifier {
+    val t = if (calm) null else androidx.compose.animation.core.rememberInfiniteTransition(label = "drift")
+        .animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(45_000, easing = androidx.compose.animation.core.LinearEasing)), label = "t")
+    val blobs = remember(color) { listOf(hueShift(color, -40f), hueShift(color, 40f), lerp(color, Color.Black, .55f)) }
+    return drawBehind {
+        drawRect(color)
+        val a = (t?.value ?: 0f) * 2f * Math.PI.toFloat()
+        blobs.forEachIndexed { k, c ->
+            val ph = a * (1 + k % 2) + k * 2.1f
+            val at = androidx.compose.ui.geometry.Offset(size.width * (.5f + .4f * kotlin.math.cos(ph)), size.height * (.5f + .4f * kotlin.math.sin(ph * .8f + k)))
+            drawRect(Brush.radialGradient(listOf(c.copy(alpha = .85f), Color.Transparent), at, size.maxDimension * .6f))
         }
     }
 }
