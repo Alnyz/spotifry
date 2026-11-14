@@ -237,34 +237,9 @@ private fun LyricsPanel(services: Services, song: Song, shiftMs: Int, modifier: 
 }
 
 @Composable
-private fun TimedLyrics(services: Services, lyrics: Lyrics.Timed, shiftMs: Int, big: Boolean) {
-    val position by services.player.position.collectAsState()
-    // a positive shift runs the lyrics earlier: they are looked up that much ahead of the song
-    val at = position + shiftMs
-    val index = lyrics.lines.indexAt(at)
-    val list = rememberLazyListState()
-    // in the card the sung line sits on top; on the full page two lines stay above it
-    LaunchedEffect(index) { if (index >= 0) list.animateScrollToItem((index - if (big) 2 else 0).coerceAtLeast(0)) }
-    LazyColumn(state = list, verticalArrangement = Arrangement.spacedBy(if (big) 18.dp else 10.dp), contentPadding = PaddingValues(bottom = if (big) 400.dp else 0.dp)) {
-        itemsIndexed(lyrics.lines) { i, line ->
-            val current = i == index
-            Text(
-                lineText(line, current, at), fontFamily = Display, fontSize = if (big) (if (current) 40.sp else 30.sp) else if (current) 26.sp else 21.sp, lineHeight = if (big) (if (current) 48.sp else 38.sp) else if (current) 32.sp else 27.sp, letterSpacing = (-0.5).sp,
-                color = if (current) Palette.ink else Palette.ink.copy(alpha = if (big) 0.35f else 0.4f),
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { services.player.seekTo((line.atMs - shiftMs).coerceAtLeast(0)) },
-            )
-        }
-    }
-}
-
-/** The line as text; the current one, when its words are timed, shows the words already sung in full colour. */
-@Composable
-private fun lineText(line: LyricLine, current: Boolean, at: Long): AnnotatedString {
-    val text = line.text.ifBlank { "♪" }
-    if (!current || line.words.isEmpty()) return AnnotatedString(text)
-    val sung = Palette.ink; val ahead = Palette.ink.copy(alpha = 0.45f)
-    return buildAnnotatedString { line.words.forEach { w -> withStyle(SpanStyle(color = if (w.startMs <= at) sung else ahead)) { append(w.text) } } }
-}
+private fun TimedLyrics(services: Services, lyrics: Lyrics.Timed, shiftMs: Int, big: Boolean) =
+    // in the card the sung line sits on top; on the full page it rests a quarter of the way down, as on the phone
+    AnimatedLyrics(services, lyrics, shiftMs, big, restAt = if (big) .27f else 0f, bottomPad = if (big) LocalBottomInset.current else 0.dp)
 
 /** The listener's note on the song, one quiet line under the artist; a click edits it. Nothing when there is none. */
 @Composable
