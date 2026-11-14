@@ -230,3 +230,35 @@ fun AboutSettings(updates: com.spotifry.music.data.Updates, onBack: () -> Unit, 
     }
 }
 
+@Composable
+fun ChangeLogSettings(updates: com.spotifry.music.data.Updates, onBack: () -> Unit, bottomInset: Dp) {
+    val log by updates.log.collectAsStateWithLifecycle()
+    val failed by updates.logFailed.collectAsStateWithLifecycle()
+    androidx.compose.runtime.LaunchedEffect(Unit) { updates.loadLog() }
+    val scheme = MaterialTheme.colorScheme
+    Page("Change log", onBack, bottomInset) {
+        if (failed) Text(
+            if (log.isEmpty()) "Couldn't load the change log. Try again when you're online." else "Couldn't load, showing the last list.",
+            Modifier.padding(horizontal = 20.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+        ) else if (log.isEmpty()) Text("Loading…", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+        log.forEach { e ->
+            val mine = e.version == BuildConfig.VERSION_NAME
+            Group("") {
+                androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+                    androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                        Text("Version ${e.version}", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
+                        if (mine) Text("You have this", style = MaterialTheme.typography.labelMedium, color = scheme.primary)
+                    }
+                    logDate(e.date)?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant) }
+                    val notes = com.spotifry.music.data.plainNotes(e.notes)
+                    if (notes.isNotEmpty()) Text(notes, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+                }
+            }
+        }
+    }
+}
+
+/** "14 Nov 2026" from GitHub's "2026-11-14T09:12:00Z"; null when there is no date. */
+private fun logDate(iso: String): String? = runCatching {
+    java.time.LocalDate.parse(iso.take(10)).format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy"))
+}.getOrNull()

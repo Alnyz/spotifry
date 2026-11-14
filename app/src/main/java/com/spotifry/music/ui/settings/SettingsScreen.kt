@@ -83,6 +83,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, o
             }
             Group("") {
                 NavRow(com.spotifry.music.ui.Icons.Info, "About", "Version ${BuildConfig.VERSION_NAME}" + if (checked > 0) " · checked ${checkedText(checked)}" else "") { onOpen(Routes.SETTINGS_ABOUT) }
+                NavRow(com.spotifry.music.ui.Icons.Note, "Change log", "What's new in each version") { onOpen(Routes.SETTINGS_CHANGELOG) }
             }
         }
     }

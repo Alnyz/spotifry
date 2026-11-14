@@ -25,6 +25,30 @@ data class Release(val version: String, val notes: String, val apkUrl: String, v
     val headline: String get() = notes.lineSequence().map { it.trim().trimStart('#', '-', '*', ' ') }.firstOrNull { it.isNotEmpty() }.orEmpty()
 }
 
+/** One line of the change log: a version, its notes as written, and the date it came out (GitHub's ISO text, may be empty). */
+data class LogEntry(val version: String, val notes: String, val date: String)
+
+/** Every published release, newest first as GitHub sends them; drafts and releases without a tag are left out. */
+fun parseReleases(json: String): List<LogEntry> {
+    val a = org.json.JSONArray(json)
+    return (0 until a.length()).map { a.getJSONObject(it) }
+        .filter { !it.optBoolean("draft") && it.optString("tag_name").isNotEmpty() }
+        .map { LogEntry(it.optString("tag_name").removePrefix("v"), it.optString("body"), it.optString("published_at")) }
+}
+
+private fun List<LogEntry>.toJson() = org.json.JSONArray(map { org.json.JSONObject().put("v", it.version).put("n", it.notes).put("d", it.date) }).toString()
+private fun logFromJson(json: String): List<LogEntry> = runCatching {
+    val a = org.json.JSONArray(json)
+    (0 until a.length()).map { a.getJSONObject(it).let { o -> LogEntry(o.getString("v"), o.optString("n"), o.optString("d")) } }
+}.getOrDefault(emptyList())
+
+/** Release notes as people read them: no #, **, backticks or link addresses; list dashes become bullets. */
+fun plainNotes(markdown: String): String =
+    markdown.lines().map { raw ->
+        raw.trim().replace(Regex("^#{1,6}\\s*"), "").replace(Regex("^[-*]\\s+"), "• ")
+            .replace(Regex("\\[([^\\]]*)]\\([^)]*\\)"), "$1").replace("**", "").replace("__", "").replace("`", "")
+    }.joinToString("\n").replace(Regex("\n{3,}"), "\n\n").trim()
+
 sealed interface UpdateState {
     data object None : UpdateState
     data class Available(val release: Release) : UpdateState
@@ -81,6 +105,30 @@ class Updates(
     /** When GitHub last answered, 0 if never. */
     val lastChecked: StateFlow<Long> = _lastChecked.asStateFlow()
     private var download: Job? = null
+
+    private val _log = MutableStateFlow(logFromJson(prefs.getString(LOG, null).orEmpty()))
+    /** The change log kept on the phone, newest first; empty until it has loaded once. */
+    val log: StateFlow<List<LogEntry>> = _log.asStateFlow()
+    private val _logFailed = MutableStateFlow(false)
+    /** The last try to load it failed, so [log] is the older list. */
+    val logFailed: StateFlow<Boolean> = _logFailed.asStateFlow()
+
+    /** Fetches the list of releases; on a failure the kept list stays and [logFailed] is set. */
+    fun loadLog() {
+        scope.launch {
+            val result = runCatching { withContext(Dispatchers.IO) { fetchLog() } }
+            _logFailed.value = result.isFailure
+            result.getOrNull()?.takeIf { it.isNotEmpty() }?.let { _log.value = it; prefs.edit().putString(LOG, it.toJson()).apply() }
+        }
+    }
+
+    private fun fetchLog(): List<LogEntry> {
+        val req = Request.Builder().url("$RELEASES?per_page=100").header("Accept", "application/vnd.github+json").header("User-Agent", "Spotifry/$currentVersion").build()
+        return client.newCall(req).execute().use { r ->
+            check(r.isSuccessful) { "GitHub answered ${r.code}" }
+            parseReleases(r.body!!.string())
+        }
+    }
 
     /** On app start: asks GitHub at most once a day. */
     fun checkDaily() { if (now() - _lastChecked.value > DAY_MS) check() }
@@ -168,6 +216,8 @@ class Updates(
     }
 
     companion object {
+        private const val RELEASES = "https://api.github.com/repos/Alnyz/spotifry/releases"
+        const val LOG = "change_log"
         private const val LATEST = "https://api.github.com/repos/Alnyz/spotifry/releases/latest"
         const val LAST_CHECK = "update_last_check"
         const val LATER = "update_later"
