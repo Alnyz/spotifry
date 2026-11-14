@@ -7,6 +7,7 @@ import com.spotifry.music.data.RecentSearches
 import com.spotifry.music.data.Settings
 import com.spotifry.music.data.StreamResolver
 import com.spotifry.music.data.db.AppDatabase
+import com.spotifry.music.data.db.create
 import com.spotifry.music.data.source.MusicSource
 import com.spotifry.music.data.source.NewPipeSource
 import com.spotifry.music.data.source.Song

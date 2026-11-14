@@ -71,12 +71,12 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     implementation(libs.work.runtime)
-    ksp(libs.room.compiler)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.session)
     implementation(libs.media3.okhttp)
     implementation(libs.okhttp)
     implementation(libs.newpipe)
+    implementation(project(":shared"))
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(libs.coroutines.android)
     implementation(libs.haze)
@@ -99,4 +99,3 @@ dependencies {
     debugImplementation(libs.compose.ui.test.manifest)
 }
 
-ksp { arg("room.schemaLocation", "$projectDir/schemas") }

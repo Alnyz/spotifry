@@ -1,0 +1,12 @@
+Home pictures, from Wikimedia Commons, cropped to 2400x1000.
+
+morning.jpg   "20200809 Poranna mgła na Górce Pychowickiej w Krakowie" by Jakub Hałun, CC BY-SA 4.0
+              https://commons.wikimedia.org/wiki/File:20200809_Poranna_mg%C5%82a_na_G%C3%B3rce_Pychowickiej_w_Krakowie_0551_3479.jpg
+afternoon.jpg "Sunlight peeking through a tree as people relax by the waterfront at sunset" by PattayaPatrol, CC BY-SA 4.0
+              https://commons.wikimedia.org/wiki/File:DFC_2275_Sunlight_peeking_through_a_tree_as_people_relax_by_the_waterfront_at_sunset.jpg
+evening.jpg   "122 - Toronto - Septembre 2009" by Martin St-Amant (S23678), CC BY-SA 3.0
+              https://commons.wikimedia.org/wiki/File:122_-_Toronto_-_Septembre_2009.jpg
+night.jpg     "Golden gate fog" by Vincent Lock, CC BY 2.0
+              https://commons.wikimedia.org/wiki/File:Golden_gate_fog_(13955343072).jpg
+
+Licences: https://creativecommons.org/licenses/by-sa/4.0  https://creativecommons.org/licenses/by-sa/3.0  https://creativecommons.org/licenses/by/2.0

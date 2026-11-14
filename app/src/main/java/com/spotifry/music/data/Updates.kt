@@ -58,17 +58,6 @@ sealed interface UpdateState {
     data class Ready(val release: Release, val file: File) : UpdateState
 }
 
-/** "0.10.0" is newer than "0.9.2"; a leading "v" is ignored. */
-fun isNewer(candidate: String, current: String): Boolean {
-    fun parts(v: String) = v.trim().removePrefix("v").split('.', '-').map { it.toIntOrNull() ?: 0 }
-    val a = parts(candidate); val b = parts(current)
-    for (i in 0 until maxOf(a.size, b.size)) {
-        val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }
-        if (x != y) return x > y
-    }
-    return false
-}
-
 /** Reads GitHub's answer for the latest release; null if it has no APK attached. */
 fun parseRelease(json: String): Release? {
     val o = JSONObject(json)
@@ -219,8 +208,8 @@ class Updates(
         private const val RELEASES = "https://api.github.com/repos/Alnyz/spotifry/releases"
         const val LOG = "change_log"
         private const val LATEST = "https://api.github.com/repos/Alnyz/spotifry/releases/latest"
-        const val LAST_CHECK = "update_last_check"
-        const val LATER = "update_later"
+        const val LAST_CHECK = UPDATE_LAST_CHECK
+        const val LATER = UPDATE_LATER
         private const val DAY_MS = 24 * 60 * 60 * 1000L
     }
 }

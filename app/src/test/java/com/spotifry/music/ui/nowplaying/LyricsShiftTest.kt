@@ -2,7 +2,10 @@ package com.spotifry.music.ui.nowplaying
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.spotifry.music.data.SHIFT_STEP_MS
 import com.spotifry.music.data.Settings
+import com.spotifry.music.data.nudgeShift
+import com.spotifry.music.data.shiftLabel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test

@@ -15,3 +15,6 @@ keystore.properties
 /docs/
 /design/
 /PRODUCT.md
+.kotlin/
+spotifry-backup-*.zip
+desktop/app-resources/
