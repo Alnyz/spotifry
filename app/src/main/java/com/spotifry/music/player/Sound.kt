@@ -122,24 +122,53 @@ class Spectrum {
 
 /**
  * What counts as silence for Skip silence. The player's own numbers (level 1024, about -30 dB, for 100 ms) also cut the
- * soft end of a sung word, so these only match real gaps.
+ * soft end of a sung word, so the defaults only match real gaps. The two sliders in Settings move [db] and [cutPercent].
  */
 object SilenceRules {
-    /** Samples below this (of 32768, about -50 dB) are silence. */
-    const val THRESHOLD_LEVEL: Short = 100
+    const val DEFAULT_DB = -50
+    const val MIN_DB = -70
+    const val MAX_DB = -30
+    const val DEFAULT_CUT_PERCENT = 80
+    const val MIN_CUT_PERCENT = 10
     const val MIN_SILENCE_US = 500_000L
-    /** Share of a silence kept, so a skip leaves a breath. */
-    const val RETENTION_RATIO = 0.2f
     const val MAX_KEPT_US = 2_000_000L
     const val MIN_VOLUME_PERCENT = 10
+
+    /** Samples below this (of 32768) are silence. */
+    fun level(db: Int): Short = (32768 * 10.0.pow(db / 20.0)).toInt().coerceIn(1, 32767).toShort()
+    /** Cutting 80% of a silence keeps 20% of it, so a skip leaves a breath. */
+    fun retention(cutPercent: Int): Float = 1f - cutPercent.coerceIn(MIN_CUT_PERCENT, 100) / 100f
 }
 
-/** The sound chain with our own silence skipper in place of the player's, which [androidx.media3.exoplayer.ExoPlayer.setSkipSilenceEnabled] still switches. */
+/**
+ * The sound chain with our own silence skipper in place of the player's; [androidx.media3.exoplayer.ExoPlayer.setSkipSilenceEnabled]
+ * still switches it. The skipper's numbers can't change once built, so when [rules] (dB, cut percent) has changed it is
+ * rebuilt the next time the sink sets up for a song: a new value is heard from the next song.
+ */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-fun audioChain(processors: Array<androidx.media3.common.audio.AudioProcessor>) =
-    androidx.media3.exoplayer.audio.DefaultAudioSink.DefaultAudioProcessorChain(processors, newSilenceSkipper(), androidx.media3.common.audio.SonicAudioProcessor())
+class SilenceChain(
+    private val before: Array<androidx.media3.common.audio.AudioProcessor>,
+    private val rules: () -> kotlin.Pair<Int, Int> = { SilenceRules.DEFAULT_DB to SilenceRules.DEFAULT_CUT_PERCENT },
+) : androidx.media3.exoplayer.audio.DefaultAudioSink.AudioProcessorChain {
+    private var built = rules()
+    private var inner = make()
+    private var skip = false
+    private var params = androidx.media3.common.PlaybackParameters.DEFAULT
+
+    private fun make() = androidx.media3.exoplayer.audio.DefaultAudioSink.DefaultAudioProcessorChain(before, newSilenceSkipper(built.first, built.second), androidx.media3.common.audio.SonicAudioProcessor())
+
+    override fun getAudioProcessors(): Array<androidx.media3.common.audio.AudioProcessor> {
+        val now = rules()
+        if (now != built) { built = now; inner = make(); inner.applyPlaybackParameters(params); inner.applySkipSilenceEnabled(skip) }
+        return inner.audioProcessors
+    }
+    override fun applyPlaybackParameters(p: androidx.media3.common.PlaybackParameters): androidx.media3.common.PlaybackParameters { params = p; return inner.applyPlaybackParameters(p) }
+    override fun applySkipSilenceEnabled(on: Boolean): Boolean { skip = on; return inner.applySkipSilenceEnabled(on) }
+    override fun getMediaDuration(playoutDuration: Long) = inner.getMediaDuration(playoutDuration)
+    override fun getSkippedOutputFrameCount() = inner.skippedOutputFrameCount
+}
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-fun newSilenceSkipper() = androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor(
-    SilenceRules.MIN_SILENCE_US, SilenceRules.RETENTION_RATIO, SilenceRules.MAX_KEPT_US, SilenceRules.MIN_VOLUME_PERCENT, SilenceRules.THRESHOLD_LEVEL,
+fun newSilenceSkipper(db: Int = SilenceRules.DEFAULT_DB, cutPercent: Int = SilenceRules.DEFAULT_CUT_PERCENT) = androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor(
+    SilenceRules.MIN_SILENCE_US, SilenceRules.retention(cutPercent), SilenceRules.MAX_KEPT_US, SilenceRules.MIN_VOLUME_PERCENT, SilenceRules.level(db),
 )

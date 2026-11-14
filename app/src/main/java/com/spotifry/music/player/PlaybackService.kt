@@ -87,7 +87,7 @@ class PlaybackService : MediaSessionService() {
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessorChain(audioChain(soundChain(equalizer, loudness, spatial, sweep))).build()
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessorChain(SilenceChain(soundChain(equalizer, loudness, spatial, sweep)) { c.settings.silenceDb.value to c.settings.silenceCut.value }).build()
         }
         val player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
@@ -328,7 +328,7 @@ class PlaybackService : MediaSessionService() {
                 val renderers = object : DefaultRenderersFactory(this@PlaybackService) {
                     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                         DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessorChain(audioChain(soundChain(eq, level, spatial, sweep))).build()
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessorChain(SilenceChain(soundChain(eq, level, spatial, sweep)) { c.settings.silenceDb.value to c.settings.silenceCut.value }).build()
                 }
                 ExoPlayer.Builder(this, renderers)
                     .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))

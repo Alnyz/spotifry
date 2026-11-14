@@ -56,6 +56,18 @@ class Settings(private val prefs: SharedPreferences) {
     fun setFadeSeconds(s: Int) { _fadeSeconds.value = s; prefs.edit().putInt(FADE, s).apply() }
 
 
+    private val _silenceDb = MutableStateFlow(prefs.getInt(SILENCE_DB, com.spotifry.music.player.SilenceRules.DEFAULT_DB))
+    /** How quiet counts as silence for Skip silence, in dB (-70 to -30). */
+    val silenceDb: StateFlow<Int> = _silenceDb
+    private val _silenceCut = MutableStateFlow(prefs.getInt(SILENCE_CUT, com.spotifry.music.player.SilenceRules.DEFAULT_CUT_PERCENT))
+    /** How much of a silence is cut, in percent (10 to 100). */
+    val silenceCut: StateFlow<Int> = _silenceCut
+    fun setSilence(db: Int, cut: Int, save: Boolean = true) {
+        _silenceDb.value = db; _silenceCut.value = cut
+        if (save) prefs.edit().putInt(SILENCE_DB, db).putInt(SILENCE_CUT, cut).apply()
+    }
+    fun resetSilence() = setSilence(com.spotifry.music.player.SilenceRules.DEFAULT_DB, com.spotifry.music.player.SilenceRules.DEFAULT_CUT_PERCENT)
+
     private val _transition = MutableStateFlow(prefs.getInt(TRANSITION, 0))
     /** [com.spotifry.music.player.TransitionStyle] by position: how a song runs into the next when Crossfade is on. */
     val transition: StateFlow<Int> = _transition
@@ -247,6 +259,8 @@ class Settings(private val prefs: SharedPreferences) {
         const val FADE = "fade_seconds"
         const val EQ_ON = "eq_on"
         const val MONO = "mono"
+        const val SILENCE_DB = "silence_db"
+        const val SILENCE_CUT = "silence_cut"
         const val TRANSITION = "transition"
         const val SPATIAL_ON = "spatial_on"
         const val SPATIAL_HZ = "spatial_hz"

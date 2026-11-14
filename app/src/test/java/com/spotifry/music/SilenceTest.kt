@@ -2,7 +2,9 @@ package com.spotifry.music
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
+import com.spotifry.music.player.SilenceRules
 import com.spotifry.music.player.newSilenceSkipper
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.ByteBuffer
@@ -39,5 +41,19 @@ class SilenceTest {
     @Test fun aSecondOfZerosIsCut() {
         val bytes = run(ShortArray(rate * 2))
         assertTrue("kept $bytes of ${rate * 8}", bytes < rate * 8 / 2)
+    }
+}
+
+class SilenceRulesTest {
+    @Test fun dbToLevel() {
+        assertEquals(10, SilenceRules.level(-70).toInt()) // only true silence
+        assertEquals(103, SilenceRules.level(-50).toInt()) // the default
+        assertEquals(1036, SilenceRules.level(-30).toInt()) // about the player's own 1024
+    }
+
+    @Test fun percentToRetention() {
+        assertEquals(.2f, SilenceRules.retention(80), 1e-6f) // the default keeps a fifth
+        assertEquals(0f, SilenceRules.retention(100), 0f)
+        assertEquals(.9f, SilenceRules.retention(10), 1e-6f)
     }
 }

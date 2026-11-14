@@ -105,6 +105,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 ) {
                     Switch(skipSilence, null, colors = switchColors())
                 }
+                if (skipSilence) SilenceControls(vm.settings)
                 Item(
                     "Smart trim", "Skips talking at the start and end of music videos.",
                     onClick = { vm.settings.setSmartTrim(!smartTrim) }, role = Role.Switch,
