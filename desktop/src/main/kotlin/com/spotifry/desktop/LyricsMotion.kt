@@ -105,8 +105,8 @@ internal fun litAlpha(d: Float): Float = if (d >= 0) 1f else table(d, PastAt, Pa
 /** The focus line is 10% bigger; it eases back as the focus moves on. */
 internal fun focusScale(d: Float): Float = 1f + .1f * (1f - abs(d).coerceAtMost(1f))
 
-/** Blur in dp: none on the focus line, more the further away. */
-internal fun blurDp(d: Float): Float = abs(d).coerceAtMost(4f) * .9f
+/** Blur in dp: none on the focus line, more the further away. Gentler than the phone's .9: on a big screen the same blur looks much stronger. */
+internal fun blurDp(d: Float): Float = abs(d).coerceAtMost(4f) * .35f
 
 /**
  * Where each word starts in the line's text (one extra entry at the end), or null when the words don't spell the line
