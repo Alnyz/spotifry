@@ -208,6 +208,7 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
     val lib = services.library
     val scope = rememberCoroutineScope()
     var saved by remember { mutableStateOf(false) }
+    var exported by remember { mutableStateOf<Boolean?>(null) }
     // what the menu shows: its main list, the playlists to add to, or the sleep timer's choices
     var view by remember { mutableStateOf("main") }
     var naming by remember { mutableStateOf(false) }
@@ -237,6 +238,13 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
                 if (!song.isLocal) DropdownMenuItem({ Text(if (saved) "Remove from saved" else "Save on this computer") }, onClick = {
                     scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
                     close()
+                })
+                // a saved song as a plain file in Music/Spotifry; the label says how it went, since the menu stays open
+                if (saved && !song.isLocal) DropdownMenuItem({ Text(when (exported) { null -> "Copy to Music folder"; true -> "Copied to Music/Spotifry"; false -> "Couldn't copy it" }) }, onClick = {
+                    if (exported == null) scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        val file = lib.db.songs().get(song.id)?.filePath?.let { java.io.File(it) }
+                        exported = file != null && exportToMusic(Platform.userFolder("Music"), file, song.title, song.artist) != null
+                    }
                 })
                 DropdownMenuItem({ Text("Add to a playlist") }, onClick = { view = "lists" })
                 // the link (the phone's words, which Spotifry reads back in Import) or a picture
