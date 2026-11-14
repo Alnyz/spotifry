@@ -91,7 +91,9 @@ class PlaybackService : MediaSessionService() {
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             .setHandleAudioBecomingNoisy(true)
             // start after 0.75 s of music instead of 2.5 s, and after 2 s (not 5) when it ran dry mid-song
-            .setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(50_000, 50_000, 750, 2_000).build())
+            .setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder().setBufferDurationsMs(50_000, 50_000, 750, 2_000)
+                // the size limit (12.5 MB for audio) is only ~20 s of Hi-Res FLAC; keep 50 s ahead whatever the size
+                .setPrioritizeTimeOverSizeThresholds(true).build())
             .build()
         player.preloadConfiguration = ExoPlayer.PreloadConfiguration(10_000_000L)
         c.sleepTimer.attach(player)
@@ -126,6 +128,18 @@ class PlaybackService : MediaSessionService() {
             }
         }
 
+        // one log line per stall (buffering after the song has started), to find out why Hi-Res freezes
+        player.addListener(object : Player.Listener {
+            private var started = false
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) { started = false }
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY) started = true
+                else if (state == Player.STATE_BUFFERING && started && player.playWhenReady) {
+                    val id = player.currentMediaItem?.mediaId ?: return
+                    android.util.Log.w("Stall", "song=$id origin=${c.songOrigin(id)} kbps=${c.streamKbps(id, player.duration.coerceAtLeast(0))} ahead=${(player.bufferedPosition - player.currentPosition) / 1000.0}s total=${player.totalBufferedDuration / 1000.0}s at=${player.currentPosition / 1000.0}s")
+                }
+            }
+        })
         player.addListener(object : Player.Listener {
             override fun onShuffleModeEnabledChanged(on: Boolean) {
                 if (on) spreadOrder(player) else { smart = false; dropSuggestions(player) }
