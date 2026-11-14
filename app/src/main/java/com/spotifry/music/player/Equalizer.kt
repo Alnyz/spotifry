@@ -219,7 +219,7 @@ class Equalizer {
  * song's own and don't move with the curve. The price: a big boost stays quieter overall, because of [EqDesign.preamp].
  */
 @UnstableApi
-fun soundChain(equalizer: EqualizerProcessor, loudness: LoudnessProcessor, spatial: SpatialProcessor): Array<AudioProcessor> = arrayOf(loudness, equalizer, spatial)
+fun soundChain(equalizer: EqualizerProcessor, loudness: LoudnessProcessor, spatial: SpatialProcessor, sweep: SweepProcessor): Array<AudioProcessor> = arrayOf(loudness, equalizer, spatial, sweep)
 
 /**
  * Puts [Equalizer] in the player's sound path. It stays in the path while off, because joining or leaving the path

@@ -76,6 +76,10 @@ class BeatJoin(
     private val wake: () -> Unit = {},
     /** How much louder (+) or quieter (-) the song with the second id sounds than the one with the first, when both play. */
     private val matchDb: (String, String) -> Float = { _, _ -> 0f },
+    /** The style the user picked. */
+    private val style: () -> TransitionStyle = { TransitionStyle.SILK },
+    /** Sets the filter on the old song's voice (true) or on [main], which plays the new song during the overlap (false). */
+    private val filter: (Boolean, Int, Float) -> Unit = { _, _, _ -> },
 ) : Player.Listener {
     private class Pair(val out: MediaItem, val nextIndex: Int, val next: MediaItem) {
         val key = "${out.mediaId} ${out.trim} ${next.mediaId} ${next.trim}"
@@ -329,14 +333,16 @@ class BeatJoin(
             else s.locked = lineUpMain(s.line, off)
         }
         if (f >= 1f) { finish(s.tail, "overlap done"); return null }
+        val (oldVoice, newVoice) = transitionVoices(pickStyle(style(), s.plan.onBeat, s.lengthMs), f)
+        filter(true, oldVoice.mode, oldVoice.hz); filter(false, newVoice.mode, newVoice.hz)
         // equal power: the two together stay about as loud as one
         val cut = 1 - OVERLAP_CUT * sin(f * PI).toFloat()
         // the louder of the two comes down by the difference, the new song's share rising to full by the end
         val m = 10f.pow(-abs(s.plan.matchDb) / 20f)
         val tailTrim = if (s.plan.matchDb < 0) m else 1f
         val newTrim = if (s.plan.matchDb > 0) m + (1 - m) * f else 1f
-        s.tail.volume = cos(f * PI / 2).toFloat() * cut * tailTrim * sleepGain()
-        return sin(f * PI / 2).toFloat() * cut * newTrim
+        s.tail.volume = oldVoice.gain * cut * tailTrim * sleepGain()
+        return newVoice.gain * cut * newTrim
     }
 
     private fun lineUpMain(line: Liner, off: Long): Boolean {
@@ -346,7 +352,7 @@ class BeatJoin(
         return done
     }
 
-    private fun restoreMain() { if (mainLining) main.playbackParameters = wanted(); mainLining = false }
+    private fun restoreMain() { filter(false, FILTER_OFF, 0f); if (mainLining) main.playbackParameters = wanted(); mainLining = false }
 
     /** Pause, a phone call, headphones out: the tail voice does what [main] does. */
     private fun follow(tail: Player, lining: Boolean = false) {

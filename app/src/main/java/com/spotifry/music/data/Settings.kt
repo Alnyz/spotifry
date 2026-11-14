@@ -56,6 +56,11 @@ class Settings(private val prefs: SharedPreferences) {
     fun setFadeSeconds(s: Int) { _fadeSeconds.value = s; prefs.edit().putInt(FADE, s).apply() }
 
 
+    private val _transition = MutableStateFlow(prefs.getInt(TRANSITION, 0))
+    /** [com.spotifry.music.player.TransitionStyle] by position: how a song runs into the next when Crossfade is on. */
+    val transition: StateFlow<Int> = _transition
+    fun setTransition(i: Int) { _transition.value = i; prefs.edit().putInt(TRANSITION, i).apply() }
+
     private val _mono = MutableStateFlow(prefs.getBoolean(MONO, false))
     /** Left and right mixed into one. */
     val mono: StateFlow<Boolean> = _mono
@@ -242,6 +247,7 @@ class Settings(private val prefs: SharedPreferences) {
         const val FADE = "fade_seconds"
         const val EQ_ON = "eq_on"
         const val MONO = "mono"
+        const val TRANSITION = "transition"
         const val SPATIAL_ON = "spatial_on"
         const val SPATIAL_HZ = "spatial_hz"
         const val SPATIAL_DB = "spatial_db"

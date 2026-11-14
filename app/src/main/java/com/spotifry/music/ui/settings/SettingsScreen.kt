@@ -56,6 +56,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val hideNonMusic by vm.settings.hideNonMusic.collectAsStateWithLifecycle()
     val lyricsOff by vm.settings.lyricsOff.collectAsStateWithLifecycle()
     val fade by vm.settings.fadeSeconds.collectAsStateWithLifecycle()
+    val transition by vm.settings.transition.collectAsStateWithLifecycle()
     val mono by vm.settings.mono.collectAsStateWithLifecycle()
     val spatialOn by vm.settings.spatialOn.collectAsStateWithLifecycle()
     val eqOn by vm.settings.eqOn.collectAsStateWithLifecycle()
@@ -112,6 +113,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 }
                 Item("Crossfade", "Songs overlap, on the beat when they can.", below = true) {
                     Segments(FADES.map { if (it == 0) "Off" else "$it s" }, FADES.indexOf(fade).coerceAtLeast(0)) { vm.settings.setFadeSeconds(FADES[it]) }
+                }
+                if (fade > 0) Item("Transition", "How one song runs into the next. Auto picks for each pair.", below = true) {
+                    Segments(com.spotifry.music.player.TransitionStyle.entries.map { it.label.substringBefore(' ') }, transition, Modifier.fillMaxWidth(), fill = true) { vm.settings.setTransition(it) }
                 }
                 Item("Mono audio", "Left and right mixed into one. For one earbud or hearing in one ear.", onClick = { vm.settings.setMono(!mono) }, role = Role.Switch) {
                     Switch(mono, null, colors = switchColors())

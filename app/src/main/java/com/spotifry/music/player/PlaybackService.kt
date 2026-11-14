@@ -65,6 +65,8 @@ class PlaybackService : MediaSessionService() {
     private var tailEqualizer: EqualizerProcessor? = null
     private var tailLoudness: LoudnessProcessor? = null
     private var tailSpatial: SpatialProcessor? = null
+    private var mainSweep: SweepProcessor? = null
+    private var tailSweep: SweepProcessor? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -80,11 +82,12 @@ class PlaybackService : MediaSessionService() {
         val equalizer = EqualizerProcessor()
         val loudness = LoudnessProcessor(c.spectrum)
         val spatial = SpatialProcessor()
+        val sweep = SweepProcessor().also { mainSweep = it }
         val levels = LoudnessMemory(getSharedPreferences("loudness", MODE_PRIVATE))
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(equalizer, loudness, spatial)).build()
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(equalizer, loudness, spatial, sweep)).build()
         }
         val player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
@@ -321,10 +324,11 @@ class PlaybackService : MediaSessionService() {
                 val level = LoudnessProcessor().apply { enabled = c.settings.sameLoudness.value; leveler.hold(loudness.gainDb) }
                 val spatial = SpatialProcessor().apply { set(c.settings.mono.value, c.settings.spatial.value) }
                 tailEqualizer = eq; tailLoudness = level; tailSpatial = spatial
+                val sweep = SweepProcessor().also { tailSweep = it }
                 val renderers = object : DefaultRenderersFactory(this@PlaybackService) {
                     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                         DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(eq, level, spatial)).build()
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(eq, level, spatial, sweep)).build()
                 }
                 ExoPlayer.Builder(this, renderers)
                     .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
@@ -360,6 +364,8 @@ class PlaybackService : MediaSessionService() {
             sleepGain = { c.sleepTimer.sleepGain },
             wanted = { androidx.media3.common.PlaybackParameters(c.settings.speed.value, 2.0.pow(c.settings.pitch.value / 12.0).toFloat()) },
             wake = { wakeTick.trySend(Unit) },
+            style = { TransitionStyle.of(c.settings.transition.value) },
+            filter = { onTail, mode, hz -> (if (onTail) tailSweep else mainSweep)?.set(mode, hz) },
             // the song playing now is still being measured; the next one is only known from an earlier play
             matchDb = { outId, inId -> Leveler.matchDb(levels.get(outId) ?: loudness.lastMeasuredDb, levels.get(inId), c.settings.sameLoudness.value) },
         )
