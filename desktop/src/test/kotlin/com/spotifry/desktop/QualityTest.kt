@@ -9,6 +9,10 @@ class QualityTest {
         assertEquals("Opus 160 kbps", qualityLabel("opus", 159_800.0, 48_000))
         assertEquals("AAC 128 kbps", qualityLabel("aac", 128_000.0, 44_100))
     }
+    @Test fun aLossyFigureThatHighIsAnotherFilesSoOnlyTheNameShows() {
+        assertEquals("Opus", qualityLabel("opus", 1_603_000.0, 48_000))
+        assertEquals("Opus 512 kbps", qualityLabel("opus", 512_000.0, 48_000))
+    }
     @Test fun lossyWithoutBitrateShowsJustTheName() = assertEquals("Opus", qualityLabel("opus", null, 48_000))
     @Test fun losslessIsHiResOnlyAboveCdRates() {
         assertEquals("Lossless", qualityLabel("flac", 900_000.0, 44_100))

@@ -485,7 +485,8 @@ class MpvPlayer(
         loading = scope.launch(Dispatchers.IO) {
             try {
                 val local = localFile(song)
-                val stream = if (local == null) resolver.get(song) else null
+                // patient: this player has no copy to swap for a better one later, so it waits for the best answer (as the old one-after-another lookup did, but all asked at once)
+                val stream = if (local == null) resolver.get(song, patient = true) else null
                 synchronized(lock) {
                     if (queue.getOrNull(index)?.id != song.id) return@launch
                     val url = local ?: playFrom(song, stream!!, false)
@@ -638,7 +639,7 @@ class MpvPlayer(
         scope.launch(Dispatchers.IO) {
             val waiting = try {
                 val local = localFile(next)
-                val stream = if (local == null) resolver.get(next) else null
+                val stream = if (local == null) resolver.get(next, patient = true) else null
                 // opened alongside: the song heard now keeps its copy, and the next one starts coming in
                 val url = local ?: synchronized(lock) { if (stage !== looking) return@launch; playFrom(next, stream!!, true) }
                 val bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }

@@ -16,7 +16,7 @@ enum class SearchType(val label: String) {
 }
 
 /** An album, artist or playlist in the results: [by] is the artist or the playlist's maker, blank for an artist. */
-data class PageLink(val type: SearchType, val url: String, val name: String, val by: String, val thumbnailUrl: String?)
+data class PageLink(val type: SearchType, val url: String, val name: String, val by: String, val thumbnailUrl: String?, val songs: Int? = null)
 
 /**
  * An opened album, playlist or artist. [kind] is "Album", "Single", "EP", "Playlist" or "Artist". An artist's [songs]
@@ -29,6 +29,10 @@ interface MusicSource {
     suspend fun search(query: String): List<Song>
     /** [low]: the smallest audio stream instead of the best one (data saver, low-quality saves). */
     suspend fun resolve(song: Song, low: Boolean = false): ResolvedStream
+    /** [patient]: nobody waits for this yet (looked up ahead), so the best answer is worth waiting for. [prefer]: the origin of bytes already kept for the song. */
+    suspend fun resolve(song: Song, low: Boolean, patient: Boolean, prefer: String?): ResolvedStream = resolve(song, low)
+    /** True when a better answer than the fastest may be worth waiting for, so a lookup ahead of time and a tap are not the same lookup. */
+    val waitsForBest: Boolean get() = false
     suspend fun related(song: Song): List<Song>
     suspend fun searchVideos(query: String): List<Song> = emptyList()
     /** Albums, artists or playlists, for those [type]s. */

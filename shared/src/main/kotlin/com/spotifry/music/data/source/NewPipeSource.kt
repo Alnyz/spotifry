@@ -113,7 +113,7 @@ private fun filterOf(type: SearchType) = when (type) {
 fun linkOf(item: InfoItem, type: SearchType): PageLink? {
     val art = item.thumbnails.maxByOrNull { it.height }?.url
     return when (item) {
-        is PlaylistInfoItem -> PageLink(type, item.url, item.name, item.uploaderName.orEmpty(), art)
+        is PlaylistInfoItem -> PageLink(type, item.url, item.name, item.uploaderName.orEmpty(), art, item.streamCount.takeIf { it > 0 }?.toInt())
         is ChannelInfoItem -> PageLink(type, item.url, item.name.removeSuffix(" - Topic"), "", art)
         else -> null
     }

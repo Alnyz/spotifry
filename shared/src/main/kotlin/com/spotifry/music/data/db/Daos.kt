@@ -117,6 +117,9 @@ abstract class PlayCountDao {
 
     @Query("DELETE FROM plays") abstract suspend fun clear()
 
+    /** How many times each of [ids] was played; songs never played are left out. */
+    @Query("SELECT songId, count AS n FROM plays WHERE songId IN (:ids) AND count > 0") abstract suspend fun counts(ids: List<String>): List<PlayCountRow>
+
     @Query("SELECT songId FROM plays WHERE lastPlayedAt >= :since") abstract suspend fun playedSince(since: Long): List<String>
 
     /** Ties go to the song played most recently. */

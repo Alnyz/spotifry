@@ -150,13 +150,18 @@ class ChoosingSourceTest {
     private val song = Song("a", "A", "B", 100, null)
     private val yt = FakeMusicSource()
 
-    @Test fun aMatchPlaysFromSaavn() = runBlocking { assertEquals(stream, ChoosingSource(yt, { stream }, { true }).resolve(song)); assertEquals(0, yt.resolveCalls) }
-    @Test fun noMatchGoesToYoutube() = runBlocking { assertEquals("https://x/1", ChoosingSource(yt, { null }, { true }).resolve(song).url) }
-    @Test fun anErrorGoesToYoutube() = runBlocking { assertEquals("https://x/1", ChoosingSource(yt, { error("blocked") }, { true }).resolve(song).url) }
-    @Test fun aSlowAnswerGoesToYoutubeInAboutTwoSeconds() = runBlocking {
+    @Test fun aMatchPlaysFromSaavn() = runBlocking { assertEquals(stream, ChoosingSource(yt, { stream }, { true }).resolve(song, false, true, null)) }
+    @Test fun noMatchGoesToYoutube() = runBlocking { assertEquals("https://x/1", ChoosingSource(yt, { null }, { true }).resolve(song, false, true, null).url) }
+    @Test fun anErrorGoesToYoutube() = runBlocking { assertEquals("https://x/1", ChoosingSource(yt, { error("blocked") }, { true }).resolve(song, false, true, null).url) }
+    @Test fun aSlowAnswerDoesNotHoldUpASongPlayedNow() = runBlocking {
         val started = System.currentTimeMillis()
         assertEquals("https://x/1", ChoosingSource(yt, { awaitCancellation() }, { true }).resolve(song).url)
-        assertTrue(System.currentTimeMillis() - started in 1_900..4_000)
+        assertTrue(System.currentTimeMillis() - started < 1_000)
+    }
+    @Test fun aSlowAnswerIsWaitedForAboutFiveSecondsWhenLookedUpAhead() = runBlocking {
+        val started = System.currentTimeMillis()
+        assertEquals("https://x/1", ChoosingSource(yt, { awaitCancellation() }, { true }).resolve(song, false, true, null).url)
+        assertTrue(System.currentTimeMillis() - started in 4_900..7_000)
     }
     @Test fun switchOffLowAndPhoneFilesNeverAsk() = runBlocking {
         val asked = mutableListOf<String>()
@@ -178,7 +183,7 @@ class ChoosingSourceTest {
         on = true
         assertEquals("https://x/1", r.get(song).url)
         r.clear()
-        assertEquals(stream.url, r.get(song).url)
+        assertEquals(stream.url, r.get(song, patient = true).url)
     }
     @Test fun aLookupRunningDuringAClearIsNeitherSharedNorKept() = runBlocking {
         val gate = CompletableDeferred<Unit>()
@@ -315,6 +320,7 @@ class JioSaavnSourceTest {
         var url = "https://rr1.googlevideo.com/a"
         val src = object : MusicSource by FakeMusicSource() {
             override suspend fun resolve(song: Song, low: Boolean) = ResolvedStream(url, "audio/mp4", 320, Long.MAX_VALUE, fromSaavn = "saavncdn" in url)
+            override suspend fun resolve(song: Song, low: Boolean, patient: Boolean, prefer: String?) = resolve(song, low)
         }
         val streams = StreamResolver(src)
         val audio = mapOf("https://rr1.googlevideo.com/a" to ByteArray(1_000) { 1 }, "https://aac.saavncdn.com/a_320.mp4" to ByteArray(1_000) { 2 })
