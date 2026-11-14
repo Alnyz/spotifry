@@ -59,7 +59,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /** An artist page lists this many songs until "Show all" is tapped. */
-private const val ARTIST_SONGS = 5
+internal const val ARTIST_SONGS = 5
 
 /** What an album, artist or playlist can do; [save]'s songs are null when the page isn't loaded yet. */
 class PageActions(
@@ -68,14 +68,21 @@ class PageActions(
     val share: (PageLink) -> Unit = {},
 )
 
-class PageViewModel(private val source: MusicSource, val link: PageLink, private val warm: (List<Song>) -> Unit = {}) : ViewModel() {
+class PageViewModel(
+    private val source: MusicSource, val link: PageLink, private val warm: (List<Song>) -> Unit = {},
+    /** How many times each of these songs was played. */
+    private val plays: suspend (List<String>) -> Map<String, Int> = { emptyMap() },
+) : ViewModel() {
     /** Null while loading. */
     val page = MutableStateFlow<Result<PageContent>?>(null)
+    /** Song id to plays, for the artist page's Top songs. */
+    val counts = MutableStateFlow<Map<String, Int>>(emptyMap())
     init { load() }
     fun load() {
         page.value = null
         viewModelScope.launch {
             page.value = runCatching { source.page(link) }.onSuccess { warm(it.songs.take(3)) }
+            page.value?.getOrNull()?.takeIf { link.type == SearchType.ARTISTS }?.let { c -> counts.value = runCatching { plays(c.songs.map { it.id }) }.getOrDefault(emptyMap()) }
         }
     }
 }
@@ -96,25 +103,32 @@ internal fun pageLine(link: PageLink, page: PageContent?): String {
 fun PageScreen(
     vm: PageViewModel, savedIds: Set<String>, onBack: () -> Unit, onPlay: (List<Song>, Int, String) -> Unit, onShuffle: (List<Song>, String) -> Unit,
     onMore: (Song) -> Unit, actions: PageActions, bottomInset: Dp,
+    /** Artists only: whether the artist is in Your artists, and the star that adds or removes it. */
+    starred: Boolean = false, onStar: () -> Unit = {},
 ) {
     val state by vm.page.collectAsStateWithLifecycle()
     val link = vm.link
     val p = state?.getOrNull()
-    val artist = link.type == SearchType.ARTISTS
+    if (link.type == SearchType.ARTISTS) {
+        val counts by vm.counts.collectAsStateWithLifecycle()
+        com.spotifry.music.ui.theme.AlwaysDark(Color(0xFF0C0D10)) {
+            ArtistPage(link, p, state != null && p == null, counts, starred, onStar, onBack, onPlay, onShuffle, onMore, actions, bottomInset, vm::load)
+        }
+        return
+    }
     val album = link.type == SearchType.ALBUMS
     var menu by remember { mutableStateOf(false) }
-    var allSongs by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 16.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                 IconButton(onBack, Modifier.size(48.dp)) { Icon(Icons.Back, "Back") }
                 Box {
                     IconButton({ menu = true }, Modifier.size(48.dp)) { Icon(Icons.More, "More options") }
-                    PageMenu(menu, { menu = false }, link, actions, p?.songs?.takeIf { !artist && it.isNotEmpty() })
+                    PageMenu(menu, { menu = false }, link, actions, p?.songs?.takeIf { it.isNotEmpty() })
                 }
             }
             Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp), Arrangement.spacedBy(16.dp), Alignment.Bottom) {
-                Cover(link.url, p?.thumbnailUrl ?: link.thumbnailUrl, null, if (artist) 104.dp else 132.dp, shape = if (artist) CircleShape else RoundedCornerShape(14.dp))
+                Cover(link.url, p?.thumbnailUrl ?: link.thumbnailUrl, null, 132.dp, shape = RoundedCornerShape(14.dp))
                 Column {
                     Text(p?.name ?: link.name, style = MaterialTheme.typography.headlineLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     Text(pageLine(link, p), Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -130,43 +144,18 @@ fun PageScreen(
                         LoadingBox(Modifier.size(93.dp, 48.dp), CircleShape)
                         LoadingBox(Modifier.size(111.dp, 48.dp), CircleShape)
                     }
-                    if (artist) Box(Modifier.padding(top = 28.dp, bottom = 12.dp)) {
-                        // the real words, unseen, so it's the real height at any text size
-                        LoadingBox(Modifier.matchParentSize(), RoundedCornerShape(6.dp))
-                        Text("Songs", Modifier.clearAndSetSemantics {}, Color.Transparent, style = MaterialTheme.typography.headlineSmall)
-                    }
                     repeat(5) { if (album) LoadingRow(width = 28.dp, height = 14.dp) else LoadingRow() }
                 }
             }
             p == null -> item { ErrorRow(link.name, vm::load, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
             else -> {
-                if (artist && p.songs.isNotEmpty()) item { SectionTitle("Songs") }
-                val shown = if (artist && !allSongs) p.songs.take(ARTIST_SONGS) else p.songs
-                itemsIndexed(shown) { i, s ->
+                itemsIndexed(p.songs) { i, s ->
                     SongRow(
                         s, s.id in savedIds, { onPlay(p.songs, i, p.name) }, { onMore(s) }, Modifier.padding(start = 20.dp, end = 8.dp),
                         subtitleExtra = if (album) clockText(s.durationSec * 1000) else null,
                         // one album shares one cover: the track number takes its place
                         leading = if (album) { { Text("${i + 1}", Modifier.width(28.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) } } else null,
                     )
-                }
-                if (shown.size < p.songs.size) item {
-                    Text(
-                        "Show all ${p.songs.size} songs",
-                        Modifier.fillMaxWidth().clickable { allSongs = true }.padding(horizontal = 20.dp, vertical = 14.dp),
-                        style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                if (p.albums.isNotEmpty()) item {
-                    SectionTitle("Albums")
-                    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(p.albums) { a ->
-                            Column(Modifier.width(100.dp).clickable(onClickLabel = "Open album") { actions.open(a) }) {
-                                Cover(a.url, a.thumbnailUrl, null, 100.dp, radius = 12.dp)
-                                Text(a.name, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
                 }
                 if (p.songs.isEmpty() && p.albums.isEmpty()) item {
                     Text("Nothing to play here.", Modifier.padding(20.dp), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

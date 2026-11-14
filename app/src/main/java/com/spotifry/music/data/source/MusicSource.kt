@@ -16,7 +16,7 @@ enum class SearchType(val label: String) {
 }
 
 /** An album, artist or playlist in the results: [by] is the artist or the playlist's maker, blank for an artist. */
-data class PageLink(val type: SearchType, val url: String, val name: String, val by: String, val thumbnailUrl: String?)
+data class PageLink(val type: SearchType, val url: String, val name: String, val by: String, val thumbnailUrl: String?, val songs: Int? = null)
 
 /**
  * An opened album, playlist or artist. [kind] is "Album", "Single", "EP", "Playlist" or "Artist". An artist's [songs]

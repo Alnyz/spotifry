@@ -8,12 +8,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -30,12 +32,17 @@ sealed interface DownloadState {
 /** Saves songs as files on the phone. A song counts as saved only after the whole file is on disk. */
 class DownloadRepository(
     filesDir: File,
-    private val client: OkHttpClient,
+    client: OkHttpClient,
     private val resolver: StreamResolver,
     private val songs: SongDao,
     private val now: () -> Long = System::currentTimeMillis,
     private val lowQuality: () -> Boolean = { false },
+    /** How often a cut-off download picks up again before the save counts as failed, and the pause (times the try number) before each. */
+    private val retries: Int = 3,
+    private val retryPauseMs: Long = 1_500,
 ) {
+    // a weak connection can go quiet for a while: wait longer than the default 10 s before giving up on one read
+    private val client = client.newBuilder().readTimeout(30, java.util.concurrent.TimeUnit.SECONDS).build()
     private val songsDir = File(filesDir, "songs").apply { mkdirs() }
     private val states = ConcurrentHashMap<String, MutableStateFlow<DownloadState>>()
     private val active = ConcurrentHashMap.newKeySet<String>()
@@ -74,32 +81,45 @@ class DownloadRepository(
         try {
             songs.upsert(song.toEntity())
             var stream = resolver.get(song, lowQuality(), patient = true)
-            var response = client.newCall(Request.Builder().url(withRange(stream.url)).build()).execute()
-            if (response.code == 403) { // link expired or refused: resolve a fresh one once
-                response.close()
-                resolver.invalidate(song.id)
-                stream = resolver.get(song, lowQuality(), patient = true)
-                response = client.newCall(Request.Builder().url(withRange(stream.url)).build()).execute()
-            }
-            response.use { r ->
-                if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
-                val body = r.body ?: throw IOException("empty response")
-                val total = body.contentLength()
-                var written = 0L
-                body.byteStream().use { input ->
-                    part.outputStream().use { out ->
-                        val buf = ByteArray(32 * 1024)
-                        while (true) {
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            out.write(buf, 0, n)
-                            written += n
-                            if (total > 0) flow.value = DownloadState.Downloading((written.toFloat() / total).coerceIn(0f, 1f))
-                        }
+            var written = 0L
+            var tries = 0
+            while (true) {
+                try {
+                    var response = open(stream.url, written)
+                    if (response.code == 403) { // link expired or refused: resolve a fresh one once
+                        response.close()
+                        resolver.invalidate(song.id)
+                        stream = resolver.get(song, lowQuality(), patient = true)
+                        response = open(stream.url, written)
                     }
+                    response.use { r ->
+                        if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
+                        val body = r.body ?: throw IOException("empty response")
+                        // 206 continues the part file; a plain 200 means the server ignored the range and sends it all again
+                        val resumed = written > 0 && r.code == 206
+                        if (!resumed) written = 0
+                        val total = body.contentLength().let { if (it > 0 && resumed) written + it else it }
+                        body.byteStream().use { input ->
+                            java.io.FileOutputStream(part, resumed).use { out ->
+                                val buf = ByteArray(32 * 1024)
+                                while (true) {
+                                    val n = input.read(buf)
+                                    if (n < 0) break
+                                    out.write(buf, 0, n)
+                                    written += n
+                                    if (total > 0) flow.value = DownloadState.Downloading((written.toFloat() / total).coerceIn(0f, 1f))
+                                }
+                            }
+                        }
+                        // ponytail: a response with no Content-Length cannot be length-checked; YouTube audio always sends one
+                        if (total > 0 && written != total) throw IOException("incomplete download")
+                    }
+                    break
+                } catch (e: IOException) {
+                    // a dropped connection keeps what is already on disk and asks for the rest
+                    if (++tries > retries) throw e
+                    delay(retryPauseMs * tries)
                 }
-                // ponytail: a response with no Content-Length cannot be length-checked; YouTube audio always sends one
-                if (total > 0 && written != total) throw IOException("incomplete download")
             }
             val final = File(songsDir, "${song.id}.${when { stream.mimeType.contains("webm") -> "webm"; stream.mimeType.contains("flac") -> "flac"; else -> "m4a" }}")
             if (!part.renameTo(final)) throw IOException("could not finish file")
@@ -121,6 +141,9 @@ class DownloadRepository(
         }
     }
 
+    private fun open(url: String, from: Long): okhttp3.Response =
+        client.newCall(Request.Builder().url(withRange(url, from)).apply { if (from > 0) header("Range", "bytes=$from-") }.build()).execute()
+
     suspend fun remove(songId: String) = withContext(Dispatchers.IO) {
         if (songId in active) cancelled.add(songId)
         songs.get(songId)?.let { row ->
@@ -135,8 +158,11 @@ class DownloadRepository(
      * YouTube serves a plain request at about 33 KB/s but a request with a range at full speed
      * (measured: 4 MB in 118 s versus 0.3 s). NewPipe does the same.
      */
-    private fun withRange(url: String): String =
-        if (url.contains("range=")) url else url + (if (url.contains('?')) "&" else "?") + "range=0-"
+    private fun withRange(url: String, from: Long = 0): String = when {
+        from > 0 -> url.toHttpUrl().newBuilder().setQueryParameter("range", "$from-").build().toString() // YouTube wants it in the link, others in the header
+        url.contains("range=") -> url
+        else -> url + (if (url.contains('?')) "&" else "?") + "range=0-"
+    }
 
     private fun downloadThumbnail(song: Song): File? {
         val url = song.thumbnailUrl ?: return null

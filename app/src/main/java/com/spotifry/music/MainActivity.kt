@@ -20,6 +20,8 @@ import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.activity.result.contract.ActivityResultContracts
@@ -198,6 +200,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     val nav = rememberNavController()
     val backEntry by nav.currentBackStackEntryAsState()
     val route = backEntry?.destination?.route
+    // an artist's photo runs up under the status bar, so that page gets no top padding and no orange glow
+    val artistPage = route == Routes.PAGE && backEntry?.arguments?.getString("type") == SearchType.ARTISTS.name
 
     val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs, c::warm, c.db.listens().observeAll()) } })
     val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic, c.db.history(), c.restoreQueue) } })
@@ -345,8 +349,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                 snackbarHost = { SnackbarHost(snackbar, Modifier.padding(bottom = FadeBarSpec.solid(mini, navInset))) },
                 contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
             ) { pad ->
-                if (route != Routes.SPOTIFRIED) TopGlow()
-                Box(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
+                if (route != Routes.SPOTIFRIED && !artistPage) TopGlow()
+                Box(Modifier.padding(if (artistPage) { val dir = androidx.compose.ui.platform.LocalLayoutDirection.current; androidx.compose.foundation.layout.PaddingValues(start = pad.calculateStartPadding(dir), end = pad.calculateEndPadding(dir), bottom = pad.calculateBottomPadding()) } else pad).consumeWindowInsets(pad).fillMaxSize()) {
                     val inLists by remember { c.db.playlists().observeSongIdsInPlaylists().map { it.toSet() } }.collectAsStateWithLifecycle(emptySet())
                     CompositionLocalProvider(
                         com.spotifry.music.ui.components.LocalNowPlaying provides com.spotifry.music.ui.components.NowPlayingMark(player.current?.id, player.isPlaying) { showPlayer = true },
@@ -401,9 +405,14 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                         composable(Routes.PAGE, listOf("type", "url", "name", "by", "art").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } }) { e ->
                             val a = e.arguments!!
                             val link = PageLink(SearchType.valueOf(a.getString("type")!!), a.getString("url")!!, a.getString("name")!!, a.getString("by")!!, a.getString("art")!!.ifEmpty { null })
-                            val vm: PageViewModel = viewModel(factory = viewModelFactory { initializer { PageViewModel(c.source, link, c::warm) } })
+                            val vm: PageViewModel = viewModel(factory = viewModelFactory { initializer { PageViewModel(c.source, link, c::warm, { ids -> c.db.plays().counts(ids).associate { it.songId to it.n } }) } })
                             val savedIds by home.savedIds.collectAsStateWithLifecycle()
-                            PageScreen(vm, savedIds, { nav.popBackStack() }, plVm::play, plVm::shuffle, openMenu, pageActions, inset)
+                            val artists by c.settings.artists.collectAsStateWithLifecycle()
+                            PageScreen(
+                                vm, savedIds, { nav.popBackStack() }, plVm::play, plVm::shuffle, openMenu, pageActions, inset,
+                                starred = artists.any { it.key == link.name.trim().lowercase() },
+                                onStar = { c.settings.setArtists(com.spotifry.music.ui.home.toggleArtist(c.settings.artists.value, link)) },
+                            )
                         }
                         composable(Routes.SAVED) {
                             SavedScreen(savedVm, { goTo(Routes.SEARCH) }, openMenu, inset)
@@ -473,6 +482,14 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
             val actions = buildList {
                 add(MenuAction("Add to playlist", Icons.Plus) { addTo = target.song })
                 if (!target.song.isLocal) add(if (isSaved) MenuAction("Remove from saved", Icons.Trash) { savedVm.remove(target.song.id) } else MenuAction("Save on this phone", Icons.Download) { savedVm.save(target.song) })
+                if (isSaved && !target.song.isLocal && com.spotifry.music.data.canExport) add(MenuAction("Export to Music folder", Icons.Download) {
+                    scope.launch {
+                        val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            c.db.songs().get(target.song.id)?.filePath?.let { com.spotifry.music.data.exportToMusic(appContext, it, target.song.title, target.song.artist) } ?: false
+                        }
+                        snackbar.showSnackbar(if (ok) "Copied to Music/Spotifry" else "Couldn't copy ${target.song.title}")
+                    }
+                })
                 add(MenuAction("Share", Icons.Share) { shareSong = target.song })
                 target.playlistId?.let { pid -> add(MenuAction("Remove from this playlist", Icons.Trash) { plVm.removeSong(pid, target.song.id) }) }
                 if (target.fromPlayer) {

@@ -12,7 +12,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.RecordedRequest
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
 import okio.Buffer
@@ -46,7 +48,7 @@ class DownloadRepositoryTest {
         server = MockWebServer().also { it.start() }
         dir = createTempDir("dlrepo")
         source.streamUrl = server.url("/a").toString()
-        repo = DownloadRepository(dir, OkHttpClient(), StreamResolver(source) { 1_000L }, db.songs())
+        repo = DownloadRepository(dir, OkHttpClient(), StreamResolver(source) { 1_000L }, db.songs(), retryPauseMs = 0)
     }
     @After fun tearDown() { server.shutdown(); db.close(); dir.deleteRecursively() }
 
@@ -62,7 +64,7 @@ class DownloadRepositoryTest {
     }
 
     @Test fun interruptedDownloadFails() = runBlocking {
-        server.enqueue(body().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
+        repeat(4) { server.enqueue(body().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)) } // the first try and three retries
         repo.save(testSong)
         assertTrue(repo.state(testSong.id).value is DownloadState.Failed)
         assertNull(db.songs().get(testSong.id)?.filePath)
@@ -147,11 +149,37 @@ class DownloadRepositoryTest {
     }
 
     @Test fun failedDownloadAnnouncesTheSong() = runBlocking<Unit> {
-        server.enqueue(body().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
+        repeat(4) { server.enqueue(body().setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)) }
         val seen = kotlinx.coroutines.CompletableDeferred<String>()
         val job = launch(Dispatchers.Unconfined) { repo.failures.collect { seen.complete(it.id) } }
         repo.save(testSong)
         assertEquals(testSong.id, withTimeout(5_000) { seen.await() })
         job.cancel()
+    }
+
+    /** First request gets [cut] bytes of a longer promise and then the line drops; later ones go to [then]. */
+    private fun dropsAfter(cut: Int, then: (RecordedRequest) -> MockResponse) {
+        var first = true
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                if (first) { first = false; MockResponse().setBody(Buffer().write(audio, 0, cut)).setHeader("Content-Length", audio.size).setSocketPolicy(SocketPolicy.DISCONNECT_AT_END) } else then(request)
+        }
+    }
+
+    @Test fun aDroppedConnectionContinuesWhereItStopped() = runBlocking<Unit> {
+        dropsAfter(100_000) { r ->
+            assertEquals("bytes=100000-", r.getHeader("Range"))
+            MockResponse().setResponseCode(206).setBody(Buffer().write(audio, 100_000, audio.size - 100_000))
+        }
+        repo.save(testSong)
+        assertEquals(DownloadState.Saved, repo.state(testSong.id).value)
+        assertArrayEquals(audio, File(db.songs().get(testSong.id)!!.filePath!!).readBytes())
+    }
+
+    @Test fun aServerThatIgnoresTheRangeSendsItAllAgain() = runBlocking<Unit> {
+        dropsAfter(100_000) { body() }
+        repo.save(testSong)
+        assertEquals(DownloadState.Saved, repo.state(testSong.id).value)
+        assertArrayEquals(audio, File(db.songs().get(testSong.id)!!.filePath!!).readBytes())
     }
 }
