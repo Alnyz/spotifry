@@ -138,17 +138,19 @@ val LocalBottomInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
 fun QualityPill(text: String, modifier: Modifier = Modifier) {
     val lossless = text.contains("Lossless")
     val ink = Palette.ink.copy(alpha = 0.9f)
-    val glint = androidx.compose.ui.graphics.lerp(Palette.accent, Color.White, 0.35f)
+    // a quiet grey that a brighter band sweeps over: white on the dark theme, black on the light one
+    val base = Palette.ink.copy(alpha = 0.6f)
+    val glint = Palette.ink
     val shine = rememberInfiniteTransition(label = "shine").animateFloat(0f, 1f, infiniteRepeatable(tween(3200, easing = LinearEasing)), label = "x")
     // the glint is a gradient painted over the words and the mark only where they have pixels (SrcIn); read while drawing, so it never recomposes
     val shiny = if (!lossless) Modifier else Modifier.graphicsLayer(compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen).drawWithContent {
         drawContent()
         val band = size.width * 0.7f
         val x = -band + (size.width + 2 * band) * shine.value
-        drawRect(Brush.linearGradient(listOf(ink, glint, ink), start = Offset(x, 0f), end = Offset(x + band, 0f)), blendMode = BlendMode.SrcIn)
+        drawRect(Brush.linearGradient(listOf(base, glint, base), start = Offset(x, 0f), end = Offset(x + band, 0f)), blendMode = BlendMode.SrcIn)
     }
     Row(modifier.then(shiny), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        Icon(if (lossless) Icons.Lossless else Icons.Headphones, null, Modifier.size(if (lossless) 22.dp else 18.dp), tint = ink)
+        Icon(if (lossless) Icons.Lossless else Icons.Headphones, null, if (lossless) Modifier.size(width = 32.dp, height = 20.dp) else Modifier.size(18.dp), tint = ink)
         Text(text, fontSize = 17.sp, fontWeight = FontWeight.Medium, fontStyle = if (lossless) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal, color = ink, maxLines = 1)
     }
 }
