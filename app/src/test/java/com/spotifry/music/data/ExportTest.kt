@@ -10,9 +10,12 @@ class ExportTest {
         assertEquals("Queen - Song.webm", exportName("Song", "Queen - Topic", "webm"))
         assertEquals("Song.webm", exportName("Song", "", "webm"))
     }
-    @Test fun mimeFollowsTheExtension() {
-        assertEquals("audio/flac", exportMime("flac"))
-        assertEquals("audio/webm", exportMime("webm"))
-        assertEquals("audio/mp4", exportMime("m4a"))
+    @Test fun musicFilesGoToMusicAndWebmGoesToDownload() {
+        assertEquals("Music/Spotifry", exportPlace("flac").folder)
+        assertEquals("audio/mp4", exportPlace("m4a").mime)
+        // Android reads .webm as video and refuses it in the Music folder
+        assertEquals("Download/Spotifry", exportPlace("webm").folder)
+        assertEquals(ExportTo.Downloads, exportPlace("WEBM").collection)
+        assertEquals(ExportTo.Downloads, exportPlace("xyz").collection)
     }
 }

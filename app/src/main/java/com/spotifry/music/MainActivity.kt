@@ -484,10 +484,10 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                 if (!target.song.isLocal) add(if (isSaved) MenuAction("Remove from saved", Icons.Trash) { savedVm.remove(target.song.id) } else MenuAction("Save on this phone", Icons.Download) { savedVm.save(target.song) })
                 if (isSaved && !target.song.isLocal && com.spotifry.music.data.canExport) add(MenuAction("Export to Music folder", Icons.Download) {
                     scope.launch {
-                        val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            c.db.songs().get(target.song.id)?.filePath?.let { com.spotifry.music.data.exportToMusic(appContext, it, target.song.title, target.song.artist) } ?: false
+                        val where = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            c.db.songs().get(target.song.id)?.filePath?.let { com.spotifry.music.data.exportToMusic(appContext, it, target.song.title, target.song.artist) }
                         }
-                        snackbar.showSnackbar(if (ok) "Copied to Music/Spotifry" else "Couldn't copy ${target.song.title}")
+                        snackbar.showSnackbar(if (where != null) "Copied to $where" else "Couldn't copy ${target.song.title}")
                     }
                 })
                 add(MenuAction("Share", Icons.Share) { shareSong = target.song })
