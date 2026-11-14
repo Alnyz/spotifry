@@ -82,7 +82,7 @@ Without a release key, the build is signed with your debug key. The release key 
 - [Media3 / ExoPlayer](https://github.com/androidx/media) for playback
 - [BetterLyrics](https://github.com/better-lyrics/better-lyrics) for word-timed lyrics
 - [LRCLIB](https://lrclib.net) for lyrics
-- [SimpMusic Lyrics](https://lyrics.simpmusic.org) for word-timed lyrics written by listeners, used with the maintainer's permission
+- [SimpMusic Lyrics](https://lyrics.simpmusic.org) by [maxrave-dev](https://github.com/maxrave-dev/SimpMusic)
 - [Deezer](https://www.deezer.com) and [NetEase Cloud Music](https://music.163.com) for word-timed lyrics, only when you leave their switches on: Spotifry reads their public pages unofficially and is not affiliated with them
 - [SponsorBlock](https://sponsor.ajay.app) for the parts of music videos that aren't music
 - [JioSaavn](https://www.jiosaavn.com), only if you turn on the 320 kbps switch: Spotifry reads its public website, unofficially, and is not affiliated with it
