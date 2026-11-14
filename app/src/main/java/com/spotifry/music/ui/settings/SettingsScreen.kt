@@ -43,7 +43,7 @@ import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.data.UpdateState
 
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, updates: com.spotifry.music.data.Updates? = null, onOpenEqualizer: () -> Unit = {}, backup: BackupActions? = null) {
+fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, updates: com.spotifry.music.data.Updates? = null, onOpenEqualizer: () -> Unit = {}, onOpenStorage: () -> Unit = {}, backup: BackupActions? = null) {
     val dataSaver by vm.settings.dataSaver.collectAsStateWithLifecycle()
     val saveLow by vm.settings.saveLow.collectAsStateWithLifecycle()
     val theme by vm.settings.theme.collectAsStateWithLifecycle()
@@ -52,7 +52,6 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val smartTrim by vm.settings.smartTrim.collectAsStateWithLifecycle()
     val jioSaavn by vm.settings.jioSaavn.collectAsStateWithLifecycle()
     val monochrome by vm.settings.monochrome.collectAsStateWithLifecycle()
-    val cacheMb by vm.settings.cacheMb.collectAsStateWithLifecycle()
 
     val hideNonMusic by vm.settings.hideNonMusic.collectAsStateWithLifecycle()
     val lyricsOff by vm.settings.lyricsOff.collectAsStateWithLifecycle()
@@ -159,12 +158,9 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 }
             }
             Group("Storage") {
-                Item("Saved songs", storage?.let { "${it.savedCount} ${if (it.savedCount == 1) "song" else "songs"} · ${size(it.savedBytes)}" } ?: "Counting…")
-                Item("Replay storage", "Most space for played songs. ∞ keeps them until Android needs the space.", below = true) {
-                    Segments(CACHE_MB.map(::cacheLabel), CACHE_MB.indexOf(cacheMb).coerceAtLeast(0), Modifier.fillMaxWidth(), fill = true) { vm.settings.setCacheMb(CACHE_MB[it]) }
+                Item("Storage", storage?.let { "${size(it.savedBytes + it.songCacheBytes + it.coverBytes + it.dbBytes)} used by Spotifry" } ?: "Counting…", onClick = onOpenStorage) {
+                    androidx.compose.material3.Icon(com.spotifry.music.ui.Icons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Item("Clear played songs kept for replay", storage?.let { "${size(it.songCacheBytes)} of ${if (cacheMb == 0) "no limit" else cacheLabel(cacheMb)}" } ?: "Counting…", onClick = vm::clearSongCache)
-                Item("Clear covers kept for speed", storage?.let { "${size(it.coverBytes)}" } ?: "Counting…", onClick = vm::clearCovers)
             }
             if (backup != null) Group("Backup") {
                 Item("Save backup", "Playlists, history, trims and settings in one file.", onClick = backup.save)
@@ -234,7 +230,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
 }
 
 @Composable
-private fun Group(title: String, content: @Composable () -> Unit) {
+internal fun Group(title: String, content: @Composable () -> Unit) {
     Text(title, Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 8.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Column(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)) {
         content()
@@ -242,7 +238,7 @@ private fun Group(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Item(
+internal fun Item(
     title: String, subtitle: String? = null, danger: Boolean = false, onClick: (() -> Unit)? = null, role: Role? = null,
     below: Boolean = false, trailing: @Composable () -> Unit = {},
 ) {
@@ -281,8 +277,8 @@ internal fun Segments(options: List<String>, selected: Int, modifier: Modifier =
     }
 }
 
-private fun cacheLabel(mb: Int) = when { mb == 0 -> "∞"; mb >= 1024 -> "${mb / 1024} GB"; else -> "$mb MB" }
-private val CACHE_MB = listOf(512, 1024, 2048, 5120, 0) // 0 = no limit
+internal fun cacheLabel(mb: Int) = when { mb == 0 -> "∞"; mb >= 1024 -> "${mb / 1024} GB"; else -> "$mb MB" }
+internal val CACHE_MB = listOf(512, 1024, 2048, 5120, 0) // 0 = no limit
 private val FADES = listOf(0, 2, 5, 8, 12)
 
 // off must still read as a switch on the dark card: a lighter track, an outline and a pale knob

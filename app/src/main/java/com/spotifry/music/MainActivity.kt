@@ -125,6 +125,7 @@ object Routes {
     const val SEARCH = "search"
     const val SETTINGS = "settings"
     const val EQUALIZER = "settings/equalizer"
+    const val STORAGE = "settings/storage"
     const val SAVED = "saved"
     const val PLAYLISTS = "playlists"
     const val PLAYLIST = "playlist/{id}"
@@ -216,7 +217,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs)) } })
     val listeningRow: com.spotifry.music.ui.listening.ListeningRowViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.listening.ListeningRowViewModel(c.db.listens()) } })
     val settingsVm: SettingsViewModel = viewModel(factory = viewModelFactory { initializer {
-        SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.listens(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache, c.resolver::clear)
+        SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.listens(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache, c.resolver::clear, appContext.getDatabasePath("music.db").parentFile)
     } })
     val importVm: ImportViewModel = viewModel(factory = viewModelFactory { initializer { ImportViewModel({ SpotifyImport.fetch(c.client, it) }, c.source, c.db.playlists(), c.db.songs()) } })
     val artistsVm: com.spotifry.music.ui.home.ArtistsHomeViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.home.ArtistsHomeViewModel(c.settings, com.spotifry.music.data.ArtistSongs(c.source)) } })
@@ -392,8 +393,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                             LaunchedEffect(Unit) { com.spotifry.music.data.spotifried.enqueueYearLookup(context) }
                             com.spotifry.music.ui.spotifried.SpotifriedScreen(vm, { nav.popBackStack() }, inset)
                         }
-                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }, backup = backupActions) }
+                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }, onOpenStorage = { nav.navigate(Routes.STORAGE) }, backup = backupActions) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.spectrum, c.autoEq, player.isPlaying, { nav.popBackStack() }, inset) }
+                        composable(Routes.STORAGE) { com.spotifry.music.ui.settings.StorageScreen(settingsVm, { nav.popBackStack() }, inset) }
                         composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset, pageActions, onMood = { nav.navigate(Routes.mood(it)) { launchSingleTop = true } }) }
                         composable(Routes.MOOD, listOf(navArgument("name") { type = NavType.StringType; defaultValue = "" })) { e ->
                             // a name no tile has (saved state after a rename): nothing to show, back to Search

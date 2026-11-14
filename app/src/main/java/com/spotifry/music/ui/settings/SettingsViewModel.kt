@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import okhttp3.Cache
 import java.io.File
 
-data class Storage(val savedCount: Int, val savedBytes: Long, val coverBytes: Long, val songCacheBytes: Long = 0)
+data class Storage(val savedCount: Int, val savedBytes: Long, val coverBytes: Long, val songCacheBytes: Long = 0, val dbBytes: Long = 0, val phoneTotal: Long = 0)
 
 class SettingsViewModel(
     val settings: Settings,
@@ -28,6 +28,7 @@ class SettingsViewModel(
     private val covers: Cache?,
     private val songCache: androidx.media3.datasource.cache.Cache? = null,
     private val forgetLinks: () -> Unit = {},
+    private val dbDir: File? = null,
 ) : ViewModel() {
     private val _storage = MutableStateFlow<Storage?>(null)
     /** Null while counting. Counted each time the page opens and after clearing covers. */
@@ -38,7 +39,9 @@ class SettingsViewModel(
     fun count() = viewModelScope.launch(Dispatchers.IO) {
         // the songs folder holds the saved audio and its covers, nothing else
         val bytes = songsDir.listFiles()?.filter { it.extension != "part" }?.sumOf { it.length() } ?: 0
-        _storage.value = Storage(songs.savedCount(), bytes, runCatching { covers?.size() }.getOrNull() ?: 0, runCatching { songCache?.cacheSpace }.getOrNull() ?: 0)
+        val db = dbDir?.listFiles()?.filter { it.name.startsWith("music.db") }?.sumOf { it.length() } ?: 0
+        val phone = runCatching { android.os.StatFs(songsDir.parentFile?.path ?: songsDir.path).totalBytes }.getOrNull() ?: 0
+        _storage.value = Storage(songs.savedCount(), bytes, runCatching { covers?.size() }.getOrNull() ?: 0, runCatching { songCache?.cacheSpace }.getOrNull() ?: 0, db, phone)
     }
 
     fun clearCovers() = viewModelScope.launch(Dispatchers.IO) {
