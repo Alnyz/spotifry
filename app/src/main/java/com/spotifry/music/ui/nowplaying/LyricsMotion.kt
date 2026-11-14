@@ -91,9 +91,9 @@ private fun table(d: Float, xs: FloatArray, ys: FloatArray): Float {
 }
 
 private val AheadAt = floatArrayOf(0f, 1f, 2f, 3f, 4f)
-private val AheadBright = floatArrayOf(200 / 255f, 178 / 255f, 140 / 255f, 105 / 255f, 90 / 255f)
+private val AheadBright = floatArrayOf(172 / 255f, 150 / 255f, 120 / 255f, 98 / 255f, 86 / 255f)
 private val PastAt = floatArrayOf(-3f, -2f, -1f, 0f)
-private val PastUnlit = floatArrayOf(90 / 255f, 105 / 255f, 130 / 255f, 200 / 255f)
+private val PastUnlit = floatArrayOf(90 / 255f, 105 / 255f, 130 / 255f, 172 / 255f)
 private val PastLit = floatArrayOf(90 / 255f, 105 / 255f, 130 / 255f, 1f)
 
 /** Brightness of text not yet sung, [d] lines away from the focus (negative: the line is behind it). */
@@ -106,7 +106,7 @@ internal fun litAlpha(d: Float): Float = if (d >= 0) 1f else table(d, PastAt, Pa
 internal fun focusScale(d: Float): Float = 1f + .1f * (1f - abs(d).coerceAtMost(1f))
 
 /** Blur in dp: none on the focus line, more the further away. */
-internal fun blurDp(d: Float): Float = abs(d).coerceAtMost(4f) * .9f
+internal fun blurDp(d: Float): Float = abs(d).coerceAtMost(4f) * .4f
 
 /**
  * Where each word starts in the line's text (one extra entry at the end), or null when the words don't spell the line

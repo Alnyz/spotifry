@@ -86,10 +86,10 @@ class LyricsMotionTest {
     }
 
     @Test fun depthFollowsTheMeasuredBrightness() {
-        assertEquals(200 / 255f, unlitAlpha(0f), 1e-6f)
-        assertEquals(178 / 255f, unlitAlpha(1f), 1e-6f)
-        assertEquals(140 / 255f, unlitAlpha(2f), 1e-6f)
-        assertEquals(105 / 255f, unlitAlpha(3f), 1e-6f)
+        assertEquals(172 / 255f, unlitAlpha(0f), 1e-6f)
+        assertEquals(150 / 255f, unlitAlpha(1f), 1e-6f)
+        assertEquals(120 / 255f, unlitAlpha(2f), 1e-6f)
+        assertEquals(98 / 255f, unlitAlpha(3f), 1e-6f)
         assertEquals(130 / 255f, unlitAlpha(-1f), 1e-6f)
         assertEquals(1f, litAlpha(0f), 0f)
         assertEquals(1.1f, focusScale(0f), 1e-6f)
