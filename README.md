@@ -26,7 +26,7 @@
 | Crossfade | Songs overlap for 2 to 12 seconds as one runs into the next. When both have a clear, similar beat they line up on it, and the first 3 seconds or so of the next song are skipped to do that. |
 | Speed and pitch | Each set on its own, kept for every song. |
 | Same loudness | Quiet songs are turned up and loud ones down. |
-| Skip quiet parts | Jumps over long silent intros and endings. |
+| Skip silence | Jumps over long silent intros and endings. |
 | Trim | Cut a song's start and end yourself. Talking at the start and end of music videos is cut by itself, from [SponsorBlock](https://sponsor.ajay.app)'s shared list. |
 | Sleep timer | Fades the music out and stops after a set time or at the end of the song. |
 | Offline | Save songs to the phone. Recently played songs (up to 1 GB by default, 512 MB to 5 GB or no limit in Settings) replay without using data. |

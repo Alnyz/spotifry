@@ -100,7 +100,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                     Switch(sameLoudness, null, colors = switchColors())
                 }
                 Item(
-                    "Skip quiet parts", "Jumps over long silences.",
+                    "Skip silence", "Jumps over long silences.",
                     onClick = { vm.settings.setSkipSilence(!skipSilence) }, role = Role.Switch,
                 ) {
                     Switch(skipSilence, null, colors = switchColors())

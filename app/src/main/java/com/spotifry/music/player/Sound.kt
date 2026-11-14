@@ -119,3 +119,27 @@ class Spectrum {
         }
     }
 }
+
+/**
+ * What counts as silence for Skip silence. The player's own numbers (level 1024, about -30 dB, for 100 ms) also cut the
+ * soft end of a sung word, so these only match real gaps.
+ */
+object SilenceRules {
+    /** Samples below this (of 32768, about -50 dB) are silence. */
+    const val THRESHOLD_LEVEL: Short = 100
+    const val MIN_SILENCE_US = 500_000L
+    /** Share of a silence kept, so a skip leaves a breath. */
+    const val RETENTION_RATIO = 0.2f
+    const val MAX_KEPT_US = 2_000_000L
+    const val MIN_VOLUME_PERCENT = 10
+}
+
+/** The sound chain with our own silence skipper in place of the player's, which [androidx.media3.exoplayer.ExoPlayer.setSkipSilenceEnabled] still switches. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+fun audioChain(processors: Array<androidx.media3.common.audio.AudioProcessor>) =
+    androidx.media3.exoplayer.audio.DefaultAudioSink.DefaultAudioProcessorChain(processors, newSilenceSkipper(), androidx.media3.common.audio.SonicAudioProcessor())
+
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+fun newSilenceSkipper() = androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor(
+    SilenceRules.MIN_SILENCE_US, SilenceRules.RETENTION_RATIO, SilenceRules.MAX_KEPT_US, SilenceRules.MIN_VOLUME_PERCENT, SilenceRules.THRESHOLD_LEVEL,
+)
