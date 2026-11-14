@@ -29,7 +29,7 @@ import com.spotifry.music.ui.components.ScreenHeader
 
 /** How much of the phone Spotifry uses and what it is made of, with the replay cache limit and the two clear buttons. */
 @Composable
-fun StorageScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier) {
+fun StorageScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, backup: BackupActions? = null) {
     val storage by vm.storage.collectAsStateWithLifecycle()
     val cacheMb by vm.settings.cacheMb.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -39,7 +39,7 @@ fun StorageScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, mo
     val colors = listOf(scheme.primary, scheme.tertiary, scheme.secondary, scheme.outline)
 
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 24.dp)) {
-        item { ScreenHeader("Storage", onBack = onBack) }
+        item { ScreenHeader("Storage & backup", onBack = onBack) }
         item {
             val s = storage
             if (s == null) { Text("Counting…", Modifier.padding(20.dp), color = scheme.onSurfaceVariant); return@item }
@@ -77,6 +77,10 @@ fun StorageScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, mo
                 }
                 Item("Clear played songs kept for replay", size(s.songCacheBytes), onClick = vm::clearSongCache)
                 Item("Clear covers kept for speed", size(s.coverBytes), onClick = vm::clearCovers)
+            }
+            if (backup != null) Group("Backup") {
+                Item("Save backup", "Playlists, history, trims and settings in one file.", onClick = backup.save)
+                Item("Restore backup", "Brings a backup into this phone.", onClick = backup.restore)
             }
         }
     }

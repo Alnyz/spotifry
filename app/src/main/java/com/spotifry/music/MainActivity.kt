@@ -126,6 +126,12 @@ object Routes {
     const val SETTINGS = "settings"
     const val EQUALIZER = "settings/equalizer"
     const val STORAGE = "settings/storage"
+    const val SETTINGS_SOUND = "settings/sound"
+    const val SETTINGS_LOOK = "settings/look"
+    const val SETTINGS_PHONE = "settings/phone"
+    const val SETTINGS_LYRICS = "settings/lyrics"
+    const val SETTINGS_HISTORY = "settings/history"
+    const val SETTINGS_ABOUT = "settings/about"
     const val SAVED = "saved"
     const val PLAYLISTS = "playlists"
     const val PLAYLIST = "playlist/{id}"
@@ -393,9 +399,15 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                             LaunchedEffect(Unit) { com.spotifry.music.data.spotifried.enqueueYearLookup(context) }
                             com.spotifry.music.ui.spotifried.SpotifriedScreen(vm, { nav.popBackStack() }, inset)
                         }
-                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, updates = c.updates, onOpenEqualizer = { nav.navigate(Routes.EQUALIZER) }, onOpenStorage = { nav.navigate(Routes.STORAGE) }, backup = backupActions) }
+                        composable(Routes.SETTINGS) { SettingsScreen(settingsVm, { nav.popBackStack() }, inset, { nav.navigate(it) }, updates = c.updates) }
+                        composable(Routes.SETTINGS_SOUND) { com.spotifry.music.ui.settings.SoundSettings(settingsVm, { nav.popBackStack() }, inset, { nav.navigate(Routes.EQUALIZER) }) }
+                        composable(Routes.SETTINGS_LOOK) { com.spotifry.music.ui.settings.LookSettings(settingsVm, { nav.popBackStack() }, inset) }
+                        composable(Routes.SETTINGS_PHONE) { com.spotifry.music.ui.settings.PhoneSettings(settingsVm, { nav.popBackStack() }, inset) }
+                        composable(Routes.SETTINGS_LYRICS) { com.spotifry.music.ui.settings.LyricsSettings(settingsVm, { nav.popBackStack() }, inset) }
+                        composable(Routes.SETTINGS_HISTORY) { com.spotifry.music.ui.settings.HistorySettings(settingsVm, { nav.popBackStack() }, inset) }
+                        composable(Routes.SETTINGS_ABOUT) { com.spotifry.music.ui.settings.AboutSettings(c.updates, { nav.popBackStack() }, inset) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.spectrum, c.autoEq, player.isPlaying, { nav.popBackStack() }, inset) }
-                        composable(Routes.STORAGE) { com.spotifry.music.ui.settings.StorageScreen(settingsVm, { nav.popBackStack() }, inset) }
+                        composable(Routes.STORAGE) { com.spotifry.music.ui.settings.StorageScreen(settingsVm, { nav.popBackStack() }, inset, backup = backupActions) }
                         composable(Routes.SEARCH) { SearchScreen(home, openMenu, inset, pageActions, onMood = { nav.navigate(Routes.mood(it)) { launchSingleTop = true } }) }
                         composable(Routes.MOOD, listOf(navArgument("name") { type = NavType.StringType; defaultValue = "" })) { e ->
                             // a name no tile has (saved state after a rename): nothing to show, back to Search
