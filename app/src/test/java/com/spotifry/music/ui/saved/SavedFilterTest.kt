@@ -29,6 +29,14 @@ class SavedFilterTest {
         assertTrue(filterSaved(SavedFilter.All, s, both, emptyList()).first().saved)
     }
 
+    @Test fun aCopyMadeByExportIsNamedAfterItsFileAndStillShowsOnce() {
+        // an Opus copy has no tags, so Android lists it as "A - One" with no artist
+        val copy = file(8, "A - One", "Unknown artist", 201)
+        assertEquals(listOf("y1", "y2"), ids(SavedFilter.All, s, listOf(copy)))
+        // the same title with another length is another song
+        assertEquals(listOf("y1", "y2", "local:8"), ids(SavedFilter.All, s, listOf(file(8, "A - One", "Unknown artist", 300))))
+    }
+
     @Test fun sameNameButAnotherLengthIsAnotherSong() = assertEquals(listOf("y1", "y2", "local:9"), ids(SavedFilter.All, s, listOf(file(9, "One", "A", 260))))
 
     @Test fun playedLatelyKeepsHistoryOrderAndDropsWhatThePageCantList() {

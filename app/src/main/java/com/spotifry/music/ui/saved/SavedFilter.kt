@@ -1,6 +1,7 @@
 package com.spotifry.music.ui.saved
 
 import com.spotifry.music.data.db.SongEntity
+import com.spotifry.music.data.exportStem
 import com.spotifry.music.data.source.Song
 import kotlin.math.abs
 
@@ -34,7 +35,9 @@ fun filterSaved(filter: SavedFilter, saved: List<SongEntity>, phone: List<Song>,
         SavedFilter.All -> {
             // the same song saved from YouTube and found as a file: same name and artist, and a length within a few seconds
             val lengths = savedRows.groupBy({ it.song.nameKey() }, { it.song.durationSec })
-            val phoneRows = phone.filter { p -> lengths[p.nameKey()].orEmpty().none { abs(it - p.durationSec) <= 3 } }.map { SavedRow(it, false) }
+            // a copy made by Export has no tags of its own (an Opus one), so Android names it after its file: "Artist - Title"
+            val copies = savedRows.groupBy({ exportStem(it.song.title, it.song.artist).folded() }, { it.song.durationSec })
+            val phoneRows = phone.filter { p -> (lengths[p.nameKey()].orEmpty() + copies[p.title.folded()].orEmpty()).none { abs(it - p.durationSec) <= 3 } }.map { SavedRow(it, false) }
             (savedRows + phoneRows).distinctBy { it.song.id }
         }
         SavedFilter.Lately -> {
