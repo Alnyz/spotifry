@@ -64,6 +64,7 @@ class PlaybackService : MediaSessionService() {
     private val wakeTick = Channel<Unit>(Channel.CONFLATED)
     private var tailEqualizer: EqualizerProcessor? = null
     private var tailLoudness: LoudnessProcessor? = null
+    private var tailSpatial: SpatialProcessor? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -78,11 +79,12 @@ class PlaybackService : MediaSessionService() {
         val dataSource = ResolvingDataSource.Factory(DefaultDataSource.Factory(this, cached), SavedFileResolver(c.db.songs()))
         val equalizer = EqualizerProcessor()
         val loudness = LoudnessProcessor(c.spectrum)
+        val spatial = SpatialProcessor()
         val levels = LoudnessMemory(getSharedPreferences("loudness", MODE_PRIVATE))
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(equalizer, loudness)).build()
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(equalizer, loudness, spatial)).build()
         }
         val player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
@@ -104,6 +106,9 @@ class PlaybackService : MediaSessionService() {
 
         scope.launch {
             kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels) { on, l -> if (on) l else null }.collect { equalizer.set(it); tailEqualizer?.set(it) }
+        }
+        scope.launch {
+            kotlinx.coroutines.flow.combine(c.settings.mono, c.settings.spatial) { m, sp -> m to sp }.collect { (m, sp) -> spatial.set(m, sp); tailSpatial?.set(m, sp) }
         }
         // not immediate: a wake must run after the listener that sent it has finished, never inside it
         scope.launch(Dispatchers.Main) {
@@ -300,11 +305,12 @@ class PlaybackService : MediaSessionService() {
                 // its own sound chain, as a chain can't serve two players. It holds the level the song is at now and remembers nothing.
                 val eq = EqualizerProcessor().apply { set(if (c.settings.eqOn.value) c.settings.eqLevels.value else null) }
                 val level = LoudnessProcessor().apply { enabled = c.settings.sameLoudness.value; leveler.hold(loudness.gainDb) }
-                tailEqualizer = eq; tailLoudness = level
+                val spatial = SpatialProcessor().apply { set(c.settings.mono.value, c.settings.spatial.value) }
+                tailEqualizer = eq; tailLoudness = level; tailSpatial = spatial
                 val renderers = object : DefaultRenderersFactory(this@PlaybackService) {
                     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                         DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(eq, level)).build()
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(soundChain(eq, level, spatial)).build()
                 }
                 ExoPlayer.Builder(this, renderers)
                     .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))

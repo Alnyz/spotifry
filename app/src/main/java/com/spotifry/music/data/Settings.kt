@@ -7,6 +7,7 @@ import com.spotifry.music.player.AUTOEQ_PREFIX
 import com.spotifry.music.player.eqFromOldBands
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 
 enum class ThemeMode { PHONE, LIGHT, DARK }
 
@@ -54,6 +55,27 @@ class Settings(private val prefs: SharedPreferences) {
     val fadeSeconds: StateFlow<Int> = _fadeSeconds
     fun setFadeSeconds(s: Int) { _fadeSeconds.value = s; prefs.edit().putInt(FADE, s).apply() }
 
+
+    private val _mono = MutableStateFlow(prefs.getBoolean(MONO, false))
+    /** Left and right mixed into one. */
+    val mono: StateFlow<Boolean> = _mono
+    fun setMono(on: Boolean) { _mono.value = on; prefs.edit().putBoolean(MONO, on).apply() }
+
+    private val _spatialOn = MutableStateFlow(prefs.getBoolean(SPATIAL_ON, false))
+    val spatialOn: StateFlow<Boolean> = _spatialOn
+    private val _spatialTune = MutableStateFlow(
+        com.spotifry.music.player.SpatialSetting(prefs.getInt(SPATIAL_HZ, 700), prefs.getInt(SPATIAL_DB, 6), prefs.getInt(SPATIAL_AMOUNT, 100)),
+    )
+    /** The three sliders, kept while the switch is off. */
+    val spatialTune: StateFlow<com.spotifry.music.player.SpatialSetting> = _spatialTune
+    /** What the sound chain uses: the sliders when the switch is on, else null. */
+    val spatial: StateFlow<com.spotifry.music.player.SpatialSetting?> = kotlinx.coroutines.flow.combine(_spatialOn, _spatialTune) { on, t -> if (on) t else null }
+        .stateIn(kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default), kotlinx.coroutines.flow.SharingStarted.Eagerly, null)
+    fun setSpatialOn(on: Boolean) { _spatialOn.value = on; prefs.edit().putBoolean(SPATIAL_ON, on).apply() }
+    fun setSpatialTune(t: com.spotifry.music.player.SpatialSetting, save: Boolean = true) {
+        _spatialTune.value = t
+        if (save) prefs.edit().putInt(SPATIAL_HZ, t.shadowHz).putInt(SPATIAL_DB, t.crossDb).putInt(SPATIAL_AMOUNT, t.amount).apply()
+    }
 
     private val _eqOn = MutableStateFlow(prefs.getBoolean(EQ_ON, false))
     val eqOn: StateFlow<Boolean> = _eqOn
@@ -219,6 +241,11 @@ class Settings(private val prefs: SharedPreferences) {
         const val PITCH = "pitch"
         const val FADE = "fade_seconds"
         const val EQ_ON = "eq_on"
+        const val MONO = "mono"
+        const val SPATIAL_ON = "spatial_on"
+        const val SPATIAL_HZ = "spatial_hz"
+        const val SPATIAL_DB = "spatial_db"
+        const val SPATIAL_AMOUNT = "spatial_amount"
         const val EQ_PRESET = "eq_preset"
         /** The bars of the phone's own equalizer, read only to carry them over. */
         const val EQ_LEVELS = "eq_levels"

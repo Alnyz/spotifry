@@ -150,7 +150,7 @@ class EqualizerTest {
     private fun playThroughChain(levels: List<Int>?, tap: SpectrumTap? = null): LoudnessProcessor {
         val eq = EqualizerProcessor().apply { set(levels) }
         val loudness = LoudnessProcessor(tap)
-        val chain = soundChain(eq, loudness)
+        val chain = soundChain(eq, loudness, SpatialProcessor())
         chain.forEach { it.configure(AudioProcessor.AudioFormat(rate, 2, C.ENCODING_PCM_16BIT)); it.flush(AudioProcessor.StreamMetadata.DEFAULT) }
         for (b in 0 until 120) {
             var sound = pcm(*ShortArray(rate / 5) { (11_600 * sin(2 * PI * 1000.0 * (b * rate / 10 + it / 2) / rate)).toInt().toShort() })

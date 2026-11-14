@@ -56,6 +56,8 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
     val hideNonMusic by vm.settings.hideNonMusic.collectAsStateWithLifecycle()
     val lyricsOff by vm.settings.lyricsOff.collectAsStateWithLifecycle()
     val fade by vm.settings.fadeSeconds.collectAsStateWithLifecycle()
+    val mono by vm.settings.mono.collectAsStateWithLifecycle()
+    val spatialOn by vm.settings.spatialOn.collectAsStateWithLifecycle()
     val eqOn by vm.settings.eqOn.collectAsStateWithLifecycle()
     val eqPreset by vm.settings.eqPreset.collectAsStateWithLifecycle()
     val storage by vm.storage.collectAsStateWithLifecycle()
@@ -111,6 +113,13 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, m
                 Item("Crossfade", "Songs overlap, on the beat when they can.", below = true) {
                     Segments(FADES.map { if (it == 0) "Off" else "$it s" }, FADES.indexOf(fade).coerceAtLeast(0)) { vm.settings.setFadeSeconds(FADES[it]) }
                 }
+                Item("Mono audio", "Left and right mixed into one. For one earbud or hearing in one ear.", onClick = { vm.settings.setMono(!mono) }, role = Role.Switch) {
+                    Switch(mono, null, colors = switchColors())
+                }
+                Item("Spatial audio", "For headphones: a little of each side reaches the other ear, like speakers.", onClick = { vm.settings.setSpatialOn(!spatialOn) }, role = Role.Switch) {
+                    Switch(spatialOn, null, colors = switchColors())
+                }
+                if (spatialOn) SpatialControls(vm.settings)
                 Item("Equalizer", if (!eqOn) "Off" else eqPreset ?: "Custom", onClick = onOpenEqualizer) {
                     androidx.compose.material3.Icon(com.spotifry.music.ui.Icons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
