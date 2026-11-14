@@ -25,13 +25,25 @@ class ExportTest {
         dir.deleteRecursively()
     }
 
-    @Test fun anEarlierCopyIsNeverOverwritten() {
+    @Test fun anotherSongUnderTheSameNameIsNeverOverwritten() {
         val dir = createTempDir("export")
         val music = File(dir, "Music")
         val first = exportToMusic(music, song(dir), "Song", "Queen")!!
-        val second = exportToMusic(music, song(dir), "Song", "Queen")!!
+        val other = File(dir, "other.flac").apply { writeBytes(ByteArray(500)) }
+        val second = exportToMusic(music, other, "Song", "Queen")!!
         assertEquals("Queen - Song (1).flac", second.name)
         assertEquals("Queen - Song.flac", first.name)
+        assertEquals(1000, first.length())
+        dir.deleteRecursively()
+    }
+
+    @Test fun copyingTheSameSongAgainKeepsTheOneFile() {
+        val dir = createTempDir("export")
+        val music = File(dir, "Music")
+        val first = exportToMusic(music, song(dir), "Song", "Queen")!!
+        val again = exportToMusic(music, song(dir), "Song", "Queen")!!
+        assertEquals(first, again)
+        assertEquals(listOf("Queen - Song.flac"), first.parentFile.list()!!.toList())
         dir.deleteRecursively()
     }
 

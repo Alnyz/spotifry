@@ -10,7 +10,8 @@ fun exportName(title: String, artist: String, ext: String): String {
 
 /**
  * Copies a saved song into [music]/Spotifry, where other players and file managers see it. An earlier copy is never
- * overwritten: a second one is named "Name (1).ext". Null when the copy could not be made. Run off the window's thread.
+ * overwritten: another song under the same name becomes "Name (1).ext", and the same song again just returns the copy
+ * already there. Null when the copy could not be made. Run off the window's thread.
  */
 fun exportToMusic(music: File, saved: File, title: String, artist: String): File? {
     if (!saved.isFile) return null
@@ -19,7 +20,10 @@ fun exportToMusic(music: File, saved: File, title: String, artist: String): File
         dir.mkdirs()
         val name = exportName(title, artist, saved.extension)
         val stem = name.removeSuffix("." + saved.extension)
-        val target = generateSequence(0) { it + 1 }.map { n -> File(dir, if (n == 0) name else "$stem ($n).${saved.extension}") }.first { !it.exists() }
+        val candidates = generateSequence(0) { it + 1 }.map { n -> File(dir, if (n == 0) name else "$stem ($n).${saved.extension}") }
+        // ponytail: same name and same size counts as the same song; a byte-by-byte check is not worth it here
+        candidates.takeWhile { it.exists() }.firstOrNull { it.length() == saved.length() }?.let { return it }
+        val target = candidates.first { !it.exists() }
         // written under another name first, so a copy cut short never looks like a finished song
         val part = File(dir, "${target.name}.part")
         saved.copyTo(part, overwrite = true)

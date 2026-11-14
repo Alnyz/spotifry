@@ -244,6 +244,8 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
                     if (exported == null) scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                         val file = lib.db.songs().get(song.id)?.filePath?.let { java.io.File(it) }
                         exported = file != null && exportToMusic(Platform.userFolder("Music"), file, song.title, song.artist) != null
+                        // On this computer is read at start and when Saved opens: read it again now so the copy shows without leaving the page
+                        if (exported == true) lib.musicFolder.refresh()
                     }
                 })
                 DropdownMenuItem({ Text("Add to a playlist") }, onClick = { view = "lists" })
