@@ -27,4 +27,18 @@ class UpdatesTest {
         val json = "[" + release("d2", "Spotifry-0.2.0-x86_64.AppImage") + "," + release("d10", "Spotifry-0.10.0-x86_64.AppImage") + "]"
         assertEquals("0.10.0", newestDesktopRelease(json, windows = false)!!.version)
     }
+
+    @Test fun theReleaseKeepsItsDownloadAddressSizeAndChecksum() {
+        val sum = "a".repeat(64)
+        val json = """[{"tag_name":"d","html_url":"page","draft":false,"prerelease":false,"assets":[{"name":"Spotifry-0.8.0-x86_64.AppImage","browser_download_url":"https://github.com/x/f","size":42,"digest":"sha256:$sum"}]}]"""
+        assertEquals(DesktopRelease("0.8.0", "page", "https://github.com/x/f", 42, sum), newestDesktopRelease(json, windows = false))
+    }
+
+    @Test fun swappingReplacesTheFileAndMakesItRunnable() {
+        val dir = createTempDir().also { it.deleteOnExit() }
+        val old = java.io.File(dir, "Spotifry.AppImage").apply { writeText("old") }
+        val new = java.io.File(dir, "Spotifry.AppImage.new").apply { writeText("new") }
+        swapIn(new, old)
+        assertEquals("new", old.readText()); assertEquals(false, new.exists()); assertEquals(true, old.canExecute())
+    }
 }

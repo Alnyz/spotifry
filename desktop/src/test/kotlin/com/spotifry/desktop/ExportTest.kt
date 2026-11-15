@@ -81,4 +81,10 @@ class ExportTest {
         assertNull(exportToMusic(File(dir, "Music"), File(dir, "gone.flac"), "Song", "Queen", ffmpeg = null))
         dir.deleteRecursively()
     }
+
+    @Test fun aFolderAlreadyCalledSpotifryIsUsedAsItIs() {
+        val dir = createTempDir().also { it.deleteOnExit() }
+        val out = exportToMusic(File(dir, "Spotifry"), song(dir), "Song", "Queen", ffmpeg = null)!!
+        assertEquals(File(dir, "Spotifry"), out.parentFile)
+    }
 }

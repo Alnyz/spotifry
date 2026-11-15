@@ -274,19 +274,25 @@ private fun sizeText(bytes: Long) = when {
     else -> "${bytes shr 10} KB"
 }
 
-/** The version, when GitHub was last asked, and Check now; Update opens the download page when a newer one is out. */
+/** The version, when GitHub was last asked, and Check now; Update downloads and installs the new version right here. */
 @Composable
 private fun UpdateRow(services: Services) {
     val updates = services.library.updates
     val available by updates.available.collectAsState()
     val checking by updates.checking.collectAsState()
     val checked by updates.lastChecked.collectAsState()
+    val working by updates.progress.collectAsState()
     val when_ = if (checked == 0L) "Not checked yet" else "Checked " + java.time.format.DateTimeFormatter.ofPattern("d MMM, HH:mm").format(java.time.Instant.ofEpochMilli(checked).atZone(java.time.ZoneId.systemDefault()))
     val next = available
-    Row("Spotifry", "Version $desktopVersion · " + when { checking -> "Checking…"; next != null -> "${next.version} is out"; else -> when_ }) {
-        if (next != null) Text("Update", color = Palette.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { updates.open(next) }.padding(horizontal = 6.dp, vertical = 4.dp))
-        else if (!checking) Text("Check now", color = Palette.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { updates.check() }.padding(horizontal = 6.dp, vertical = 4.dp))
+    val step = working?.step
+    Row("Spotifry", "Version $desktopVersion · " + when { working != null -> working!!.text; checking -> "Checking…"; next != null -> "${next.version} is out"; else -> when_ }) {
+        @Composable fun action(label: String, run: () -> Unit) = Text(label, color = Palette.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { run() }.padding(horizontal = 6.dp, vertical = 4.dp))
+        when {
+            step == UpdateStep.Working -> {}
+            step == UpdateStep.Done -> action(if (Platform.isWindows) "Install" else "Restart") { updates.finish(); services.quit() }
+            next != null -> action("Update") { updates.install(next) }
+            !checking -> action("Check now") { updates.check() }
+        }
     }
 }

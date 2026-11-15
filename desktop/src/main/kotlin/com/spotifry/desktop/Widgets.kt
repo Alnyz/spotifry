@@ -239,12 +239,12 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
                     scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
                     close()
                 })
-                // a saved song as a plain file in Music/Spotifry; the label says how it went, since the menu stays open
-                if (saved && !song.isLocal) DropdownMenuItem({ Text(when (exported) { null -> "Copy to Music folder"; true -> "Copied to Music/Spotifry"; false -> "Couldn't copy it" }) }, onClick = {
+                // a saved song as a plain file in the Music folder chosen in Settings; the label says how it went, since the menu stays open
+                if (saved && !song.isLocal) DropdownMenuItem({ Text(when (exported) { null -> "Copy to Music folder"; true -> "Copied to your Music folder"; false -> "Couldn't copy it" }) }, onClick = {
                     if (exported == null) scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                         val row = lib.db.songs().get(song.id)
                         val file = row?.filePath?.let { java.io.File(it) }
-                        exported = file != null && exportToMusic(Platform.userFolder("Music"), file, song.title, song.artist, row.thumbPath?.let { java.io.File(it) }) != null
+                        exported = file != null && exportToMusic(lib.musicFolder.folder.value, file, song.title, song.artist, row.thumbPath?.let { java.io.File(it) }) != null
                         // On this computer is read at start and when Saved opens: read it again now so the copy shows without leaving the page
                         if (exported == true) lib.musicFolder.refresh()
                     }

@@ -27,14 +27,15 @@ internal fun pictureBlock(image: ByteArray): String? {
 }
 
 /**
- * Copies a saved song into [music]/Spotifry, where other players and file managers see it. A .webm becomes .opus, and
+ * Copies a saved song into [music]/Spotifry (or into [music] itself when that is already called Spotifry), where other players and file managers see it. A .webm becomes .opus, and
  * when ffmpeg is there the file also gets its title, artist and [cover] inside it, so it shows with its picture in the
  * On this computer list. Without ffmpeg, or if it fails, the file is copied as it is. A song already copied is not
  * copied again, and a file is never overwritten. Null when the copy could not be made. Run off the window's thread.
  */
 fun exportToMusic(music: File, saved: File, title: String, artist: String, cover: File? = null, ffmpeg: String? = Platform.find("ffmpeg")): File? {
     if (!saved.isFile) return null
-    val dir = File(music, "Spotifry")
+    // a folder already called Spotifry is used as it is, so choosing D:\Docs\Spotifry in Settings does not make D:\Docs\Spotifry\Spotifry
+    val dir = if (music.name == "Spotifry") music else File(music, "Spotifry")
     return try {
         dir.mkdirs()
         val tagged = if (ffmpeg != null) tagged(ffmpeg, saved, title, artist, cover, dir) else null
