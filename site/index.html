@@ -1223,8 +1223,8 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
         <div><h3>No account</h3><p>Open it and search. It updates itself.</p></div>
       </div>
       <div class="dsk__dl">
-        <a class="btn btn--primary" href="https://github.com/Alnyz/spotifry/releases/">Download for Linux<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
-        <a class="btn btn--secondary" href="https://github.com/Alnyz/spotifry/releases/">Download for Windows</a>
+        <a class="btn btn--primary" data-dl="AppImage" href="https://github.com/Alnyz/spotifry/releases/download/desktop-v0.9.0/Spotifry-0.9.0-x86_64.AppImage">Download for Linux<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+        <a class="btn btn--secondary" data-dl="msi" href="https://github.com/Alnyz/spotifry/releases/download/desktop-v0.9.0/Spotifry-0.9.0-windows-x64.msi">Download for Windows</a>
         <small>Version <span data-ver-desktop>0.9.0</span>. Linux comes as one AppImage file, Windows as an installer.</small>
       </div>
     </div>
@@ -1423,8 +1423,10 @@ fetch('https://api.github.com/repos/Alnyz/spotifry/releases/latest').then(r => r
   document.querySelectorAll('[data-ver]').forEach(e => { e.textContent = v; });
 }).catch(() => {});
 fetch('https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30').then(r => r.ok ? r.json() : null).then(j => {
-  const t = (j || []).find(r => /^desktop-v\d/.test(r.tag_name || '')); if (!t) return;
+  const t = (j || []).find(r => /^desktop-v\d/.test(r.tag_name || '') && !r.prerelease); if (!t) return;
   document.querySelectorAll('[data-ver-desktop]').forEach(e => { e.textContent = t.tag_name.replace(/^desktop-v/, ''); });
+  /* the download buttons point straight at the file of the newest desktop release */
+  document.querySelectorAll('[data-dl]').forEach(a => { const f = (t.assets || []).find(x => x.name.endsWith('.' + a.dataset.dl)); if (f) a.href = f.browser_download_url; });
 }).catch(() => {});
 </script>
 <script>
