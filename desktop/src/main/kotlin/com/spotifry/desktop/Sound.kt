@@ -21,7 +21,7 @@ object Sound {
     private fun num(x: Double, digits: Int = 4) = "%.${digits}f".format(java.util.Locale.US, x)
 
     /**
-     * Skip quiet parts: silences over a second shrink. [db] is how quiet counts as silence; [cutPercent] is the share of a
+     * Skip silence: silences over a second shrink. [db] is how quiet counts as silence; [cutPercent] is the share of a
      * silence taken out, as on the phone. No start trimming: a song that is silence throughout would never play.
      * What is left of a silence is 1.5 s per unit kept, so the default 80% leaves 0.3 s, as before, and never more than the 1 s that starts a cut.
      */

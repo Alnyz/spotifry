@@ -75,7 +75,7 @@ class MpvPlayer(
     private val related: suspend (Song) -> List<Song> = { emptyList() },
     /** Songs marked "Not this song": never suggested again. */
     private val notSuggested: () -> Set<String> = { emptySet() },
-    /** Whether songs may be joined on the beat; skipping quiet parts moves the music against the clock, so not then. */
+    /** Whether songs may be joined on the beat; skipping silence moves the music against the clock, so not then. */
     private val beatsAllowed: () -> Boolean = { true },
     /** The beats of a stretch of a song at a link or file, from its start and end in ms. */
     private val beats: suspend (String, Long, Long) -> BeatGrid? = { url, from, to -> kotlinx.coroutines.withContext(Dispatchers.IO) { readBeats(url, from, to) } },

@@ -140,7 +140,7 @@ internal fun SoundGroup(services: Services, onEqualizer: () -> Unit) {
     }
     Section("Volume") {
         Toggle("Same loudness for every song", "Quiet songs up, loud ones down.", sameLoudness, s::setSameLoudness)
-        Toggle("Skip quiet parts", "Jumps over long silences.", skipSilence, s::setSkipSilence)
+        Toggle("Skip silence", "Jumps over long silences.", skipSilence, s::setSkipSilence)
         if (skipSilence) SilenceRows(s)
         Toggle("Smart trim", "Skips talking at the start and end of music videos.", smartTrim, s::setSmartTrim)
     }
