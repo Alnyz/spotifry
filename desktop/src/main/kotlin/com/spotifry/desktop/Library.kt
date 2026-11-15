@@ -27,7 +27,7 @@ const val NEWPIPE_VERSION = "v0.26.5"
 
 /** Everything the desktop app keeps: the database, the settings, the saved songs and the backup tools. */
 class Library(
-    val db: AppDatabase, val prefs: Prefs, trimPrefs: Prefs, restorePrefs: Prefs, dir: File, val client: OkHttpClient, resolver: StreamResolver,
+    val db: AppDatabase, val prefs: Prefs, trimPrefs: Prefs, restorePrefs: Prefs, val dir: File, val client: OkHttpClient, resolver: StreamResolver,
 ) {
     val settings = Settings(prefs)
     /** Where saved songs are kept: a folder named songs inside the app's data folder. */
@@ -41,6 +41,7 @@ class Library(
     val listenLog = ListenLog(db.listens())
     val restoreQueue = RestoreQueue(restorePrefs, db.songs(), downloads::save, metered = { false })
     val updates = Updates(client, prefs)
+    val changeLog = ChangeLog(client, File(dir, "change_log.json"))
     /** The last ten searches, kept under the phone's key so a backup carries them both ways. */
     val recentSearches = com.spotifry.music.data.RecentSearches(prefs.getString("recent_searches", "").orEmpty().split('\n').filter { it.isNotEmpty() }) {
         prefs.edit().putString("recent_searches", it.joinToString("\n")).apply()
