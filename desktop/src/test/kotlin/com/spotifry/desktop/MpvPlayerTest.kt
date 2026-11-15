@@ -34,7 +34,7 @@ class MpvPlayerTest {
         override suspend fun search(query: String) = emptyList<Song>()
         override suspend fun related(song: Song) = emptyList<Song>()
         override suspend fun resolve(song: Song, low: Boolean): ResolvedStream {
-            if (song.id == "bad") throw java.io.FileNotFoundException("no audio")
+            if (song.id.startsWith("bad")) throw java.io.FileNotFoundException("no audio")
             if (song.id == "slow") kotlinx.coroutines.delay(1_500) // a link that takes a while, like YouTube's
             return ResolvedStream(File(dir, "${song.id}.wav").path, "audio/wav", 0, Long.MAX_VALUE)
         }
@@ -179,9 +179,24 @@ class MpvPlayerTest {
         val p = player!!
         p.playList(songs, 0)
         wait("sound to start") { p.state.first { it.isPlaying } }
-        p.setFilter("loud", Sound.LOUDNESS); p.setFilter("quiet", Sound.SKIP_QUIET)
+        p.setFilter("loud", Sound.LOUDNESS); p.setFilter("quiet", Sound.skipQuiet()); p.setFilter("mono", Sound.MONO); p.setFilter("space", Sound.spatial(com.spotifry.music.player.SpatialSetting.STRONG))
         p.setFilter("loud", null)
         wait("the queue to end with filters on") { p.state.first { it.ended } }
+    }
+
+    @Test fun aSongThatCantLoadSaysSoAndTheNextOnePlays() {
+        val p = player!!
+        p.playList(listOf(Song("bad", "Bad", "A", 1, null), songs[0]), 0)
+        wait("the next song") { p.state.first { it.currentIndex == 1 && it.isPlaying } }
+        assertEquals(null, p.notice.value) // playing again clears the line
+    }
+
+    @Test fun whenEverySongFailsItStopsAndSaysSo() {
+        val p = player!!
+        p.playList((1..3).map { Song("bad$it", "Bad$it", "A", 1, null) }, 0)
+        wait("the stop") { p.notice.first { it?.startsWith("Nothing will play") == true } }
+        assertFalse(p.state.value.wantsPlay)
+        assertEquals("Nothing will play. Check your connection.", p.notice.value)
     }
 
     @Test fun aJumpWhileTheSongIsStillStartingIsKept() {
@@ -246,6 +261,22 @@ class MpvPlayerTest {
         assertTrue("the next song came in at $at ms, under the last 2 s of 8", at in 5_000..7_300)
         assertTrue(p.state.value.isPlaying)
         wait("the end") { p.state.first { it.ended } }
+    }
+
+    /** Bass swap, Filter sweep and Auto run the same join as Silk blend, with their filter moving on both songs, and leave the new song's chain clean. */
+    @Test fun everyTransitionStyleJoinsAndEnds() {
+        for (style in 1..3) {
+            val two = (0..1).map { Song("s$style$it", "S$it", "A", 8, null) }
+            two.forEach { File(dir, "${it.id}.wav").writeBytes(silence(seconds = 8)) }
+            player!!.close()
+            val p = MpvPlayer(StreamResolver(source, scope), scope, null, listOf("--ao=null"), fadeSeconds = { 2 }, beatsAllowed = { false }, transition = { style }).also { player = it }
+            p.playList(two, 0)
+            wait("sound to start") { p.state.first { it.isPlaying } }
+            val began = System.currentTimeMillis()
+            wait("the next song, style $style") { p.state.first { it.currentIndex == 1 } }
+            assertTrue("style $style came in at ${System.currentTimeMillis() - began} ms", System.currentTimeMillis() - began in 5_000..7_300)
+            wait("the end, style $style") { p.state.first { it.ended } }
+        }
     }
 
     @Test fun twoSongsWithTheSameBeatJoinOverWholeBars() {

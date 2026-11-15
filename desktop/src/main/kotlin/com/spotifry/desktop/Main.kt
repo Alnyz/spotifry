@@ -60,6 +60,8 @@ class Services(
     val listening: () -> Pair<String, Long>? = { null },
     /** Starts looking up release years for played songs, for Spotifried; nothing in tests. */
     val lookUpYears: () -> Unit = {},
+    /** A line to show over the player bar: a song that couldn't load. Nothing in tests. */
+    val notice: kotlinx.coroutines.flow.StateFlow<String?> = kotlinx.coroutines.flow.MutableStateFlow(null),
 ) {
     /** Set by the window: bring it to the front (the media widget's "open"), and quit. */
     var raise: () -> Unit = {}
@@ -97,7 +99,7 @@ fun productionServices(): Services {
     val args = System.getenv("SPOTIFRY_MPV_ARGS")?.split(' ')?.filter { it.isNotBlank() }.orEmpty()
     val replay = ReplayStore(client, scope, File(dir, "replay")) { settings.cacheMb.value }
     val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder, trims = library.trims,
-        smartTrims = library.smartTrims, smartTrimOn = { settings.smartTrim.value }, fadeSeconds = { settings.fadeSeconds.value },
+        smartTrims = library.smartTrims, smartTrimOn = { settings.smartTrim.value }, fadeSeconds = { settings.fadeSeconds.value }, transition = { settings.transition.value },
         playFrom = { song, s, alongside -> replay.open(song.id, s.origin, s.url, alongside) },
         related = source::related, notSuggested = library::notSuggested, beatsAllowed = { !settings.skipSilence.value },
     )
@@ -108,13 +110,19 @@ fun productionServices(): Services {
         kotlinx.coroutines.flow.combine(settings.eqOn, settings.eqLevels) { on, l -> if (on) Sound.equalizer(l) else null }.conflate()
             .collect { player.setFilter("eq", it); kotlinx.coroutines.delay(100) }
     }
-    scope.launch { settings.skipSilence.collect { player.setFilter("quiet", if (it) Sound.SKIP_QUIET else null) } }
+    scope.launch { settings.mono.collect { player.setFilter("mono", if (it) Sound.MONO else null) } }
+    scope.launch { settings.spatial.collect { player.setFilter("space", it?.let(Sound::spatial)); kotlinx.coroutines.delay(100) } }
+    // a new strength is heard at once: the filter is set again, as when it is turned on
+    scope.launch {
+        kotlinx.coroutines.flow.combine(settings.skipSilence, settings.silenceDb, settings.silenceCut) { on, db, cut -> if (on) Sound.skipQuiet(db, cut) else null }
+            .conflate().collect { player.setFilter("quiet", it); kotlinx.coroutines.delay(100) }
+    }
     // a song already looked up keeps its old source; forget the links so the next play asks again
     scope.launch { kotlinx.coroutines.flow.combine(settings.jioSaavn, settings.monochrome, ::Pair).drop(1).collect { resolver.clear() } }
     val brainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = "Spotifry/$APP_VERSION (https://github.com/Alnyz/spotifry)")
     lateinit var services: Services
     services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay, listening = player::listening,
-        lookUpYears = { lookUpSongYears(library, scope, brainz) })
+        lookUpYears = { lookUpSongYears(library, scope, brainz) }, notice = player.notice)
     services.lookUpYears()
     scope.launch { library.musicFolder.refresh() }
     library.updates.checkDaily()

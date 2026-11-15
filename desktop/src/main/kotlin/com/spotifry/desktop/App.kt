@@ -47,6 +47,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.spotifry.music.data.isFreshInstall
 import com.spotifry.music.data.source.artAt
 import dev.chrisbanes.haze.hazeSource
@@ -204,6 +205,13 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                 }
             }
             PlayerBar(services, state, haze, if (nowPlaying) npQueue else queueOpen, { if (nowPlaying) npQueue = !npQueue else queueOpen = !queueOpen }, { if (last != null) services.player.playList(listOf(last), 0, "Home") else services.player.toggle() }, Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 20.dp))
+            val notice by services.notice.collectAsState()
+            androidx.compose.animation.AnimatedVisibility(notice != null, Modifier.align(Alignment.BottomCenter).padding(bottom = 112.dp), enter = androidx.compose.animation.fadeIn(tween(200)), exit = androidx.compose.animation.fadeOut(tween(300))) {
+                var shown by remember { mutableStateOf("") }
+                notice?.let { shown = it }
+                androidx.compose.material3.Text(shown, color = Palette.ink, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    modifier = Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(17.dp)).background(Palette.high).padding(horizontal = 16.dp, vertical = 9.dp))
+            }
         }
         BackupDialogs(flow)
         ImportDialog(services) { route = Route.Playlist(it) }

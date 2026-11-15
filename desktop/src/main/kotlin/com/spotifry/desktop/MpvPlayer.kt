@@ -4,7 +4,14 @@ import com.spotifry.music.data.StreamResolver
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.data.HistoryRecorder
 import com.spotifry.music.data.ListenLog
+import com.spotifry.music.player.FILTER_HIGHPASS
+import com.spotifry.music.player.FILTER_LOWPASS
+import com.spotifry.music.player.FILTER_OFF
+import com.spotifry.music.player.FailureTracker
 import com.spotifry.music.player.LastQueue
+import com.spotifry.music.player.TransitionStyle
+import com.spotifry.music.player.pickStyle
+import com.spotifry.music.player.transitionVoices
 import com.spotifry.music.player.ListenTracker
 import com.spotifry.music.player.PlayCounter
 import com.spotifry.music.player.MusicPlayer
@@ -57,6 +64,8 @@ class MpvPlayer(
     private val smartTrimOn: () -> Boolean = { false },
     /** Seconds a song fades out at its end and the next fades in; 0 is off. */
     private val fadeSeconds: () -> Int = { 0 },
+    /** The listener's Transition choice, by position in [TransitionStyle]; only matters while [fadeSeconds] is on. */
+    private val transition: () -> Int = { 0 },
     /**
      * Where mpv reads a song found online: its link, or replay storage ([ReplayStore]). Alongside: the next song, opened
      * while the one before is still heard.
@@ -107,7 +116,14 @@ class MpvPlayer(
     /** The playing song began by running on from the one before, so it fades in. */
     private var ranOn = false
     /** mpv's sound filters by name, in the order the sound goes through them. */
-    private val filters = linkedMapOf<String, String?>("loud" to null, "eq" to null, "quiet" to null)
+    private val filters = linkedMapOf<String, String?>("loud" to null, "eq" to null, "mono" to null, "space" to null, "quiet" to null)
+    /** The filter a crossfade moves while it runs ([FILTER_OFF] when none): it sits last in the chain of the two songs involved. */
+    private var sweepMode = FILTER_OFF
+    private val failures = FailureTracker()
+    private val _notice = MutableStateFlow<String?>(null)
+    /** A line for the window: a song that couldn't load, or that nothing will play. Clears itself, except the second kind. */
+    val notice: StateFlow<String?> = _notice
+    private var noticeAt = 0L
     override var pauseAtEnd: (() -> Unit)? = null
     /** Where to start the next load, from a restored queue. */
     private var startAtMs = 0L
@@ -207,7 +223,18 @@ class MpvPlayer(
     }
 
     private var filtersWaiting = false
-    private fun chain() = filters.mapNotNull { (n, f) -> f?.let { "@$n:$it" } }.joinToString(",")
+    private fun chain() = (filters.mapNotNull { (n, f) -> f?.let { "@$n:$it" } } +
+        listOfNotNull(sweepMode.takeIf { it != FILTER_OFF }?.let { "@xf:${Sound.sweep(it, SWEEP_OPEN_HZ[it]!!)}" })).joinToString(",")
+
+    /** Moves the cutoff of the crossfade filter on [m] without touching the rest of its chain. */
+    private fun sweep(m: Mpv, mode: Int, hz: Float) = m.command("af-command", "xf", "frequency", hz.toString(), Sound.sweepName(mode))
+
+    private fun clearSweep() { if (sweepMode != FILTER_OFF) { sweepMode = FILTER_OFF; applyFilters() } }
+
+    private fun say(text: String, stays: Boolean = false) {
+        val at = System.nanoTime(); noticeAt = at; _notice.value = text
+        if (!stays) scope.launch { delay(NOTICE_MS); synchronized(lock) { if (noticeAt == at) _notice.value = null } }
+    }
     private fun applyFilters() { filtersWaiting = false; val c = chain(); all().forEach { it.set("af", c) } }
 
     /** The trim a song plays with: the listener's own, else the smart one while that is on. */
@@ -481,7 +508,7 @@ class MpvPlayer(
         lookUpSmartTrim(song)
         fillSuggestions()
         appendSimilarIfNeeded()
-        if (voice != null) return
+        if (voice != null) { failures.onSuccess(); return }
         loading = scope.launch(Dispatchers.IO) {
             try {
                 val local = localFile(song)
@@ -510,9 +537,13 @@ class MpvPlayer(
         if (++failsOfThisSong == 1) { resolver.invalidate(song.id); load(index, keepWants = true); return } // a link that went stale gets one more try
         failsOfThisSong = 0
         failed = true; buffering = false
+        // as on the phone: when every song in a row has failed (offline, say), stop instead of skipping for ever
+        val goOn = failures.onFailure(queue.size)
+        if (goOn) say("Couldn't load ${song.title}. Check your connection.")
+        else { failures.onSuccess(); wants = false; say("Nothing will play. Check your connection.", stays = true) }
         publish()
         // a song that can't play moves on at once, unless it was the last
-        nextIndex(automatic = false)?.let { if (wants) load(it, byListener = false) }
+        if (goOn) nextIndex(automatic = false)?.let { if (wants) load(it, byListener = false) }
     }
 
     private fun stopAll() {
@@ -542,6 +573,7 @@ class MpvPlayer(
             "playback-restart" -> {
                 if (!loaded) {
                     loaded = true; buffering = false; failsOfThisSong = 0
+                    failures.onSuccess(); _notice.value = null
                     seekOnStart?.let { mpv.command("seek", (it + startMs) / 1000.0, "absolute"); seekOnStart = null }
                     publish()
                     nextIndex(automatic = true)?.let { n -> scope.launch { resolver.prefetch(queue[n]) }; lookUpSmartTrim(queue[n]) }
@@ -589,8 +621,9 @@ class MpvPlayer(
     private class Looking(val key: String) : Stage
     private class Waiting(val key: String, val plan: JoinPlan, val next: Int, val song: Song, val trim: Trim?, val url: String, val bitrate: Double?) : Stage {
         var voice: Voice? = null; var making = false; var inStep = false; var ran = 0; val line = Liner()
+        var style = TransitionStyle.SILK
     }
-    private class Fading(val plan: JoinPlan, val tail: Mpv) : Stage { var gain = 1f; var ended = false }
+    private class Fading(val plan: JoinPlan, val tail: Mpv, val style: TransitionStyle) : Stage { var gain = 1f; var ended = false }
 
     private fun log(text: String) = System.err.println("join: $text")
 
@@ -649,7 +682,7 @@ class MpvPlayer(
                     val inn = look(next.id, url, inStart, inStart + STRETCH_MS)?.shifted(-inStart)
                     planJoin(out, inn, outMs, inMs, fade, lead)
                 }
-                plan?.let { Waiting(key, it, n, next, nextTrim, url, bitrate) }
+                plan?.let { p -> Waiting(key, p, n, next, nextTrim, url, bitrate).also { it.style = pickStyle(TransitionStyle.of(transition()), p.onBeat, p.lengthMs) } }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { log("couldn't plan: $e"); null }
             synchronized(lock) {
                 if (stage !== looking) return@launch
@@ -676,14 +709,14 @@ class MpvPlayer(
         val v = s.voice
         if (v == null) {
             if (pos >= prime && !s.making) makeVoice(s)
-            if (pos > handover + SLACK_MS * speed) { log("voice too late"); stage = Done(s.key) }
+            if (pos > handover + SLACK_MS * speed) { log("voice too late"); stage = Done(s.key); clearSweep() }
             return pos >= prime - 1_000
         }
-        if (v.failed) { log("the next song failed in its voice"); drop(v.mpv, 0f); stage = Done(s.key); return false }
+        if (v.failed) { log("the next song failed in its voice"); drop(v.mpv, 0f); stage = Done(s.key); clearSweep(); return false }
         if (!v.started) {
             if (pos < handover) return true
             if (!v.ready) {
-                if (pos > handover + SLACK_MS * speed) { log("voice wasn't ready"); drop(v.mpv, 0f); stage = Done(s.key) }
+                if (pos > handover + SLACK_MS * speed) { log("voice wasn't ready"); drop(v.mpv, 0f); stage = Done(s.key); clearSweep() }
                 return true
             }
             v.started = true; s.ran = 0
@@ -699,7 +732,7 @@ class MpvPlayer(
         if (pos >= s.plan.startMs) {
             if (s.plan.onBeat && !s.inStep) log("not in step by the overlap, last off by ${s.line.last} ms")
             v.mpv.set("speed", speed.toDouble())
-            stage = Fading(s.plan, mpv)
+            stage = Fading(s.plan, mpv, s.style)
             load(s.next, byListener = false, voice = v)
             log("overlap starts")
         }
@@ -709,6 +742,8 @@ class MpvPlayer(
     /** Starts the next song's mpv, paused at where it comes in, so it's ready to go. */
     private fun makeVoice(s: Waiting) {
         s.making = true
+        // Bass swap cuts bass, Filter sweep cuts treble; both songs get the filter now, open, so it can move later without a gap
+        SWEEP_MODE[s.style]?.let { sweepMode = it; applyFilters() }
         scope.launch(Dispatchers.IO) {
             val m = try { newMpv() } catch (e: Exception) { synchronized(lock) { if (stage === s) stage = Done(s.key) }; return@launch }
             synchronized(lock) {
@@ -726,11 +761,15 @@ class MpvPlayer(
     /** The overlap: the old song (the tail) goes down as the new one comes up, the two together about as loud as one. */
     private fun fading(s: Fading, pos: Long): Boolean {
         val f = ((pos - s.plan.cueMs).toFloat() / s.plan.lengthMs).coerceIn(0f, 1f)
-        if (f >= 1f || s.ended) { drop(s.tail, 0f); stage = Watching; songGain = 1f; applyVolume(); log("overlap done"); return false }
+        if (f >= 1f || s.ended) { drop(s.tail, 0f); stage = Watching; songGain = 1f; applyVolume(); clearSweep(); log("overlap done"); return false }
         val cut = 1 - OVERLAP_CUT * sin(f * PI).toFloat()
         s.gain = cos(f * PI / 2).toFloat() * cut
         songGain = sin(f * PI / 2).toFloat() * cut
         applyVolume()
+        if (sweepMode != FILTER_OFF) {
+            val (old, new) = transitionVoices(s.style, f)
+            sweep(s.tail, old.mode, old.hz); sweep(mpv, new.mode, new.hz)
+        }
         return true
     }
 
@@ -744,6 +783,7 @@ class MpvPlayer(
         }
         log("let go: $why")
         stage = Watching
+        clearSweep()
     }
 
     private fun onOtherMpv(src: Mpv, name: String, e: JSONObject) {
@@ -809,6 +849,10 @@ private const val JOIN_LEAD_MS = 2_500L
 private const val PRIME_MS = 6_000L
 private const val SLACK_MS = 1_500L
 private const val TICK_MS = 50L
+private const val NOTICE_MS = 6_000L
+/** Which filter each transition style moves, and where it stands open (letting everything through). */
+private val SWEEP_MODE = mapOf(TransitionStyle.BASS_SWAP to FILTER_HIGHPASS, TransitionStyle.FILTER_SWEEP to FILTER_LOWPASS)
+private val SWEEP_OPEN_HZ = mapOf(FILTER_HIGHPASS to 20f, FILTER_LOWPASS to 18_000f)
 /** Ticks a voice must have been running for its position to be worth reading. */
 private const val SETTLE_TICKS = 3
 /** Ticks one reading is averaged over. */
