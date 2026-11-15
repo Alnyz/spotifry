@@ -40,7 +40,7 @@ val desktopVersion get() = APP_VERSION.removePrefix("desktop-")
  * Where that can't work (the app doesn't run from an AppImage, the folder can't be written, the download fails) the
  * release page opens in the browser as before.
  */
-class Updates(private val client: OkHttpClient, private val prefs: Prefs, private val now: () -> Long = System::currentTimeMillis) {
+class Updates(private val client: OkHttpClient, private val prefs: Prefs, private val now: () -> Long = System::currentTimeMillis, private val files: String = ASSETS) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     /** A release newer than this build, or null. */
     val available = MutableStateFlow<DesktopRelease?>(null)
@@ -71,10 +71,10 @@ class Updates(private val client: OkHttpClient, private val prefs: Prefs, privat
     }
 
     /** Downloads [release] and puts it in place; [progress] says how far it got. [finish] then starts the new version. */
-    fun install(release: DesktopRelease) {
+    fun install(release: DesktopRelease, running: String? = System.getenv("APPIMAGE")) {
         if (progress.value?.step == UpdateStep.Working) return
-        val appImage = System.getenv("APPIMAGE")?.let(::File)?.takeIf { it.isFile }
-        if (!release.file.startsWith(ASSETS) || (!Platform.isWindows && appImage == null)) return open(release)
+        val appImage = running?.let(::File)?.takeIf { it.isFile }
+        if (!release.file.startsWith(files) || (!Platform.isWindows && appImage == null)) return open(release)
         progress.value = UpdateProgress("Downloading…", UpdateStep.Working)
         scope.launch {
             val ok = runCatching {
@@ -84,7 +84,7 @@ class Updates(private val client: OkHttpClient, private val prefs: Prefs, privat
                 else { swapIn(target, appImage!!); after = listOf("sh", "-c", "sleep 1; exec \"\$0\"", appImage.path) }
             }
             progress.value = if (ok.isSuccess) UpdateProgress(if (Platform.isWindows) "Ready to install" else "Updated to ${release.version}", UpdateStep.Done)
-            else UpdateProgress("Couldn't update here", UpdateStep.Failed).also { open(release) }
+            else UpdateProgress("Couldn't update here: ${ok.exceptionOrNull()?.message}", UpdateStep.Failed).also { open(release) }
         }
     }
 
@@ -119,12 +119,13 @@ class Updates(private val client: OkHttpClient, private val prefs: Prefs, privat
 
     private companion object {
         const val RELEASES = "https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30"
-        // only files from this project's own releases are downloaded
-        const val ASSETS = "https://github.com/Alnyz/spotifry/releases/download/"
         const val LAST_CHECK = "desktop_update_checked"
         const val DAY_MS = 86_400_000L
     }
 }
+
+/** Only files from this project's own releases are downloaded. */
+internal const val ASSETS = "https://github.com/Alnyz/spotifry/releases/download/"
 
 enum class UpdateStep { Working, Done, Failed }
 data class UpdateProgress(val text: String, val step: UpdateStep)
