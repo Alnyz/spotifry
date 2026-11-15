@@ -849,6 +849,63 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
 /* new: two downloads */
 .dl2 { display: flex; flex-wrap: wrap; gap: 10px; }
 </style>
+<style>
+/* round 2: small screens */
+/* the open menu: dark like the page, and it eases in */
+@media (max-width: 1023px) {
+  .nav.nav.is-open { color: #f7f1e8; background: #15100c; }
+  .nav.nav.is-open .nav__bar { background: #15100c; border-color: rgba(255,235,220,.12); }
+  .nav.nav.is-open :is(.nav__logo, .nav__link, .nav__toggle) { color: #f7f1e8; }
+  .nav.nav.is-open .nav__toggle { border-color: rgba(255,235,220,.24); }
+  .nav.is-open .nav__links, .nav.is-open .nav__actions { background: #15100c; }
+  .nav.is-open .nav__item { border-bottom-color: rgba(255,235,220,.1); }
+  .nav.is-open .nav__actions { border-top-color: rgba(255,235,220,.1); }
+  .nav.is-open .nav__link { font-size: 24px; letter-spacing: -0.02em; }
+  @keyframes navSheet { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  @keyframes navItem { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .nav.is-open .nav__links { animation: navSheet .3s cubic-bezier(.2,.7,.2,1) both; }
+  .nav.is-open .nav__item { animation: navItem .55s cubic-bezier(.2,.7,.2,1) both; }
+  .nav.is-open .nav__item:nth-child(1) { animation-delay: .06s; } .nav.is-open .nav__item:nth-child(2) { animation-delay: .1s; }
+  .nav.is-open .nav__item:nth-child(3) { animation-delay: .14s; } .nav.is-open .nav__item:nth-child(4) { animation-delay: .18s; }
+  .nav.is-open .nav__item:nth-child(5) { animation-delay: .22s; } .nav.is-open .nav__item:nth-child(6) { animation-delay: .26s; }
+  .nav.is-open .nav__actions { animation: navItem .55s cubic-bezier(.2,.7,.2,1) .3s both; }
+}
+@media (prefers-reduced-motion: reduce) { .nav.is-open :is(.nav__links, .nav__item, .nav__actions) { animation: none; } }
+/* phone hero: the name, one line, the button */
+@media (max-width: 639px) {
+  .hero--sun .hsun__kicker, .hero--sun .hsun__proof { display: none !important; }
+}
+/* no tiny phone beside the "first song to last" list */
+@media (max-width: 1023px) {
+  .drum__phone { display: none !important; }
+  .drum__h { padding-right: 0 !important; min-height: 0 !important; }
+}
+/* before and after: the box, then the step under it */
+@media (max-width: 1023px) {
+  #compare .ba__text { display: contents; }
+  #compare .ba__text h2 { order: 0; }
+  #compare .ba__frame { order: 1; }
+  #compare .ba__steps { order: 2; margin: 22px 0 0; text-align: center; }
+  #compare .ba__steps li { display: none; border: 0; padding: 0; }
+  #compare .ba__steps li.is-on { display: block; }
+  #compare .ba__steps li.is-on::before { display: inline-block; margin-bottom: 10px; padding: 5px 14px; border-radius: 99px; background: #2b1d14; color: #f7f1e8; font: 500 13px/1.4 var(--font-text); }
+  #compare .ba__steps li:nth-child(1).is-on::before { content: "Step 1 of 4"; } #compare .ba__steps li:nth-child(2).is-on::before { content: "Step 2 of 4"; }
+  #compare .ba__steps li:nth-child(3).is-on::before { content: "Step 3 of 4"; } #compare .ba__steps li:nth-child(4).is-on::before { content: "Step 4 of 4"; }
+  #compare .ba__steps li b { font-size: 20px; color: var(--ink); } #compare .ba__steps li span { opacity: 1; margin-top: 6px; }
+  #compare .ba__pill { display: none; }
+}
+/* your rotation on small screens: facts in two columns, phones fade out at the bottom */
+@media (max-width: 1023px) {
+  .rot__facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; margin-top: 28px; }
+  .rot__facts li { display: block; padding: 14px 0; }
+  .rot__facts li:last-child { border-bottom: 0; } .rot__facts li:nth-last-child(2) { border-bottom: 0; }
+  .rot__facts b { display: block; margin-bottom: 4px; font-size: 17px; }
+  .rot__facts span { font-size: 15px; line-height: 1.45; }
+  .rot__phones { height: 82vw; max-height: 520px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 68%, transparent); mask-image: linear-gradient(#000 68%, transparent); }
+  .rot__dev { width: 46%; } .rot__dev--a { left: 4%; } .rot__dev--b { right: 4%; top: 12%; bottom: auto; }
+}
+@media (max-width: 639px) { .rot__facts { grid-template-columns: 1fr; } .rot__facts li:nth-last-child(2) { border-bottom: 1px solid rgba(255,235,220,.12); } }
+</style>
 </head>
 <body class="bg-topglow">
 <header class="nav nav--centre">
@@ -952,7 +1009,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
         <p class="t-lead span-6 start-7">Spotifry reads songs from YouTube right on your phone, through NewPipe Extractor. There is no Spotifry server in between, nothing to sign up for and nothing to pay.</p>
       </div>
       <div class="flow" data-visual role="img" aria-label="Songs go from YouTube to NewPipe Extractor on your phone and play in Spotifry. There is no Spotifry server in between.">
-        <div class="flow__srv"><span class="flow__ic flow__ic--sm"><img src="assets/icons/ui-server.svg" alt="" width="22" height="22"></span><span><b>Spotifry server</b><small>none, nothing in between</small></span></div>
         <div class="flow__row">
           <div class="flow__node"><span class="flow__ic"><img src="assets/icons/logos-youtube.svg" alt="" width="40" height="28"></span><b>YouTube</b><small>where the songs are</small></div>
           <div class="flow__line" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -969,7 +1025,7 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
       <div class="wrap pin__wrap">
         <div class="grid grid--top ba">
           <div class="span-6 ba__text">
-            <h2 id="compare-h">One song in two music apps</h2>
+            <h2 id="compare-h">Same song. No ads in the way.</h2>
             <ol class="ba__steps">
               <li class="is-on"><b>The ad break</b><span>A free app with ads stops the song for an advert.</span></li>
               <li><b>The skip limit</b><span>Skips run out, then a paid plan is offered.</span></li>
