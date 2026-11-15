@@ -43,6 +43,8 @@ class UpdatesTest {
     }
 
     @Test fun installDownloadsChecksAndReplacesTheRunningFile() {
+        // Windows runs the new installer instead of replacing a file
+        org.junit.Assume.assumeFalse(Platform.isWindows)
         val bytes = ByteArray(300_000) { (it % 251).toByte() }
         val sum = java.security.MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
         val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
