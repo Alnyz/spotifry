@@ -60,7 +60,7 @@ class Updates(private val client: OkHttpClient, private val prefs: Prefs, privat
         scope.launch {
             // offline or GitHub busy: the old answer stands, and the next start asks again
             runCatching {
-                val body = client.newCall(Request.Builder().url(RELEASES).header("Accept", "application/vnd.github+json").build()).execute().use {
+                val body = client.newCall(Request.Builder().url(RELEASES_URL).header("Accept", "application/vnd.github+json").build()).execute().use {
                     check(it.isSuccessful) { "GitHub said ${it.code}" }; it.body!!.string()
                 }
                 available.value = newestDesktopRelease(body)?.takeIf { isNewer(it.version, desktopVersion) }
@@ -118,11 +118,13 @@ class Updates(private val client: OkHttpClient, private val prefs: Prefs, privat
     }
 
     private companion object {
-        const val RELEASES = "https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30"
         const val LAST_CHECK = "desktop_update_checked"
         const val DAY_MS = 86_400_000L
     }
 }
+
+/** GitHub's list of this project's releases, newest first. */
+internal const val RELEASES_URL = "https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30"
 
 /** Only files from this project's own releases are downloaded. */
 internal const val ASSETS = "https://github.com/Alnyz/spotifry/releases/download/"

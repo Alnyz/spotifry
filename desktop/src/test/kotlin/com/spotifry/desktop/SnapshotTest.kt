@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import org.jetbrains.skia.EncodedImageFormat
 import org.junit.Test
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import java.io.File
 
 /** Draws the window to a picture without a screen: PNGs land in build/snapshots for a look. */
@@ -44,11 +46,25 @@ class SnapshotTest {
         override fun setTrim(id: String, trim: Trim?, skip: Boolean) = Unit; override fun listen(atMs: Long, forMs: Long?) = Unit
     }
 
+    private var githubDown = false
+    private val RELEASES_JSON = """[
+        {"tag_name":"desktop-v0.8.0","published_at":"2026-11-14T09:12:00Z","body":"## What's new\n- **Update** installs the new version inside the app\n- Copy to Music folder follows the folder chosen in Settings"},
+        {"tag_name":"v0.16.1","published_at":"2026-11-13T09:12:00Z","body":"phone only"},
+        {"tag_name":"desktop-v0.7.0","published_at":"2026-11-11T09:12:00Z","body":"- Desktop and phone share one code base\n- New headline on the website"},
+        {"tag_name":"desktop-v0.6.0","published_at":"2026-11-03T09:12:00Z","body":"Fixes for lyrics that ran out of step"}]"""
+
     private fun library(seed: Boolean = true): Library {
         val db = androidx.room.Room.inMemoryDatabaseBuilder<com.spotifry.music.data.db.AppDatabase>(factory = { com.spotifry.music.data.db.AppDatabase_Impl() })
             .setDriver(androidx.sqlite.driver.bundled.BundledSQLiteDriver()).setQueryCoroutineContext(kotlinx.coroutines.Dispatchers.IO).build()
-        val client = okhttp3.OkHttpClient()
+        val client = okhttp3.OkHttpClient.Builder().addInterceptor { chain ->
+            if (githubDown) throw java.io.IOException("offline")
+            okhttp3.Response.Builder().request(chain.request()).protocol(okhttp3.Protocol.HTTP_1_1).code(200).message("OK").body(RELEASES_JSON.toResponseBody("application/json".toMediaType())).build()
+        }.build()
         val dir = java.nio.file.Files.createTempDirectory("spotifry-snap").toFile()
+        if (githubDown) dir.resolve("change_log.json").writeText("""[{"v":"0.7.0","d":"2026-11-11T09:12:00Z","n":"• Desktop and phone share one code base"},{"v":"0.6.0","d":"2026-11-03T09:12:00Z","n":"Fixes for lyrics that ran out of step"}]""")
+        listOf("songs/a.m4a" to 1_700_000, "songs/c.m4a" to 900_000, "songs/a.jpg" to 120_000, "replay/x.m4a" to 650_000, "music.db" to 90_000).forEach { (n, b) ->
+            dir.resolve(n).also { it.parentFile.mkdirs() }.writeBytes(ByteArray(b))
+        }
         val lib = Library(db, com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), com.spotifry.music.data.MemoryPrefs(), dir, client,
             com.spotifry.music.data.StreamResolver(fakeSource))
         if (seed) kotlinx.coroutines.runBlocking {
@@ -93,6 +109,7 @@ class SnapshotTest {
         shoot("artists-page", Route.Artists, lib, height = 1300)
         lib.settings.setLyricsSource(com.spotifry.music.data.Lyrics.PORTATO, false)
         lib.recentSearches.add("kala biru")
+        lib.prefs.edit().putString("desktop_settings_group", "Lyrics").apply()
         shoot("settings-lyrics", Route.Settings, lib, height = 2300)
     }
 
@@ -146,6 +163,7 @@ class SnapshotTest {
         kotlinx.coroutines.runBlocking { lib.musicFolder.choose(File(dir, "a very long folder name that goes on/and another one inside it/nothing")); lib.musicFolder.refresh() }
         savedFilter = com.spotifry.music.ui.saved.SavedFilter.Phone
         shoot("saved-folder-empty", Route.Saved, lib)
+        lib.prefs.edit().putString("desktop_settings_group", "Music").apply()
         shoot("settings-folder", Route.Settings, lib, height = 1400)
         savedFilter = com.spotifry.music.ui.saved.SavedFilter.All
     }
@@ -164,6 +182,27 @@ class SnapshotTest {
             File("build/snapshots/share-square.png").writeBytes(picturePng(song, words.lines[0], false, cardInk(CardBackground.ACCENT, null, Palette.accentChoice.dark)))
             File("build/snapshots/share-list.png").writeBytes(picturePng(list, null, false, cardInk(CardBackground.BLACK, null, Palette.accentChoice.dark)))
         }
+    }
+
+    /** Every Settings group, then the narrow list, a group opened in a narrow window, the light theme, and the change log with GitHub unreachable. */
+    @Test fun settingsGroups() {
+        val lib = library()
+        lib.settings.setSpatialOn(true); lib.settings.setSkipSilence(true)
+        listOf("Sound", "Look", "Music", "Lyrics", "Storage", "History", "About", "Changes").forEach { g ->
+            lib.prefs.edit().putString("desktop_settings_group", g).apply()
+            shoot("settings-g-${g.lowercase()}", Route.Settings, lib, height = if (g == "Sound") 2000 else 900)
+        }
+        lib.prefs.edit().putString("desktop_settings_group", "Look").apply()
+        shoot("settings-narrow", Route.Settings, lib, width = 640, height = 800)
+        lib.prefs.edit().putString("desktop_settings_group", "Storage").apply()
+        lib.settings.setTheme(com.spotifry.music.data.ThemeMode.LIGHT)
+        shoot("settings-g-storage-light", Route.Settings, lib, height = 1000)
+        lib.settings.setTheme(com.spotifry.music.data.ThemeMode.DARK)
+        githubDown = true
+        val offline = library()
+        offline.prefs.edit().putString("desktop_settings_group", "Changes").apply()
+        shoot("settings-g-changes-offline", Route.Settings, offline, height = 900)
+        githubDown = false
     }
 
     @Test fun settingsLightAndDark() {
@@ -252,6 +291,7 @@ class SnapshotTest {
         shoot("home-tall", Route.Home, lib, height = 1500)
         shoot("playlist-order", Route.Playlist(1), lib)
         lib.updates.available.value = DesktopRelease("0.3.0", "https://example.org")
+        lib.prefs.edit().putString("desktop_settings_group", "About").apply()
         shoot("update", Route.Settings, lib, height = 1400)
     }
 
