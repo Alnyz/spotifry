@@ -80,4 +80,12 @@ class MprisTest {
         player("set-property", "Shuffle", "b", "true")
         assertTrue("shuffle" in fake.calls)
     }
+
+    @Test fun aJumpInThePositionSendsSeeked() {
+        val mon = ProcessBuilder("timeout", "4", "busctl", "--user", "monitor", "--match", "type=signal,interface=org.mpris.MediaPlayer2.Player,member=Seeked").redirectErrorStream(true).start()
+        Thread.sleep(1000)
+        fake.position.value = 10_000L
+        val out = mon.inputStream.bufferedReader().readText()
+        assertTrue(out, "Seeked" in out)
+    }
 }

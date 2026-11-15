@@ -13,6 +13,7 @@ import org.freedesktop.dbus.connections.impl.DBusConnection
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder
 import org.freedesktop.dbus.interfaces.DBusInterface
 import org.freedesktop.dbus.interfaces.Properties
+import org.freedesktop.dbus.messages.DBusSignal
 import org.freedesktop.dbus.types.Variant
 
 private const val PATH = "/org/mpris/MediaPlayer2"
@@ -35,6 +36,8 @@ interface MprisRoot : DBusInterface {
 /** Tells dbus-java the Metadata property is a{sv}: its generics are not read from the method. */
 interface MetadataType : org.freedesktop.dbus.TypeRef<Map<String, Variant<*>>>
 
+// Position is read, never announced, and jumps come as Seeked. The introspection still says "emits-change" for Position: dbus-java
+// 5.2.2 drops any per-property value that differs from TRUE (ExportedObject.generatePropertiesXml), so it cannot be changed here.
 @DBusInterfaceName(PLAYER)
 interface MprisPlayer : DBusInterface {
     fun Next()
@@ -65,6 +68,9 @@ interface MprisPlayer : DBusInterface {
     @DBusBoundProperty(name = "CanPause", access = Access.READ) fun canPause(): Boolean
     @DBusBoundProperty(name = "CanSeek", access = Access.READ) fun canSeek(): Boolean
     @DBusBoundProperty(name = "CanControl", access = Access.READ) fun canControl(): Boolean
+
+    /** Sent when the position jumps: a seek, or a new song starting at its beginning. */
+    class Seeked(path: String, position: Long) : DBusSignal(path, position)
 }
 
 /**
@@ -130,6 +136,8 @@ class Mpris private constructor(
         runCatching { conn.sendMessage(Properties.PropertiesChanged(PATH, PLAYER, props, emptyList())) }
     }
 
+    private fun seeked() { runCatching { conn.sendMessage(MprisPlayer.Seeked(PATH, player.position.value * 1000)) } }
+
     override fun close() { runCatching { conn.releaseBusName(busName) }; runCatching { conn.disconnect() } }
 
     companion object {
@@ -154,7 +162,13 @@ class Mpris private constructor(
                         diff["CanPlay"] = Variant(s.current != null); diff["CanPause"] = Variant(s.current != null)
                     }
                     mpris.changed(diff)
+                    if (before != null && before.current?.id != s.current?.id) mpris.seeked()
                 }
+            }
+            scope.launch {
+                // playing moves the position by about 400 ms at a time; anything backwards or over 2 s forward is a jump
+                var at = player.position.value
+                player.position.collect { p -> if (p < at || p - at > 2_000) mpris.seeked(); at = p }
             }
             mpris
         }.getOrNull()
