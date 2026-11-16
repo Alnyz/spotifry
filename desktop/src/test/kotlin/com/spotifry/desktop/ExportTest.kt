@@ -37,6 +37,17 @@ class ExportTest {
         dir.deleteRecursively()
     }
 
+    @Test fun aSongIsCopiedOnlyOnceItsCopyExists() {
+        val dir = createTempDir("export")
+        val music = File(dir, "Music")
+        assertNull(copiedFile(music, song(dir), "Song", "Queen"))
+        val out = exportToMusic(music, song(dir), "Song", "Queen", ffmpeg = null)!!
+        assertEquals(out, copiedFile(music, song(dir), "Song", "Queen"))
+        out.delete()
+        assertNull(copiedFile(music, song(dir), "Song", "Queen"))
+        dir.deleteRecursively()
+    }
+
     @Test fun copyingTheSameSongAgainKeepsTheOneFile() {
         val dir = createTempDir("export")
         val music = File(dir, "Music")

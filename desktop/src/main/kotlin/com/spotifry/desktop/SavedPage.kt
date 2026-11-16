@@ -37,6 +37,14 @@ fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modi
     val filter = savedFilter
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { lib.musicFolder.refresh() }
+    // saved songs whose copy isn't in the Music folder; looked at again when the folder's list changes (a copy was just made)
+    val folder by lib.musicFolder.folder.collectAsState()
+    var uncopied by remember { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(saved, files, folder) {
+        uncopied = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            saved.filter { e -> e.filePath?.let { copiedFile(folder, java.io.File(it), e.title, e.artist) } == null }.map { it.id }.toSet()
+        }
+    }
     val rows = remember(filter, saved, files, recent) { filterSaved(filter, saved, files, recent) }
     val songs = rows.map { it.song }
     LazyColumn(modifier) {
@@ -66,7 +74,7 @@ fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modi
             }
         }
         itemsIndexed(rows, key = { _, r -> r.song.id }) { i, r ->
-            SongLine(services, i + 1, r.song, state.current?.id == r.song.id, saved = r.saved, onClick = { services.player.playList(songs, i, filter.desktopQueue) })
+            SongLine(services, i + 1, r.song, state.current?.id == r.song.id, saved = r.saved, uncopied = r.song.id in uncopied, onClick = { services.player.playList(songs, i, filter.desktopQueue) })
         }
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }

@@ -46,6 +46,7 @@ import com.spotifry.music.player.clipText
 import com.spotifry.music.player.clockText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -179,7 +180,7 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onDismiss: () ->
  * A song in a list: number, cover, name, length, and a menu. [extra] adds entries to the menu (Remove from this playlist).
  */
 @Composable
-fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved: Boolean = false, extra: @Composable (close: () -> Unit) -> Unit = {}, onClick: () -> Unit) {
+fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved: Boolean = false, uncopied: Boolean = false, extra: @Composable (close: () -> Unit) -> Unit = {}, onClick: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(
         Modifier.fillMaxWidth().height(62.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp),
@@ -192,7 +193,7 @@ fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved:
                 Text(s.title, fontFamily = Display, fontSize = 18.sp, maxLines = 1, color = if (playing) Palette.accent else Palette.ink, modifier = Modifier.weight(1f, fill = false))
                 if (saved) Icon(Icons.Saved, "Saved on this computer", Modifier.size(15.dp), tint = Palette.accent)
             }
-            Text(s.artist, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
+            Text(if (uncopied) "${s.artist} · not in your Music folder yet" else s.artist, color = Palette.ink2, fontSize = 13.sp, maxLines = 1)
         }
         TimeText(clock(s.durationSec * 1000), Palette.ink2, 13.sp)
         Box {
@@ -200,6 +201,16 @@ fun SongLine(services: Services, number: Int?, s: Song, playing: Boolean, saved:
             if (menu) SongMenu(services, s, { menu = false }, extra)
         }
     }
+}
+
+/** Copies a saved song into the Music folder (see [exportToMusic]); true when the copy is there. */
+private suspend fun copySaved(lib: Library, song: Song): Boolean = withContext(kotlinx.coroutines.Dispatchers.IO) {
+    val row = lib.db.songs().get(song.id)
+    val file = row?.filePath?.let { java.io.File(it) }
+    val ok = file != null && exportToMusic(lib.musicFolder.folder.value, file, song.title, song.artist, row.thumbPath?.let { java.io.File(it) }) != null
+    // On this computer is read at start and when Saved opens: read it again now so the copy shows without leaving the page
+    if (ok) lib.musicFolder.refresh()
+    ok
 }
 
 /** The ⋮ menu of a song. The sleep timer, speed and pitch and the trim show only for the song that plays. */
@@ -214,7 +225,13 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
     var naming by remember { mutableStateOf(false) }
     var noting by remember { mutableStateOf(false) }
     var tuning by remember { mutableStateOf(false) }
-    LaunchedEffect(song.id) { saved = lib.db.songs().get(song.id)?.isSaved == true }
+    LaunchedEffect(song.id) {
+        val row = lib.db.songs().get(song.id)
+        saved = row?.isSaved == true
+        // a song copied before (even in an earlier run) says so, since the copy is a file that can be looked for
+        val file = row?.filePath?.let { java.io.File(it) }
+        if (file != null && withContext(kotlinx.coroutines.Dispatchers.IO) { copiedFile(lib.musicFolder.folder.value, file, song.title, song.artist) } != null) exported = true
+    }
     val lists by lib.db.playlists().observePlaylists().collectAsState(emptyList())
     val note by remember(song.id) { lib.db.notes().observe(song.id) }.collectAsState(null)
     val state by services.player.state.collectAsState()
@@ -239,15 +256,14 @@ fun SongMenu(services: Services, song: Song, close: () -> Unit, extra: @Composab
                     scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
                     close()
                 })
+                // both steps at once: the menu closes, the song is saved, and when it has arrived it is copied
+                if (!saved && !song.isLocal) DropdownMenuItem({ Text("Save and copy to Music folder") }, onClick = {
+                    scope.launch { lib.downloads.save(song); copySaved(lib, song) }
+                    close()
+                })
                 // a saved song as a plain file in the Music folder chosen in Settings; the label says how it went, since the menu stays open
-                if (saved && !song.isLocal) DropdownMenuItem({ Text(when (exported) { null -> "Copy to Music folder"; true -> "Copied to your Music folder"; false -> "Couldn't copy it" }) }, onClick = {
-                    if (exported == null) scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        val row = lib.db.songs().get(song.id)
-                        val file = row?.filePath?.let { java.io.File(it) }
-                        exported = file != null && exportToMusic(lib.musicFolder.folder.value, file, song.title, song.artist, row.thumbPath?.let { java.io.File(it) }) != null
-                        // On this computer is read at start and when Saved opens: read it again now so the copy shows without leaving the page
-                        if (exported == true) lib.musicFolder.refresh()
-                    }
+                if (saved && !song.isLocal) DropdownMenuItem({ Text(when (exported) { null -> "Copy to Music folder"; true -> "In your Music folder"; false -> "Couldn't copy it" }) }, onClick = {
+                    if (exported == null) scope.launch(kotlinx.coroutines.Dispatchers.IO) { exported = copySaved(lib, song) }
                 })
                 DropdownMenuItem({ Text("Add to a playlist") }, onClick = { view = "lists" })
                 // the link (the phone's words, which Spotifry reads back in Import) or a picture

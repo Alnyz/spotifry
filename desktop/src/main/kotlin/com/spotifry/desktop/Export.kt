@@ -26,6 +26,13 @@ internal fun pictureBlock(image: ByteArray): String? {
     return Base64.getEncoder().encodeToString(b.array())
 }
 
+/** A folder already called Spotifry is used as it is, so choosing D:\Docs\Spotifry in Settings does not make D:\Docs\Spotifry\Spotifry. */
+private fun exportDir(music: File) = if (music.name == "Spotifry") music else File(music, "Spotifry")
+
+/** The copy of a saved song already in the Music folder, or null when it was never copied (or the copy was deleted). A copy is .opus or keeps the saved file's type. */
+fun copiedFile(music: File, saved: File, title: String, artist: String): File? =
+    listOf(exportExtension(saved.extension), saved.extension).distinct().map { File(exportDir(music), exportName(title, artist, it)) }.firstOrNull { it.isFile }
+
 /**
  * Copies a saved song into [music]/Spotifry (or into [music] itself when that is already called Spotifry), where other players and file managers see it. A .webm becomes .opus, and
  * when ffmpeg is there the file also gets its title, artist and [cover] inside it, so it shows with its picture in the
@@ -34,8 +41,7 @@ internal fun pictureBlock(image: ByteArray): String? {
  */
 fun exportToMusic(music: File, saved: File, title: String, artist: String, cover: File? = null, ffmpeg: String? = Platform.find("ffmpeg")): File? {
     if (!saved.isFile) return null
-    // a folder already called Spotifry is used as it is, so choosing D:\Docs\Spotifry in Settings does not make D:\Docs\Spotifry\Spotifry
-    val dir = if (music.name == "Spotifry") music else File(music, "Spotifry")
+    val dir = exportDir(music)
     return try {
         dir.mkdirs()
         val tagged = if (ffmpeg != null) tagged(ffmpeg, saved, title, artist, cover, dir) else null
