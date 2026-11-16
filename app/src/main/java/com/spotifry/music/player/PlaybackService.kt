@@ -217,7 +217,8 @@ class PlaybackService : MediaSessionService() {
                     return
                 }
                 // a song that cannot load (blocked, removed, offline and unsaved) must not stall the queue
-                player.currentMediaItem?.mediaMetadata?.title?.toString()?.let { c.events.failed.tryEmit(it) }
+                val gone = generateSequence(error.cause) { it.cause }.any { it is com.spotifry.music.data.source.NoAudioException }
+                player.currentMediaItem?.mediaMetadata?.title?.toString()?.let { if (gone) c.events.gone.tryEmit(it) else c.events.failed.tryEmit(it) }
                 if (failures.onFailure(player.mediaItemCount) && player.hasNextMediaItem()) {
                     movedByFailure = true
                     player.seekToNextMediaItem()

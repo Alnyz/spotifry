@@ -45,4 +45,16 @@ class LiveTest {
         println("lyrics: ${found?.let { it::class.simpleName }} ${(found as? com.spotifry.music.data.Lyrics.Timed)?.let { "${it.lines.size} lines from ${it.from}" }}")
         assertTrue(found != null)
     }
+
+    /** A video YouTube removed (found in a real playlist) plays from another upload of the song. */
+    @Test fun aRemovedVideoIsSwappedForAnotherUpload() = runBlocking {
+        assumeTrue("LIVE not set", System.getenv("LIVE") == "1")
+        NewPipe.init(OkHttpDownloader(OkHttpClient()), Localization("en", "US"))
+        val source = NewPipeSource()
+        val real = source.search("Cynical blink-182").first { it.title.equals("Cynical", true) }
+        val dead = real.copy(id = "iULuyYZaiuU")
+        val stream = source.resolve(dead)
+        println("dead ${dead.id} resolved to ${stream.url.take(60)}")
+        assertTrue(stream.url.startsWith("http"))
+    }
 }

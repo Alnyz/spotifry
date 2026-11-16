@@ -528,18 +528,19 @@ class MpvPlayer(
                     )
                     if (opts.isNotEmpty()) mpv.command("loadfile", url, "replace", -1, opts.joinToString(",")) else mpv.command("loadfile", url, "replace")
                 }
-            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { synchronized(lock) { fail(song) } }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { synchronized(lock) { fail(song, e is com.spotifry.music.data.source.NoAudioException) } }
         }
     }
 
-    private fun fail(song: Song) {
+    /** [gone]: YouTube has no copy of the song to play (removed, blocked), which is not the connection's fault. */
+    private fun fail(song: Song, gone: Boolean = false) {
         if (queue.getOrNull(index)?.id != song.id) return
         if (++failsOfThisSong == 1) { resolver.invalidate(song.id); load(index, keepWants = true); return } // a link that went stale gets one more try
         failsOfThisSong = 0
         failed = true; buffering = false
         // as on the phone: when every song in a row has failed (offline, say), stop instead of skipping for ever
         val goOn = failures.onFailure(queue.size)
-        if (goOn) say("Couldn't load ${song.title}. Check your connection.")
+        if (goOn) say(if (gone) "${song.title} isn't available on YouTube any more." else "Couldn't load ${song.title}. Check your connection.")
         else { failures.onSuccess(); wants = false; say("Nothing will play. Check your connection.", stays = true) }
         publish()
         // a song that can't play moves on at once, unless it was the last

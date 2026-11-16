@@ -15,4 +15,6 @@ fun needsPrepare(playbackState: Int): Boolean = playbackState == Player.STATE_ID
 /** Songs the player could not load, so the screen can tell the person why the music skipped. */
 class PlaybackEvents {
     val failed = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 4)
+    /** Songs YouTube has no copy of any more (removed, blocked): the connection is not the problem. */
+    val gone = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 4)
 }

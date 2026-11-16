@@ -293,6 +293,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     LaunchedEffect(Unit) {
         c.events.failed.collect { snackbar.showSnackbar("Couldn't load $it. Check your connection, then try again.") }
     }
+    LaunchedEffect(Unit) {
+        c.events.gone.collect { snackbar.showSnackbar("$it isn't available on YouTube any more.") }
+    }
 
     // the first time something plays, ask once for permission to show the lock-screen controls
     val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}

@@ -61,7 +61,17 @@ class NewPipeSource : MusicSource {
         return ex.initialPage.items
     }
 
-    override suspend fun resolve(song: Song, low: Boolean): ResolvedStream = withContext(Dispatchers.IO) {
+    /** A video YouTube has since removed is swapped for a working upload of the same song, found by name; YouTube Music does the same itself. */
+    override suspend fun resolve(song: Song, low: Boolean): ResolvedStream = try {
+        resolveId(song, low)
+    } catch (e: NoAudioException) {
+        // ponytail: the swap is looked up again each time the song loads, not saved into the playlist; save it if that gets slow
+        val copy = if (song.isLocal) null else runCatching { copyOf(song, search("${song.title} ${song.artist}")) }.getOrNull()
+        if (copy == null) throw e
+        runCatching { resolveId(copy, low) }.getOrElse { throw e }
+    }
+
+    private suspend fun resolveId(song: Song, low: Boolean): ResolvedStream = withContext(Dispatchers.IO) {
         val info = try { StreamInfo.getInfo(YouTube, song.url) } catch (e: org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException) {
             throw NoAudioException("${song.id}: ${e.message}")
         }
@@ -127,3 +137,8 @@ fun List<InfoItem>.from(channelUrl: String) = filter {
 /** YouTube names an album page "Album – Kid A" (or Single, EP): the kind and the bare name. */
 fun albumKind(title: String): Pair<String, String> =
     Regex("^(Album|Single|EP) – (.+)$").find(title)?.destructured?.let { (k, n) -> k to n } ?: ("Album" to title)
+
+/** The first search result that is the same song as [song] under another id: same title, about the same length. */
+fun copyOf(song: Song, results: List<Song>): Song? = results.firstOrNull {
+    it.id != song.id && it.title.trim().equals(song.title.trim(), ignoreCase = true) && kotlin.math.abs(it.durationSec - song.durationSec) <= 3
+}
