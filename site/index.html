@@ -999,7 +999,15 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   .hv__stripwrap { order: 3; }
   .hv__pause { bottom: auto; top: 14px; right: 16px; }
 }
-@media (max-width: 639px) { .hv__media { height: 420px; } }
+@media (max-width: 1279px) {
+  .hv__media { position: absolute; inset: 0; height: auto; order: 0; }
+  .hv__video { object-position: 60% 50%; filter: blur(3px) brightness(.6); transform: scale(1.08); }
+  .hv__media::after { background: linear-gradient(180deg, rgba(15,10,9,.62) 0%, rgba(15,10,9,.5) 40%, rgba(15,10,9,.78) 100%); }
+  .hv__wrap { flex: 1 0 auto !important; align-content: center; padding-bottom: 40px; }
+  .hv__pause { top: calc(var(--nav) + 12px); }
+  .hv__copy { max-width: 640px; }
+}
+@media (max-width: 1279px) and (prefers-reduced-motion: reduce) { .hv__media { background-position: 60% 50%; } }
 </style>
 </head>
 <body class="bg-topglow">
