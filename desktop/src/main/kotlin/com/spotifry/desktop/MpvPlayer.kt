@@ -79,6 +79,14 @@ class MpvPlayer(
     private val beatsAllowed: () -> Boolean = { true },
     /** The beats of a stretch of a song at a link or file, from its start and end in ms. */
     private val beats: suspend (String, Long, Long) -> BeatGrid? = { url, from, to -> kotlinx.coroutines.withContext(Dispatchers.IO) { readBeats(url, from, to) } },
+    /** Song [id]'s best kept copy (its file and source), played with no waiting for a link; alongside as for [playFrom]. */
+    private val keptCopy: (String, Boolean) -> Pair<String, String>? = { _, _ -> null },
+    /** A song was heard for 30 seconds, from this source: its better copy may be fetched for the next play. */
+    private val onHeard: suspend (Song, String?) -> Unit = { _, _ -> },
+    /** The player moved to another song; these are playing or next, so their kept copies are left alone. */
+    private val onSongChange: (Set<String>) -> Unit = {},
+    /** A lossless or JioSaavn song couldn't keep up and went on from YouTube; its better copy, to fetch for the next play. */
+    private val onFellBack: (Song, com.spotifry.music.data.source.ResolvedStream?) -> Unit = { _, _ -> },
 ) : MusicPlayer, SleepTimer.Target {
     private val _state = MutableStateFlow(PlayerUiState())
     override val state: StateFlow<PlayerUiState> = _state
@@ -142,11 +150,18 @@ class MpvPlayer(
     private var ao: String? = null
     /** Where each song's sound came from ("youtube", "saved", ...), for the Sound path panel. */
     private val origins = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** The playing song's link while it streams from a slow server (lossless, JioSaavn); null otherwise, or once it went on from YouTube. */
+    private var slowStream: com.spotifry.music.data.source.ResolvedStream? = null
+    private var fellBack = false
+    private val stalls = com.spotifry.music.player.StallWatch()
+    /** How much of the playing song is ready ahead, from mpv; a background download waits while it is low. */
+    @Volatile var bufferedAheadMs: Long = Long.MAX_VALUE
+        private set
     private val _sound = MutableStateFlow(MpvSound())
     /** The playing song's path through mpv, for the Sound path panel. */
     val sound: StateFlow<MpvSound> = _sound
     private fun publishSound() {
-        _sound.value = MpvSound(queue.getOrNull(index)?.id?.let(origins::get), codec, bitrate, decoded, sent, ao)
+        _sound.value = MpvSound(queue.getOrNull(index)?.id?.let(origins::get), codec, bitrate, decoded, sent, ao, fellBack)
     }
     private val listens = ListenTracker()
     private val plays = PlayCounter()
@@ -176,7 +191,7 @@ class MpvPlayer(
     /** What the screens show of a song; observing sends the value at once, so a song already playing in a voice is caught up. */
     private fun observeAll(m: Mpv) {
         m.observe(2, "duration"); m.observe(3, "paused-for-cache"); m.observe(4, "audio-codec-name"); m.observe(6, "audio-params/samplerate")
-        m.observe(7, "audio-params"); m.observe(8, "audio-out-params"); m.observe(9, "current-ao")
+        m.observe(7, "audio-params"); m.observe(8, "audio-out-params"); m.observe(9, "current-ao"); m.observe(10, "demuxer-cache-duration")
     }
 
     init {
@@ -198,8 +213,16 @@ class MpvPlayer(
             var last = System.nanoTime() / 1_000_000
             while (true) {
                 delay(1_000)
-                val (id, playing) = synchronized(lock) { queue.getOrNull(index)?.id to state.value.isPlaying }
-                if (plays.tick(id, playing, 1_000) && id != null) recorder?.let { r -> launch { r.countPlay(id) } }
+                val (song, playing) = synchronized(lock) {
+                    // a slow server that keeps the song waiting too long: it goes on from YouTube
+                    if (slowStream != null && !fellBack && wants && (!loaded || buffering) && stalls.tooLong(System.currentTimeMillis())) queue.getOrNull(index)?.let(::fallBack)
+                    queue.getOrNull(index) to state.value.isPlaying
+                }
+                val id = song?.id
+                if (plays.tick(id, playing, 1_000) && song != null) {
+                    recorder?.let { r -> launch { r.countPlay(song.id) } }
+                    launch { onHeard(song, origins[song.id]) }
+                }
                 val at = System.nanoTime() / 1_000_000
                 recorder?.listenLog?.write(listens.tick(id, playing, at - last))
                 last = at
@@ -504,6 +527,7 @@ class MpvPlayer(
         order = if (!shuffle) null else order?.let { o -> o.indexOf(i).takeIf { it >= 0 }?.let(o::drop) } ?: newOrder()
         loaded = voice != null; buffering = voice == null; failed = false; ended = false
         codec = null; bitrate = voice?.bitrate; rate = null; decoded = null; sent = null
+        slowStream = null; fellBack = false
         wholeMs = queue[i].durationSec * 1000
         trim = if (voice != null) voice.trim else trimOf(queue[i].id)
         ranOn = voice == null && !byListener && fadeSeconds() > 0
@@ -515,6 +539,8 @@ class MpvPlayer(
         _position.value = voice?.posMs ?: pendingStart
         publish(); publishSound(); save()
         val song = queue[i]
+        val after = queue.getOrNull(order?.getOrNull(1) ?: (i + 1))?.id
+        scope.launch { onSongChange(setOfNotNull(song.id, after)) }
         plays.restart(song.id)
         recorder?.let { r -> r.listenLog.write(listens.moved(song.id, byListener)); scope.launch { r.history.onPlayed(song) } }
         lookUpSmartTrim(song)
@@ -524,15 +550,19 @@ class MpvPlayer(
         loading = scope.launch(Dispatchers.IO) {
             try {
                 val local = localFile(song)
-                // patient: this player has no copy to swap for a better one later, so it waits for the best answer (as the old one-after-another lookup did, but all asked at once)
-                val stream = if (local == null) resolver.get(song, patient = true) else null
+                // a kept copy plays at once, the best one there is; else the first source to answer starts the song, and a
+                // better copy answering later is fetched in the background for the next play ([BetterCopies])
+                val kept = if (local == null) synchronized(lock) { if (queue.getOrNull(index)?.id != song.id) return@launch; keptCopy(song.id, false) } else null
+                val stream = if (local == null && kept == null) resolver.get(song) else null
                 synchronized(lock) {
                     if (queue.getOrNull(index)?.id != song.id) return@launch
-                    val url = local ?: playFrom(song, stream!!, false)
+                    val url = local ?: kept?.first ?: playFrom(song, stream!!, false)
+                    slowStream = stream?.takeIf { it.origin != "youtube" }
+                    if (slowStream != null) stalls.newSong(System.currentTimeMillis())
                     playingUrl = url
                     // the source's own bitrate figure: mpv's live reading of a stream keeps moving, so it makes a restless label
                     bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
-                    originOf(song.id, local != null, stream?.origin)?.let { origins[song.id] = it }; publishSound()
+                    originOf(song.id, local != null, kept?.second ?: stream?.origin)?.let { origins[song.id] = it }; publishSound()
                     mpv.set("pause", !wants)
                     val at = pendingStart; seekOnStart = null
                     val opts = listOfNotNull(
@@ -542,6 +572,31 @@ class MpvPlayer(
                     if (opts.isNotEmpty()) mpv.command("loadfile", url, "replace", -1, opts.joinToString(",")) else mpv.command("loadfile", url, "replace")
                 }
             } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { synchronized(lock) { fail(song, e is com.spotifry.music.data.source.NoAudioException) } }
+        }
+    }
+
+    /**
+     * The playing song from a slow server goes on from YouTube at the same moment, as on the phone. Its better copy is
+     * passed on to be fetched whole in the background, so the next play is the better one with no waiting.
+     */
+    private fun fallBack(song: Song) {
+        val better = slowStream
+        fellBack = true
+        System.err.println("stall: ${better?.origin} too slow for ${song.id}, going on from YouTube")
+        scope.launch(Dispatchers.IO) {
+            val yt = runCatching { resolver.get(song, prefer = "youtube") }.getOrNull() ?: return@launch
+            synchronized(lock) {
+                if (queue.getOrNull(index)?.id != song.id || slowStream !== better) return@launch
+                onFellBack(song, better)
+                val at = _position.value
+                val url = playFrom(song, yt, false)
+                playingUrl = url; slowStream = null
+                bitrate = yt.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
+                origins[song.id] = "youtube"; publishSound()
+                loaded = false; buffering = true; publish()
+                val opts = listOfNotNull("start=${(at + startMs) / 1000.0}", trim?.endMs?.let { "end=${it / 1000.0}" })
+                mpv.command("loadfile", url, "replace", -1, opts.joinToString(","))
+            }
         }
     }
 
@@ -580,7 +635,13 @@ class MpvPlayer(
                     if (now - lastTick >= 400) { lastTick = now; _position.value = ms }
                 }
                 "duration" -> if (!e.isNull("data")) { wholeMs = (e.getDouble("data") * 1000).toLong(); publish() }
-                "paused-for-cache" -> { buffering = loaded && e.optBoolean("data"); publish() }
+                "paused-for-cache" -> {
+                    buffering = loaded && e.optBoolean("data"); publish()
+                    // a slow server stalling twice within 30 s: it goes on from YouTube
+                    val now = System.currentTimeMillis()
+                    if (slowStream != null && !fellBack) { if (buffering) { if (stalls.stalled(now)) queue.getOrNull(index)?.let(::fallBack) } else if (loaded) stalls.playing() }
+                }
+                "demuxer-cache-duration" -> bufferedAheadMs = if (e.isNull("data")) Long.MAX_VALUE else (e.optDouble("data") * 1000).toLong()
                 "audio-codec-name" -> { codec = if (e.isNull("data")) null else e.optString("data"); publish(); publishSound() }
                 "audio-params/samplerate" -> { rate = if (e.isNull("data")) null else e.optInt("data"); publish() }
                 "audio-params" -> { decoded = AudioFormat.of(e.optJSONObject("data")); publishSound() }
@@ -590,6 +651,7 @@ class MpvPlayer(
             "playback-restart" -> {
                 if (!loaded) {
                     loaded = true; buffering = false; failsOfThisSong = 0
+                    stalls.playing()
                     failures.onSuccess(); _notice.value = null
                     seekOnStart?.let { mpv.command("seek", (it + startMs) / 1000.0, "absolute"); seekOnStart = null }
                     publish()
@@ -689,11 +751,13 @@ class MpvPlayer(
         scope.launch(Dispatchers.IO) {
             val waiting = try {
                 val local = localFile(next)
-                val stream = if (local == null) resolver.get(next, patient = true) else null
+                val kept = if (local == null) synchronized(lock) { if (stage !== looking) return@launch; keptCopy(next.id, true) } else null
+                // looked up ahead, so it waits a little for the best answer (5 s)
+                val stream = if (local == null && kept == null) resolver.get(next, patient = true) else null
                 // opened alongside: the song heard now keeps its copy, and the next one starts coming in
-                val url = local ?: synchronized(lock) { if (stage !== looking) return@launch; playFrom(next, stream!!, true) }
+                val url = local ?: kept?.first ?: synchronized(lock) { if (stage !== looking) return@launch; playFrom(next, stream!!, true) }
                 val bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
-                originOf(next.id, local != null, stream?.origin)?.let { origins[next.id] = it }
+                originOf(next.id, local != null, kept?.second ?: stream?.origin)?.let { origins[next.id] = it }
                 val plan = if (!onBeat) plainJoin(outMs, outMs, inMs, fade, 0) else {
                     // a read cut short can't say where the song's sound ends, and its beats would be guessed far ahead: not used
                     val out = outUrl?.let { look(outId, it, (outStart + outMs - STRETCH_MS).coerceAtLeast(outStart), outStart + outMs) }?.takeIf { it.whole }?.shifted(-outStart)

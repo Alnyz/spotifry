@@ -40,6 +40,8 @@ data class AudioFormat(val rate: Int, val format: String, val channels: Int) {
 data class MpvSound(
     val origin: String? = null, val codec: String? = null, val bitrateBps: Double? = null,
     val decoded: AudioFormat? = null, val sent: AudioFormat? = null, val ao: String? = null,
+    /** The song was on a slow server and went on from YouTube. */
+    val fellBack: Boolean = false,
 )
 
 /** Where a song's sound comes from: a file on this computer, a saved copy, else the service [stream] names. */
@@ -123,14 +125,19 @@ private fun rateChanged(m: MpvSound, out: SoundOutput?): Boolean? {
 }
 
 /** The rows of the Sound path panel: only what mpv and the sound server really report. */
-fun soundPathGroups(m: MpvSound, s: PathSettings, out: SoundOutput?): List<PathGroup> {
+fun soundPathGroups(m: MpvSound, s: PathSettings, out: SoundOutput?, coming: String? = null): List<PathGroup> {
     val d = m.decoded
     val file = listOfNotNull(
         d?.rate?.let(::khz), d?.channels?.let { when (it) { 0 -> null; 1 -> "Mono"; 2 -> "Stereo"; else -> "$it channels" } },
         if (m.codec?.lowercase() in setOf("flac", "alac")) "Lossless" else m.bitrateBps?.takeIf { it > 0 }?.let { "${((it + 500) / 1000).toInt()} kbps" },
     ).joinToString(" · ")
-    val input = PathGroup("Input", false, listOf(
-        PathRow(PathIcon.Source, "Source", sourceName(m.origin), note = "Where the song comes from: YouTube, the lossless server, JioSaavn, or a file on this computer."),
+    val input = PathGroup("Input", false, listOfNotNull(
+        PathRow(PathIcon.Source, "Source", sourceName(m.origin) + if (m.fellBack) "\nThe better copy was too slow, so it went on from here" else "",
+            note = "Where the song comes from: YouTube, the lossless server, JioSaavn, or a file on this computer."),
+        coming?.let {
+            PathRow(PathIcon.Source, "Next play", "${sourceName(it)} copy, downloading in the background",
+                note = "A better copy than this one is fetched while you listen. The next time the song plays, it comes from that copy, with no waiting.")
+        },
         PathRow(PathIcon.File, codecName(m.codec), if (m.codec == null) "Nothing playing yet" else file.ifEmpty { DASH }, note = "The file as it arrives, before anything touches it."),
         PathRow(PathIcon.Decoder, "Decoder", "FFmpeg, inside mpv" + (d?.format?.let(::bitsText)?.let { "\nGives out $it" } ?: ""), note = "The part of the player that turns the file into raw sound."),
     ))
@@ -209,7 +216,8 @@ fun SoundPathPanel(services: Services, width: Dp, onClose: () -> Unit, onEqualiz
     val tune by st.tune.collectAsState(); val compare by st.compare.collectAsState()
     // Compare takes the equalizer and the tuning out of what is heard
     val s = PathSettings(eqOn && !compare, eqName, leveling, fade, speed, pitch, state.trim, mono, silence, spatial != null, set.takeIf { perDevice }, !tune.neutral && !compare)
-    val groups = soundPathGroups(m, s, out)
+    val coming by services.betterComing.collectAsState()
+    val groups = soundPathGroups(m, s, out, state.current?.id?.let(coming::get))
     val reason = soundPathReason(m, s, out)
     val rail = Palette.ink.copy(alpha = .14f)
     Column(modifier.width(width).fillMaxHeight().edgeLine().background(if (Palette.dark) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.45f)).padding(top = 14.dp, start = 24.dp, end = 12.dp)) {

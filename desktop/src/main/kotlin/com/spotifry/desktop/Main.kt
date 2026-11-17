@@ -66,6 +66,8 @@ class Services(
     val output: kotlinx.coroutines.flow.StateFlow<SoundOutput?> = kotlinx.coroutines.flow.MutableStateFlow(null),
     /** The playing song's path through mpv, for the Sound path panel; empty in tests. */
     val sound: kotlinx.coroutines.flow.StateFlow<MpvSound> = kotlinx.coroutines.flow.MutableStateFlow(MpvSound()),
+    /** Songs whose better copy is on its way for the next play: id to its source. */
+    val betterComing: kotlinx.coroutines.flow.StateFlow<Map<String, String>> = kotlinx.coroutines.flow.MutableStateFlow(emptyMap()),
 ) {
     /** Set by the window: bring it to the front (the media widget's "open"), and quit. */
     var raise: () -> Unit = {}
@@ -102,11 +104,17 @@ fun productionServices(): Services {
     // SPOTIFRY_MPV_ARGS="--ao=null" turns the sound off, for tests
     val args = System.getenv("SPOTIFRY_MPV_ARGS")?.split(' ')?.filter { it.isNotBlank() }.orEmpty()
     val replay = ReplayStore(client, scope, File(dir, "replay")) { settings.cacheMb.value }
+    lateinit var better: BetterCopies
     val player = MpvPlayer(resolver, scope, File(dir, "last_queue.json"), args, localFile = library::localFile, recorder = library.recorder, trims = library.trims,
         smartTrims = library.smartTrims, smartTrimOn = { settings.smartTrim.value }, fadeSeconds = { settings.fadeSeconds.value }, transition = { settings.transition.value },
         playFrom = { song, s, alongside -> replay.open(song.id, s.origin, s.url, alongside) },
         related = source::related, notSuggested = library::notSuggested, beatsAllowed = { !settings.skipSilence.value },
+        keptCopy = replay::best, onHeard = { s, o -> better.onHeard(s, o) }, onSongChange = { better.upgradeWhenFree(it) },
+        onFellBack = { s, b -> if (b != null) { better.offer(s, b); better.download(s) } },
     )
+    // a lossless or JioSaavn copy that answers after the song started is fetched for the next play
+    better = BetterCopies(client, source, replay, { player.bufferedAheadMs }, scope)
+    source.onBetter = better::offer
     scope.launch { kotlinx.coroutines.flow.combine(settings.speed, settings.pitch, ::Pair).collect { (s, p) -> player.setSpeedPitch(s, p) } }
     scope.launch { settings.sameLoudness.collect { player.setFilter("loud", if (it) Sound.LOUDNESS else null) } }
     // a drag changes the levels many times a second; mpv gets the latest at most ten times a second
@@ -139,7 +147,7 @@ fun productionServices(): Services {
     val brainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = "Spotifry/$APP_VERSION (https://github.com/Alnyz/spotifry)")
     lateinit var services: Services
     services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay, listening = player::listening,
-        lookUpYears = { lookUpSongYears(library, scope, brainz) }, notice = player.notice, output = output, sound = player.sound)
+        lookUpYears = { lookUpSongYears(library, scope, brainz) }, notice = player.notice, output = output, sound = player.sound, betterComing = better.coming)
     services.lookUpYears()
     scope.launch { library.musicFolder.refresh() }
     library.updates.checkDaily()

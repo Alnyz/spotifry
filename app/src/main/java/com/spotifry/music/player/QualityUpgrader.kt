@@ -69,7 +69,7 @@ class QualityUpgrader(
             tried[song.id] = now()
             val found = source.findBetter(song, had)
             // nothing came back (a slow or refusing server counts too): ask again in 5 minutes, not 30
-            if (found == null) tried[song.id] = now() - RETRY_MS + 5 * 60_000L else offer(song, found)
+            if (found == null) tried[song.id] = now() - UPGRADE_RETRY_MS + 5 * 60_000L else offer(song, found)
         }
         download(song)
     }
@@ -97,7 +97,7 @@ class QualityUpgrader(
                     } else {
                         part.delete()
                         // refused or cut off: it is asked for again after the next 30 s heard, no sooner than 5 minutes from now
-                        tried[song.id] = now() - RETRY_MS + 5 * 60_000L
+                        tried[song.id] = now() - UPGRADE_RETRY_MS + 5 * 60_000L
                     }
                 }
             } finally { downloading.remove(song.id) }
@@ -154,31 +154,4 @@ class QualityUpgrader(
     }
 }
 
-/**
- * Reads a whole file with [read] (bytes read, or -1 at the end) into [out], waiting while [mayGo] is false. True only when
- * the length is known and matches, so a download cut short is never taken for a whole song.
- */
-internal fun fetchWhole(length: Long, read: (ByteArray) -> Int, out: java.io.File, mayGo: () -> Boolean): Boolean {
-    val buf = ByteArray(64 * 1024)
-    var total = 0L
-    java.io.FileOutputStream(out).use { f ->
-        while (true) {
-            while (!mayGo()) Thread.sleep(300)
-            val n = read(buf)
-            if (n < 0) break
-            f.write(buf, 0, n); total += n
-        }
-    }
-    return total > 0 && (length < 0 || total == length)
-}
-
 private const val LOW_BUFFER_MS = 20_000L
-
-/** A copy kept from [origin] (null: YouTube, as before there was a choice) is poorer than what [rank] now allows. */
-fun isBelow(origin: String?, rank: Int): Boolean = qualityRank(origin ?: "youtube") < rank
-
-/** Whether to look for a better copy: the stored one isn't the best allowed, none is offered yet, and not asked for [RETRY_MS]. */
-fun shouldLook(storedOrigin: String, bestAllowed: Int, offeredOrigin: String?, lastTried: Long?, now: Long): Boolean =
-    qualityRank(storedOrigin) < bestAllowed && qualityRank(offeredOrigin) <= qualityRank(storedOrigin) && (lastTried == null || now - lastTried > RETRY_MS)
-
-private const val RETRY_MS = 30 * 60 * 1000L

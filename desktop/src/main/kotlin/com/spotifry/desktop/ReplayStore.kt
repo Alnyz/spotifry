@@ -9,7 +9,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
+import com.spotifry.music.data.source.qualityRank
 import java.io.File
 import java.io.RandomAccessFile
 import java.net.InetAddress
@@ -55,7 +58,7 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
     @Synchronized fun open(id: String, origin: String, url: String, alongside: Boolean = false): String {
         (if (alongside) live.dropLast(1) else live).forEach(::stop)
         // the source is in the name: a song kept from YouTube is another file than the same song in lossless
-        val done = File(dir, "${id.replace(Regex("[^A-Za-z0-9_-]"), "_")}.$origin")
+        val done = File(dir, "${safe(id)}.$origin")
         if (done.isFile) { done.setLastModified(System.currentTimeMillis()); return done.path }
         dir.mkdirs()
         val c = Copy(++count, File(dir, done.name + ".part"), done, url)
@@ -64,6 +67,41 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         c.job = scope.launch(Dispatchers.IO) { download(c, url); keep(c) }
         live = live + c
         return "http://127.0.0.1:${server.address.port}/${c.n}"
+    }
+
+    private fun safe(id: String) = id.replace(Regex("[^A-Za-z0-9_-]"), "_")
+
+    /** The whole kept copies of song [id], by source. */
+    private fun keptOf(id: String) = dir.listFiles { f -> f.isFile && f.name.substringBeforeLast('.') == safe(id) && f.extension in ORIGINS }.orEmpty().toList()
+
+    /**
+     * Song [id]'s best whole kept copy and its source, played with no internet and no waiting, or null. The copies before
+     * it stop, as with [open].
+     */
+    @Synchronized fun best(id: String, alongside: Boolean = false): Pair<String, String>? {
+        val f = keptOf(id).maxByOrNull { qualityRank(it.extension) } ?: return null
+        (if (alongside) live.dropLast(1) else live).forEach(::stop)
+        f.setLastModified(System.currentTimeMillis())
+        return f.path to f.extension
+    }
+
+    /** Where a better copy of a song is downloaded before [install] puts it in place. */
+    fun incoming(id: String, origin: String) = File(dir.also { it.mkdirs() }, "${safe(id)}.$origin.better")
+
+    /**
+     * A whole better copy of song [id] from [origin] becomes its kept copy, and the poorer ones go, halves included.
+     * Not while the song is being played from here: the caller waits until it isn't.
+     */
+    @Synchronized fun install(id: String, origin: String, file: File): Boolean {
+        if (live.any { it.done.name.substringBeforeLast('.') == safe(id) }) return false
+        val done = File(dir, "${safe(id)}.$origin")
+        if (!renamed(file, done)) { file.delete(); return false }
+        done.setLastModified(System.currentTimeMillis())
+        dir.listFiles { f -> f.isFile && f != done && f.name.startsWith(safe(id) + ".") && !f.name.endsWith(".better") }?.forEach { f ->
+            if (qualityRank(f.name.removeSuffix(".part").substringAfterLast('.')) < qualityRank(origin)) { f.delete(); sizes.edit().remove(f.name.removeSuffix(".part")).apply() }
+        }
+        makeRoom(done)
+        return true
     }
 
     /**
@@ -92,8 +130,8 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         }
     }
 
-    /** Kept songs, whole or half, but not the one coming in now. */
-    private fun kept() = dir.listFiles { f -> f.isFile && f.name != "parts.json" && live.none { c -> c.file == f } }.orEmpty().toList()
+    /** Kept songs, whole or half, but not the one coming in now, nor a better copy still downloading. */
+    private fun kept() = dir.listFiles { f -> f.isFile && f.name != "parts.json" && !f.name.endsWith(".better") && live.none { c -> c.file == f } }.orEmpty().toList()
 
     /** Space the kept songs take. */
     fun usedBytes() = kept().sumOf { it.length() }
@@ -107,11 +145,15 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
             // one long read is fastest; the server cuts long ones off now and then, so each try goes on from where it got
             while (scope.isActive && !c.gone && (c.total < 0 || c.have < c.total)) {
                 try {
-                    client.newCall(Request.Builder().url(url).header("Range", "bytes=${c.have}-").build()).execute().use { r ->
+                    val link = rangeInLink(url)
+                    client.newCall(ranged(url, c.have, null)).execute().use { r ->
                         check(r.code == 206 || r.code == 200) { "answer ${r.code}" }
-                        val size = r.header("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: r.body!!.contentLength()
+                        // YouTube answers a range in the link with just that part and no Content-Range: its size is what is left
+                        val size = if (link) r.body!!.contentLength().takeIf { it >= 0 }?.let { it + c.have } ?: -1L
+                            else r.header("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: r.body!!.contentLength()
                         // a different file than the half-kept one (another format this time), or the whole file again: start over
-                        if (r.code == 200 || (c.total >= 0 && size != c.total)) { c.have = 0; out.setLength(0) }
+                        if (link && c.total >= 0 && size != c.total) { c.have = 0; out.setLength(0); return@use }
+                        if (!link && (r.code == 200 || (c.total >= 0 && size != c.total))) { c.have = 0; out.setLength(0) }
                         if (c.total != size) { c.total = size; sizes.edit().putLong(c.done.name, size).apply() }
                         val input = r.body!!.byteStream(); val buf = ByteArray(64 * 1024)
                         out.seek(c.have)
@@ -163,8 +205,8 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         scope.launch(Dispatchers.IO) {
             runCatching {
                 val end = minOf(start + PART, c.total) - 1
-                val bytes = client.newCall(Request.Builder().url(c.url).header("Range", "bytes=$start-$end").build()).execute().use { r ->
-                    check(r.code == 206); r.body!!.bytes()
+                val bytes = client.newCall(ranged(c.url, start, end)).execute().use { r ->
+                    check(r.code == 206 || (r.code == 200 && rangeInLink(c.url))); r.body!!.bytes()
                 }
                 synchronized(c) { if (!c.gone) RandomAccessFile(c.file, "rw").use { it.seek(start); it.write(bytes) } }
                 synchronized(c.parts) { c.parts += start until start + bytes.size }
@@ -200,5 +242,17 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
     private companion object {
         /** Size of a part fetched apart, and how far ahead of the download a read must be to get one. */
         const val PART = 512 * 1024L
+        /** The sources a kept copy's name ends in. */
+        val ORIGINS = setOf("youtube", "saavn", "monochrome")
     }
+}
+
+/** YouTube's links take their range in the link: asked with a Range header (or none) it sends about 33 KB/s, barely faster than the song plays. */
+internal fun rangeInLink(url: String) = url.toHttpUrlOrNull()?.host?.endsWith("googlevideo.com") == true
+
+/** A request for the bytes of [url] from [from] to [to] (to the end when null): in the link for YouTube, in a Range header for the rest. */
+internal fun ranged(url: String, from: Long, to: Long?): Request {
+    val span = "$from-${to ?: ""}"
+    return if (rangeInLink(url)) Request.Builder().url(url.toHttpUrl().newBuilder().setQueryParameter("range", span).build()).build()
+    else Request.Builder().url(url).header("Range", "bytes=$span").build()
 }
