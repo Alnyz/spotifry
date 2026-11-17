@@ -66,7 +66,7 @@ fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Un
     // Android asks its own question; a no leaves the card in place
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it; if (it) vm.refreshPhone() }
     // showing a list that has phone files reads them again, so new ones show up
-    LaunchedEffect(view.filter) { if (view.filter != SavedFilter.Offline) { allowed = vm.allowed(); vm.refreshPhone() } }
+    LaunchedEffect(view.filter) { if (view.filter != SavedFilter.Offline && view.filter != SavedFilter.NotCopied) { allowed = vm.allowed(); vm.refreshPhone() } }
     // back from Android's settings with access given
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { val now = vm.allowed(); if (now != allowed) { allowed = now; vm.refreshPhone() } }
     val left by vm.restoreLeft.collectAsStateWithLifecycle()
@@ -75,7 +75,8 @@ fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Un
     val context = androidx.compose.ui.platform.LocalContext.current
     val savedNow by vm.saved.collectAsStateWithLifecycle()
     val copies by com.spotifry.music.data.exportTick.collectAsStateWithLifecycle()
-    var uncopied by remember { mutableStateOf(emptySet<String>()) }
+    // null until looked at: the Not copied list shows nothing rather than a wrong "Everything is copied"
+    var uncopied by remember { mutableStateOf<Set<String>?>(null) }
     LaunchedEffect(savedNow, copies) {
         uncopied = if (!com.spotifry.music.data.canExport) emptySet() else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             savedNow.filter { e -> e.filePath?.let { !com.spotifry.music.data.isExported(context, it, e.title, e.artist) } == true }.map { it.id }.toSet()
@@ -131,9 +132,10 @@ fun SavedContent(
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     onShuffle: (List<Song>) -> Unit = {}, phoneAllowed: Boolean = true, onAllow: () -> Unit = {},
     restoreCard: (@Composable () -> Unit)? = null,
-    uncopied: Set<String> = emptySet(),
+    uncopied: Set<String>? = emptySet(),
 ) {
-    val rows = view.rows
+    val rows = if (view.filter != SavedFilter.NotCopied) view.rows else uncopied?.let { u -> view.rows.filter { it.song.id in u } }.orEmpty()
+    val looking = view.filter == SavedFilter.NotCopied && uncopied == null
     val songs = remember(rows) { rows.map { it.song } }
     val count = "${rows.size} ${if (rows.size == 1) "song" else "songs"}"
     val subtitle = when {
@@ -146,11 +148,12 @@ fun SavedContent(
         item { ScreenHeader("Saved", subtitle = subtitle) }
         item {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup().padding(horizontal = 20.dp, vertical = 12.dp), Arrangement.spacedBy(8.dp)) {
-                SavedFilter.entries.forEach { Chip(it.label, it == view.filter) { onFilter(it) } }
+                SavedFilter.entries.filter { it != SavedFilter.NotCopied || com.spotifry.music.data.canExport }.forEach { Chip(it.label, it == view.filter) { onFilter(it) } }
             }
         }
         if (restoreCard != null && (view.filter == SavedFilter.All || view.filter == SavedFilter.Offline)) item { restoreCard() }
         when {
+            looking -> {}
             view.filter == SavedFilter.Phone && !phoneAllowed -> item { AskCard(onAllow) }
             rows.isEmpty() -> item { Empty(view.filter, phoneAllowed, onFindSong) }
             else -> {
@@ -159,7 +162,7 @@ fun SavedContent(
                     Spacer(Modifier.height(10.dp))
                 }
                 itemsIndexed(rows, key = { _, r -> r.song.id }) { i, r ->
-                    SongRow(r.song, r.saved, { onPlay(songs, i) }, { onMore(r.song) }, rowPad, localCover = r.song.localThumbPath, subtitleExtra = if (r.song.id in uncopied) "not in Music folder yet" else null)
+                    SongRow(r.song, r.saved, { onPlay(songs, i) }, { onMore(r.song) }, rowPad, localCover = r.song.localThumbPath, subtitleExtra = if (uncopied?.contains(r.song.id) == true) "not in Music folder yet" else null)
                 }
             }
         }
@@ -172,6 +175,7 @@ private fun Empty(filter: SavedFilter, phoneAllowed: Boolean, onFindSong: () -> 
     SavedFilter.Offline -> EmptyState("Nothing saved yet", "Open any song and tap “Save on this phone”. It will play here without internet.", "Find a song to save", onFindSong)
     SavedFilter.Phone -> EmptyState("No music files found", "Songs you copy or download to this phone, like MP3s, show up here.")
     SavedFilter.Lately -> EmptyState("Nothing played lately", "Saved songs and music from this phone that you play show up here, newest first.")
+    SavedFilter.NotCopied -> EmptyState("Everything is copied", "Every saved song has a copy in your Music folder.")
 }
 
 /** First visit to "On this phone": what it does, and the button that makes Android ask. */

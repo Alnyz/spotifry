@@ -95,7 +95,20 @@ fun pipelineVerdict(i: PipelineInput): String {
     return if (direct) "Bit-perfect: Yes, the sound skips the phone's mixer" else "Bit-perfect: Not guaranteed, the sound goes through the phone's mixer"
 }
 
-internal fun sourceName(origin: String?) = when (origin) { "monochrome" -> "Lossless server"; "saavn" -> "JioSaavn"; "youtube" -> "YouTube"; else -> "On this phone" }
+internal fun sourceName(origin: String?) = when (origin) {
+    "monochrome" -> "Lossless server"; "saavn" -> "JioSaavn"; "youtube" -> "YouTube"
+    "local" -> "A file on this phone"; "saved" -> "Saved on this phone"; else -> "Not known yet"
+}
+
+/**
+ * Where the song playing comes from, for [sourceName]: a file on the phone, a saved copy, else the service its cached bytes
+ * ([cached]) or its link ([known]) came from. Null when none of that is known yet: a song still starting isn't on the phone.
+ */
+fun songSource(id: String, saved: Boolean, cached: String?, known: String?): String? = when {
+    id.startsWith(com.spotifry.music.data.LOCAL_PREFIX) -> "local"
+    saved -> "saved"
+    else -> cached ?: known
+}
 
 internal fun codecName(mime: String?): String = when (mime) {
     null -> DASH

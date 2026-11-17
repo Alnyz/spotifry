@@ -11,6 +11,8 @@ enum class SavedFilter(val label: String, val queueName: String) {
     Offline("Saved offline", "Saved"),
     Phone("On this phone", "On this phone"),
     Lately("Played lately", "Played lately"),
+    /** Saved songs with no copy in the Music folder. [filterSaved] lists every saved song; the page narrows them, as only it can look in the folder. */
+    NotCopied("Not copied", "Not copied yet"),
 }
 
 /** One row of the page: [saved] is the check mark for a song saved on the phone for offline. */
@@ -30,7 +32,7 @@ private fun Song.nameKey() = title.folded() + '\u0000' + artist.folded()
 fun filterSaved(filter: SavedFilter, saved: List<SongEntity>, phone: List<Song>, recent: List<SongEntity>): List<SavedRow> {
     val savedRows = saved.map { SavedRow(it.toSong(), true) }
     return when (filter) {
-        SavedFilter.Offline -> savedRows
+        SavedFilter.Offline, SavedFilter.NotCopied -> savedRows
         SavedFilter.Phone -> phone.map { SavedRow(it, false) }
         SavedFilter.All -> {
             // the same song saved from YouTube and found as a file: same name and artist, and a length within a few seconds

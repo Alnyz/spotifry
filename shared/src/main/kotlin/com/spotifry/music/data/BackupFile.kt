@@ -7,6 +7,8 @@ import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.db.SongNoteEntity
 import org.json.JSONArray
 import org.json.JSONObject
+import okio.ByteString
+import okio.ByteString.Companion.toByteString
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.zip.ZipEntry
@@ -18,6 +20,9 @@ const val BACKUP_FORMAT = 1
 private const val ENTRY = "backup.json"
 /** Five years at 30 songs a day and 5,000 songs is about 5 MB; even 100 a day for ten years fits. */
 const val MAX_JSON_BYTES = 32 * 1024 * 1024
+/** A cover is an 800 px JPEG of tens of KB; anything this big is not one. */
+const val MAX_COVER_BYTES = 4 * 1024 * 1024
+private const val COVERS = "covers/"
 /** Ids of songs that are files on this device, left out of a backup. */
 const val LOCAL_PREFIX = "local:"
 
@@ -28,8 +33,12 @@ class BackupError(message: String) : Exception(message)
 class BackupPartlyApplied(cause: Exception) : Exception(cause)
 
 data class BackupPlaylistSong(val songId: String, val addedAt: Long)
-/** [order] is the playlist's listing order. It has its own place here because its pref key holds this phone's playlist id. */
-data class BackupPlaylist(val name: String, val createdAt: Long, val order: String?, val songs: List<BackupPlaylistSong>)
+/**
+ * [order] is the playlist's listing order. It has its own place here because its pref key holds this phone's playlist id.
+ * [cover] is the picture chosen as its cover (a JPEG), null for the default. It travels as its own file in the zip, which an
+ * older app skips.
+ */
+data class BackupPlaylist(val name: String, val createdAt: Long, val order: String?, val songs: List<BackupPlaylistSong>, val cover: ByteString? = null)
 
 /**
  * Everything a backup holds. [songs] never carry a file path; a song's savedAt says it was saved on the old phone.
@@ -63,8 +72,9 @@ fun BackupFile.encode(): String = JSONObject()
         JSONObject().put("id", it.id).put("title", it.title).put("artist", it.artist).put("durationSec", it.durationSec)
             .put("thumbnailUrl", it.thumbnailUrl ?: JSONObject.NULL).put("savedAt", it.savedAt ?: JSONObject.NULL)
     }))
-    .put("playlists", JSONArray(playlists.map { p ->
+    .put("playlists", JSONArray(playlists.mapIndexed { i, p ->
         JSONObject().put("name", p.name).put("createdAt", p.createdAt).put("order", p.order ?: JSONObject.NULL)
+            .apply { if (p.cover != null) put("cover", coverEntry(i)) }
             .put("songs", JSONArray(p.songs.map { JSONObject().put("songId", it.songId).put("addedAt", it.addedAt) }))
     }))
     .put("history", JSONArray(history.map { JSONObject().put("songId", it.songId).put("playedAt", it.playedAt) }))
@@ -98,8 +108,16 @@ private fun JSONObject.optStringOrNull(k: String) = if (isNull(k)) null else opt
 private fun <T> JSONObject.list(k: String, item: (JSONObject) -> T): List<T> =
     optJSONArray(k)?.let { a -> (0 until a.length()).map { item(a.getJSONObject(it)) } }.orEmpty()
 
-/** Reads the JSON. Throws on anything malformed; unknown fields are ignored and missing ones get defaults. */
-fun decodeBackup(text: String): BackupFile {
+private fun coverEntry(playlist: Int) = "${COVERS}$playlist.jpg"
+
+/** Only what starts like a JPEG: anything else would show as a blank cover, so the playlist keeps the default instead. */
+fun isJpeg(b: ByteString) = b.size > 3 && b[0] == 0xFF.toByte() && b[1] == 0xD8.toByte() && b[2] == 0xFF.toByte()
+
+/**
+ * Reads the JSON. Throws on anything malformed; unknown fields are ignored and missing ones get defaults.
+ * [files]: the other files in the zip by name, where the covers are; a missing or broken cover leaves the default.
+ */
+fun decodeBackup(text: String, files: Map<String, ByteString> = emptyMap()): BackupFile {
     val o = JSONObject(text)
     if (!o.has("format")) throw BackupError(NOT_A_BACKUP)
     if (o.getInt("format") > BACKUP_FORMAT) throw BackupError("This backup was made by a newer Spotifry. Update the app, then try again.")
@@ -114,7 +132,10 @@ fun decodeBackup(text: String): BackupFile {
             SongEntity(id, it.optString("title"), it.optString("artist"), it.optLong("durationSec"), it.optStringOrNull("thumbnailUrl"), if (it.isNull("savedAt")) null else it.getLong("savedAt"), null, null)
         },
         o.list("playlists") { p ->
-            BackupPlaylist(p.getString("name"), p.optLong("createdAt"), p.optStringOrNull("order"), p.list("songs") { BackupPlaylistSong(it.getString("songId"), it.optLong("addedAt")) })
+            BackupPlaylist(
+                p.getString("name"), p.optLong("createdAt"), p.optStringOrNull("order"), p.list("songs") { BackupPlaylistSong(it.getString("songId"), it.optLong("addedAt")) },
+                p.optStringOrNull("cover")?.let(files::get)?.takeIf(::isJpeg),
+            )
         },
         o.list("history") { HistoryEntity(it.getString("songId"), it.getLong("playedAt")) },
         o.list("plays") { PlayCountEntity(it.getString("songId"), it.getInt("count"), it.getLong("lastPlayedAt")) },
@@ -132,14 +153,25 @@ fun writeBackup(backup: BackupFile, out: OutputStream) = ZipOutputStream(out).us
     zip.putNextEntry(ZipEntry(ENTRY))
     zip.write(backup.encode().toByteArray())
     zip.closeEntry()
+    backup.playlists.forEachIndexed { i, p ->
+        p.cover?.let { zip.putNextEntry(ZipEntry(coverEntry(i))); zip.write(it.toByteArray()); zip.closeEntry() }
+    }
 }
 
 /** The backup in a zip file; [BackupError] with a message to show for anything else. Changes nothing. */
 fun readBackup(input: InputStream): BackupFile = try {
     ZipInputStream(input).use { zip ->
-        val text = generateSequence { zip.nextEntry }.firstOrNull { it.name == ENTRY }?.let { zip.readUpTo(MAX_JSON_BYTES + 1) } ?: throw BackupError(NOT_A_BACKUP)
-        if (text.size > MAX_JSON_BYTES) throw BackupError(NOT_A_BACKUP)
-        decodeBackup(String(text))
+        var text: ByteArray? = null
+        val covers = mutableMapOf<String, ByteString>()
+        var coverBytes = 0L
+        for (e in generateSequence { zip.nextEntry }) when {
+            e.name == ENTRY && text == null -> text = zip.readUpTo(MAX_JSON_BYTES + 1)
+            // ponytail: one cover per playlist and a cap on the total, so a crafted zip can't fill the memory
+            e.name.startsWith(COVERS) && coverBytes < MAX_JSON_BYTES -> zip.readUpTo(MAX_COVER_BYTES + 1)
+                .takeIf { it.size <= MAX_COVER_BYTES }?.let { covers[e.name] = it.toByteString(); coverBytes += it.size }
+        }
+        if (text == null || text.size > MAX_JSON_BYTES) throw BackupError(NOT_A_BACKUP)
+        decodeBackup(String(text), covers)
     }
 } catch (e: BackupError) { throw e } catch (e: Exception) { throw BackupError(NOT_A_BACKUP) } catch (e: OutOfMemoryError) {
     // parsing takes several times the file's size: a file under the limit can still be too much for this phone

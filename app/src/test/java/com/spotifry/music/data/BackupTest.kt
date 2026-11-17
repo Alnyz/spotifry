@@ -291,6 +291,82 @@ class BackupTest {
         assertEquals("RECENT", app.getString(PlaylistOrders.key(new), null))
     }
 
+    private val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte(), 1, 2, 3)
+    private fun coversDir() = kotlin.io.path.createTempDirectory("covers").toFile()
+
+    /** A phone whose playlist "Mix" has [jpeg] as its cover, backed up and read back from the zip. */
+    private suspend fun backupWithACover(): BackupFile {
+        val dir = coversDir()
+        val mix = db.playlists().create("Mix")
+        java.io.File(dir, "pic.jpg").writeBytes(jpeg)
+        db.playlists().setCover(mix, "pic.jpg")
+        db.playlists().create("Plain")
+        val b = Backups(db.backup(), app, trims, queue, "1.0", { 42L }, dir).build()
+        return readBackup(ByteArrayInputStream(zipped(b)))
+    }
+
+    private fun otherPhone(dir: java.io.File?): Pair<AppDatabase, Backups> {
+        val otherDb = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+        val otherQueue = RestoreQueue(context.getSharedPreferences("other-waiting", 0).also { it.edit().clear().commit() }, otherDb.songs(), {}, { false })
+        val otherApp = context.getSharedPreferences("other-app", 0).also { it.edit().clear().commit() }
+        return otherDb to Backups(otherDb.backup(), otherApp, context.getSharedPreferences("other-trims", 0), otherQueue, "1.0", { 50L }, dir)
+    }
+
+    @Test fun aPlaylistCoverTravelsToAnotherPhone() = runBlocking {
+        val b = backupWithACover()
+        assertTrue(b.playlists[0].cover!!.toByteArray().contentEquals(jpeg))
+        assertNull(b.playlists[1].cover)
+        val dir = coversDir()
+        val (otherDb, other) = otherPhone(dir)
+        other.restore(b)
+        val mix = otherDb.backup().playlists().first { it.name == "Mix" }
+        assertTrue(java.io.File(dir, mix.cover!!).readBytes().contentEquals(jpeg))
+        assertNull(otherDb.backup().playlists().first { it.name == "Plain" }.cover)
+        otherDb.close()
+    }
+
+    @Test fun aPlaylistThatHasACoverHereKeepsIt() = runBlocking {
+        val b = backupWithACover()
+        val dir = coversDir()
+        val (otherDb, other) = otherPhone(dir)
+        val mine = otherDb.playlists().create("Mix")
+        otherDb.playlists().setCover(mine, "mine.jpg")
+        other.restore(b)
+        assertEquals("mine.jpg", otherDb.playlists().coverOf(mine))
+        assertEquals(emptyList<String>(), dir.list().orEmpty().toList())
+        otherDb.close()
+    }
+
+    @Test fun aBrokenOrMissingCoverLeavesTheDefault() = runBlocking {
+        val json = file(playlists = listOf(playlist("Broken"), playlist("Missing"))).encode()
+            .replace("\"name\":\"Broken\"", "\"name\":\"Broken\",\"cover\":\"covers/0.jpg\"")
+            .replace("\"name\":\"Missing\"", "\"name\":\"Missing\",\"cover\":\"covers/1.jpg\"")
+        val zip = ByteArrayOutputStream().also { out ->
+            ZipOutputStream(out).use { z ->
+                z.putNextEntry(ZipEntry("backup.json")); z.write(json.toByteArray()); z.closeEntry()
+                z.putNextEntry(ZipEntry("covers/0.jpg")); z.write("not a picture".toByteArray()); z.closeEntry()
+            }
+        }.toByteArray()
+        val b = readBackup(ByteArrayInputStream(zip))
+        assertEquals(listOf(null, null), b.playlists.map { it.cover })
+        val (otherDb, other) = otherPhone(coversDir())
+        other.restore(b)
+        assertEquals(listOf(null, null), otherDb.backup().playlists().map { it.cover })
+        otherDb.close()
+    }
+
+    @Test fun aBackupWithCoversStillReadsWhereCoversAreNotKept() = runBlocking {
+        // an older app reads only backup.json, and the desktop app keeps no covers: both must still restore the rest
+        val b = backupWithACover()
+        val onlyTheJson = decodeBackup(b.encode())
+        assertEquals(listOf("Mix", "Plain"), onlyTheJson.playlists.map { it.name })
+        assertNull(onlyTheJson.playlists[0].cover)
+        val (otherDb, other) = otherPhone(null)
+        other.restore(b)
+        assertEquals(listOf(null, null), otherDb.backup().playlists().map { it.cover })
+        otherDb.close()
+    }
+
     private fun proxied(real: SharedPreferences, edit: () -> SharedPreferences.Editor) = java.lang.reflect.Proxy.newProxyInstance(
         javaClass.classLoader, arrayOf(SharedPreferences::class.java),
     ) { _, m, args -> if (m.name == "edit") edit() else m.invoke(real, *args.orEmpty()) } as SharedPreferences

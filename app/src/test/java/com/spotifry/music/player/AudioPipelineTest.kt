@@ -18,6 +18,15 @@ class AudioPipelineTest {
     )
     private fun row(groups: List<PipelineGroup>, group: String, title: String) = groups.first { it.name == group }.rows.first { it.title == title }
 
+    @Test fun `the source says where the song really comes from`() {
+        assertEquals("A file on this phone", sourceName(songSource("local:12", saved = false, cached = null, known = null)))
+        assertEquals("Saved on this phone", sourceName(songSource("abc", saved = true, cached = "youtube", known = null)))
+        assertEquals("Lossless server", sourceName(songSource("abc", saved = false, cached = "monochrome", known = "youtube")))
+        assertEquals("JioSaavn", sourceName(songSource("abc", saved = false, cached = null, known = "saavn")))
+        // streamed, not saved, not in the cache yet: it is not on this phone
+        assertEquals("Not known yet", sourceName(songSource("abc", saved = false, cached = null, known = null)))
+    }
+
     @Test fun `four groups in order, nothing of Spotifry's lit when everything is off`() {
         val g = pipelineGroups(input())
         assertEquals(listOf("Input", "Spotifry", "Android", "Output"), g.map { it.name })

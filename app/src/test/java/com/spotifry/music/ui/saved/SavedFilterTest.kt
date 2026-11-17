@@ -16,6 +16,9 @@ class SavedFilterTest {
 
     @Test fun allIsSavedThenFilesAndKeepsEachOrder() = assertEquals(listOf("y1", "y2", "local:1", "local:2"), ids(SavedFilter.All, s, p))
 
+    // the page narrows these to the songs with no copy in the Music folder: only it can look there
+    @Test fun notCopiedStartsFromTheSavedSongsOnly() = assertEquals(listOf("y1", "y2"), ids(SavedFilter.NotCopied, s, p))
+
     @Test fun offlineIsOnlySavedAndPhoneIsOnlyFiles() {
         assertEquals(listOf("y1", "y2"), ids(SavedFilter.Offline, s, p))
         assertEquals(listOf("local:1", "local:2"), ids(SavedFilter.Phone, s, p))

@@ -14,6 +14,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import okio.ByteString
+import okio.ByteString.Companion.toByteString
+import java.io.File
 import java.io.InputStream
 
 /** Settings only the desktop app has (folders, window) start with this, and stay out of every backup. */
@@ -42,6 +45,8 @@ class Backups(
     private val waiting: RestoreQueue,
     private val appVersion: String,
     private val now: () -> Long = System::currentTimeMillis,
+    /** Where the playlist cover pictures are kept; null where there are none (desktop): covers are then neither saved nor restored. */
+    private val covers: File? = null,
 ) {
     suspend fun build(): BackupFile {
         fun here(id: String) = !id.startsWith(LOCAL_PREFIX)
@@ -50,7 +55,10 @@ class Backups(
             appVersion, now(),
             dao.songs().filter { here(it.id) }.map { it.copy(savedAt = if (it.filePath != null) it.savedAt ?: 0 else null, filePath = null, thumbPath = null) },
             dao.playlists().map { p ->
-                BackupPlaylist(p.name, p.createdAt, app.getString(PlaylistOrders.key(p.id), null), rows[p.id].orEmpty().filter { here(it.songId) }.map { BackupPlaylistSong(it.songId, it.addedAt) })
+                BackupPlaylist(
+                    p.name, p.createdAt, app.getString(PlaylistOrders.key(p.id), null), rows[p.id].orEmpty().filter { here(it.songId) }.map { BackupPlaylistSong(it.songId, it.addedAt) },
+                    coverFile(p.cover)?.let { f -> runCatching { f.readBytes().toByteString() }.getOrNull()?.takeIf(::isJpeg) },
+                )
             },
             dao.history().filter { here(it.songId) }, dao.plays().filter { here(it.songId) }, dao.listens(),
             app.all.filterKeys { !aboutThisPhone(it) }.mapNotNull { (k, v) -> v?.let { k to it } }.toMap(),
@@ -96,6 +104,21 @@ class Backups(
             b.playlists.zip(ids).forEach { (p, id) -> if (id.second) p.order?.let { putString(PlaylistOrders.key(id.first), it) } }
             putBoolean(FIRST_LAUNCH_SEEN, true) // a phone with a restored library has no use for the first-launch screens
         }.commit()) { "settings not written" }
+        b.playlists.zip(ids).forEach { (p, id) -> p.cover?.let { restoreCover(id.first, it) } }
+    }
+
+    private fun coverFile(name: String?): File? = covers?.let { dir -> name?.let { File(dir, it) } }?.takeIf { it.isFile }
+
+    /** A playlist that already has a cover on this phone keeps it. A cover that can't be written leaves the default. */
+    private suspend fun restoreCover(id: Long, jpeg: ByteString) {
+        val dir = covers ?: return
+        if (dao.coverOf(id) != null) return
+        val f = File(dir, "$id-${now()}.jpg") // a fresh name: the old phone's name may already be taken here
+        try {
+            dir.mkdirs()
+            f.writeBytes(jpeg.toByteArray())
+            if (dao.setCoverIfNone(id, f.name) == 0) f.delete()
+        } catch (e: java.io.IOException) { f.delete() }
     }
 }
 

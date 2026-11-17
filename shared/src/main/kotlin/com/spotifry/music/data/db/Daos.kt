@@ -140,6 +140,9 @@ abstract class BackupDao {
     @Query("SELECT * FROM plays") abstract suspend fun plays(): List<PlayCountEntity>
     @Query("SELECT * FROM listens") abstract suspend fun listens(): List<ListenEntity>
     @Query("SELECT * FROM song_notes") abstract suspend fun notes(): List<SongNoteEntity>
+    @Query("SELECT cover FROM playlists WHERE id = :id") abstract suspend fun coverOf(id: Long): String?
+    /** Returns 0 when the playlist got a cover in the meantime: that one stays. */
+    @Query("UPDATE playlists SET cover = :cover WHERE id = :id AND cover IS NULL") abstract suspend fun setCoverIfNone(id: Long, cover: String): Int
 
     @Insert(onConflict = OnConflictStrategy.IGNORE) protected abstract suspend fun insertSong(e: SongEntity)
     @Insert protected abstract suspend fun insertPlaylist(p: PlaylistEntity): Long

@@ -55,7 +55,8 @@ fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modi
             }, fontFamily = Heading, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 14.dp))
             SavedFilters(Route.Saved, go)
             Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SavedFilter.entries.forEach { f -> Chip(f.desktopLabel, f == filter) { savedFilter = f } }
+                // ponytail: Not copied is phone only for now; the uncopied set above could narrow the rows here too
+                SavedFilter.entries.filter { it != SavedFilter.NotCopied }.forEach { f -> Chip(f.desktopLabel, f == filter) { savedFilter = f } }
             }
             if (songs.isNotEmpty()) Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Pill("Play all", Icons.Play, primary = true) { services.player.playList(songs, 0, filter.desktopQueue) }
