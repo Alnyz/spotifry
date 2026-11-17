@@ -72,6 +72,30 @@ class MonochromeTest {
         server.shutdown()
     }
 
+    @Test fun theSameSongIsLookedUpOnce() = runBlocking {
+        val server = MockWebServer().apply { enqueue(MockResponse().setBody(answer(track("9", "Creep", 238640)))); enqueue(file()); start() }
+        val s = source(server)
+        val both = listOf(async { s.find(creep) }, async { s.find(creep) }).map { it.await() }
+        assertTrue(both.all { it != null })
+        assertTrue(s.find(creep) != null)
+        assertEquals(2, server.requestCount) // one search and one look at the file, for all three callers
+        server.shutdown()
+    }
+
+    @Test fun aRefusalForAskingTooOftenOnlyPausesForAMinute() = runBlocking {
+        var now = 1_000L
+        val server = MockWebServer().apply { enqueue(MockResponse().setResponseCode(429)); start() }
+        val s = source(server) { now }
+        assertNull(s.find(creep))
+        now += 30_000L
+        assertNull(s.find(creep)) // still pausing, not asked
+        assertEquals(1, server.requestCount)
+        now += 40_000L
+        server.enqueue(MockResponse().setBody(answer(track("9", "Creep", 238640)))); server.enqueue(file())
+        assertTrue(s.find(creep) != null) // a minute later it is asked again, not five
+        server.shutdown()
+    }
+
     @Test fun aDeadServerIsLeftAloneForAFewMinutes() = runBlocking {
         var now = 1_000L
         val server = MockWebServer().apply { enqueue(MockResponse().setResponseCode(502)); start() }

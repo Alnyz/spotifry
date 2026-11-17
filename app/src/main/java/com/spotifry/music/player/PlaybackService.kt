@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.pow
@@ -74,7 +75,7 @@ class PlaybackService : MediaSessionService() {
         val http = OkHttpDataSource.Factory(c.client).setUserAgent(OkHttpDownloader.USER_AGENT)
         // songs not saved: kept in the song cache under their id, fetched from YouTube only when not there
         val cached = CacheDataSource.Factory().setCache(c.songCache)
-            .setUpstreamDataSourceFactory(ResolvingDataSource.Factory(DefaultDataSource.Factory(this, http), SongDataSourceResolver(c.resolver, c.db.songs(), c::streamLow, c.songCache)))
+            .setUpstreamDataSourceFactory(ResolvingDataSource.Factory(DefaultDataSource.Factory(this, http), SongDataSourceResolver(c.resolver, c.db.songs(), c::streamLow, c.songCache, { c.upgrader.knownBetter(it) }, { c.upgrader.forgetBetter(it) })))
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         // saved songs play from their file and skip the cache, so they aren't stored twice; file:// goes to the file
         // reader, the music:// id of any other song goes to the cache
@@ -112,13 +113,14 @@ class PlaybackService : MediaSessionService() {
         }
 
         scope.launch {
-            kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels) { on, l -> if (on) l else null }.collect { equalizer.set(it); tailEqualizer?.set(it) }
+            kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels, c.settings.compare) { on, l, cmp -> if (on && !cmp) l else null }.collect { equalizer.set(it); tailEqualizer?.set(it) }
         }
         scope.launch {
             kotlinx.coroutines.flow.combine(c.settings.mono, c.settings.spatial) { m, sp -> m to sp }.collect { (m, sp) -> spatial.set(m, sp); tailSpatial?.set(m, sp) }
         }
         // not immediate: a wake must run after the listener that sent it has finished, never inside it
         scope.launch(Dispatchers.Main) {
+        scope.launch { kotlinx.coroutines.flow.combine(c.settings.tune, c.settings.compare) { t, cmp -> if (cmp) com.spotifry.music.player.FineTuneSetting() else t }.collect { tune.set(it); tailTune?.set(it) } }
             // ponytail: polls the position 20 times a second while a fade is set and music plays; a timer per song end if battery shows it
             while (true) {
                 val fadeMs = c.settings.fadeSeconds.value * 1000L
@@ -131,15 +133,20 @@ class PlaybackService : MediaSessionService() {
                 if (g != c.sleepTimer.songGain) c.sleepTimer.songGain = g
                 withTimeoutOrNull(if ((fadeMs > 0 && player.isPlaying) || join?.quick == true) 50L else 500L) { wakeTick.receive() }
             }
+                c.upgrader.bufferedAheadMs = if (player.isPlaying) player.totalBufferedDuration else Long.MAX_VALUE
         }
 
-        // one log line per stall (buffering after the song has started), to find out why Hi-Res freezes
+        // a lossless (or JioSaavn) song that can't keep up: a stall is logged, and when sound doesn't come for 8 s at the
+        // start, or stalls for 4 s, or stalls twice within 30 s, the song goes on from YouTube at the same moment while the
+        // better copy keeps downloading for the next play
         player.addListener(object : Player.Listener {
             private var started = false
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) { started = false }
+            private val stalls = ArrayDeque<Long>()
+            private var watch: kotlinx.coroutines.Job? = null
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) { started = false; stalls.clear(); watch?.cancel() }
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) started = true
-                else if (state == Player.STATE_BUFFERING && started && player.playWhenReady) {
+                if (state == Player.STATE_READY) { started = true; watch?.cancel() }
+                else if (state == Player.STATE_BUFFERING && player.playWhenReady) {
                     val id = player.currentMediaItem?.mediaId ?: return
                     android.util.Log.w("Stall", "song=$id origin=${c.songOrigin(id)} kbps=${c.streamKbps(id, player.duration.coerceAtLeast(0))} ahead=${(player.bufferedPosition - player.currentPosition) / 1000.0}s total=${player.totalBufferedDuration / 1000.0}s at=${player.currentPosition / 1000.0}s")
                 }
@@ -326,7 +333,8 @@ class PlaybackService : MediaSessionService() {
                 val eq = EqualizerProcessor().apply { set(if (c.settings.eqOn.value) c.settings.eqLevels.value else null) }
                 val level = LoudnessProcessor().apply { enabled = c.settings.sameLoudness.value; leveler.hold(loudness.gainDb) }
                 val spatial = SpatialProcessor().apply { set(c.settings.mono.value, c.settings.spatial.value) }
-                tailEqualizer = eq; tailLoudness = level; tailSpatial = spatial
+                val tune = FineTuneProcessor().apply { set(if (c.settings.compare.value) com.spotifry.music.player.FineTuneSetting() else c.settings.tune.value) }
+                tailEqualizer = eq; tailLoudness = level; tailSpatial = spatial; tailTune = tune
                 val sweep = SweepProcessor().also { tailSweep = it }
                 val renderers = object : DefaultRenderersFactory(this@PlaybackService) {
                     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =

@@ -13,6 +13,8 @@ import com.spotifry.music.data.source.NewPipeSource
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.player.PlaybackEvents
 import com.spotifry.music.player.PlayerController
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
 /** The one place the app's long-lived pieces are created. */
@@ -52,8 +54,10 @@ class AppContainer(private val context: Context) {
     @get:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     val upgrader by lazy {
         com.spotifry.music.player.QualityUpgrader(
-            songCache, choosing, resolver, androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(client).setUserAgent(com.spotifry.music.data.source.OkHttpDownloader.USER_AGENT),
+            songCache, choosing, resolver, context.getSharedPreferences("better_copy", Context.MODE_PRIVATE),
             onUnmetered = { !connectivity.isActiveNetworkMetered }, isSaved = { db.songs().get(it)?.filePath != null },
+            http = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(client).setUserAgent(com.spotifry.music.data.source.OkHttpDownloader.USER_AGENT),
+            dir = java.io.File(context.cacheDir, "upgrades"),
         )
     }
     init { choosing.onBetter = { song, stream -> upgrader.offer(song, stream) } }
@@ -88,12 +92,24 @@ class AppContainer(private val context: Context) {
     val sleepTimer = com.spotifry.music.player.SleepTimer()
     /** Live picture of the sound, drawn on the Equalizer page. */
     val spectrum = com.spotifry.music.player.SpectrumTap()
+    /** What the player says about the sound now, for the Audio pipeline sheet. */
+    val audioTap = com.spotifry.music.player.AudioTap()
     val autoEq = com.spotifry.music.data.AutoEqSource(client, java.io.File(filesDir, "autoeq"))
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
         .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
-    /** What the player says about the sound now, for the Audio pipeline sheet. */
-    val audioTap = com.spotifry.music.player.AudioTap()
+    // A switch for Lossless or JioSaavn takes effect at once: links remembered from before are dropped, and when a better
+    // source was just allowed, songs kept from a poorer one are forgotten so they come again from the better one.
+    init {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
+            var before: Int? = null
+            kotlinx.coroutines.flow.combine(settings.monochrome, settings.jioSaavn) { _, _ -> choosing.bestRank() }.distinctUntilChanged().collect { now ->
+                val was = before
+                if (was != null) { resolver.clear(); if (now > was) upgrader.forgetBelow(now) }
+                before = now
+            }
+        }
+    }
     val updates = com.spotifry.music.data.Updates(context.applicationContext, client, prefs, BuildConfig.VERSION_NAME)
     val localMusic = com.spotifry.music.data.LocalMusic(context.applicationContext, settings.hideNonMusic)
     val downloads = DownloadRepository(context.filesDir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })

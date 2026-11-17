@@ -49,7 +49,7 @@ class SongDataSourceTest {
 
     @Test fun unsavedSongUsesResolvedStreamUrl() = runBlocking {
         db.songs().upsert(testSong.toEntity())
-        assertEquals("https://x/1", resolver.resolveDataSpec(spec()).uri.toString())
+        assertEquals("https://x/1?range=0-", resolver.resolveDataSpec(spec()).uri.toString())
     }
 
     @Test fun savedFileResolverSendsOnlySavedSongsToTheirFile() = runBlocking {

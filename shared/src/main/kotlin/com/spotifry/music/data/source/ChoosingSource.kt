@@ -15,9 +15,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 fun qualityRank(origin: String?): Int = when (origin) { "monochrome" -> 3; "saavn" -> 2; "youtube" -> 1; else -> 0 }
 
 /**
- * Every place a song can come from is asked at once, with [WAIT_MS] for the lossless and JioSaavn answers.
- * A song being played now starts from whichever answers first (usually YouTube); if a better copy arrives a moment
- * later, [onBetter] hears of it so the stored copy can be upgraded between plays. A song looked up ahead of time
+ * Every place a song can come from is asked at once, the lossless and JioSaavn ones given [BACKGROUND_WAIT_MS] to answer.
+ * A song being played now starts from whichever answers first (usually YouTube); if a better copy arrives later,
+ * [onBetter] hears of it so the stored copy can be upgraded between plays. A song looked up ahead of time
  * ([patient]) waits for the best answer instead, because nobody is waiting for it yet.
  * [prefer]: the origin of bytes already kept for the song, which it carries on from so one song never mixes two sources.
  * Low quality and files on the phone never ask.
@@ -46,8 +46,8 @@ class ChoosingSource(
         if (prefer != null) return carryOn(song, prefer, llOn, jioOn)
         val r = races.computeIfAbsent(song.id) { start(song, low, llOn, jioOn) }
         if (patient) {
-            r.ll?.await()?.let { return it }
-            r.jio?.await()?.let { return it }
+            r.ll?.let { withTimeoutOrNull(WAIT_MS) { it.await() } }?.let { return it }
+            r.jio?.let { withTimeoutOrNull(WAIT_MS) { it.await() } }?.let { return it }
             return r.yt.await().getOrThrow()
         }
         val first = CompletableDeferred<ResolvedStream>()
@@ -71,8 +71,9 @@ class ChoosingSource(
 
     private fun start(song: Song, low: Boolean, llOn: Boolean, jioOn: Boolean): Race {
         val race = Race(
-            if (llOn) scope.async { ask(lossless, song) } else null,
-            if (jioOn) scope.async { ask(saavn, song) } else null,
+            // a late answer still counts: the song starts from whoever is first, and a better copy arriving later is offered as the upgrade
+            if (llOn) scope.async { ask(lossless, song, BACKGROUND_WAIT_MS) } else null,
+            if (jioOn) scope.async { ask(saavn, song, BACKGROUND_WAIT_MS) } else null,
             scope.async { runCatching { youtube.resolve(song, low) } },
         )
         scope.launch { race.ll?.await(); race.jio?.await(); race.yt.await(); races.remove(song.id) }
@@ -82,8 +83,9 @@ class ChoosingSource(
     /** A better copy of a song kept at quality [than] (an origin), or null. For a song already playing; YouTube is not asked. */
     suspend fun findBetter(song: Song, than: String?): ResolvedStream? {
         if (song.isLocal) return null
-        val ll = if (losslessEnabled() && qualityRank(than) < 3) scope.async { ask(lossless, song) } else null
-        val jio = if (enabled() && qualityRank(than) < 2) scope.async { ask(saavn, song) } else null
+        // nobody waits for this one, so the slow lossless server gets longer than a tap would give it
+        val ll = if (losslessEnabled() && qualityRank(than) < 3) scope.async { ask(lossless, song, BACKGROUND_WAIT_MS) } else null
+        val jio = if (enabled() && qualityRank(than) < 2) scope.async { ask(saavn, song, BACKGROUND_WAIT_MS) } else null
         return ll?.await() ?: jio?.await()
     }
 
@@ -94,11 +96,11 @@ class ChoosingSource(
         return youtube.resolve(song, false)
     }
 
-    private suspend fun ask(source: suspend (Song) -> ResolvedStream?, song: Song): ResolvedStream? = try {
-        withTimeoutOrNull(WAIT_MS) { source(song) }
+    private suspend fun ask(source: suspend (Song) -> ResolvedStream?, song: Song, waitMs: Long = WAIT_MS): ResolvedStream? = try {
+        withTimeoutOrNull(waitMs) { source(song) }
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) { null }
 
-    private companion object { const val WAIT_MS = 5_000L }
+    private companion object { const val WAIT_MS = 5_000L; const val BACKGROUND_WAIT_MS = 25_000L }
 }

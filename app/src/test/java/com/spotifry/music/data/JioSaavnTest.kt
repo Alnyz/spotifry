@@ -326,7 +326,7 @@ class JioSaavnSourceTest {
         val audio = mapOf("https://rr1.googlevideo.com/a" to ByteArray(1_000) { 1 }, "https://aac.saavncdn.com/a_320.mp4" to ByteArray(1_000) { 2 })
         val upstream = ResolvingDataSource.Factory({ object : androidx.media3.datasource.BaseDataSource(false) {
             private lateinit var inner: ByteArrayDataSource
-            override fun open(spec: DataSpec): Long { inner = ByteArrayDataSource(audio.getValue(spec.uri.toString())); return inner.open(spec) }
+            override fun open(spec: DataSpec): Long { inner = ByteArrayDataSource(audio.getValue(spec.uri.toString().removeSuffix("?range=0-"))); return inner.open(spec) }
             override fun read(b: ByteArray, o: Int, n: Int) = inner.read(b, o, n)
             override fun getUri() = inner.uri
             override fun close() = inner.close()

@@ -36,9 +36,15 @@ class SongDataSourceResolver(
     private val lowQuality: () -> Boolean = { false },
     /** The song cache in front of this; null when there is none. */
     private val cache: androidx.media3.datasource.cache.Cache? = null,
+    /** A song with no bytes kept that is known to have a better copy: the source to ask first. */
+    private val knownBetter: (String) -> String? = { null },
+    private val forgetBetter: (String) -> Unit = {},
 ) : ResolvingDataSource.Resolver {
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
-        val id = dataSpec.key ?: throw IOException("missing song id")
+        val key = dataSpec.key ?: throw IOException("missing song id")
+        // a song that fell back from a slow lossless copy: YouTube's bytes under their own key
+        val opus = key.endsWith(OPUS_SUFFIX)
+        val id = key.removeSuffix(OPUS_SUFFIX)
         // runs on ExoPlayer's loading thread, so blocking here is fine
         return runBlocking {
             val saved = songs.get(id)
@@ -48,9 +54,12 @@ class SongDataSourceResolver(
             } else {
                 try {
                     val s = saved?.toSong() ?: songFromUri(id, dataSpec.uri)
-                    val stream = resolver.get(s, lowQuality(), prefer = keptOrigin(id))
-                    keepCacheToOneSource(id, stream.origin)
-                    dataSpec.withUri(Uri.parse(stream.url))
+                    val kept = keptOrigin(key)
+                    val hoped = if (kept == null && !opus) knownBetter(id) else null
+                    val stream = resolver.get(s, lowQuality(), prefer = if (opus) "youtube" else kept ?: hoped)
+                    if (hoped != null && stream.origin != hoped) forgetBetter(id)
+                    keepCacheToOneSource(key, stream.origin)
+                    dataSpec.withUri(Uri.parse(if (stream.origin == "youtube" && dataSpec.position == 0L) openRange(stream.url) else stream.url))
                 } catch (e: java.io.FileNotFoundException) {
                     throw e // not worth retrying as it is: NoAudioException skips to the next song, SourceChanged starts over
                 } catch (e: Exception) {
@@ -99,3 +108,11 @@ fun sourceChangedOnOtherSong(error: Throwable, currentId: String): Boolean =
 /** The saved copy of the song is damaged (cut short or unreadable), so playing it again from the same bytes can't work. */
 fun savedCopyBroken(error: Throwable): Boolean =
     generateSequence(error) { it.cause }.any { it is java.io.EOFException || it is androidx.media3.common.ParserException }
+
+/**
+ * YouTube serves a plain request from the start at about 33 KB/s, barely faster than the song plays, so the sound
+ * stutters; the same request with a range in the link comes at full speed. A request from the middle already carries
+ * its own range.
+ */
+internal fun openRange(url: String): String =
+    if (url.contains("range=")) url else url + (if (url.contains('?')) "&" else "?") + "range=0-"

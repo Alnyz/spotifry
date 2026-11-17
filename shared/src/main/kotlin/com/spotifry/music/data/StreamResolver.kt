@@ -57,6 +57,9 @@ class StreamResolver(
     fun knownKbps(songId: String, origin: String? = null): Int? =
         (cache[songId] ?: cache["$songId|low"])?.takeIf { origin == null || it.origin == origin }?.bitrateKbps?.takeIf { it > 0 }
 
+    /** The source of the link last used for a song, whatever the cache holds: a song playing its first time has no stored bytes yet. */
+    fun knownOrigin(songId: String): String? = (cache[songId] ?: cache["$songId|low"])?.origin
+
     fun invalidate(songId: String) { cache.remove(songId); cache.remove("$songId|low") }
 
     /** Forgets every link, for when the songs should come from elsewhere from now on. */

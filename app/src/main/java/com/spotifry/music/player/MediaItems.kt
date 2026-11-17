@@ -20,7 +20,7 @@ var trimOf: (String) -> Trim? = { null }
  * The URI is a placeholder: SongDataSourceResolver swaps it for a file or stream URL at load time. With a [trim] the
  * player only sees the part in between, so the bar, the fade and the move to the next song all follow it.
  */
-fun Song.toMediaItem(trim: Trim? = trimOf(id)): MediaItem = MediaItem.Builder()
+fun Song.toMediaItem(trim: Trim? = trimOf(id), opus: Boolean = false): MediaItem = MediaItem.Builder()
     .setMediaId(id)
     .apply {
         if (trim != null && !trim.isWhole) setClippingConfiguration(
@@ -29,8 +29,8 @@ fun Song.toMediaItem(trim: Trim? = trimOf(id)): MediaItem = MediaItem.Builder()
     }
     .setUri(Uri.Builder().scheme("music").authority("song").appendPath(id).appendQueryParameter("t", title).appendQueryParameter("a", artist).appendQueryParameter("d", durationSec.toString())
         // the cut is part of the address: Media3 swaps a loaded item in place when only the cut differs, and then the cut never applies
-        .apply { if (trim != null && !trim.isWhole) appendQueryParameter("c", "${trim.startMs}-${trim.endMs ?: ""}") }.build())
-    .setCustomCacheKey(id)
+        .apply { if (trim != null && !trim.isWhole) appendQueryParameter("c", "${trim.startMs}-${trim.endMs ?: ""}") }.apply { if (opus) appendQueryParameter("o", "1") }.build())
+    .setCustomCacheKey(if (opus) id + OPUS_SUFFIX else id)
     .setMediaMetadata(
         MediaMetadata.Builder()
             .setTitle(title)
@@ -59,3 +59,6 @@ val MediaItem.isSuggested get() = mediaMetadata.extras?.getBoolean(KEY_SUGGESTED
 /** The trim this item was built with, or null when it plays the whole song. */
 val MediaItem.trim: Trim?
     get() = Trim(clippingConfiguration.startPositionMs, clippingConfiguration.endPositionMs.takeIf { it != C.TIME_END_OF_SOURCE }).takeUnless { it.isWhole }
+
+/** The cache key of a song that fell back from a slow lossless copy to YouTube's: its bytes are kept apart from the lossless ones still arriving. */
+const val OPUS_SUFFIX = "#opus"

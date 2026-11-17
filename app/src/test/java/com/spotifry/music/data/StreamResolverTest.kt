@@ -36,6 +36,15 @@ class FakeMusicSource : MusicSource {
 val testSong = Song("abc", "Title", "Artist", 200, null)
 
 class StreamResolverTest {
+    @Test fun knowsWhereTheLastLinkCameFromBeforeAnyBytesAreStored() = runTest {
+        val resolver = StreamResolver(FakeMusicSource(), backgroundScope)
+        assertEquals(null, resolver.knownOrigin(testSong.id))
+        resolver.get(testSong)
+        assertEquals("youtube", resolver.knownOrigin(testSong.id))
+        resolver.clear()
+        assertEquals(null, resolver.knownOrigin(testSong.id))
+    }
+
     @Test fun reusesFreshStream() = runTest {
         val src = FakeMusicSource()
         val r = StreamResolver(src) { 1_000L }
@@ -108,5 +117,13 @@ class StreamResolverTest {
         r.prefetch(testSong)
         src.failResolve = false
         assertEquals("https://x/2", r.get(testSong).url)
+    }
+}
+
+class OpenRangeTest {
+    @org.junit.Test fun addsRangeOnce() {
+        val u = com.spotifry.music.player.openRange("https://x.googlevideo.com/videoplayback?id=1")
+        org.junit.Assert.assertEquals("https://x.googlevideo.com/videoplayback?id=1&range=0-", u)
+        org.junit.Assert.assertEquals(u, com.spotifry.music.player.openRange(u))
     }
 }
