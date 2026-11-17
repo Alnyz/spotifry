@@ -585,12 +585,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
             onOff = c.sleepTimer::off, onDismiss = { showSleep = false },
         )
         if (showAudioPath) player.current?.let { s ->
-            val eqOn by c.settings.eqOn.collectAsStateWithLifecycle()
-            val eqName by c.settings.eqPreset.collectAsStateWithLifecycle()
-            val leveling by c.settings.sameLoudness.collectAsStateWithLifecycle()
-            com.spotifry.music.ui.nowplaying.AudioPathSheet(
-                com.spotifry.music.player.audioPathRows(player.quality, c.songOrigin(s.id), leveling, eqOn, eqName, com.spotifry.music.player.outputName(context)),
-            ) { showAudioPath = false }
+            com.spotifry.music.ui.nowplaying.AudioPipelineHost(c, s.id, player.wholeMs, player.trim) { showAudioPath = false }
         }
         if (showTrim) player.current?.let { s ->
             val old = player.trim

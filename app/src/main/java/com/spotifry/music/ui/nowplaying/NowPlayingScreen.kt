@@ -107,7 +107,7 @@ fun NowPlayingContent(
     onSuggestionMore: (Int) -> Unit = {},
     /** The scissors by the length of a trimmed song: opens the Trim sheet. */
     onTrim: () -> Unit = {},
-    /** The quality label under the cover: opens the Audio path sheet. */
+    /** The quality label under the cover: opens the Audio pipeline sheet. */
     onQuality: () -> Unit = {},
     /** Milliseconds this song's lyrics run earlier (negative: later), set from the full lyrics. */
     lyricsShift: Int = 0, onLyricsShift: (Int) -> Unit = {},

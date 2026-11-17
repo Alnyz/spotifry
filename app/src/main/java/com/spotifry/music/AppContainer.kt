@@ -92,6 +92,8 @@ class AppContainer(private val context: Context) {
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
         .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
+    /** What the player says about the sound now, for the Audio pipeline sheet. */
+    val audioTap = com.spotifry.music.player.AudioTap()
     val updates = com.spotifry.music.data.Updates(context.applicationContext, client, prefs, BuildConfig.VERSION_NAME)
     val localMusic = com.spotifry.music.data.LocalMusic(context.applicationContext, settings.hideNonMusic)
     val downloads = DownloadRepository(context.filesDir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })

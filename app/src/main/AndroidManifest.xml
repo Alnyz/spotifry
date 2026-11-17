@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- "Nearby devices": lets the Audio pipeline sheet read which Bluetooth codec the headphones use -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <!-- "On this phone": plays the music files already on the phone; asked for only when that tab is opened -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
     <!-- Android 12 and older have no separate music permission -->

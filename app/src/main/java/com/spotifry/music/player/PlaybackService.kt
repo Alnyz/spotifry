@@ -103,6 +103,8 @@ class PlaybackService : MediaSessionService() {
         scope.launch { c.settings.sameLoudness.collect { loudness.enabled = it; tailLoudness?.enabled = it } }
         scope.launch { c.settings.skipSilence.collect { player.skipSilenceEnabled = it } }
         scope.launch {
+        c.audioTap.attach(player)
+        c.audioTap.gainDb = { if (loudness.enabled) loudness.leveler.currentGainDb else null }
             kotlinx.coroutines.flow.combine(c.settings.speed, c.settings.pitch) { s, p -> s to p }.collect { (s, p) ->
                 // pitch in semitones: each one is the twelfth root of 2
                 player.playbackParameters = androidx.media3.common.PlaybackParameters(s, 2.0.pow(p / 12.0).toFloat())
