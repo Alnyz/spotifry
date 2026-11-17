@@ -141,11 +141,11 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
         if (mixes.isNotEmpty() || recentSongs.isNotEmpty()) {
             item { HomeSection("Keep listening", null) }
             item {
-                SlideRow(arrowTop = 43.dp) {
+                SlideRow(arrowTop = 73.dp) {
                     // one song queued alone: when it ends, the player adds similar songs, so this plays as a mix
                     recentSongs.firstOrNull()?.let { last ->
                         item {
-                            Tile(last.thumbnailUrl ?: last.localThumbPath, onClick = { services.player.playList(listOf(last), 0, "Mix from ${last.title}") }) {
+                            Tile(last.thumbnailUrl ?: last.localThumbPath, onClick = { services.player.playList(listOf(last), 0, "Mix from ${last.title}") }, size = MIX_TILE) {
                                 Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
                                     Text("Mix from ${last.title}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                     Text("Plays it, then similar songs", fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -155,7 +155,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
                     }
                     itemsIndexed(mixes) { _, m ->
                         val songs = m.songs.map(SongEntity::toSong)
-                        Tile(songs.firstNotNullOfOrNull { it.thumbnailUrl ?: it.localThumbPath }, onClick = { services.player.playList(songs, 0, m.title) }) {
+                        Tile(songs.firstNotNullOfOrNull { it.thumbnailUrl ?: it.localThumbPath }, onClick = { services.player.playList(songs, 0, m.title) }, size = MIX_TILE) {
                             Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
                                 Text(m.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                 Text(m.line, fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -278,16 +278,19 @@ private fun HomeSection(title: String, onAll: (() -> Unit)?, allLabel: String = 
     if (onAll != null) Text(allLabel, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink2, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAll).padding(horizontal = 6.dp, vertical = 4.dp))
 }
 
+/** Keep listening: square like the covers, so none is cut. */
+private val MIX_TILE = androidx.compose.ui.unit.DpSize(190.dp, 190.dp)
+
 /** A wide playlist tile: a darkened cover behind, or a plain glass face for Create and More. */
 @Composable
-private fun Tile(art: String? = null, onClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
+private fun Tile(art: String? = null, onClick: () -> Unit, size: androidx.compose.ui.unit.DpSize = androidx.compose.ui.unit.DpSize(250.dp, 130.dp), content: @Composable BoxScope.() -> Unit) {
     val src = remember { MutableInteractionSource() }
     val hot by src.collectIsHoveredAsState()
     val lift by animateFloatAsState(if (hot) 1.03f else 1f, tween(200))
     val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, art) { value = art?.let { Covers.load(artAt(it, true)) } }
     val shape = RoundedCornerShape(14.dp)
     Box(
-        Modifier.size(250.dp, 130.dp).graphicsLayer { scaleX = lift; scaleY = lift }.clip(shape).background(Palette.ink.copy(alpha = 0.06f))
+        Modifier.size(size).graphicsLayer { scaleX = lift; scaleY = lift }.clip(shape).background(Palette.ink.copy(alpha = 0.06f))
             .border(1.dp, Palette.ink.copy(alpha = if (hot) 0.22f else 0.1f), shape).hoverable(src).clickable(src, null, onClick = onClick),
     ) {
         image?.let {
