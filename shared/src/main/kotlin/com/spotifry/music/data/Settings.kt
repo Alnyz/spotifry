@@ -77,6 +77,26 @@ class Settings(private val prefs: Prefs) {
     val mono: StateFlow<Boolean> = _mono
     fun setMono(on: Boolean) { _mono.value = on; prefs.edit().putBoolean(MONO, on).apply() }
 
+    private val _tune = MutableStateFlow(
+        com.spotifry.music.player.FineTuneSetting(
+            prefs.getInt(TUNE_BALANCE, 0), prefs.getInt(TUNE_WIDTH, 100), prefs.getInt(TUNE_GAIN, 0), prefs.getBoolean(TUNE_LIMITER, false),
+            prefs.getInt(TUNE_HIGH_PASS, 0), prefs.getInt(TUNE_LOW_PASS, 0), prefs.getInt(TUNE_NIGHT, 0),
+        ),
+    )
+    /** Balance, width, bass/mid/treble, plain gain and the limiter; all neutral until moved. */
+    val tune: StateFlow<com.spotifry.music.player.FineTuneSetting> = _tune
+    /** [save] false while a slider is still being dragged. */
+    fun setTune(t: com.spotifry.music.player.FineTuneSetting, save: Boolean = true) {
+        _tune.value = t
+        if (save) prefs.edit().putInt(TUNE_BALANCE, t.balance).putInt(TUNE_WIDTH, t.width).putInt(TUNE_GAIN, t.gainDb).putBoolean(TUNE_LIMITER, t.limiter)
+            .putInt(TUNE_HIGH_PASS, t.highPassHz).putInt(TUNE_LOW_PASS, t.lowPassHz).putInt(TUNE_NIGHT, t.night).apply()
+    }
+
+    private val _compare = MutableStateFlow(false)
+    /** Hears the music without the equalizer and the tuning. Not kept: it starts off every time the app does. */
+    val compare: StateFlow<Boolean> = _compare
+    fun setCompare(on: Boolean) { _compare.value = on }
+
     private val _spatialOn = MutableStateFlow(prefs.getBoolean(SPATIAL_ON, false))
     val spatialOn: StateFlow<Boolean> = _spatialOn
     private val _spatialTune = MutableStateFlow(
@@ -261,6 +281,13 @@ class Settings(private val prefs: Prefs) {
         const val SILENCE_DB = "silence_db"
         const val SILENCE_CUT = "silence_cut"
         const val TRANSITION = "transition"
+        const val TUNE_BALANCE = "tune_balance"
+        const val TUNE_WIDTH = "tune_width"
+        const val TUNE_HIGH_PASS = "tune_high_pass"
+        const val TUNE_LOW_PASS = "tune_low_pass"
+        const val TUNE_NIGHT = "tune_night"
+        const val TUNE_GAIN = "tune_gain"
+        const val TUNE_LIMITER = "tune_limiter"
         const val SPATIAL_ON = "spatial_on"
         const val SPATIAL_HZ = "spatial_hz"
         const val SPATIAL_DB = "spatial_db"

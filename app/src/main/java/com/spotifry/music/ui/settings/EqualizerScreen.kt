@@ -102,7 +102,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /** A new way to shape the sound gets its tab here. */
-private val TABS = listOf("Graph", "Bands", "Headphone")
+private val TABS = listOf("Graph", "Bands", "Headphone", "Tuning")
 private const val STEP_MB = 50
 private val MAX_GRAPH = 300.dp
 private val MIN_GRAPH = 180.dp
@@ -156,6 +156,8 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
     val preset by settings.eqPreset.collectAsStateWithLifecycle()
     val levels by settings.eqLevels.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    val tune by settings.tune.collectAsStateWithLifecycle()
+    val compare by settings.compare.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     // any shaping means the user wants to hear it, so it also turns the equalizer on; kept when the finger lifts
     val shape = { changes: List<Pair<Int, Int>> ->
@@ -171,7 +173,7 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
     val graphHeight = graphHeight(maxHeight, bottomInset)
     // the app shell makes room for the keyboard, so the field being typed in scrolls into view
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = bottomInset + 24.dp)) {
-        ScreenHeader("Equalizer", onBack = onBack)
+        ScreenHeader("Equalizer & tuning", onBack = onBack, trailing = { ComparePill(compare, settings::setCompare) })
         Column(Modifier.padding(horizontal = 16.dp).padding(top = 12.dp)) {
             Card {
                 Row(
@@ -181,14 +183,14 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                     Box(Modifier.size(14.dp).clip(CircleShape).background(if (on) scheme.primary else scheme.outline))
                     Column(Modifier.weight(1f)) {
                         Text("Equalizer", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
-                        Text(if (on) "On · ${preset ?: "Custom"}" else "Off", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                        Text(if (on) "On · ${preset ?: "Custom"}" else if (!tune.neutral) "Off · Tuning still works" else "Off", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
                     Switch(on, null, colors = switchColors())
                 }
             }
-            Segments(TABS, tab, Modifier.padding(top = 14.dp).fillMaxWidth(), fill = true) { tab = it }
+            Segments(TABS.mapIndexed { i, name -> if (i == 3 && !tune.neutral) "$name •" else name }, tab, Modifier.padding(top = 14.dp).fillMaxWidth(), fill = true) { tab = it }
             Column(Modifier.padding(top = 18.dp)) {
-                Column(Modifier.alpha(dim)) {
+                if (tab != 3) Column(Modifier.alpha(dim)) {
                 Label("Presets") {
                     Text(
                         "Reset", Modifier.clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { settings.setEq("Flat", List(EQ_BANDS) { 0 }) }.padding(horizontal = 10.dp, vertical = 10.dp),
@@ -208,12 +210,13 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                 }
                 Spacer(Modifier.height(18.dp))
                 Crossfade(tab, label = "tab") { page ->
-                    // the headphone list works with the equalizer off, so it isn't dimmed like the rest
-                    Column(Modifier.alpha(if (page == 2) 1f else dim)) {
+                    // the headphone list and the tuning work with the equalizer off, so they aren't dimmed like the rest; Compare dims all
+                    Column(Modifier.alpha((if (page >= 2) 1f else dim) * if (compare) .45f else 1f)) {
                         when (page) {
                             0 -> GraphTab(tap, isPlaying, on, levels, shape, settings::saveEq, graphHeight)
                             1 -> BandsTab(levels, shape, settings::saveEq)
-                            else -> AutoEqTab(settings, autoEq, preset, on)
+                            2 -> AutoEqTab(settings, autoEq, preset, on)
+                            else -> TuningTab(settings)
                         }
                     }
                 }
@@ -221,6 +224,18 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
         }
     }
     }
+}
+
+/** Hear the music without the equalizer and the tuning. Orange and "Original" while it is on. */
+@Composable
+private fun ComparePill(on: Boolean, set: (Boolean) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    // a fixed height, so the header row stays as tall as its back button
+    Box(
+        Modifier.height(36.dp).clip(CircleShape).background(if (on) scheme.primary else scheme.surfaceContainerHigh)
+            .clickable(role = Role.Switch, onClickLabel = "Hear the music without your changes") { set(!on) }.padding(horizontal = 14.dp),
+        Alignment.Center,
+    ) { Text(if (on) "Original" else "Compare", style = MaterialTheme.typography.labelLarge, color = if (on) scheme.onPrimary else scheme.onSurface, maxLines = 1) }
 }
 
 @Composable

@@ -67,6 +67,7 @@ fun SoundSettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, on
     val spatialOn by s.spatialOn.collectAsStateWithLifecycle()
     val eqOn by s.eqOn.collectAsStateWithLifecycle()
     val eqPreset by s.eqPreset.collectAsStateWithLifecycle()
+    val tune by s.tune.collectAsStateWithLifecycle()
     Page("Sound & playback", onBack, bottomInset) {
         Group("Quality") {
             SwitchItem("Data saver", "Lower quality on mobile data. Wi-Fi stays high.", dataSaver, s::setDataSaver)
@@ -94,9 +95,9 @@ fun SoundSettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, on
             SwitchItem("Mono audio", "Left and right mixed into one. For one earbud or hearing in one ear.", mono, s::setMono)
             SwitchItem("Spatial audio", "For headphones: a little of each side reaches the other ear, like speakers.", spatialOn, s::setSpatialOn)
             if (spatialOn) SpatialControls(s)
-            Item("Equalizer", onClick = onOpenEqualizer) {
+            Item("Equalizer & tuning", onClick = onOpenEqualizer) {
                 androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
-                    Text(if (!eqOn) "Off" else eqPreset ?: "Custom", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (eqOn) eqPreset ?: "Custom" else if (!tune.neutral) "Tuning" else "Off", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Chevron()
                 }
             }

@@ -69,3 +69,33 @@ class SpatialProcessor : BaseAudioProcessor() {
 
     override fun onFlush(metadata: AudioProcessor.StreamMetadata) { if (isActive) s.configure(inputAudioFormat.sampleRate) }
 }
+
+/** [FineTune] in the sound path, after the spatial step. Two-channel sound only; neutral settings pass it untouched. */
+@UnstableApi
+class FineTuneProcessor : BaseAudioProcessor() {
+    private val t = FineTune()
+    @Volatile private var setting = FineTuneSetting()
+
+    fun set(s: FineTuneSetting) { setting = s }
+
+    override fun onConfigure(f: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat =
+        if (f.encoding == C.ENCODING_PCM_16BIT) f else AudioProcessor.AudioFormat.NOT_SET
+
+    override fun queueInput(input: ByteBuffer) {
+        if (!input.hasRemaining()) return
+        t.setting = setting
+        val out = replaceOutputBuffer(input.remaining())
+        input.order(out.order())
+        if (!setting.neutral && inputAudioFormat.channelCount == 2) {
+            while (input.remaining() >= 4) {
+                t.process(input.getShort() / 32768f, input.getShort() / 32768f)
+                out.putShort(Math.round(t.outL * 32768f).coerceIn(-32768, 32767).toShort())
+                out.putShort(Math.round(t.outR * 32768f).coerceIn(-32768, 32767).toShort())
+            }
+        }
+        out.put(input)
+        out.flip()
+    }
+
+    override fun onFlush(metadata: AudioProcessor.StreamMetadata) { if (isActive) t.configure(inputAudioFormat.sampleRate) }
+}

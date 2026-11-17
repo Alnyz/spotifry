@@ -24,6 +24,6 @@ fun SpatialControls(settings: Settings) {
 }
 
 @Composable
-private fun Slide(title: String, value: String, v: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit, onDone: () -> Unit) {
+internal fun Slide(title: String, value: String, v: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit, onDone: () -> Unit) {
     Item(title, value, below = true) { Slider(v, onChange, Modifier.fillMaxWidth(), valueRange = range, onValueChangeFinished = onDone) }
 }

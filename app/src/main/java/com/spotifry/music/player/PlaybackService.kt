@@ -66,6 +66,7 @@ class PlaybackService : MediaSessionService() {
     private var tailEqualizer: EqualizerProcessor? = null
     private var tailLoudness: LoudnessProcessor? = null
     private var tailSpatial: SpatialProcessor? = null
+    private var tailTune: FineTuneProcessor? = null
     private var mainSweep: SweepProcessor? = null
     private var tailSweep: SweepProcessor? = null
 
@@ -83,12 +84,13 @@ class PlaybackService : MediaSessionService() {
         val equalizer = EqualizerProcessor()
         val loudness = LoudnessProcessor(c.spectrum)
         val spatial = SpatialProcessor()
+        val tune = FineTuneProcessor()
         val sweep = SweepProcessor().also { mainSweep = it }
         val levels = LoudnessMemory(getSharedPreferences("loudness", MODE_PRIVATE))
         val renderers = object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                 DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessorChain(SilenceChain(soundChain(equalizer, loudness, spatial, sweep)) { c.settings.silenceDb.value to c.settings.silenceCut.value }).build()
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessorChain(SilenceChain(soundChain(equalizer, loudness, spatial, sweep, tune)) { c.settings.silenceDb.value to c.settings.silenceCut.value }).build()
         }
         val player = ExoPlayer.Builder(this, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
@@ -101,11 +103,11 @@ class PlaybackService : MediaSessionService() {
             .build()
         player.preloadConfiguration = ExoPlayer.PreloadConfiguration(10_000_000L)
         c.sleepTimer.attach(player)
+        c.audioTap.attach(player)
+        c.audioTap.gainDb = { if (loudness.enabled) loudness.leveler.currentGainDb else null }
         scope.launch { c.settings.sameLoudness.collect { loudness.enabled = it; tailLoudness?.enabled = it } }
         scope.launch { c.settings.skipSilence.collect { player.skipSilenceEnabled = it } }
         scope.launch {
-        c.audioTap.attach(player)
-        c.audioTap.gainDb = { if (loudness.enabled) loudness.leveler.currentGainDb else null }
             kotlinx.coroutines.flow.combine(c.settings.speed, c.settings.pitch) { s, p -> s to p }.collect { (s, p) ->
                 // pitch in semitones: each one is the twelfth root of 2
                 player.playbackParameters = androidx.media3.common.PlaybackParameters(s, 2.0.pow(p / 12.0).toFloat())
@@ -118,9 +120,9 @@ class PlaybackService : MediaSessionService() {
         scope.launch {
             kotlinx.coroutines.flow.combine(c.settings.mono, c.settings.spatial) { m, sp -> m to sp }.collect { (m, sp) -> spatial.set(m, sp); tailSpatial?.set(m, sp) }
         }
+        scope.launch { kotlinx.coroutines.flow.combine(c.settings.tune, c.settings.compare) { t, cmp -> if (cmp) com.spotifry.music.player.FineTuneSetting() else t }.collect { tune.set(it); tailTune?.set(it) } }
         // not immediate: a wake must run after the listener that sent it has finished, never inside it
         scope.launch(Dispatchers.Main) {
-        scope.launch { kotlinx.coroutines.flow.combine(c.settings.tune, c.settings.compare) { t, cmp -> if (cmp) com.spotifry.music.player.FineTuneSetting() else t }.collect { tune.set(it); tailTune?.set(it) } }
             // ponytail: polls the position 20 times a second while a fade is set and music plays; a timer per song end if battery shows it
             while (true) {
                 val fadeMs = c.settings.fadeSeconds.value * 1000L
@@ -131,9 +133,9 @@ class PlaybackService : MediaSessionService() {
                 if (!matching && join?.idle == true) { join?.release(); join = null }
                 val g = joined ?: if (fadeMs > 0) fadeGain(player.currentPosition, player.duration, fadeMs, fadeIn) else 1f
                 if (g != c.sleepTimer.songGain) c.sleepTimer.songGain = g
+                c.upgrader.bufferedAheadMs = if (player.isPlaying) player.totalBufferedDuration else Long.MAX_VALUE
                 withTimeoutOrNull(if ((fadeMs > 0 && player.isPlaying) || join?.quick == true) 50L else 500L) { wakeTick.receive() }
             }
-                c.upgrader.bufferedAheadMs = if (player.isPlaying) player.totalBufferedDuration else Long.MAX_VALUE
         }
 
         // a lossless (or JioSaavn) song that can't keep up: a stall is logged, and when sound doesn't come for 8 s at the
@@ -148,7 +150,24 @@ class PlaybackService : MediaSessionService() {
                 if (state == Player.STATE_READY) { started = true; watch?.cancel() }
                 else if (state == Player.STATE_BUFFERING && player.playWhenReady) {
                     val id = player.currentMediaItem?.mediaId ?: return
-                    android.util.Log.w("Stall", "song=$id origin=${c.songOrigin(id)} kbps=${c.streamKbps(id, player.duration.coerceAtLeast(0))} ahead=${(player.bufferedPosition - player.currentPosition) / 1000.0}s total=${player.totalBufferedDuration / 1000.0}s at=${player.currentPosition / 1000.0}s")
+                    if (started) {
+                        android.util.Log.w("Stall", "song=$id origin=${c.songOrigin(id)} kbps=${c.streamKbps(id, player.duration.coerceAtLeast(0))} ahead=${(player.bufferedPosition - player.currentPosition) / 1000.0}s total=${player.totalBufferedDuration / 1000.0}s at=${player.currentPosition / 1000.0}s")
+                        val now = System.currentTimeMillis()
+                        stalls.addLast(now); while (stalls.isNotEmpty() && now - stalls.first() > 30_000) stalls.removeFirst()
+                        if (stalls.size >= 2 && slowOrigin(player, id)) { fallBackToOpus(player); return }
+                    }
+                    watch?.cancel()
+                    watch = scope.launch(Dispatchers.Main) {
+                        // counted from when the link is known to be a lossless one: the lookup before it isn't the server's slowness
+                        var seen = 0L
+                        while (player.playbackState == Player.STATE_BUFFERING && player.currentMediaItem?.mediaId == id) {
+                            if (slowOrigin(player, id)) {
+                                if (seen == 0L) seen = System.currentTimeMillis()
+                                else if (System.currentTimeMillis() - seen >= if (started) 4_000 else 8_000) { fallBackToOpus(player); return@launch }
+                            }
+                            delay(500)
+                        }
+                    }
                 }
             }
         })
@@ -199,6 +218,8 @@ class PlaybackService : MediaSessionService() {
                     failures.onSuccess()
                     player.currentMediaItem?.mediaId?.let(retries::reset)
                 }
+                // the queue ran out with no song change to trigger it: nothing is playing or next, so the finished copies go in now
+                else if (state == Player.STATE_ENDED) c.upgrader.upgradeWhenFree(emptySet())
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -330,7 +351,7 @@ class PlaybackService : MediaSessionService() {
             player,
             newTail = { item, at ->
                 // its own sound chain, as a chain can't serve two players. It holds the level the song is at now and remembers nothing.
-                val eq = EqualizerProcessor().apply { set(if (c.settings.eqOn.value) c.settings.eqLevels.value else null) }
+                val eq = EqualizerProcessor().apply { set(if (c.settings.eqOn.value && !c.settings.compare.value) c.settings.eqLevels.value else null) }
                 val level = LoudnessProcessor().apply { enabled = c.settings.sameLoudness.value; leveler.hold(loudness.gainDb) }
                 val spatial = SpatialProcessor().apply { set(c.settings.mono.value, c.settings.spatial.value) }
                 val tune = FineTuneProcessor().apply { set(if (c.settings.compare.value) com.spotifry.music.player.FineTuneSetting() else c.settings.tune.value) }
@@ -339,7 +360,7 @@ class PlaybackService : MediaSessionService() {
                 val renderers = object : DefaultRenderersFactory(this@PlaybackService) {
                     override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
                         DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput)
-                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessorChain(SilenceChain(soundChain(eq, level, spatial, sweep)) { c.settings.silenceDb.value to c.settings.silenceCut.value }).build()
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessorChain(SilenceChain(soundChain(eq, level, spatial, sweep, tune)) { c.settings.silenceDb.value to c.settings.silenceCut.value }).build()
                 }
                 ExoPlayer.Builder(this, renderers)
                     .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
@@ -394,6 +415,32 @@ class PlaybackService : MediaSessionService() {
             val queued = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
             similar.filter { it.id !in queued }.take(20).forEach { c.db.songs().upsert(it.toEntity()) }
             player.addMediaItems(similar.filter { it.id !in queued }.take(20).map { it.toMediaItem() })
+        }
+    }
+
+    /** The song's link comes from the lossless server or JioSaavn, and not already from the fallback. */
+    private fun slowOrigin(player: ExoPlayer, id: String): Boolean {
+        val c = (application as MusicApp).container
+        val o = c.resolver.knownOrigin(id) ?: return false
+        return o != "youtube" && player.currentMediaItem?.localConfiguration?.customCacheKey?.endsWith(OPUS_SUFFIX) != true
+    }
+
+    /** The playing song goes on from YouTube at the same moment; the better copy it was on carries on downloading. */
+    private fun fallBackToOpus(player: ExoPlayer) {
+        val c = (application as MusicApp).container
+        val i = player.currentMediaItemIndex
+        val item = player.currentMediaItem ?: return
+        val song = item.toSong()
+        scope.launch {
+            // the better copy's link, before the fallback replaces what the resolver holds for the song
+            val better = withContext(Dispatchers.Default) { runCatching { c.resolver.get(song, c.streamLow()) }.getOrNull() }
+            if (player.currentMediaItemIndex != i || player.currentMediaItem?.mediaId != song.id) return@launch
+            if (better != null && better.origin != "youtube") { c.upgrader.offer(song, better); c.upgrader.download(song) }
+            val at = player.currentPosition
+            replacingSong = true
+            player.replaceMediaItem(i, song.toMediaItem(item.trim ?: trimOf(song.id), opus = true))
+            replacingSong = false
+            player.seekTo(i, at.coerceAtLeast(0))
         }
     }
 
