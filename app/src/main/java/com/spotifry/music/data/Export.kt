@@ -24,6 +24,31 @@ fun exportPlace(ext: String): ExportPlace = when (ext.lowercase()) {
 /** Copying into the shared Music and Download folders needs no permission only from Android 10; before that the menu hides the option. */
 val canExport get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
+/** Counts every copy made, so a screen showing which songs are copied reads again. */
+val exportTick = kotlinx.coroutines.flow.MutableStateFlow(0)
+
+/**
+ * True when a copy of the saved song is already in Music/Spotifry or Download/Spotifry (its Opus copy counts for a .webm).
+ * Looks only at what this app made, which needs no permission. False on any trouble, so a failed look never hides a song. Run off the main thread.
+ */
+fun isExported(context: Context, path: String, title: String, artist: String): Boolean {
+    if (!canExport) return false
+    val ext = File(path).extension
+    val names = buildList {
+        add(exportName(title, artist, ext) to exportPlace(ext))
+        if (ext.equals("webm", true)) add(exportName(title, artist, "opus") to ExportPlace(OPUS_FOLDER, "audio/ogg", ExportTo.Music))
+    }
+    return try {
+        names.any { (name, place) ->
+            val table = if (place.collection == ExportTo.Music) MediaStore.Audio.Media.EXTERNAL_CONTENT_URI else MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            context.contentResolver.query(
+                table, arrayOf(MediaStore.MediaColumns._ID),
+                "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?", arrayOf(name, place.folder + "%"), null,
+            )?.use { it.moveToFirst() } == true
+        }
+    } catch (e: Exception) { false }
+}
+
 /**
  * Copies a saved song to Music/Spotifry (or Download/Spotifry, see [exportPlace]), where file managers and other players
  * see it. Returns the folder it went to, or null if it could not be copied; it never throws, so a phone that refuses
@@ -31,6 +56,10 @@ val canExport get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
  */
 fun exportToMusic(context: Context, path: String, title: String, artist: String): String? {
     if (!canExport) return null
+    return copyOut(context, path, title, artist)?.also { exportTick.value++ }
+}
+
+private fun copyOut(context: Context, path: String, title: String, artist: String): String? {
     val resolver = context.contentResolver
     var uri: android.net.Uri? = null
     return try {

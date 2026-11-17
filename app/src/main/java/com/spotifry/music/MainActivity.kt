@@ -503,13 +503,20 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
             val actions = buildList {
                 add(MenuAction("Add to playlist", Icons.Plus) { addTo = target.song })
                 if (!target.song.isLocal) add(if (isSaved) MenuAction("Remove from saved", Icons.Trash) { savedVm.remove(target.song.id) } else MenuAction("Save on this phone", Icons.Download) { savedVm.save(target.song) })
-                if (isSaved && !target.song.isLocal && com.spotifry.music.data.canExport) add(MenuAction("Export to Music folder", Icons.Download) {
-                    scope.launch {
-                        val where = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                            c.db.songs().get(target.song.id)?.filePath?.let { com.spotifry.music.data.exportToMusic(appContext, it, target.song.title, target.song.artist) }
+                // copies a saved song out to the Music folder; a song already there is left alone, not copied twice
+                suspend fun copyOut(song: com.spotifry.music.data.source.Song) {
+                    val where = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        c.db.songs().get(song.id)?.filePath?.let {
+                            if (com.spotifry.music.data.isExported(appContext, it, song.title, song.artist)) "Already in your Music folder"
+                            else com.spotifry.music.data.exportToMusic(appContext, it, song.title, song.artist)?.let { f -> "Copied to $f" }
                         }
-                        snackbar.showSnackbar(if (where != null) "Copied to $where" else "Couldn't copy ${target.song.title}")
                     }
+                    snackbar.showSnackbar(where ?: "Couldn't copy ${song.title}")
+                }
+                if (isSaved && !target.song.isLocal && com.spotifry.music.data.canExport) add(MenuAction("Export to Music folder", Icons.Download) { scope.launch { copyOut(target.song) } })
+                // both steps at once: saved first, and when the file has arrived it is copied
+                if (!isSaved && !target.song.isLocal && com.spotifry.music.data.canExport) add(MenuAction("Save and export to Music folder", Icons.Download) {
+                    scope.launch { c.downloads.save(target.song); copyOut(target.song) }
                 })
                 add(MenuAction("Share", Icons.Share) { shareSong = target.song })
                 target.playlistId?.let { pid -> add(MenuAction("Remove from this playlist", Icons.Trash) { plVm.removeSong(pid, target.song.id) }) }

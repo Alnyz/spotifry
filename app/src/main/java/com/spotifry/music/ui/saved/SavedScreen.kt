@@ -71,8 +71,18 @@ fun SavedScreen(vm: SavedViewModel, onFindSong: () -> Unit, onMore: (Song) -> Un
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { val now = vm.allowed(); if (now != allowed) { allowed = now; vm.refreshPhone() } }
     val left by vm.restoreLeft.collectAsStateWithLifecycle()
     val queue = vm.restore
+    // saved songs with no copy in the Music folder yet; looked at again after every copy
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val savedNow by vm.saved.collectAsStateWithLifecycle()
+    val copies by com.spotifry.music.data.exportTick.collectAsStateWithLifecycle()
+    var uncopied by remember { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(savedNow, copies) {
+        uncopied = if (!com.spotifry.music.data.canExport) emptySet() else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            savedNow.filter { e -> e.filePath?.let { !com.spotifry.music.data.isExported(context, it, e.title, e.artist) } == true }.map { it.id }.toSet()
+        }
+    }
     SavedContent(
-        view, vm::pick, onFindSong, vm::play, onMore, modifier, bottomInset, onShuffle = vm::shuffle,
+        view, vm::pick, onFindSong, vm::play, onMore, modifier, bottomInset, onShuffle = vm::shuffle, uncopied = uncopied,
         phoneAllowed = allowed, onAllow = { ask.launch(AUDIO_PERMISSION) },
         restoreCard = if (queue == null || left == 0) null else ({
             val status by queue.status.collectAsStateWithLifecycle()
@@ -121,6 +131,7 @@ fun SavedContent(
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
     onShuffle: (List<Song>) -> Unit = {}, phoneAllowed: Boolean = true, onAllow: () -> Unit = {},
     restoreCard: (@Composable () -> Unit)? = null,
+    uncopied: Set<String> = emptySet(),
 ) {
     val rows = view.rows
     val songs = remember(rows) { rows.map { it.song } }
@@ -148,7 +159,7 @@ fun SavedContent(
                     Spacer(Modifier.height(10.dp))
                 }
                 itemsIndexed(rows, key = { _, r -> r.song.id }) { i, r ->
-                    SongRow(r.song, r.saved, { onPlay(songs, i) }, { onMore(r.song) }, rowPad, localCover = r.song.localThumbPath)
+                    SongRow(r.song, r.saved, { onPlay(songs, i) }, { onMore(r.song) }, rowPad, localCover = r.song.localThumbPath, subtitleExtra = if (r.song.id in uncopied) "not in Music folder yet" else null)
                 }
             }
         }
