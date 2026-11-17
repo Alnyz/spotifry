@@ -20,11 +20,14 @@ import com.spotifry.music.data.PlaylistOrders
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PlaylistsViewModel(
     private val dao: PlaylistDao, private val songs: SongDao, private val player: SongPlayer,
     private val orders: PlaylistOrders = PlaylistOrders(),
+    private val coverFiles: com.spotifry.music.data.PlaylistCovers? = null,
 ) : ViewModel() {
     /** False until the list has been read, so an empty [playlists] says nothing yet. */
     val playlistsRead = MutableStateFlow(false)
@@ -77,7 +80,23 @@ class PlaylistsViewModel(
         }
     }
     fun rename(id: Long, name: String) { if (name.isNotBlank()) viewModelScope.launch { dao.rename(id, name.trim()) } }
-    fun delete(id: Long) { viewModelScope.launch { dao.delete(id) } }
+    fun delete(id: Long) { viewModelScope.launch { val cover = dao.coverOf(id); dao.delete(id); withContext(Dispatchers.IO) { coverFiles?.delete(cover) } } }
+
+    /** The picture file of a chosen cover, null for the default cover. */
+    fun coverPath(name: String?): String? = coverFiles?.file(name)?.path
+
+    /** A cover change; [old] and [new] are file names, null is the default cover. Kept for Undo. */
+    class CoverChange(val old: String?, val new: String?)
+
+    /** Makes [square] the playlist's cover, or the default cover when null. The old file stays until [keepCover], so Undo can bring it back. */
+    suspend fun setCover(id: Long, square: android.graphics.Bitmap?): CoverChange {
+        val old = dao.coverOf(id)
+        val name = square?.let { b -> withContext(Dispatchers.IO) { coverFiles?.save(id, b) } }
+        dao.setCover(id, name)
+        return CoverChange(old, name)
+    }
+    suspend fun undoCover(id: Long, c: CoverChange) { dao.setCover(id, c.old); withContext(Dispatchers.IO) { coverFiles?.delete(c.new) } }
+    suspend fun keepCover(c: CoverChange) { withContext(Dispatchers.IO) { coverFiles?.delete(c.old) } }
     fun addSong(playlistId: Long, song: Song) { viewModelScope.launch { addSongNow(playlistId, song) } }
     fun removeSong(playlistId: Long, songId: String) { viewModelScope.launch { dao.removeSong(playlistId, songId) } }
     /** Ids of the playlists that already hold [songId], for the ticks in "Add to playlist". */

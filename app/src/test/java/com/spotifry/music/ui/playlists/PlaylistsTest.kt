@@ -38,8 +38,10 @@ class PlaylistsTest {
     @Before fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext<Context>(), AppDatabase::class.java).allowMainThreadQueries().build()
-        vm = PlaylistsViewModel(db.playlists(), db.songs(), NoopPlayer())
+        vm = PlaylistsViewModel(db.playlists(), db.songs(), NoopPlayer(), coverFiles = com.spotifry.music.data.PlaylistCovers(coverDir))
     }
+    private val coverDir = java.io.File.createTempFile("covers", "").let { it.delete(); it.mkdirs(); it }
+    private fun picture() = android.graphics.Bitmap.createBitmap(8, 8, android.graphics.Bitmap.Config.ARGB_8888)
     @After fun tearDown() { Dispatchers.resetMain(); db.close() }
 
     private suspend fun <T> StateFlow<T>.await(p: (T) -> Boolean): T = withContext(Dispatchers.Default) { withTimeout(5_000) { first(p) } }
@@ -141,5 +143,44 @@ class PlaylistsTest {
         vm.playlists.await { it.size == 1 }
         assertEquals("Low Season (2)", save())
         assertEquals(listOf(2, 2), vm.playlists.await { p -> p.size == 2 && p.all { it.songCount == 2 } }.map { it.songCount })
+    }
+
+    @Test fun aNewCoverReplacesTheOldAndUndoBringsTheOldBack() = runBlocking<Unit> {
+        vm.create("Mix")
+        val id = vm.playlists.await { it.isNotEmpty() }.single().id
+        val first = vm.setCover(id, picture())
+        vm.keepCover(first)
+        val name1 = vm.playlists.await { it.single().cover != null }.single().cover!!
+        assertEquals(1, coverDir.listFiles()!!.size)
+        Thread.sleep(3)
+        val second = vm.setCover(id, picture())
+        assertEquals(name1, second.old)
+        // both files exist until the choice is final, so Undo has something to go back to
+        assertEquals(2, coverDir.listFiles()!!.size)
+        vm.undoCover(id, second)
+        assertEquals(name1, vm.playlists.await { it.single().cover == name1 }.single().cover)
+        assertEquals(listOf(name1), coverDir.listFiles()!!.map { it.name })
+    }
+
+    @Test fun keepingTheChangeDeletesTheOldPictureAndTheDefaultCoverClearsIt() = runBlocking<Unit> {
+        vm.create("Mix")
+        val id = vm.playlists.await { it.isNotEmpty() }.single().id
+        vm.keepCover(vm.setCover(id, picture()))
+        Thread.sleep(3)
+        val back = vm.setCover(id, null)
+        vm.keepCover(back)
+        vm.playlists.await { it.single().cover == null }
+        assertEquals(0, coverDir.listFiles()!!.size)
+    }
+
+    @Test fun deletingAPlaylistDeletesItsPicture() = runBlocking<Unit> {
+        vm.create("Mix")
+        val id = vm.playlists.await { it.isNotEmpty() }.single().id
+        vm.keepCover(vm.setCover(id, picture()))
+        assertEquals(1, coverDir.listFiles()!!.size)
+        vm.delete(id)
+        vm.playlists.await { it.isEmpty() }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (coverDir.listFiles()!!.isNotEmpty()) kotlinx.coroutines.delay(10) } }
+        assertEquals(0, coverDir.listFiles()!!.size)
     }
 }

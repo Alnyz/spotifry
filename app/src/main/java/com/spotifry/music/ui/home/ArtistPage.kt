@@ -91,12 +91,12 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-private val Bg = Color(0xFF0C0D10)
-private val Glass = Color.White.copy(alpha = .1f)
+internal val Bg = Color(0xFF0C0D10)
+internal val Glass = Color.White.copy(alpha = .1f)
 
 /** The serif the app uses for names and headings (the onboarding names, the stats). */
 @OptIn(ExperimentalTextApi::class)
-private val Bodoni = FontFamily(Font(R.font.bodonimoda, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600), FontVariation.Setting("opsz", 28f))))
+internal val Bodoni = FontFamily(Font(R.font.bodonimoda, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600), FontVariation.Setting("opsz", 28f))))
 
 /** The songs you played come first, most played first; the rest keep the order they came in. */
 internal fun topSongsOrder(songs: List<Song>, counts: Map<String, Int>): List<Song> =
@@ -245,7 +245,7 @@ internal fun ArtistPage(
 }
 
 @Composable
-private fun RoundButton(onClick: () -> Unit, enabled: Boolean, size: Dp, fill: Color, ink: Color = Color.White, icon: @Composable () -> Unit) {
+internal fun RoundButton(onClick: () -> Unit, enabled: Boolean, size: Dp, fill: Color, ink: Color = Color.White, icon: @Composable () -> Unit) {
     // the circle is the button itself, so the tap area is the circle and nothing around it is drawn
     Box(
         Modifier.size(size).clip(CircleShape).background(fill).clickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick),

@@ -28,6 +28,8 @@ data class PlaylistEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val createdAt: Long,
+    /** The file name of a picture the user chose as the cover (in the playlist covers folder); null is the default: the songs' own covers. */
+    val cover: String? = null,
 )
 
 @Entity(
@@ -69,6 +71,6 @@ data class ListenRow(
 
 data class PlayCountRow(val songId: String, val n: Int)
 
-data class PlaylistWithCounts(val id: Long, val name: String, val songCount: Int, val savedCount: Int, val number: Int)
+data class PlaylistWithCounts(val id: Long, val name: String, val songCount: Int, val savedCount: Int, val number: Int, val cover: String? = null)
 
 data class PlaylistCoverRow(val playlistId: Long, @Embedded val song: SongEntity)

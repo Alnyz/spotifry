@@ -58,6 +58,7 @@ class DesktopUpgradeTest {
         // wind the file back to how version 5 left it
         BundledSQLiteDriver().open(file.path).use { c ->
             c.prepare("DROP TABLE song_notes").use { it.step() }
+            c.prepare("ALTER TABLE playlists DROP COLUMN cover").use { it.step() }
             c.prepare("PRAGMA user_version = 5").use { it.step() }
         }
         open().apply {

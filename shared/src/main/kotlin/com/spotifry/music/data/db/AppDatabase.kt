@@ -8,7 +8,7 @@ import androidx.sqlite.execSQL
 
 @Database(
     entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongEntity::class, HistoryEntity::class, PlayCountEntity::class, ListenEntity::class, SongYearEntity::class, SongNoteEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,8 +40,11 @@ abstract class AppDatabase : RoomDatabase() {
 
         val ADD_SONG_NOTES = Step(5, 6, listOf("CREATE TABLE IF NOT EXISTS `song_notes` (`songId` TEXT NOT NULL, `text` TEXT NOT NULL, `editedAt` INTEGER NOT NULL, PRIMARY KEY(`songId`))"))
 
+        /** A playlist starts on the default cover (null); a chosen picture is kept as a file named here. */
+        val ADD_PLAYLIST_COVER = Step(6, 7, listOf("ALTER TABLE `playlists` ADD COLUMN `cover` TEXT"))
+
         /** Every upgrade, oldest first. */
-        val STEPS = listOf(ADD_PLAYS, ADD_ADDED_AT, ADD_LISTENS, ADD_SONG_YEARS, ADD_SONG_NOTES)
+        val STEPS = listOf(ADD_PLAYS, ADD_ADDED_AT, ADD_LISTENS, ADD_SONG_YEARS, ADD_SONG_NOTES, ADD_PLAYLIST_COVER)
 
         /** The upgrades for a Room that opens the file through a SQLite driver, which is how the desktop app does it. */
         fun driverMigrations(): Array<Migration> = STEPS.map { step ->

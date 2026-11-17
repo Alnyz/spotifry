@@ -208,8 +208,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     val nav = rememberNavController()
     val backEntry by nav.currentBackStackEntryAsState()
     val route = backEntry?.destination?.route
-    // an artist's photo runs up under the status bar, so that page gets no top padding and no orange glow
-    val artistPage = route == Routes.PAGE && backEntry?.arguments?.getString("type") == SearchType.ARTISTS.name
+    // an artist's photo and a playlist's cover run up under the status bar, so those pages get no top padding and no orange glow
+    val artistPage = route == Routes.PLAYLIST || (route == Routes.PAGE && backEntry?.arguments?.getString("type") == SearchType.ARTISTS.name)
 
     val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs, c::warm, c.db.listens().observeAll()) } })
     val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic, c.db.history(), c.restoreQueue) } })
@@ -221,7 +221,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
             Runtime.getRuntime().exit(0)
         }
     } }))
-    val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs)) } })
+    val playlistCovers = remember { com.spotifry.music.data.PlaylistCovers(java.io.File(c.filesDir, "playlist_covers")) }
+    val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs), playlistCovers) } })
     val listeningRow: com.spotifry.music.ui.listening.ListeningRowViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.listening.ListeningRowViewModel(c.db.listens()) } })
     val settingsVm: SettingsViewModel = viewModel(factory = viewModelFactory { initializer {
         SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.listens(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache, c.resolver::clear, appContext.getDatabasePath("music.db").parentFile)
@@ -366,6 +367,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                     CompositionLocalProvider(
                         com.spotifry.music.ui.components.LocalNowPlaying provides com.spotifry.music.ui.components.NowPlayingMark(player.current?.id, player.isPlaying) { showPlayer = true },
                         com.spotifry.music.ui.components.LocalInPlaylist provides inLists,
+                        com.spotifry.music.ui.components.LocalPlaylistCovers provides playlistCovers,
                     ) {
                     NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().imePadding().fadeTop().hazeSource(haze)) {
                         composable(Routes.LISTEN) {

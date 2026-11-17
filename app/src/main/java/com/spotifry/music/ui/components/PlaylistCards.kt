@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,20 +27,34 @@ import com.spotifry.music.ui.Icons
 
 fun countsLabel(p: PlaylistWithCounts) = "${p.songCount} ${if (p.songCount == 1) "song" else "songs"} · ${p.savedCount} saved"
 
+/** Set once at the app root: where the pictures users chose for their playlists are kept. Absent in tests. */
+val LocalPlaylistCovers = staticCompositionLocalOf<com.spotifry.music.data.PlaylistCovers?> { null }
+
+/** The picture file of [p]'s chosen cover, or null when it is on the default cover (or the file is gone). */
+@Composable
+fun playlistCoverPath(p: PlaylistWithCounts?): String? {
+    val covers = LocalPlaylistCovers.current
+    return androidx.compose.runtime.remember(p?.cover, covers) { covers?.file(p?.cover)?.path }
+}
+
 /** A playlist as a square of covers with its name and counts under it. */
 @Composable
 fun PlaylistTile(p: PlaylistWithCounts, covers: List<SongEntity>, onClick: () -> Unit, modifier: Modifier = Modifier, large: Boolean = true) {
     Column(modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        CoverMosaic(covers, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp)), large)
+        CoverMosaic(covers, Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp)), large, custom = playlistCoverPath(p))
         Text(p.name, Modifier.padding(top = 9.dp), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(countsLabel(p), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
-/** Up to four covers of the playlist's first songs in a 2 by 2 square; an empty playlist shows a plain tile with the list icon. */
+/**
+ * The default playlist cover: up to four covers of the first songs in a 2 by 2 square; an empty playlist shows a plain
+ * tile with the list icon. [custom] is the picture file the user chose instead, which wins when there is one.
+ */
 @Composable
-fun CoverMosaic(songs: List<SongEntity>, modifier: Modifier = Modifier, large: Boolean = true) {
+fun CoverMosaic(songs: List<SongEntity>, modifier: Modifier = Modifier, large: Boolean = true, custom: String? = null) {
     when {
+        custom != null -> CoverArt(custom, null, custom, modifier, large = large)
         songs.isEmpty() -> Box(modifier.background(MaterialTheme.colorScheme.surface), Alignment.Center) {
             Icon(Icons.List, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }

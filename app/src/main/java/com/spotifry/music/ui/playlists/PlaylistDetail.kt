@@ -64,6 +64,35 @@ import com.spotifry.music.ui.components.ScreenHeader
 import com.spotifry.music.ui.components.SongRow
 import com.spotifry.music.ui.components.countsLabel
 import com.spotifry.music.ui.home.SearchField
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import com.spotifry.music.data.cropBox
+import com.spotifry.music.data.cropped
+import com.spotifry.music.data.decodePicked
+import com.spotifry.music.ui.components.CoverMosaic
+import com.spotifry.music.ui.components.LocalImageClient
+import com.spotifry.music.ui.components.coverBitmap
+import com.spotifry.music.ui.components.playlistCoverPath
+import com.spotifry.music.ui.components.tintOf
+import com.spotifry.music.ui.home.Bodoni
+import com.spotifry.music.ui.home.RoundButton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -72,17 +101,42 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, onMore: (Song, Long) -> Unit, bottomInset: Dp, modifier: Modifier = Modifier, onShare: (String, List<Song>) -> Unit = { _, _ -> }) {
     val all by vm.playlists.collectAsStateWithLifecycle()
     val playlist = all.firstOrNull { it.id == id }
+    val covers by vm.covers.collectAsStateWithLifecycle()
+    val coverPath = playlistCoverPath(playlist)
     var order by remember(id) { mutableStateOf(vm.orderOf(id)) }
     // keyed on the order so a new choice swaps the list at once
     val songs by remember(id, order) { vm.songsOf(id, order) }.collectAsStateWithLifecycle(null)
     var query by remember(id) { mutableStateOf("") }
     var editing by remember(id) { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    var pencil by remember { mutableStateOf(false) }
+    var coverSheet by remember { mutableStateOf(false) }
+    var picking by remember { mutableStateOf(false) }
+    var cropping by remember { mutableStateOf<Bitmap?>(null) }
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val name = playlist?.name.orEmpty()
+    val client = LocalImageClient.current
+    val files = LocalContext.current.contentResolver
+
+    /** Saves the new cover (null is the default one) and offers Undo; the old picture is deleted once Undo is no longer possible. */
+    suspend fun changeCover(square: Bitmap?) {
+        val change = vm.setCover(id, square)
+        var undone = false
+        try {
+            undone = snackbar.showSnackbar(if (square == null) "Back to the default cover" else "Cover changed", "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed
+        } finally {
+            withContext(NonCancellable) { if (undone) vm.undoCover(id, change) else vm.keepCover(change) }
+        }
+    }
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch {
+            val picture = decodePicked(files, uri)
+            if (picture != null) cropping = picture else snackbar.showSnackbar("Couldn't open that picture")
+        }
+    }
 
     Box(modifier.fillMaxSize()) {
         val list = songs
@@ -103,15 +157,33 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
             },
             onPlay = { l, i -> vm.play(l, i, name) }, onShuffle = { vm.shuffle(it, name) }, onMore = { onMore(it, id) }, onMenu = { menu = true }, onBack = onBack,
             bottomInset = bottomInset, subtitle = playlist?.let(::countsLabel), loading = list == null,
+            coverSongs = covers[id] ?: list.orEmpty().take(4), coverPath = coverPath, onEdit = { pencil = true },
         ) {
             DropdownMenu(menu, { menu = false }) {
-                DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; renaming = true })
                 DropdownMenuItem(text = { Text("Share") }, enabled = !list.isNullOrEmpty(), onClick = { menu = false; onShare(name, list.orEmpty().map { it.toSong() }) })
                 DropdownMenuItem(text = { Text("Delete playlist") }, onClick = { menu = false; deleting = true })
             }
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = (bottomInset - com.spotifry.music.ui.FadeBarSpec.FADE).coerceAtLeast(0.dp) + 8.dp))
+        if (picking) SongCoverPicker(songs.orEmpty(), { s ->
+            scope.launch {
+                val bmp = coverBitmap(client, s.thumbnailUrl, s.thumbPath, files)
+                if (bmp == null) snackbar.showSnackbar("Couldn't load that cover") else {
+                    picking = false
+                    changeCover(bmp.cropped(cropBox(bmp.width, bmp.height, 1f, 0f, 0f)))
+                }
+            }
+        }, { picking = false }, bottomInset)
+        cropping?.let { pic -> CropScreen(pic, { square -> cropping = null; scope.launch { changeCover(square) } }, { cropping = null }, bottomInset) }
     }
+    if (pencil) EditPlaylistSheet({ pencil = false; renaming = true }, { pencil = false; coverSheet = true }, { pencil = false })
+    if (coverSheet) ChangeCoverSheet(
+        hasCustom = playlist?.cover != null, canPickSong = !songs.isNullOrEmpty(),
+        onGallery = { coverSheet = false; gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+        onSongs = { coverSheet = false; picking = true },
+        onDefault = { coverSheet = false; scope.launch { changeCover(null) } },
+        onClose = { coverSheet = false },
+    )
     if (renaming) NameDialog("Rename playlist", "Save", name, { renaming = false }) { vm.rename(id, it); renaming = false }
     if (deleting) AlertDialog(
         onDismissRequest = { deleting = false },
@@ -122,24 +194,97 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
     )
 }
 
+/** The page colour for the fade under the cover: the colour of the chosen picture, or the average of the default cover's songs. */
+@Composable
+private fun rememberCoverTint(songs: List<SongEntity>, coverPath: String?): Color? {
+    val client = LocalImageClient.current
+    val files = LocalContext.current.contentResolver
+    val key = if (coverPath != null) listOf(coverPath) else defaultCoverSongs(songs).map { it.id }
+    return produceState<Color?>(null, key, client) {
+        value = withContext(Dispatchers.Default) {
+            if (coverPath != null) coverBitmap(client, null, coverPath, files)?.let(::tintOf)
+            else averageTint(defaultCoverSongs(songs).mapNotNull { coverBitmap(client, it.thumbnailUrl, it.thumbPath, files) })
+        }
+    }.value
+}
+
+/** The songs whose covers make the default cover: four in a square, or just the first one when there are fewer. */
+internal fun defaultCoverSongs(songs: List<SongEntity>) = if (songs.size < 4) songs.take(1) else songs.take(4)
+
+/** One colour for several covers: their average colour, put through the same recipe as a single cover. Null with no covers. */
+internal fun averageTint(covers: List<Bitmap>): Color? {
+    if (covers.isEmpty()) return null
+    val px = covers.map { Bitmap.createScaledBitmap(it, 1, 1, true).getPixel(0, 0) }
+    val one = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+    one.setPixel(0, 0, android.graphics.Color.rgb(px.sumOf { android.graphics.Color.red(it) } / px.size, px.sumOf { android.graphics.Color.green(it) } / px.size, px.sumOf { android.graphics.Color.blue(it) } / px.size))
+    return tintOf(one)
+}
+
+/** The cover over the top of the screen with the name on it, its colour fading down into the page. */
+@Composable
+private fun PlaylistHero(name: String, subtitle: String?, coverSongs: List<SongEntity>, coverPath: String?, tint: Color?, onBack: () -> Unit, onMenu: () -> Unit, menuHost: @Composable () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val density = LocalDensity.current
+    val heroH = LocalConfiguration.current.screenHeightDp.dp * .55f
+    val statusH = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
+    val toned = fadeColor(tint, scheme.background, scheme.surfaceContainerHigh)
+    val ink = if (scheme.background.luminance() < .5f) Color.White else scheme.onBackground
+    Box(Modifier.fillMaxWidth().height(heroH)) {
+        CoverMosaic(coverSongs, Modifier.matchParentSize(), custom = coverPath)
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(colorStops = arrayOf(0f to Color.Black.copy(alpha = .45f), .2f to Color.Transparent, .4f to Color.Transparent, .55f to toned.copy(alpha = .22f), .7f to toned.copy(alpha = .55f), .85f to toned.copy(alpha = .86f), 1f to toned))))
+        Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = statusH + 4.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            val pill = Color.Black.copy(alpha = .45f)
+            RoundButton(onBack, true, 48.dp, pill) { Icon(Icons.Back, "Back", Modifier.size(22.dp)) }
+            Box {
+                RoundButton(onMenu, true, 48.dp, pill) { Icon(Icons.More, "Playlist options", Modifier.size(22.dp)) }
+                menuHost()
+            }
+        }
+        Column(Modifier.align(Alignment.BottomCenter).padding(start = 20.dp, end = 20.dp, bottom = 22.dp), Arrangement.spacedBy(4.dp), Alignment.CenterHorizontally) {
+            Text(
+                name, color = ink, fontFamily = Bodoni, fontWeight = FontWeight.SemiBold, fontSize = 50.sp, lineHeight = 52.sp, letterSpacing = (-1.25).sp,
+                textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            if (subtitle != null) Text(subtitle, color = ink.copy(alpha = .75f), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+/** What the cover fades into: dark pages take the cover's colour a little darker, light pages a soft touch of it; a quiet grey until the cover has loaded. */
+internal fun fadeColor(tint: Color?, page: Color, quiet: Color): Color = when {
+    tint == null -> quiet
+    page.luminance() < .5f -> lerp(tint, page, .3f)
+    // plain mixing, not lerp: it keeps a light page light, so the dark title stays readable on it
+    else -> Color(page.red + (tint.red - page.red) * .2f, page.green + (tint.green - page.green) * .2f, page.blue + (tint.blue - page.blue) * .2f)
+}
+
 @Composable
 fun PlaylistDetailContent(
     name: String, songs: List<SongEntity>, query: String, onQuery: (String) -> Unit,
     order: PlaylistOrder, onOrder: (PlaylistOrder) -> Unit, onEditOrder: () -> Unit, onMixUp: () -> Unit,
     onPlay: (List<Song>, Int) -> Unit, onMore: (Song) -> Unit, onMenu: () -> Unit, onBack: () -> Unit,
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp, subtitle: String? = null, loading: Boolean = false,
-    onShuffle: (List<Song>) -> Unit = {}, menuHost: @Composable () -> Unit = {},
+    onShuffle: (List<Song>) -> Unit = {}, coverSongs: List<SongEntity> = songs.take(4), coverPath: String? = null, onEdit: () -> Unit = {},
+    menuHost: @Composable () -> Unit = {},
 ) {
+    val scheme = MaterialTheme.colorScheme
     val all = remember(songs) { songs.map { it.toSong() } }
     val searching = query.isNotBlank()
     val shown = remember(songs, query) { if (searching) songs.indices.filter { songs[it].matches(query) } else songs.indices.toList() }
+    val tint = rememberCoverTint(coverSongs, coverPath)
+    val toned = fadeColor(tint, scheme.background, scheme.surfaceContainerHigh)
+    val ready = songs.isNotEmpty()
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 16.dp)) {
+        item { PlaylistHero(name, subtitle, coverSongs, coverPath, tint, onBack, onMenu, menuHost) }
         item {
-            ScreenHeader(name, subtitle = subtitle, onBack = onBack, trailing = {
-                Box { IconButton(onMenu, Modifier.size(48.dp)) { Icon(Icons.More, "Playlist options") }; menuHost() }
-            })
-            if (songs.isNotEmpty() && !searching) PlayButtons({ onPlay(all, 0) }, { onShuffle(all) }, Modifier.padding(start = 20.dp, top = 16.dp))
-            if (songs.size > 1 || searching) Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+            val glass = scheme.onBackground.copy(alpha = .1f)
+            Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(toned, scheme.background))).padding(top = 6.dp, bottom = 22.dp), Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
+                val ink = scheme.onBackground
+                RoundButton({ onShuffle(all) }, ready, 52.dp, glass, ink) { Icon(Icons.Shuffle, "Shuffle", Modifier.size(23.dp)) }
+                RoundButton({ onPlay(all, 0) }, ready, 88.dp, scheme.primary, scheme.onPrimary) { Icon(Icons.Play, "Play", Modifier.size(38.dp)) }
+                RoundButton(onEdit, true, 52.dp, glass, ink) { Icon(Icons.Edit, "Rename or change cover", Modifier.size(23.dp)) }
+            }
+            if (songs.size > 1 || searching) Row(Modifier.padding(start = 20.dp, end = 20.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
                 SearchField(query, onQuery, {}, Modifier.weight(1f), hint = "Search in $name")
                 if (!searching) OrderButton(order, onOrder, onEditOrder, onMixUp)
             }
@@ -150,13 +295,9 @@ fun PlaylistDetailContent(
             Spacer(Modifier.height(8.dp))
         }
         if (loading) item {
-            // Play and Shuffle, then the search box and order button, as they'll be with songs in the list
+            // the search box and order button, then rows, as they'll be with songs in the list
             LoadingShapes(Modifier.padding(start = 20.dp, end = 8.dp)) {
-                Row(Modifier.padding(top = 8.dp), Arrangement.spacedBy(10.dp)) {
-                    LoadingBox(Modifier.size(93.dp, 48.dp), CircleShape)
-                    LoadingBox(Modifier.size(111.dp, 48.dp), CircleShape)
-                }
-                Row(Modifier.padding(end = 12.dp, top = 14.dp, bottom = 8.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+                Row(Modifier.padding(end = 12.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
                     LoadingBox(Modifier.weight(1f).height(52.dp), CircleShape)
                     LoadingBox(Modifier.size(48.dp), CircleShape)
                 }

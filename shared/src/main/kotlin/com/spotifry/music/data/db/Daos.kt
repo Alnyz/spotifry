@@ -34,6 +34,8 @@ abstract class PlaylistDao {
     suspend fun create(name: String): Long = insert(PlaylistEntity(name = name, createdAt = System.currentTimeMillis()))
 
     @Query("UPDATE playlists SET name = :name WHERE id = :id") abstract suspend fun rename(id: Long, name: String)
+    @Query("UPDATE playlists SET cover = :cover WHERE id = :id") abstract suspend fun setCover(id: Long, cover: String?)
+    @Query("SELECT cover FROM playlists WHERE id = :id") abstract suspend fun coverOf(id: Long): String?
     @Query("DELETE FROM playlists WHERE id = :id") abstract suspend fun delete(id: Long)
 
     @Query(
@@ -76,7 +78,7 @@ abstract class PlaylistDao {
         "SELECT p.id AS id, p.name AS name, " +
             "(SELECT COUNT(*) FROM playlist_songs ps WHERE ps.playlistId = p.id) AS songCount, " +
             "(SELECT COUNT(*) FROM playlist_songs ps JOIN songs s ON s.id = ps.songId WHERE ps.playlistId = p.id AND s.filePath IS NOT NULL) AS savedCount, " +
-            "p.id AS number " +
+            "p.id AS number, p.cover AS cover " +
             "FROM playlists p ORDER BY p.id"
     )
     abstract fun observePlaylists(): Flow<List<PlaylistWithCounts>>

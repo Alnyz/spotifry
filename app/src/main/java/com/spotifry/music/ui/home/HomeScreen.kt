@@ -183,7 +183,7 @@ fun HomeContent(
             heroList != null -> item {
                 Hero(
                     heroList.name, "${heroList.songCount} ${if (heroList.songCount == 1) "song" else "songs"}",
-                    { CoverMosaic(covers[heroList.id].orEmpty(), Modifier.fillMaxSize()) },
+                    { CoverMosaic(covers[heroList.id].orEmpty(), Modifier.fillMaxSize(), custom = com.spotifry.music.ui.components.playlistCoverPath(heroList)) },
                     "Your playlist", Icons.Play, "Play", "Open playlist", { onOpenPlaylist(heroList.id) }, { onPlayPlaylist(heroList) },
                 )
             }
