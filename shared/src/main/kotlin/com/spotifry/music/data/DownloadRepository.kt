@@ -90,6 +90,8 @@ class DownloadRepository(
                         response.close()
                         resolver.invalidate(song.id)
                         stream = resolver.get(song, lowQuality(), patient = true)
+                        // the fresh link can be another copy (other source, other size): start over, never glue it onto the old bytes
+                        written = 0
                         response = open(stream.url, written)
                     }
                     response.use { r ->

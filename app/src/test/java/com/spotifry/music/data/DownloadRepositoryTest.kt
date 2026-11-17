@@ -176,6 +176,19 @@ class DownloadRepositoryTest {
         assertArrayEquals(audio, File(db.songs().get(testSong.id)!!.filePath!!).readBytes())
     }
 
+    @Test fun anExpiredLinkMidSaveStartsTheFileOver() = runBlocking<Unit> {
+        var second = true
+        dropsAfter(100_000) { r ->
+            if (second) { second = false; MockResponse().setResponseCode(403) } // the link died while the save was cut off
+            // the new link is another copy: asked from byte 100000 it would hand over the rest of a different file
+            else if (r.getHeader("Range") != null) MockResponse().setResponseCode(206).setBody(Buffer().write(ByteArray(200_000) { 7 }))
+            else body()
+        }
+        repo.save(testSong)
+        assertEquals(DownloadState.Saved, repo.state(testSong.id).value)
+        assertArrayEquals(audio, File(db.songs().get(testSong.id)!!.filePath!!).readBytes())
+    }
+
     @Test fun aServerThatIgnoresTheRangeSendsItAllAgain() = runBlocking<Unit> {
         dropsAfter(100_000) { body() }
         repo.save(testSong)
