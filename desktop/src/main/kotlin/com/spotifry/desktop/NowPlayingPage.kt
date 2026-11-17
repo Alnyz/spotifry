@@ -53,7 +53,7 @@ internal sealed interface LyricsState {
  * the queue is in the panel on the right. No seek bar here: the one in the bar below is enough.
  */
 @Composable
-fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUiState, modifier: Modifier = Modifier) {
+fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUiState, modifier: Modifier = Modifier, onSoundPath: () -> Unit = {}) {
     val lib = services.library
     val song = state.current
     val scope = rememberCoroutineScope()
@@ -90,7 +90,10 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
                         Text(state.from?.let { "Playing from $it" } ?: "Now playing", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink, maxLines = 1)
                     }
                     // under the pill, not beside the artist (whose name length moves it); the height is kept while the sound isn't known yet
-                    Box(Modifier.padding(top = 10.dp).height(24.dp), Alignment.CenterStart) { state.quality?.let { QualityPill(it) } }
+                    // a click opens the Sound path panel, in the queue's place
+                    Box(Modifier.padding(top = 10.dp).height(24.dp), Alignment.CenterStart) {
+                        state.quality?.let { Tip("Sound path") { QualityPill(it, Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onSoundPath)) } }
+                    }
                     Text(
                         song.title, fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = if (song.title.length <= 18) 64.sp else 52.sp, letterSpacing = (-1.5).sp,
                         color = Palette.ink, maxLines = 1, softWrap = false,

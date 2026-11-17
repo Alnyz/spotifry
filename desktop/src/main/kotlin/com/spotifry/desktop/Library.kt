@@ -46,7 +46,9 @@ class Library(
     val recentSearches = com.spotifry.music.data.RecentSearches(prefs.getString("recent_searches", "").orEmpty().split('\n').filter { it.isNotEmpty() }) {
         prefs.edit().putString("recent_searches", it.joinToString("\n")).apply()
     }
-    val backups = Backups(db.backup(), prefs, trimPrefs, restoreQueue, APP_VERSION)
+    /** The pictures chosen as playlist covers; a backup carries them. */
+    val playlistCovers = PlaylistCovers(File(dir, "playlist_covers"))
+    val backups = Backups(db.backup(), prefs, trimPrefs, restoreQueue, APP_VERSION, covers = playlistCovers.dir)
 
     /** The music folder's songs, shown under Saved, On this computer. */
     val musicFolder = MusicFolder(File(dir, "music_folder.json"), prefs, settings.hideNonMusic)

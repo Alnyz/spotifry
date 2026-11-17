@@ -202,7 +202,9 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
                         }
                     } }
                     itemsIndexed(lists) { _, p ->
-                        val art = covers.filter { it.playlistId == p.id }.firstNotNullOfOrNull { it.song.thumbnailUrl ?: it.song.thumbPath }
+                        // the chosen cover, else the first song's; the tile is wide, so no mosaic here
+                        val custom = remember(p.cover) { lib.playlistCovers.file(p.cover)?.path }
+                        val art = custom ?: covers.filter { it.playlistId == p.id }.firstNotNullOfOrNull { it.song.thumbnailUrl ?: it.song.thumbPath }
                         Tile(art, onClick = { go(Route.Playlist(p.id)) }) {
                             Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
                                 Text(p.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

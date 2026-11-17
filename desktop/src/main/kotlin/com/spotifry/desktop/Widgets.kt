@@ -124,15 +124,27 @@ fun EmptyState(title: String, text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Up to four covers in a square, for a playlist. */
+/** How many covers sit in each row of a playlist's default cover, by how many songs it has; the phone's layouts. */
+internal fun mosaicRows(songs: Int): List<Int> = when (songs) { 0 -> emptyList(); 1 -> listOf(1); 2 -> listOf(1, 1); 3 -> listOf(1, 2); else -> listOf(2, 2) }
+
+/**
+ * A playlist's cover. [custom] is the picture the listener chose; without one, the first songs' covers: one whole, two
+ * as bands, three as a wide band over two squares, four or more as a 2 by 2. An empty playlist shows a list icon.
+ */
 @Composable
-fun Mosaic(covers: List<String?>, size: Dp, radius: Dp = 14.dp) {
+fun Mosaic(covers: List<String?>, size: Dp, radius: Dp = 14.dp, custom: String? = null) {
     val shape = RoundedCornerShape(radius)
-    Box(Modifier.size(size).clip(shape).background(Palette.high)) {
-        val tile = size / 2
-        if (covers.size <= 1) Cover(covers.firstOrNull(), size, shape, large = true)
-        else Column {
-            for (r in 0..1) Row { for (c in 0..1) Cover(covers.getOrNull(r * 2 + c), tile, RoundedCornerShape(0.dp)) }
+    Box(Modifier.size(size).clip(shape).background(Palette.high), contentAlignment = Alignment.Center) {
+        val rows = mosaicRows(covers.size)
+        when {
+            custom != null -> Cover(custom, size, shape, large = true)
+            rows.isEmpty() -> Icon(Icons.List, null, Modifier.size((size * .27f).coerceIn(36.dp, 112.dp)), tint = Palette.ink2)
+            else -> Column(Modifier.fillMaxSize()) {
+                val starts = rows.runningFold(0, Int::plus)
+                rows.forEachIndexed { r, n ->
+                    Row(Modifier.weight(1f).fillMaxWidth()) { for (c in 0 until n) CoverFill(covers[starts[r] + c], Modifier.weight(1f).fillMaxHeight(), large = n == 1) }
+                }
+            }
         }
     }
 }

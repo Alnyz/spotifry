@@ -11,6 +11,9 @@ object Icons {
     private fun icon(name: String, d: String) = ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(addPathNodes(d), fill = SolidColor(Color.Black)).build()
 
     val Play = icon("play", "M8 5v14l11-7z")
+    val List = icon("list", "M3 6h14v2H3zm0 5h14v2H3zm0 5h9v2H3zm15-5v5.3a2.7 2.7 0 1 0 2 2.6V8h3V6h-5z")
+    val Picture = icon("picture", "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z")
+    val Edit = icon("edit", "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z")
     val Pause = icon("pause", "M6 5h4v14H6zm8 0h4v14h-4z")
     val Next = icon("next", "M6 6l9 6-9 6zm10 0h2v12h-2z")
     val Prev = icon("prev", "M18 6l-9 6 9 6zM6 6h2v12H6z")

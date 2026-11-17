@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asSkiaBitmap
 import sh.calvin.reorderable.ReorderableItem
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,8 +46,9 @@ fun PlaylistsPage(services: Services, go: (Route) -> Unit, modifier: Modifier = 
         if (lists.isEmpty()) EmptyState("No playlists yet", "Press New playlist, then add songs from the menu next to any song.")
         else LazyVerticalGrid(GridCells.Adaptive(180.dp), Modifier.padding(top = 24.dp), contentPadding = PaddingValues(bottom = LocalBottomInset.current), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             items(lists, key = { it.id }) { p ->
-                val art = covers.filter { it.playlistId == p.id }.take(4).map { it.song.thumbnailUrl }
-                CoverCard(p.name, "${p.songCount} songs · ${p.savedCount} saved", { w -> Mosaic(art, w) }, onClick = { go(Route.Playlist(p.id)) })
+                val art = covers.filter { it.playlistId == p.id }.take(4).map { it.song.thumbnailUrl ?: it.song.thumbPath }
+                val custom = remember(p.cover) { services.library.playlistCovers.file(p.cover)?.path }
+                CoverCard(p.name, "${p.songCount} songs · ${p.savedCount} saved", { w -> Mosaic(art, w, custom = custom) }, onClick = { go(Route.Playlist(p.id)) })
             }
         }
     }
@@ -74,17 +76,68 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
     val state by services.player.state.collectAsState()
     var renaming by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
+    var pencil by remember { mutableStateOf(false) }
+    var coverDialog by remember { mutableStateOf(false) }
+    var picking by remember { mutableStateOf(false) }
+    var cropping by remember { mutableStateOf<org.jetbrains.skia.Image?>(null) }
+    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    val coverRows by db.playlists().observeCoverRows().collectAsState(emptyList())
+    val coverSongs = coverRows.filter { it.playlistId == id }.take(4).map { it.song.thumbnailUrl ?: it.song.thumbPath }
+    val covers = lib.playlistCovers
     // the order before Mix up, so it can be put back
     var undoMix by remember(id) { mutableStateOf<List<String>?>(null) }
     if (meta == null) { LaunchedEffect(Unit) { go(Route.Playlists) }; return }
     if (renaming) NameDialog("Rename playlist", "Rename", meta.name, { renaming = false }) { name -> scope.launch { db.playlists().rename(id, name) }; renaming = false }
-    if (deleting) ConfirmDialog("Delete this playlist?", "The songs stay saved. Only the playlist goes.", "Delete", { deleting = false }) { scope.launch { db.playlists().delete(id) }; deleting = false; go(Route.Playlists) }
+    if (deleting) ConfirmDialog("Delete this playlist?", "The songs stay saved. Only the playlist goes.", "Delete", { deleting = false }) {
+        scope.launch { val cover = db.playlists().coverOf(id); db.playlists().delete(id); kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { covers.delete(cover) } }
+        deleting = false; go(Route.Playlists)
+    }
+    val customPath = remember(meta.cover) { covers.file(meta.cover)?.path }
 
-    LazyColumn(modifier, listState) {
+    /** Saves the new cover (null is the default one) and offers Undo; the old picture is deleted once Undo is no longer possible. */
+    fun changeCover(picture: org.jetbrains.skia.Image?, box: com.spotifry.music.data.CropBox?) = scope.launch {
+        val old = db.playlists().coverOf(id)
+        val name = if (picture != null && box != null) kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { covers.save(id, picture, box) }.getOrNull() } else null
+        if (picture != null && name == null) { snackbar.showSnackbar("Couldn't save that cover"); return@launch }
+        db.playlists().setCover(id, name)
+        var undone = false
+        try {
+            undone = snackbar.showSnackbar(if (name == null) "Back to the default cover" else "Cover changed", "Undo", duration = androidx.compose.material3.SnackbarDuration.Short) == androidx.compose.material3.SnackbarResult.ActionPerformed
+        } finally {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable + kotlinx.coroutines.Dispatchers.IO) { if (undone) { db.playlists().setCover(id, old); covers.delete(name) } else covers.delete(old) }
+        }
+    }
+    if (coverDialog) ChangeCoverDialog(
+        hasCustom = meta.cover != null, canPickSong = songs.isNotEmpty(),
+        onPicture = {
+            coverDialog = false
+            scope.launch {
+                val file = FilePicker.picture("Pick a cover picture") ?: return@launch
+                val picture = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { org.jetbrains.skia.Image.makeFromEncoded(file.readBytes()) }.getOrNull() }
+                if (picture != null) cropping = picture else snackbar.showSnackbar("Couldn't open that picture")
+            }
+        },
+        onSongs = { coverDialog = false; picking = true },
+        onDefault = { coverDialog = false; changeCover(null, null) },
+        onDismiss = { coverDialog = false },
+    )
+    if (picking) SongCoverDialog(rows, { s ->
+        picking = false
+        scope.launch {
+            val art = (s.thumbnailUrl ?: s.thumbPath)?.let { Covers.load(com.spotifry.music.data.source.artAt(it, true)) }
+            val picture = art?.let { org.jetbrains.skia.Image.makeFromBitmap(it.asSkiaBitmap()) }
+            if (picture == null) snackbar.showSnackbar("Couldn't load that cover")
+            else changeCover(picture, com.spotifry.music.data.cropBox(picture.width, picture.height, 1f, 0f, 0f))
+        }
+    }, { picking = false })
+    cropping?.let { pic -> CropDialog(pic, { box -> cropping = null; changeCover(pic, box) }, { cropping = null }) }
+
+    Box(modifier) {
+    LazyColumn(Modifier.fillMaxSize(), listState) {
         item { Text("‹ Playlists", color = Palette.ink2, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { go(Route.Playlists) }) }
         item {
             Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.Bottom) {
-                Mosaic(songs.take(4).map { it.thumbnailUrl }, 200.dp, radius = 18.dp)
+                Mosaic(coverSongs, 200.dp, radius = 18.dp, custom = customPath)
                 Column {
                     Text("Playlist", color = Palette.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(meta.name, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -107,7 +160,13 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
                             }
                         }
                         undoMix?.let { old -> Pill("Undo") { scope.launch { db.playlists().setOrder(id, old) }; undoMix = null } }
-                        Pill("Rename") { renaming = true }
+                        Box {
+                            Pill("Edit", Icons.Edit) { pencil = true }
+                            androidx.compose.material3.DropdownMenu(pencil, { pencil = false }, containerColor = Palette.surface) {
+                                DropdownMenuItem({ Text("Rename") }, leadingIcon = { Icon(Icons.Edit, null, Modifier.size(20.dp)) }, onClick = { pencil = false; renaming = true })
+                                DropdownMenuItem({ Text("Change cover") }, leadingIcon = { Icon(Icons.Picture, null, Modifier.size(20.dp)) }, onClick = { pencil = false; coverDialog = true })
+                            }
+                        }
                         Pill("Delete") { deleting = true }
                     }
                 }
@@ -139,5 +198,7 @@ fun PlaylistPage(services: Services, id: Long, go: (Route) -> Unit, modifier: Mo
             }
         }
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
+    }
+    androidx.compose.material3.SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomInset.current + 8.dp))
     }
 }

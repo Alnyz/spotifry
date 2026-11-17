@@ -62,6 +62,10 @@ class Services(
     val lookUpYears: () -> Unit = {},
     /** A line to show over the player bar: a song that couldn't load. Nothing in tests. */
     val notice: kotlinx.coroutines.flow.StateFlow<String?> = kotlinx.coroutines.flow.MutableStateFlow(null),
+    /** Headphones or speakers, as the sound server says; null when it can't tell, and in tests. */
+    val output: kotlinx.coroutines.flow.StateFlow<SoundOutput?> = kotlinx.coroutines.flow.MutableStateFlow(null),
+    /** The playing song's path through mpv, for the Sound path panel; empty in tests. */
+    val sound: kotlinx.coroutines.flow.StateFlow<MpvSound> = kotlinx.coroutines.flow.MutableStateFlow(MpvSound()),
 ) {
     /** Set by the window: bring it to the front (the media widget's "open"), and quit. */
     var raise: () -> Unit = {}
@@ -110,6 +114,13 @@ fun productionServices(): Services {
         kotlinx.coroutines.flow.combine(settings.eqOn, settings.eqLevels, settings.eqShape) { on, l, shape -> if (on) Sound.equalizer(l, shape) else null }.conflate()
             .collect { player.setFilter("eq", it); kotlinx.coroutines.delay(100) }
     }
+    // headphones and speakers keep their own sound, when that is on: the set follows the output as it changes
+    val output = SoundOutputWatch(scope).output
+    scope.launch {
+        kotlinx.coroutines.flow.combine(output, settings.perDevice, ::Pair).collect { (o, on) ->
+            if (o != null && on) settings.useSoundSet(if (o.headphones) com.spotifry.music.data.Settings.HEADPHONES else com.spotifry.music.data.Settings.SPEAKER)
+        }
+    }
     scope.launch { settings.mono.collect { player.setFilter("mono", if (it) Sound.MONO else null) } }
     scope.launch { settings.spatial.collect { player.setFilter("space", it?.let(Sound::spatial)); kotlinx.coroutines.delay(100) } }
     // a new strength is heard at once: the filter is set again, as when it is turned on
@@ -122,7 +133,7 @@ fun productionServices(): Services {
     val brainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = "Spotifry/$APP_VERSION (https://github.com/Alnyz/spotifry)")
     lateinit var services: Services
     services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay, listening = player::listening,
-        lookUpYears = { lookUpSongYears(library, scope, brainz) }, notice = player.notice)
+        lookUpYears = { lookUpSongYears(library, scope, brainz) }, notice = player.notice, output = output, sound = player.sound)
     services.lookUpYears()
     scope.launch { library.musicFolder.refresh() }
     library.updates.checkDaily()

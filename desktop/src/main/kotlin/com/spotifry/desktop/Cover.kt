@@ -32,6 +32,8 @@ object Covers {
         runCatching {
             // a song from the music folder: its picture is read from the disk
             val bytes = if (url.startsWith("file://")) MusicFolder.art(url.removePrefix("file://"))!!
+            // a picture on this computer: a saved song's cover or a playlist's chosen cover
+            else if (url.startsWith("/")) java.io.File(url).readBytes()
             else client.newCall(Request.Builder().url(url).build()).execute().use { it.body!!.bytes() }
             // Java's reader first (it trims black bars); if it is missing or fails on this machine, the one built into the window toolkit
             runCatching { ImageIO.read(bytes.inputStream())?.let(::trimBars)?.toComposeImageBitmap() }.getOrNull()
@@ -60,9 +62,13 @@ internal fun trimBars(img: BufferedImage): BufferedImage {
 
 /** A cover, or a plain square while it loads or when there is none. */
 @Composable
-fun Cover(url: String?, size: Dp, shape: Shape, large: Boolean = false, modifier: Modifier = Modifier) {
+fun Cover(url: String?, size: Dp, shape: Shape, large: Boolean = false, modifier: Modifier = Modifier) = CoverFill(url, modifier.size(size).clip(shape), large)
+
+/** A cover filling [modifier]'s box, cut to fit. */
+@Composable
+fun CoverFill(url: String?, modifier: Modifier, large: Boolean = false) {
     val image by produceState<ImageBitmap?>(null, url) { value = url?.let { Covers.load(artAt(it, large)) } }
-    Box(modifier.size(size).clip(shape).background(Palette.high)) {
-        image?.let { Image(it, null, Modifier.size(size), contentScale = ContentScale.Crop) }
+    Box(modifier.background(Palette.high)) {
+        image?.let { Image(it, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop) }
     }
 }

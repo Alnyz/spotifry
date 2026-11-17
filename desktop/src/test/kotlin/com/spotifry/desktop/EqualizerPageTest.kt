@@ -10,4 +10,11 @@ class EqualizerPageTest {
         assertEquals("1.5k", hzLabel(1_480.0))
         assertEquals("999", hzLabel(999.4))
     }
+
+    @Test fun frequenciesReadLikeThePhone() {
+        assertEquals("250 Hz", hzText(250))
+        assertEquals("1.5 kHz", hzText(1_480))
+        assertEquals("2 kHz", hzText(2_000))
+        assertEquals("12 kHz", hzText(12_400))
+    }
 }

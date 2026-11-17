@@ -49,6 +49,11 @@ import com.spotifry.music.player.EqDesign
 import com.spotifry.music.player.EqShape
 import com.spotifry.music.player.Spectrum
 import com.spotifry.music.player.fitAutoEq
+import com.spotifry.music.player.eqHzAt
+import com.spotifry.music.player.eqHzPos
+import com.spotifry.music.player.eqQAt
+import com.spotifry.music.player.eqQPos
+import com.spotifry.music.player.eqQText
 import com.spotifry.music.player.searchAutoEq
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -98,6 +103,7 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
                 Box(Modifier.align(androidx.compose.ui.Alignment.CenterVertically).clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { settings.setEqOn(!on) }) { OnOffSwitch(on) }
             }
         }
+        item { SoundSetCard(settings, services.output.collectAsState().value) }
         item {
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(Modifier.padding(top = 24.dp).alpha(dim), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -114,12 +120,50 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
         item {
             when (tab) {
                 0 -> Column(Modifier.alpha(dim)) { Graph(on, levels, bands, shape, settings::saveEq, rememberLivePicture(services.listening, playing.isPlaying)) }
-                1 -> Column(Modifier.alpha(dim)) { Bands(levels, bands, shape, settings::saveEq) }
+                1 -> Column(Modifier.alpha(dim)) { Bands(levels, bands, shape, settings::saveEq, settings) }
                 // the headphone list works with the equalizer off, so it isn't dimmed like the rest
                 else -> Headphone(settings, autoEq, preset, on)
             }
         }
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
+    }
+}
+
+/**
+ * Headphones and speakers each keep their own sound, when switched on; the app switches by itself as headphones come and
+ * go. Not shown when the sound server can't say which is playing.
+ */
+@Composable
+private fun SoundSetCard(settings: Settings, output: SoundOutput?) {
+    output ?: return
+    val on by settings.perDevice.collectAsState()
+    val set by settings.soundSet.collectAsState()
+    val now = if (output.headphones) Settings.HEADPHONES else Settings.SPEAKER
+    Column(Modifier.padding(top = 20.dp).fillMaxWidth().stage().padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            Modifier.fillMaxWidth().clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { settings.setPerDevice(!on, now) },
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Separate sound for headphones", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = Palette.ink)
+                Text(if (on) "On · switches by itself" else "Off · one sound for everything", fontSize = 13.sp, color = Palette.ink2)
+            }
+            OnOffSwitch(on)
+        }
+        if (on) {
+            val headphones = set == Settings.HEADPHONES
+            val what = if (headphones == output.headphones) "${output.name}${if (output.bluetooth) " · Bluetooth" else ""}" else if (headphones) "Headphones" else "Speakers"
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Palette.accent.copy(alpha = .18f)), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    androidx.compose.material3.Icon(if (headphones) Icons.Headphones else Icons.Volume, null, Modifier.size(20.dp), tint = Palette.accent)
+                }
+                Column {
+                    Text("For: " + if (headphones) "Headphones" else "Speakers", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Palette.ink)
+                    Text("$what. Changes on this page are for ${if (headphones) "these headphones" else "the speakers"} only.", fontSize = 13.sp, color = Palette.ink2)
+                }
+            }
+            Text(if (headphones) "Unplug them to set the speakers' sound." else "Plug in headphones to set their sound.", fontSize = 13.sp, color = Palette.ink2)
+        }
     }
 }
 
@@ -274,7 +318,17 @@ internal fun sweep(fromBand: Int, fromMb: Int, toBand: Int, toMb: Int): List<Pai
 
 /** Ten sliders side by side; dragging across them draws a curve. */
 @Composable
-private fun Bands(levels: List<Int>, bands: EqShape, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
+private fun Bands(levels: List<Int>, bands: EqShape, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, settings: Settings) {
+    var selected by remember { mutableStateOf(0) }
+    val base by settings.eqBase.collectAsState()
+    // the last preset picked comes back with its own levels and every band in its usual place; with none, only the places
+    val presetLevels = EQ_PRESETS.firstOrNull { it.first == base }?.second
+    val canGoBack = !bands.isDefault || (presetLevels != null && levels != presetLevels)
+    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.End) {
+        Box(Modifier.alpha(if (canGoBack) 1f else .4f)) {
+            Chip(if (presetLevels != null) "Back to $base" else "Reset bands", false) { if (canGoBack) { if (presetLevels != null) settings.setEq(base, presetLevels) else settings.setEqShape(EqShape.DEFAULT) } }
+        }
+    }
     val change by rememberUpdatedState(set)
     val finished by rememberUpdatedState(done)
     val measurer = rememberTextMeasurer()
@@ -287,21 +341,22 @@ private fun Bands(levels: List<Int>, bands: EqShape, set: (List<Pair<Int, Int>>)
             .pointerInput(Unit) {
                 var last: Pair<Int, Int>? = null
                 detectDragGestures(
-                    onDragStart = { o -> at(o, size.toSize()).let { last = it; change(listOf(it)) } },
+                    onDragStart = { o -> at(o, size.toSize()).let { last = it; selected = it.first; change(listOf(it)) } },
                     onDrag = { c, _ ->
                         val a = at(c.position, size.toSize())
                         last?.let { l -> change(sweep(l.first, l.second, a.first, a.second)) }
-                        last = a
+                        last = a; selected = a.first
                     },
                     onDragEnd = { last = null; finished() }, onDragCancel = { last = null; finished() },
                 )
             }
-            .pointerInput(Unit) { detectTapGestures { o -> change(listOf(at(o, size.toSize()))); finished() } },
+            .pointerInput(Unit) { detectTapGestures { o -> at(o, size.toSize()).let { selected = it.first; change(listOf(it)) }; finished() } },
     ) {
         val bottom = size.height - gap
         val w = size.width / EQ_BANDS
         val track = 8.dp.toPx()
         fun y(mb: Int) = top + (EQ_MAX_MB - mb) / (2f * EQ_MAX_MB) * (bottom - top)
+        drawRoundRect(accent.copy(alpha = .12f), Offset(w * selected + 2.dp.toPx(), 4.dp.toPx()), Size(w - 4.dp.toPx(), size.height - 8.dp.toPx()), CornerRadius(12.dp.toPx()))
         for (b in 0 until EQ_BANDS) {
             val cx = w * b + w / 2
             drawRoundRect(ink.copy(alpha = .08f), Offset(cx - track / 2, top), Size(track, bottom - top), CornerRadius(track / 2))
@@ -317,7 +372,53 @@ private fun Bands(levels: List<Int>, bands: EqShape, set: (List<Pair<Int, Int>>)
             if (moved) drawCircle(accent, 2.dp.toPx(), Offset(cx, size.height - 5.dp.toPx()))
         }
     }
-    Text("Drag a slider, or sweep across them to draw a curve.", color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+    Text("Drag a slider, or sweep across them to draw a curve. Click one to fine-tune it below.", color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+    BandEditor(selected, levels[selected], bands, { selected = (selected + it).coerceIn(0, EQ_BANDS - 1) }, set, done, settings)
+}
+
+/** One band's frequency, level and width, like the phone's. Moving or widening a band makes the curve the listener's own, like a drag does. */
+@Composable
+private fun BandEditor(band: Int, mb: Int, bands: EqShape, step: (Int) -> Unit, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, settings: Settings) {
+    val default = EqShape.DEFAULT
+    val move = { next: EqShape -> settings.setEqShape(next, save = false); if (!settings.eqOn.value) settings.setEqOn(true) }
+    Column(Modifier.padding(top = 16.dp).fillMaxWidth().stage().padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("Band ${band + 1} of $EQ_BANDS", Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = Palette.ink)
+            Text("‹", fontSize = 22.sp, color = if (band > 0) Palette.ink else Palette.ink2.copy(alpha = .4f), modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = band > 0) { step(-1) }.padding(horizontal = 12.dp, vertical = 2.dp))
+            Text("›", fontSize = 22.sp, color = if (band < EQ_BANDS - 1) Palette.ink else Palette.ink2.copy(alpha = .4f), modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = band < EQ_BANDS - 1) { step(1) }.padding(horizontal = 12.dp, vertical = 2.dp))
+        }
+        BandSlider("Frequency", hzText(bands.hz[band].roundToInt()), "Which part of the sound this band changes.", eqHzPos(bands.hz[band]), 0f..1f, { move(bands.with(band, hz = eqHzAt(it))) }, done)
+        BandSlider("Level", "${dbText(mb)} dB", null, mb / 100f, -EQ_MAX_MB / 100f..EQ_MAX_MB / 100f, { set(listOf(band to ((it * 100 / STEP_MB).roundToInt() * STEP_MB).coerceIn(-EQ_MAX_MB, EQ_MAX_MB))) }, done)
+        BandSlider("Width", eqQText(bands.q[band]), "Narrow fixes one spot. Wide shapes a whole range.", eqQPos(bands.q[band]), 0f..1f, { move(bands.with(band, q = eqQAt(it))) }, done)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Box(Modifier.alpha(if (bands.moved(band)) 1f else .4f)) { Chip("Reset this band", false) { if (bands.moved(band)) settings.setEqShape(bands.with(band, default.hz[band], default.q[band])) } }
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun BandSlider(title: String, value: String, hint: String?, v: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit, onDone: () -> Unit) {
+    val colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = Palette.accent, activeTrackColor = Palette.accent, inactiveTrackColor = Palette.ink.copy(alpha = 0.14f))
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.width(220.dp)) {
+            Text(title, fontSize = 14.sp, color = Palette.ink)
+            if (hint != null) Text(hint, fontSize = 12.sp, color = Palette.ink2)
+        }
+        androidx.compose.material3.Slider(
+            v, onChange, Modifier.weight(1f), valueRange = range, onValueChangeFinished = onDone, colors = colors,
+            thumb = { Box(Modifier.size(18.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Palette.accent)) },
+            track = { androidx.compose.material3.SliderDefaults.Track(it, Modifier.height(4.dp), colors = colors, drawStopIndicator = null, thumbTrackGapSize = 0.dp, trackInsideCornerSize = 0.dp) },
+        )
+        Text(value, Modifier.width(80.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End, fontSize = 14.sp, color = Palette.ink)
+    }
+}
+
+/** A frequency the way the phone writes it: 250 Hz, 1.5 kHz, 12 kHz. */
+internal fun hzText(hz: Int): String = when {
+    hz < 1000 -> "$hz Hz"
+    hz < 10_000 -> "%.1f".format(java.util.Locale.US, hz / 1000f).removeSuffix(".0") + " kHz"
+    else -> "${(hz / 1000f).roundToInt()} kHz"
 }
 
 private const val MAX_RESULTS = 30

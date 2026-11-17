@@ -104,6 +104,8 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     var queueOpen by remember { mutableStateOf(false) }
     // on Now playing the queue stands on the right in place of the side panel, until it is closed
     var npQueue by remember { mutableStateOf(true) }
+    // on Now playing the Sound path panel takes the queue's place while open
+    var soundPath by remember { mutableStateOf(false) }
     // the words last searched for stay as the page's title even after the bar is emptied
     var searchTerm by remember { mutableStateOf(initialQuery) }
     var searchRun by remember { mutableStateOf(if (initialQuery.isBlank()) 0 else 1) }
@@ -172,7 +174,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                         val pad = Modifier.widthIn(max = if (nowPlaying || route.page == Page.Home) 1400.dp else 1180.dp).fillMaxHeight().padding(top = 10.dp)
                         // pages fade into each other instead of snapping
                         androidx.compose.runtime.CompositionLocalProvider(LocalBottomInset provides (if (state.current != null) 112.dp else 0.dp)) { androidx.compose.animation.Crossfade(if (nowPlaying) "now" else route, animationSpec = tween(350)) { shown ->
-                            if (shown == "now") NowPlayingPage(services, state, pad)
+                            if (shown == "now") NowPlayingPage(services, state, pad) { soundPath = !soundPath || !npQueue; npQueue = true }
                             else when (val r = shown as Route) {
                                 Route.Home -> HomePage(services, { route = it }, homeList, pad)
                                 Route.Search -> SearchPage(services, state, searchTerm, searchRun, { query = it; search(it) }, { route = Route.Found(it, Route.Search) }, { route = Route.MoodList(it) }, pad)
@@ -200,11 +202,12 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                     exit = androidx.compose.animation.fadeOut(tween(350)) + androidx.compose.animation.shrinkHorizontally(tween(350)),
                 ) {
                     // on Now playing it stays the queue while it slides away, so the side panel's cover never flashes in
-                    if (showQueue || nowPlaying) QueuePanel(services, state, if (compact) 330.dp else 380.dp, { if (nowPlaying) npQueue = false else queueOpen = false })
+                    if (nowPlaying && soundPath) SoundPathPanel(services, if (compact) 330.dp else 380.dp, { soundPath = false; npQueue = false }, { soundPath = false; route = Route.Equalizer; nowPlaying = false })
+                    else if (showQueue || nowPlaying) QueuePanel(services, state, if (compact) 330.dp else 380.dp, { if (nowPlaying) npQueue = false else queueOpen = false })
                     else SidePanel(services, state, if (compact) 330.dp else 380.dp, this@BoxWithConstraints.maxHeight)
                 }
             }
-            PlayerBar(services, state, haze, if (nowPlaying) npQueue else queueOpen, { if (nowPlaying) npQueue = !npQueue else queueOpen = !queueOpen }, { if (last != null) services.player.playList(listOf(last), 0, "Home") else services.player.toggle() }, Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 20.dp))
+            PlayerBar(services, state, haze, if (nowPlaying) npQueue else queueOpen, { if (nowPlaying) { if (soundPath) soundPath = false else npQueue = !npQueue } else queueOpen = !queueOpen }, { if (last != null) services.player.playList(listOf(last), 0, "Home") else services.player.toggle() }, Modifier.align(Alignment.BottomCenter).padding(start = 24.dp, end = 24.dp, bottom = 20.dp))
             val notice by services.notice.collectAsState()
             androidx.compose.animation.AnimatedVisibility(notice != null, Modifier.align(Alignment.BottomCenter).padding(bottom = 112.dp), enter = androidx.compose.animation.fadeIn(tween(200)), exit = androidx.compose.animation.fadeOut(tween(300))) {
                 var shown by remember { mutableStateOf("") }

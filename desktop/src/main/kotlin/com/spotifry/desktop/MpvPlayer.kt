@@ -137,6 +137,17 @@ class MpvPlayer(
     private var codec: String? = null
     private var bitrate: Double? = null
     private var rate: Int? = null
+    private var decoded: AudioFormat? = null
+    private var sent: AudioFormat? = null
+    private var ao: String? = null
+    /** Where each song's sound came from ("youtube", "saved", ...), for the Sound path panel. */
+    private val origins = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val _sound = MutableStateFlow(MpvSound())
+    /** The playing song's path through mpv, for the Sound path panel. */
+    val sound: StateFlow<MpvSound> = _sound
+    private fun publishSound() {
+        _sound.value = MpvSound(queue.getOrNull(index)?.id?.let(origins::get), codec, bitrate, decoded, sent, ao)
+    }
     private val listens = ListenTracker()
     private val plays = PlayCounter()
 
@@ -165,6 +176,7 @@ class MpvPlayer(
     /** What the screens show of a song; observing sends the value at once, so a song already playing in a voice is caught up. */
     private fun observeAll(m: Mpv) {
         m.observe(2, "duration"); m.observe(3, "paused-for-cache"); m.observe(4, "audio-codec-name"); m.observe(6, "audio-params/samplerate")
+        m.observe(7, "audio-params"); m.observe(8, "audio-out-params"); m.observe(9, "current-ao")
     }
 
     init {
@@ -491,7 +503,7 @@ class MpvPlayer(
         index = i
         order = if (!shuffle) null else order?.let { o -> o.indexOf(i).takeIf { it >= 0 }?.let(o::drop) } ?: newOrder()
         loaded = voice != null; buffering = voice == null; failed = false; ended = false
-        codec = null; bitrate = voice?.bitrate; rate = null
+        codec = null; bitrate = voice?.bitrate; rate = null; decoded = null; sent = null
         wholeMs = queue[i].durationSec * 1000
         trim = if (voice != null) voice.trim else trimOf(queue[i].id)
         ranOn = voice == null && !byListener && fadeSeconds() > 0
@@ -501,7 +513,7 @@ class MpvPlayer(
         if (filtersWaiting) applyFilters()
         pendingStart = startAtMs; startAtMs = 0; seekOnStart = null
         _position.value = voice?.posMs ?: pendingStart
-        publish(); save()
+        publish(); publishSound(); save()
         val song = queue[i]
         plays.restart(song.id)
         recorder?.let { r -> r.listenLog.write(listens.moved(song.id, byListener)); scope.launch { r.history.onPlayed(song) } }
@@ -520,6 +532,7 @@ class MpvPlayer(
                     playingUrl = url
                     // the source's own bitrate figure: mpv's live reading of a stream keeps moving, so it makes a restless label
                     bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
+                    originOf(song.id, local != null, stream?.origin)?.let { origins[song.id] = it }; publishSound()
                     mpv.set("pause", !wants)
                     val at = pendingStart; seekOnStart = null
                     val opts = listOfNotNull(
@@ -568,8 +581,11 @@ class MpvPlayer(
                 }
                 "duration" -> if (!e.isNull("data")) { wholeMs = (e.getDouble("data") * 1000).toLong(); publish() }
                 "paused-for-cache" -> { buffering = loaded && e.optBoolean("data"); publish() }
-                "audio-codec-name" -> { codec = if (e.isNull("data")) null else e.optString("data"); publish() }
+                "audio-codec-name" -> { codec = if (e.isNull("data")) null else e.optString("data"); publish(); publishSound() }
                 "audio-params/samplerate" -> { rate = if (e.isNull("data")) null else e.optInt("data"); publish() }
+                "audio-params" -> { decoded = AudioFormat.of(e.optJSONObject("data")); publishSound() }
+                "audio-out-params" -> { sent = AudioFormat.of(e.optJSONObject("data")); publishSound() }
+                "current-ao" -> { ao = if (e.isNull("data")) null else e.optString("data"); publishSound() }
             }
             "playback-restart" -> {
                 if (!loaded) {
@@ -677,6 +693,7 @@ class MpvPlayer(
                 // opened alongside: the song heard now keeps its copy, and the next one starts coming in
                 val url = local ?: synchronized(lock) { if (stage !== looking) return@launch; playFrom(next, stream!!, true) }
                 val bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
+                originOf(next.id, local != null, stream?.origin)?.let { origins[next.id] = it }
                 val plan = if (!onBeat) plainJoin(outMs, outMs, inMs, fade, 0) else {
                     // a read cut short can't say where the song's sound ends, and its beats would be guessed far ahead: not used
                     val out = outUrl?.let { look(outId, it, (outStart + outMs - STRETCH_MS).coerceAtLeast(outStart), outStart + outMs) }?.takeIf { it.whole }?.shifted(-outStart)
