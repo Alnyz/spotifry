@@ -3,6 +3,7 @@ package com.spotifry.music.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -48,23 +49,30 @@ fun PlaylistTile(p: PlaylistWithCounts, covers: List<SongEntity>, onClick: () ->
 }
 
 /**
- * The default playlist cover: up to four covers of the first songs in a 2 by 2 square; an empty playlist shows a plain
- * tile with the list icon. [custom] is the picture file the user chose instead, which wins when there is one.
+ * The default playlist cover: the first songs' covers, laid out by how many there are. One song shows its cover whole;
+ * two are stacked as two bands; three are one wide band over two squares; four or more are a 2 by 2. An empty playlist
+ * shows a plain tile with a list icon, bigger on a bigger cover. [custom] is the picture file the user chose instead,
+ * which wins when there is one.
  */
 @Composable
 fun CoverMosaic(songs: List<SongEntity>, modifier: Modifier = Modifier, large: Boolean = true, custom: String? = null) {
+    @Composable fun tile(s: SongEntity, m: Modifier) = CoverArt(s.id, s.thumbnailUrl, s.thumbPath, m, large = large)
     when {
         custom != null -> CoverArt(custom, null, custom, modifier, large = large)
-        songs.isEmpty() -> Box(modifier.background(MaterialTheme.colorScheme.surface), Alignment.Center) {
-            Icon(Icons.List, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        songs.isEmpty() -> BoxWithConstraints(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+            val icon = (minOf(maxWidth, maxHeight) * .27f).coerceIn(36.dp, 112.dp)
+            // above the middle on a tall cover, where the name sits over the bottom
+            Icon(Icons.List, null, Modifier.align(Alignment.Center).padding(bottom = if (maxHeight > maxWidth) maxHeight * .28f else 0.dp).size(icon), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        // fewer than four songs: one full cover reads better than the same picture repeated
-        songs.size < 4 -> CoverArt(songs[0].id, songs[0].thumbnailUrl, songs[0].thumbPath, modifier, large = large)
+        songs.size == 1 -> tile(songs[0], modifier)
+        songs.size == 2 -> Column(modifier) { songs.take(2).forEach { tile(it, Modifier.weight(1f).fillMaxWidth()) } }
+        songs.size == 3 -> Column(modifier) {
+            tile(songs[0], Modifier.weight(1f).fillMaxWidth())
+            Row(Modifier.weight(1f)) { songs.drop(1).forEach { tile(it, Modifier.weight(1f).fillMaxHeight()) } }
+        }
         else -> Column(modifier) {
             songs.take(4).chunked(2).forEach { pair ->
-                Row(Modifier.weight(1f)) {
-                    pair.forEach { s -> CoverArt(s.id, s.thumbnailUrl, s.thumbPath, Modifier.weight(1f).fillMaxHeight(), large = large) }
-                }
+                Row(Modifier.weight(1f)) { pair.forEach { tile(it, Modifier.weight(1f).fillMaxHeight()) } }
             }
         }
     }

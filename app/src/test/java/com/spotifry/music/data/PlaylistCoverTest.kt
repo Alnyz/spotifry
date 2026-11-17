@@ -103,7 +103,7 @@ class PlaylistCoverTest {
     @Test fun theDefaultCoverUsesFourSongsOrJustTheFirst() {
         val songs = (1..6).map { song("s$it") }
         assertEquals(listOf("s1", "s2", "s3", "s4"), defaultCoverSongs(songs).map { it.id })
-        assertEquals(listOf("s1"), defaultCoverSongs(songs.take(3)).map { it.id })
+        assertEquals(listOf("s1", "s2", "s3"), defaultCoverSongs(songs.take(3)).map { it.id })
         assertTrue(defaultCoverSongs(emptyList()).isEmpty())
     }
 

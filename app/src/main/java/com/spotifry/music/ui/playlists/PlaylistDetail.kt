@@ -209,7 +209,7 @@ private fun rememberCoverTint(songs: List<SongEntity>, coverPath: String?): Colo
 }
 
 /** The songs whose covers make the default cover: four in a square, or just the first one when there are fewer. */
-internal fun defaultCoverSongs(songs: List<SongEntity>) = if (songs.size < 4) songs.take(1) else songs.take(4)
+internal fun defaultCoverSongs(songs: List<SongEntity>) = songs.take(4)
 
 /** One colour for several covers: their average colour, put through the same recipe as a single cover. Null with no covers. */
 internal fun averageTint(covers: List<Bitmap>): Color? {
@@ -304,7 +304,7 @@ fun PlaylistDetailContent(
                 repeat(5) { LoadingRow() }
             }
         }
-        else if (songs.isEmpty()) item { EmptyState("Nothing here yet", "Use the three dots next to any song to add one.") }
+        else if (songs.isEmpty()) item { EmptyState("No songs yet", "Add songs from search or from any song\u2019s menu") }
         // a found song plays from its place in the whole playlist, so the rest follows after it
         items(shown.size, key = { songs[shown[it]].id }) { k ->
             val i = shown[k]
