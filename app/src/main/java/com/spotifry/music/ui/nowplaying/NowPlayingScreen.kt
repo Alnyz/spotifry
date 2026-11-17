@@ -302,13 +302,15 @@ private fun Controls(
     var hintTick by remember { mutableStateOf(0) }
     LaunchedEffect(hintTick) { if (hint != null) { kotlinx.coroutines.delay(1_500); hint = null } }
     fun say(text: String) { hint = text; hintTick++ }
+    val slow = com.spotifry.music.ui.components.rememberSlow(state.loading)
+    val shown = hint ?: if (slow) com.spotifry.music.ui.components.SLOW_TEXT else null
     Box(modifier.fillMaxWidth()) {
     androidx.compose.animation.AnimatedVisibility(
-        hint != null, Modifier.align(Alignment.TopCenter).offset(y = (-34).dp),
+        shown != null, Modifier.align(Alignment.TopCenter).offset(y = (-34).dp),
         enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut(),
     ) {
         Text(
-            hint.orEmpty(), Modifier.clip(CircleShape).background(Color.Black.copy(alpha = .6f)).padding(horizontal = 14.dp, vertical = 6.dp),
+            shown.orEmpty(), Modifier.clip(CircleShape).background(Color.Black.copy(alpha = .6f)).padding(horizontal = 14.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelLarge, color = Color.White,
         )
     }
@@ -320,7 +322,7 @@ private fun Controls(
         }
         IconButton(onPrev, Modifier.size(56.dp)) { Icon(Icons.Prev, "Previous song", Modifier.size(36.dp)) }
         Box(Modifier.size(68.dp).clip(CircleShape).background(Color.White).clickable(onClick = onToggle), Alignment.Center) {
-            Icon(if (state.isPlaying) Icons.Pause else Icons.Play, if (state.isPlaying) "Pause" else "Play", Modifier.size(34.dp), tint = Color(0xFF0C0D10))
+            com.spotifry.music.ui.components.PlayGlyph(state, 34.dp, Color(0xFF0C0D10))
         }
         IconButton(onNext, Modifier.size(56.dp)) { Icon(Icons.Next, "Next song", Modifier.size(36.dp)) }
         ToggleIcon(

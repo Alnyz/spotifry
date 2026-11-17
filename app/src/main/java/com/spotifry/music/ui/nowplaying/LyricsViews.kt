@@ -415,7 +415,7 @@ internal fun LyricsScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ProgressBar(state, position, Modifier.weight(1f).padding(horizontal = 24.dp), onSeek)
                 Box(Modifier.size(52.dp).clip(CircleShape).background(Color.White).clickable(onClick = onToggle), Alignment.Center) {
-                    Icon(if (state.isPlaying) Icons.Pause else Icons.Play, if (state.isPlaying) "Pause" else "Play", Modifier.size(26.dp), tint = Color(0xFF0C0D10))
+                    com.spotifry.music.ui.components.PlayGlyph(state, 26.dp, Color(0xFF0C0D10))
                 }
             }
             // lyrics running ahead of or behind the singing are moved here, a tenth of a second a tap, kept for this song

@@ -39,6 +39,9 @@ data class PlayerUiState(
     /** The playing song's real sound, e.g. "Opus 160 kbps" or "FLAC 24-bit · 96 kHz". Null until the player knows. */
     val quality: String? = null,
 ) {
+    /** The play button shows a ring: the song is wanted and sound hasn't arrived yet. */
+    val loading get() = wantsPlay && buffering && !failed
+
     fun upNextIndices(): List<Int> = order ?: (currentIndex until queue.size).toList()
 }
 

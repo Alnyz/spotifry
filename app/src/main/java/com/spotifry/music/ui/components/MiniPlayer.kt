@@ -37,9 +37,9 @@ fun MiniPlayer(state: PlayerUiState, position: () -> Long, haze: HazeState, onTo
             Cover(song.id, song.thumbnailUrl, song.localThumbPath, 42.dp, radius = 21.dp)
             Column(Modifier.weight(1f)) {
                 Text(song.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (rememberSlow(state.loading)) SLOW_TEXT else song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            IconButton(onToggle, Modifier.size(48.dp)) { Icon(if (state.isPlaying) Icons.Pause else Icons.Play, if (state.isPlaying) "Pause" else "Play") }
+            IconButton(onToggle, Modifier.size(48.dp)) { PlayGlyph(state, 24.dp, MaterialTheme.colorScheme.onSurface) }
             IconButton(onNext, Modifier.size(48.dp)) { Icon(Icons.Next, "Next song") }
         }
         val color = MaterialTheme.colorScheme.primary
