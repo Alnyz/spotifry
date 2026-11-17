@@ -443,3 +443,20 @@ fun TimeText(text: String, color: Color, size: androidx.compose.ui.unit.TextUnit
         else Text(c.toString(), color = color, fontSize = size)
     }
 }
+
+/** Pause while the listener wants sound, a ring while the song is on its way, Play otherwise; the phone's PlayGlyph. */
+@Composable
+fun PlayGlyph(state: com.spotifry.music.player.PlayerUiState, size: Dp, tint: Color) {
+    if (state.loading) CircularProgressIndicator(Modifier.size(size).padding(size / 10), color = tint, strokeWidth = size / 10)
+    else Icon(if (state.wantsPlay) Icons.Pause else Icons.Play, if (state.wantsPlay) "Pause" else "Play", Modifier.size(size), tint = tint)
+}
+
+/** True once the song has been loading for [afterMs] without sound, so "slow" is only said when it is. */
+@Composable
+fun rememberSlow(loading: Boolean, afterMs: Long = 8_000): Boolean {
+    var slow by remember { mutableStateOf(false) }
+    LaunchedEffect(loading) { slow = false; if (loading) { kotlinx.coroutines.delay(afterMs); slow = true } }
+    return slow && loading
+}
+
+const val SLOW_TEXT = "Connection is slow"

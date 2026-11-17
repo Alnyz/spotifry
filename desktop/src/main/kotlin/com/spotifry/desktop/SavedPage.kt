@@ -39,13 +39,16 @@ fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modi
     LaunchedEffect(Unit) { lib.musicFolder.refresh() }
     // saved songs whose copy isn't in the Music folder; looked at again when the folder's list changes (a copy was just made)
     val folder by lib.musicFolder.folder.collectAsState()
-    var uncopied by remember { mutableStateOf(emptySet<String>()) }
+    // null until looked at: the Not copied list shows nothing rather than a wrong "Everything is copied"
+    var uncopied by remember { mutableStateOf<Set<String>?>(null) }
     LaunchedEffect(saved, files, folder) {
         uncopied = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            saved.filter { e -> e.filePath?.let { copiedFile(folder, java.io.File(it), e.title, e.artist) } == null }.map { it.id }.toSet()
+            saved.filter { e -> e.filePath?.let { copiedFile(folder, java.io.File(it), e.title, e.artist) == null } == true }.map { it.id }.toSet()
         }
     }
-    val rows = remember(filter, saved, files, recent) { filterSaved(filter, saved, files, recent) }
+    val all = remember(filter, saved, files, recent) { filterSaved(filter, saved, files, recent) }
+    val rows = if (filter != SavedFilter.NotCopied) all else uncopied?.let { u -> all.filter { it.song.id in u } }.orEmpty()
+    val looking = filter == SavedFilter.NotCopied && uncopied == null
     val songs = rows.map { it.song }
     LazyColumn(modifier) {
         item {
@@ -55,8 +58,7 @@ fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modi
             }, fontFamily = Heading, fontSize = 44.sp, lineHeight = 46.sp, letterSpacing = (-1).sp, color = Palette.ink, modifier = Modifier.padding(top = 8.dp, bottom = 14.dp))
             SavedFilters(Route.Saved, go)
             Row(Modifier.padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // ponytail: Not copied is phone only for now; the uncopied set above could narrow the rows here too
-                SavedFilter.entries.filter { it != SavedFilter.NotCopied }.forEach { f -> Chip(f.desktopLabel, f == filter) { savedFilter = f } }
+                SavedFilter.entries.forEach { f -> Chip(f.desktopLabel, f == filter) { savedFilter = f } }
             }
             if (songs.isNotEmpty()) Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Pill("Play all", Icons.Play, primary = true) { services.player.playList(songs, 0, filter.desktopQueue) }
@@ -64,8 +66,9 @@ fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modi
             }
         }
         item { RestoreCard(services) }
-        if (songs.isEmpty()) item {
+        if (songs.isEmpty() && !looking) item {
             when (filter) {
+                SavedFilter.NotCopied -> EmptyState("Everything is copied", "Every saved song has a copy in your Music folder.")
                 SavedFilter.Phone -> Column {
                     EmptyState("No music files here", "Spotifry looks for songs in ${lib.musicFolder.folder.value.path.replaceFirst(System.getProperty("user.home"), "~")} and every folder inside it.")
                     Box(Modifier.fillMaxWidth().padding(top = 18.dp), contentAlignment = Alignment.Center) { Pill("Pick another folder") { scope.launch { FilePicker.folder("Pick your music folder", lib.musicFolder.folder.value)?.let { lib.musicFolder.choose(it); lib.musicFolder.refresh() } } } }
@@ -75,7 +78,7 @@ fun SavedPage(services: Services, go: (Route) -> Unit, modifier: Modifier = Modi
             }
         }
         itemsIndexed(rows, key = { _, r -> r.song.id }) { i, r ->
-            SongLine(services, i + 1, r.song, state.current?.id == r.song.id, saved = r.saved, uncopied = r.song.id in uncopied, onClick = { services.player.playList(songs, i, filter.desktopQueue) })
+            SongLine(services, i + 1, r.song, state.current?.id == r.song.id, saved = r.saved, uncopied = uncopied?.contains(r.song.id) == true, onClick = { services.player.playList(songs, i, filter.desktopQueue) })
         }
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }

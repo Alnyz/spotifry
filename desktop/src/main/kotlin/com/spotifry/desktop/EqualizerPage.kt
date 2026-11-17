@@ -46,6 +46,7 @@ import com.spotifry.music.player.EQ_CENTERS_HZ
 import com.spotifry.music.player.EQ_MAX_MB
 import com.spotifry.music.player.EQ_PRESETS
 import com.spotifry.music.player.EqDesign
+import com.spotifry.music.player.EqShape
 import com.spotifry.music.player.Spectrum
 import com.spotifry.music.player.fitAutoEq
 import com.spotifry.music.player.searchAutoEq
@@ -74,6 +75,7 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
     val on by settings.eqOn.collectAsState()
     val preset by settings.eqPreset.collectAsState()
     val levels by settings.eqLevels.collectAsState()
+    val bands by settings.eqShape.collectAsState()
     var tab by remember { mutableStateOf(0) }
     val playing by services.player.state.collectAsState()
     val autoEq = remember { AutoEqSource(services.library.client, File(dataDir(), "autoeq")) }
@@ -111,8 +113,8 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
         }
         item {
             when (tab) {
-                0 -> Column(Modifier.alpha(dim)) { Graph(on, levels, shape, settings::saveEq, rememberLivePicture(services.listening, playing.isPlaying)) }
-                1 -> Column(Modifier.alpha(dim)) { Bands(levels, shape, settings::saveEq) }
+                0 -> Column(Modifier.alpha(dim)) { Graph(on, levels, bands, shape, settings::saveEq, rememberLivePicture(services.listening, playing.isPlaying)) }
+                1 -> Column(Modifier.alpha(dim)) { Bands(levels, bands, shape, settings::saveEq) }
                 // the headphone list works with the equalizer off, so it isn't dimmed like the rest
                 else -> Headphone(settings, autoEq, preset, on)
             }
@@ -133,6 +135,8 @@ private fun mbAt(y: Float, top: Float, bottom: Float): Int {
     val mb = EQ_MAX_MB - (y - top) / (bottom - top) * 2 * EQ_MAX_MB
     return ((mb / STEP_MB).roundToInt() * STEP_MB).coerceIn(-EQ_MAX_MB, EQ_MAX_MB)
 }
+
+internal fun hzLabel(hz: Double): String { val n = hz.roundToInt(); return if (n < 1000) "$n" else "%.1f".format(java.util.Locale.US, n / 1000f).removeSuffix(".0") + "k" }
 
 private fun dbText(mb: Int) = (if (mb > 0) "+" else if (mb < 0) "−" else "") + "%.1f".format(java.util.Locale.US, abs(mb) / 100f).removeSuffix(".0")
 
@@ -181,11 +185,12 @@ private val TILT = FloatArray(Spectrum.BANDS) { 3f * (kotlin.math.ln(Spectrum.ba
  * follows the mouse up and down.
  */
 @Composable
-private fun Graph(on: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, picture: LivePicture) {
+private fun Graph(on: Boolean, levels: List<Int>, bands: EqShape, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, picture: LivePicture) {
     val change by rememberUpdatedState(set)
     val finished by rememberUpdatedState(done)
     var dragging by remember { mutableStateOf(-1) }
-    val design = remember(levels) { EqDesign(levels) }
+    val design = remember(levels, bands) { EqDesign(levels, shape = bands) }
+    val bandHz by rememberUpdatedState(bands.hz)
     val curve = remember(design) { FloatArray(CURVE_HZ.size) { design.responseDb(CURVE_HZ[it]).toFloat() * 100 } }
     // the music as it comes out: shaped by the curve and turned down by its preamp, only while the equalizer is on
     val shaped = remember(design, on) {
@@ -196,7 +201,7 @@ private fun Graph(on: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) ->
     val density = LocalDensity.current
     val ink = Palette.ink; val ink2 = Palette.ink2; val accent = Palette.accent
     fun plot(size: Size) = with(density) { Plot(52.dp.toPx(), 16.dp.toPx(), size.width - 20.dp.toPx(), size.height - 30.dp.toPx()) }
-    fun nearest(p: Plot, x: Float) = (0 until EQ_BANDS).minBy { abs(p.x(EQ_CENTERS_HZ[it]) - x) }
+    fun nearest(p: Plot, x: Float) = (0 until EQ_BANDS).minBy { abs(p.x(bandHz[it]) - x) }
     Canvas(
         Modifier.fillMaxWidth().height(340.dp).stage()
             .pointerInput(Unit) {
@@ -241,13 +246,13 @@ private fun Graph(on: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) ->
         }
         drawPath(path, accent, style = Stroke(2.5.dp.toPx(), join = StrokeJoin.Round))
         for (b in 0 until EQ_BANDS) {
-            val c = Offset(p.x(EQ_CENTERS_HZ[b]), p.y(levels[b].toFloat()))
+            val c = Offset(p.x(bands.hz[b]), p.y(levels[b].toFloat()))
             drawCircle(accent.copy(alpha = .25f), (if (b == dragging) 13 else 10).dp.toPx(), c)
             drawCircle(accent, 7.dp.toPx(), c)
         }
         if (dragging >= 0) {
             val t = measurer.measure("${dbText(levels[dragging])} dB", TextStyle(color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold))
-            val c = Offset(p.x(EQ_CENTERS_HZ[dragging]), p.y(levels[dragging].toFloat()))
+            val c = Offset(p.x(bands.hz[dragging]), p.y(levels[dragging].toFloat()))
             drawText(t, topLeft = Offset((c.x - t.size.width / 2).coerceIn(p.left, p.right - t.size.width), (c.y - t.size.height - 18.dp.toPx()).coerceAtLeast(0f)))
         }
     }
@@ -269,7 +274,7 @@ internal fun sweep(fromBand: Int, fromMb: Int, toBand: Int, toMb: Int): List<Pai
 
 /** Ten sliders side by side; dragging across them draws a curve. */
 @Composable
-private fun Bands(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
+private fun Bands(levels: List<Int>, bands: EqShape, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
     val change by rememberUpdatedState(set)
     val finished by rememberUpdatedState(done)
     val measurer = rememberTextMeasurer()
@@ -305,8 +310,11 @@ private fun Bands(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: 
             drawCircle(accent, 9.dp.toPx(), Offset(cx, y1))
             val v = measurer.measure(dbText(levels[b]), TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold))
             drawText(v, topLeft = Offset(cx - v.size.width / 2, 8.dp.toPx()))
-            val h = measurer.measure(BAND_LABELS[b], TextStyle(color = ink2, fontSize = 11.sp))
+            // a band moved from its usual place shows its own frequency in the accent colour, with a dot under it, like the phone
+            val moved = bands.moved(b)
+            val h = measurer.measure(hzLabel(bands.hz[b]), TextStyle(color = if (moved) accent else ink2, fontSize = 11.sp, fontWeight = if (moved) FontWeight.Bold else null))
             drawText(h, topLeft = Offset(cx - h.size.width / 2, bottom + 8.dp.toPx()))
+            if (moved) drawCircle(accent, 2.dp.toPx(), Offset(cx, size.height - 5.dp.toPx()))
         }
     }
     Text("Drag a slider, or sweep across them to draw a curve.", color = Palette.ink2, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))

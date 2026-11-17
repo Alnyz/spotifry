@@ -122,7 +122,7 @@ fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haz
             Cover(song.thumbnailUrl ?: song.localThumbPath, 56.dp, RoundedCornerShape(8.dp))
             Column {
                 Text(song.title, fontFamily = Display, fontSize = 17.sp, maxLines = 1, color = Palette.ink)
-                Text(song.artist, fontSize = 13.sp, maxLines = 1, color = Palette.ink2)
+                Text(if (rememberSlow(state.loading)) SLOW_TEXT else song.artist, fontSize = 13.sp, maxLines = 1, color = Palette.ink2)
             }
         }
         Column(Modifier.weight(1.6f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -132,7 +132,7 @@ fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haz
                 BarIcon(Icons.Prev, "Previous", Palette.ink, 4.dp) { player.previous() }
                 Tip(if (state.wantsPlay) "Pause" else "Play") {
                     Box(Modifier.size(42.dp).clip(CircleShape).background(Palette.ink).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
-                        Icon(if (state.wantsPlay) Icons.Pause else Icons.Play, if (state.wantsPlay) "Pause" else "Play", Modifier.size(26.dp), tint = Palette.bg)
+                        PlayGlyph(state, 26.dp, Palette.bg)
                     }
                 }
                 BarIcon(Icons.Next, "Next", Palette.ink, 4.dp) { player.next() }
