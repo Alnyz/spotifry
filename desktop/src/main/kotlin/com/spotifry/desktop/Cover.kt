@@ -33,9 +33,10 @@ object Covers {
             // a song from the music folder: its picture is read from the disk
             val bytes = if (url.startsWith("file://")) MusicFolder.art(url.removePrefix("file://"))!!
             else client.newCall(Request.Builder().url(url).build()).execute().use { it.body!!.bytes() }
-            ImageIO.read(bytes.inputStream())?.let(::trimBars)?.toComposeImageBitmap()
+            // Java's reader first (it trims black bars); if it is missing or fails on this machine, the one built into the window toolkit
+            runCatching { ImageIO.read(bytes.inputStream())?.let(::trimBars)?.toComposeImageBitmap() }.getOrNull()
                 ?: org.jetbrains.skia.Image.makeFromEncoded(bytes).toComposeImageBitmap()
-        }.getOrNull()?.also { cache[url] = it }
+        }.onFailure { System.err.println("cover failed: ${url.take(80)}: $it") }.getOrNull()?.also { cache[url] = it }
     }
 }
 
