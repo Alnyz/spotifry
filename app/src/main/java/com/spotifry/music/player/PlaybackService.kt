@@ -115,7 +115,8 @@ class PlaybackService : MediaSessionService() {
         }
 
         scope.launch {
-            kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels, c.settings.compare) { on, l, cmp -> if (on && !cmp) l else null }.collect { equalizer.set(it); tailEqualizer?.set(it) }
+            kotlinx.coroutines.flow.combine(c.settings.eqOn, c.settings.eqLevels, c.settings.eqShape, c.settings.compare) { on, l, shape, cmp -> (if (on && !cmp) l else null) to shape }
+                .collect { (l, shape) -> equalizer.set(l, shape); tailEqualizer?.set(l, shape) }
         }
         scope.launch {
             kotlinx.coroutines.flow.combine(c.settings.mono, c.settings.spatial) { m, sp -> m to sp }.collect { (m, sp) -> spatial.set(m, sp); tailSpatial?.set(m, sp) }
@@ -351,7 +352,7 @@ class PlaybackService : MediaSessionService() {
             player,
             newTail = { item, at ->
                 // its own sound chain, as a chain can't serve two players. It holds the level the song is at now and remembers nothing.
-                val eq = EqualizerProcessor().apply { set(if (c.settings.eqOn.value && !c.settings.compare.value) c.settings.eqLevels.value else null) }
+                val eq = EqualizerProcessor().apply { set(if (c.settings.eqOn.value && !c.settings.compare.value) c.settings.eqLevels.value else null, c.settings.eqShape.value) }
                 val level = LoudnessProcessor().apply { enabled = c.settings.sameLoudness.value; leveler.hold(loudness.gainDb) }
                 val spatial = SpatialProcessor().apply { set(c.settings.mono.value, c.settings.spatial.value) }
                 val tune = FineTuneProcessor().apply { set(if (c.settings.compare.value) com.spotifry.music.player.FineTuneSetting() else c.settings.tune.value) }

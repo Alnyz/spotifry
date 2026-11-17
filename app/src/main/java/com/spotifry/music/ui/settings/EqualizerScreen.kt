@@ -85,9 +85,21 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.data.AutoEqSource
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import com.spotifry.music.ui.Icons
+import com.spotifry.music.player.eqHzAt
+import com.spotifry.music.player.eqHzPos
+import com.spotifry.music.player.eqQAt
+import com.spotifry.music.player.eqQPos
+import com.spotifry.music.player.eqQText
 import com.spotifry.music.data.Settings
 import com.spotifry.music.player.EQ_BANDS
-import com.spotifry.music.player.EQ_CENTERS_HZ
+import com.spotifry.music.player.EqShape
 import com.spotifry.music.player.EQ_MAX_MB
 import com.spotifry.music.player.EQ_PRESETS
 import com.spotifry.music.player.EqDesign
@@ -158,6 +170,10 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val tune by settings.tune.collectAsStateWithLifecycle()
     val compare by settings.compare.collectAsStateWithLifecycle()
+    val bands by settings.eqShape.collectAsStateWithLifecycle()
+    val base by settings.eqBase.collectAsStateWithLifecycle()
+    val perDevice by settings.perDevice.collectAsStateWithLifecycle()
+    val soundSet by settings.soundSet.collectAsStateWithLifecycle()
     val scheme = MaterialTheme.colorScheme
     // any shaping means the user wants to hear it, so it also turns the equalizer on; kept when the finger lifts
     val shape = { changes: List<Pair<Int, Int>> ->
@@ -175,6 +191,8 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = bottomInset + 24.dp)) {
         ScreenHeader("Equalizer & tuning", onBack = onBack, trailing = { ComparePill(compare, settings::setCompare) })
         Column(Modifier.padding(horizontal = 16.dp).padding(top = 12.dp)) {
+            SoundSetCard(settings, perDevice, soundSet)
+            Spacer(Modifier.height(12.dp))
             Card {
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(on, role = Role.Switch, onValueChange = settings::setEqOn).padding(horizontal = 16.dp, vertical = 8.dp),
@@ -213,8 +231,8 @@ fun EqualizerScreen(settings: Settings, tap: SpectrumTap, autoEq: AutoEqSource, 
                     // the headphone list and the tuning work with the equalizer off, so they aren't dimmed like the rest; Compare dims all
                     Column(Modifier.alpha((if (page >= 2) 1f else dim) * if (compare) .45f else 1f)) {
                         when (page) {
-                            0 -> GraphTab(tap, isPlaying, on, levels, shape, settings::saveEq, graphHeight)
-                            1 -> BandsTab(levels, shape, settings::saveEq)
+                            0 -> GraphTab(tap, isPlaying, on, levels, bands, shape, settings::saveEq, graphHeight)
+                            1 -> BandsTab(levels, bands, base, shape, settings::saveEq, settings)
                             2 -> AutoEqTab(settings, autoEq, preset, on)
                             else -> TuningTab(settings)
                         }
@@ -273,13 +291,13 @@ private fun Modifier.stage(): Modifier {
 
 /** What a screen reader gets for one band: a slider, in its own column over the drawing. */
 @Composable
-private fun BandSemantics(levels: List<Int>, modifier: Modifier, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
+private fun BandSemantics(levels: List<Int>, hz: List<Double>, modifier: Modifier, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
     Row(modifier) {
         for (band in 0 until EQ_BANDS) {
             val mb = levels[band]
             Box(
                 Modifier.weight(1f).fillMaxHeight().semantics {
-                    contentDescription = hzText(EQ_CENTERS_HZ[band].toInt()); stateDescription = "${dbText(mb)} dB"
+                    contentDescription = hzText(hz[band].roundToInt()); stateDescription = "${dbText(mb)} dB"
                     progressBarRangeInfo = ProgressBarRangeInfo(mb.toFloat(), -EQ_MAX_MB.toFloat()..EQ_MAX_MB.toFloat())
                     setProgress { v -> set(listOf(band to ((v / STEP_MB).roundToInt() * STEP_MB).coerceIn(-EQ_MAX_MB, EQ_MAX_MB))); done(); true }
                 },
@@ -293,7 +311,7 @@ private fun BandSemantics(levels: List<Int>, modifier: Modifier, set: (List<Pair
  * near a point grabs it and it follows the finger up and down; a press anywhere else scrolls the page.
  */
 @Composable
-private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, height: Dp) {
+private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: List<Int>, bands: EqShape, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, height: Dp) {
     val scheme = MaterialTheme.colorScheme
     val current by rememberUpdatedState(levels)
     val change by rememberUpdatedState(set)
@@ -304,7 +322,8 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
     val haptics = LocalHapticFeedback.current
     val measurer = rememberTextMeasurer(cacheSize = 32)
     val picture = rememberLivePicture(tap, isPlaying)
-    val design = remember(levels) { EqDesign(levels) }
+    val design = remember(levels, bands) { EqDesign(levels, shape = bands) }
+    val bandHz by rememberUpdatedState(bands.hz)
     val total = remember(design) { FloatArray(CURVE_POINTS) { design.responseDb(CURVE_HZ[it]).toFloat() * 100 } }
     val hills = remember(design) { List(EQ_BANDS) { b -> FloatArray(CURVE_POINTS) { design.bandDb(b, CURVE_HZ[it]).toFloat() * 100 } } }
     // music gets quieter toward the high notes; tilting the picture up 3 dB per octave (level at 1 kHz) keeps the
@@ -319,7 +338,7 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
 
     Card {
         Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 14.dp), Arrangement.SpaceBetween) {
-            Text(hzText(EQ_CENTERS_HZ[selected].toInt()), style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
+            Text(hzText(bands.hz[selected].roundToInt()), style = MaterialTheme.typography.labelLarge, color = scheme.onSurface)
             Text("${dbText(levels[selected])} dB", style = MaterialTheme.typography.labelLarge, color = scheme.primary)
         }
         Box(
@@ -328,8 +347,8 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val plot = plotIn(size.width.toFloat(), size.height.toFloat(), 30.dp.toPx(), 10.dp.toPx(), 24.dp.toPx())
-                        val hit = (0 until EQ_BANDS).minBy { hypot(down.position.x - plot.x(EQ_CENTERS_HZ[it]), down.position.y - plot.y(current[it].toFloat())) }
-                        if (hypot(down.position.x - plot.x(EQ_CENTERS_HZ[hit]), down.position.y - plot.y(current[hit].toFloat())) > GRAB.toPx()) return@awaitEachGesture
+                        val hit = (0 until EQ_BANDS).minBy { hypot(down.position.x - plot.x(bandHz[it]), down.position.y - plot.y(current[it].toFloat())) }
+                        if (hypot(down.position.x - plot.x(bandHz[hit]), down.position.y - plot.y(current[hit].toFloat())) > GRAB.toPx()) return@awaitEachGesture
                         selected = hit
                         // a tap or a wobble only picks the point; it moves once the finger really does
                         val start = awaitTouchSlopOrCancellation(down.id) { move, _ -> move.consume() } ?: return@awaitEachGesture
@@ -399,7 +418,7 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
                 }
 
                 for (b in 0 until EQ_BANDS) {
-                    val at = Offset(plot.x(EQ_CENTERS_HZ[b]), plot.y(levels[b].toFloat()))
+                    val at = Offset(plot.x(bands.hz[b]), plot.y(levels[b].toFloat()))
                     val r = (if (b == selected) 8.5.dp.toPx() + 3.dp.toPx() * pulse else 6.5.dp.toPx())
                     if (b == selected) drawCircle(scheme.primary.copy(alpha = .18f + .1f * pulse), r * 2.1f, at)
                     drawCircle(scheme.background, r + 2.dp.toPx(), at)
@@ -407,7 +426,7 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
                     if (b == selected) drawCircle(scheme.onSurface, r + 2.dp.toPx(), at, style = Stroke(1.5.dp.toPx()))
                 }
             }
-            BandSemantics(levels, Modifier.matchParentSize(), set, done)
+            BandSemantics(levels, bands.hz, Modifier.matchParentSize(), set, done)
         }
         Text(
             "Drag a point up for more of that sound, down for less.",
@@ -418,29 +437,50 @@ private fun GraphTab(tap: SpectrumTap, isPlaying: Boolean, on: Boolean, levels: 
 
 private fun plotIn(width: Float, height: Float, left: Float, inset: Float, below: Float) = EqPlot(left, inset, width - inset, height - below)
 
-/** The same ten bands as sliders. One sweep of a finger across them draws the curve. */
+/**
+ * The ten bands as sliders. One sweep of a finger across them draws the curve; a tap picks a band, and the box below sets
+ * where it sits, its level and how wide it is.
+ */
 @Composable
-private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit) {
+private fun BandsTab(levels: List<Int>, bands: EqShape, base: String?, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, settings: Settings) {
     val scheme = MaterialTheme.colorScheme
     val current by rememberUpdatedState(levels)
     val change by rememberUpdatedState(set)
     val finished by rememberUpdatedState(done)
     var active by remember { mutableIntStateOf(-1) }
+    var selected by rememberSaveable { mutableIntStateOf(0) }
     val haptics = LocalHapticFeedback.current
     val measurer = rememberTextMeasurer(cacheSize = 64)
     val small = MaterialTheme.typography.labelSmall.copy(color = scheme.onSurfaceVariant, fontSize = 10.sp)
 
+    // the last preset picked comes back with its own levels and every band in its usual place; with none, only the places
+    val presetLevels = EQ_PRESETS.firstOrNull { it.first == base }?.second
+    val canGoBack = !bands.isDefault || (presetLevels != null && levels != presetLevels)
+    Label("Bands") {
+        Text(
+            if (presetLevels != null) "Back to $base" else "Reset bands",
+            Modifier.alpha(if (canGoBack) 1f else .4f).clip(RoundedCornerShape(12.dp))
+                .clickable(enabled = canGoBack, role = Role.Button) { if (presetLevels != null) settings.setEq(base, presetLevels) else settings.setEqShape(EqShape.DEFAULT) }
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.labelLarge, color = scheme.onSurface, maxLines = 1,
+        )
+    }
     Card {
         Box(
-            Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp).fillMaxWidth().height(280.dp).stage()
+            Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp).fillMaxWidth().height(260.dp).stage()
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val w = size.width.toFloat()
                         val plot = EqPlot(0f, 30.dp.toPx(), w, size.height - 30.dp.toPx())
                         var band = bandAt(down.position.x, w)
-                        // only from a thumb, and only once the finger really moves: anything else scrolls the page
-                        if (abs(down.position.y - plot.y(current[band].toFloat())) > GRAB.toPx()) return@awaitEachGesture
+                        // away from a thumb: a tap picks the band for the box below, anything else scrolls the page
+                        if (abs(down.position.y - plot.y(current[band].toFloat())) > GRAB.toPx()) {
+                            if (waitForUpOrCancellation() != null) selected = band
+                            return@awaitEachGesture
+                        }
+                        selected = band
+                        // only once the finger really moves
                         val start = awaitTouchSlopOrCancellation(down.id) { move, _ -> move.consume() } ?: return@awaitEachGesture
                         var mb = current[band]
                         // keeps the finger's distance from the thumb, so grabbing it doesn't make it jump
@@ -454,7 +494,7 @@ private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, don
                                 val toMb = plot.mbAt(move.position.y + offset)
                                 if (toBand != band) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 if (toBand != band || (toMb != current[toBand] && toMb != plot.mbAt(plot.y(current[toBand].toFloat())))) change(sweep(band, mb, toBand, toMb))
-                                band = toBand; mb = toMb; active = toBand
+                                band = toBand; mb = toMb; active = toBand; selected = toBand
                             }
                         } finally { active = -1; finished() }
                     }
@@ -464,6 +504,7 @@ private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, don
                 val plot = EqPlot(0f, 30.dp.toPx(), size.width, size.height - 30.dp.toPx())
                 val column = size.width / EQ_BANDS
                 val zero = plot.y(0f)
+                drawRoundRect(scheme.primary.copy(alpha = .12f), Offset(column * selected + 2.dp.toPx(), 4.dp.toPx()), Size(column - 4.dp.toPx(), size.height - 8.dp.toPx()), CornerRadius(12.dp.toPx()))
                 drawLine(
                     scheme.onSurface.copy(alpha = .2f), Offset(10.dp.toPx(), zero), Offset(size.width - 10.dp.toPx(), zero), 1.dp.toPx(),
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 6.dp.toPx())),
@@ -483,22 +524,112 @@ private fun BandsTab(levels: List<Int>, set: (List<Pair<Int, Int>>) -> Unit, don
                     val at = points[b]
                     drawRoundRect(scheme.onSurface.copy(alpha = .1f), Offset(at.x - track / 2, plot.top), Size(track, plot.bottom - plot.top), CornerRadius(track / 2))
                     drawRoundRect(scheme.primary, Offset(at.x - track / 2, minOf(at.y, zero)), Size(track, abs(at.y - zero)), CornerRadius(track / 2))
-                    val thumbW = (if (b == active) 28.dp else 24.dp).toPx().coerceAtMost(column - 2.dp.toPx())
+                    val big = b == active || b == selected
+                    val thumbW = (if (big) 28.dp else 24.dp).toPx().coerceAtMost(column - 2.dp.toPx())
                     val thumbH = (if (b == active) 14.dp else 12.dp).toPx()
-                    drawRoundRect(scheme.onSurface, Offset(at.x - thumbW / 2, at.y - thumbH / 2), Size(thumbW, thumbH), CornerRadius(thumbH / 2))
-                    val value = measurer.measure(dbText(levels[b]), if (b == active) small.copy(color = scheme.onSurface) else small)
+                    drawRoundRect(if (b == selected) scheme.primary else scheme.onSurface, Offset(at.x - thumbW / 2, at.y - thumbH / 2), Size(thumbW, thumbH), CornerRadius(thumbH / 2))
+                    val value = measurer.measure(dbText(levels[b]), if (big) small.copy(color = scheme.onSurface) else small)
                     drawText(value, topLeft = Offset(at.x - value.size.width / 2f, plot.top - value.size.height - 8.dp.toPx()))
-                    val hz = EQ_CENTERS_HZ[b].toInt()
-                    val name = measurer.measure(if (hz < 1000) "$hz" else "${hz / 1000}k", small)
-                    drawText(name, topLeft = Offset(at.x - name.size.width / 2f, plot.bottom + 9.dp.toPx()))
+                    // a band moved from its usual place shows its own frequency in the accent colour, with a dot under it
+                    val hz = bands.hz[b].roundToInt()
+                    val moved = bands.moved(b)
+                    val name = measurer.measure(if (hz < 1000) "$hz" else "%.1f".format(java.util.Locale.US, hz / 1000f).removeSuffix(".0") + "k", if (moved) small.copy(color = scheme.primary, fontWeight = FontWeight.Bold) else small)
+                    drawText(name, topLeft = Offset(at.x - name.size.width / 2f, plot.bottom + 7.dp.toPx()))
+                    if (moved) drawCircle(scheme.primary, 2.dp.toPx(), Offset(at.x, size.height - 5.dp.toPx()))
                 }
             }
-            BandSemantics(levels, Modifier.matchParentSize(), set, done)
+            BandSemantics(levels, bands.hz, Modifier.matchParentSize(), set, done)
         }
         Text(
-            "Drag a slider, or sweep across them to draw a curve.",
+            "Drag a slider, or sweep across them. Tap one to fine-tune it below.",
             Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 14.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
         )
+    }
+    Spacer(Modifier.height(12.dp))
+    BandEditor(selected, levels[selected], bands, { selected = (selected + it).coerceIn(0, EQ_BANDS - 1) }, set, done, settings)
+}
+
+/** One band's frequency, level and width. Moving or widening a band makes the curve the user's own, like a drag does. */
+@Composable
+private fun BandEditor(band: Int, mb: Int, bands: EqShape, step: (Int) -> Unit, set: (List<Pair<Int, Int>>) -> Unit, done: () -> Unit, settings: Settings) {
+    val scheme = MaterialTheme.colorScheme
+    val default = EqShape.DEFAULT
+    val move = { next: EqShape -> settings.setEqShape(next, save = false); if (!settings.eqOn.value) settings.setEqOn(true) }
+    Card {
+        Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 6.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Band ${band + 1} of $EQ_BANDS", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
+            IconButton({ step(-1) }, enabled = band > 0) { Icon(Icons.Back, "Previous band", Modifier.size(20.dp)) }
+            IconButton({ step(1) }, enabled = band < EQ_BANDS - 1) { Icon(Icons.Back, "Next band", Modifier.size(20.dp).graphicsLayer { scaleX = -1f }) }
+        }
+        TuneSlider(
+            "Frequency", hzText(bands.hz[band].roundToInt()), bands.hz[band] != default.hz[band], eqHzPos(bands.hz[band]), 0f..1f, eqHzPos(default.hz[band]), Fill.CENTRE,
+            { move(bands.with(band, hz = eqHzAt(it))) }, done, hint = "Which part of the sound this band changes.",
+        )
+        TuneSlider(
+            "Level", "${dbText(mb)} dB", mb != 0, mb / 100f, -EQ_MAX_MB / 100f..EQ_MAX_MB / 100f, 0f, Fill.CENTRE,
+            { set(listOf(band to ((it * 100 / STEP_MB).roundToInt() * STEP_MB).coerceIn(-EQ_MAX_MB, EQ_MAX_MB))) }, done,
+        )
+        TuneSlider(
+            "Width", eqQText(bands.q[band]), bands.q[band] != default.q[band], eqQPos(bands.q[band]), 0f..1f, eqQPos(default.q[band]), Fill.CENTRE,
+            { move(bands.with(band, q = eqQAt(it))) }, done, hint = "Narrow fixes one spot. Wide shapes a whole range.", divider = false,
+        )
+        Row(Modifier.fillMaxWidth().padding(end = 8.dp, bottom = 6.dp), Arrangement.End) {
+            TextButton({ settings.setEqShape(bands.with(band, default.hz[band], default.q[band])) }, enabled = bands.moved(band)) { Text("Reset this band") }
+        }
+    }
+}
+
+/**
+ * Headphones and the phone speaker each keep their own sound, when switched on. The page then says whose sound it is
+ * changing; the app switches by itself as headphones come and go.
+ */
+@Composable
+private fun SoundSetCard(settings: Settings, on: Boolean, set: String) {
+    val scheme = MaterialTheme.colorScheme
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // what plays now; read again whenever the set changes, which is when the output did
+    val output = remember(set, on) { com.spotifry.music.player.outputInfo(context) }
+    Card {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                .toggleable(on, role = Role.Switch) { settings.setPerDevice(it, com.spotifry.music.player.soundSetFor(output.kind)) }
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            Arrangement.spacedBy(12.dp), Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Separate sound for headphones", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
+                Text(if (on) "On · switches by itself" else "Off · one sound for everything", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            }
+            Switch(on, null, colors = switchColors())
+        }
+        if (on) {
+            val headphones = set == Settings.HEADPHONES
+            val what = when {
+                !headphones -> "Built in"
+                output.kind == com.spotifry.music.player.OutputKind.Phone -> "Headphones"
+                output.kind == com.spotifry.music.player.OutputKind.Bluetooth -> "${output.name} · Bluetooth"
+                else -> "${output.name} · Wired"
+            }
+            Row(
+                Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(scheme.background).padding(12.dp),
+                Arrangement.spacedBy(12.dp), Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(scheme.primary.copy(alpha = .18f)), contentAlignment = Alignment.Center) {
+                    Icon(if (headphones) Icons.Headphones else Icons.Phone, null, Modifier.size(20.dp), tint = scheme.primary)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("For: " + if (headphones) "Headphones" else "Phone speaker", style = MaterialTheme.typography.titleSmall, color = scheme.onSurface)
+                    Text(
+                        "$what. Changes on this page are for ${if (headphones) "these headphones" else "the speaker"} only.",
+                        style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                if (headphones) "Disconnect them to set the phone speaker's sound." else "Connect headphones to set their sound.",
+                Modifier.padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 14.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

@@ -42,7 +42,7 @@ import com.spotifry.music.player.FineTuneSetting
 import kotlin.math.roundToInt
 
 /** Where a slider's coloured part starts: the middle (zero is empty), the left end, or the right end. */
-private enum class Fill { CENTRE, LEFT, RIGHT }
+internal enum class Fill { CENTRE, LEFT, RIGHT }
 
 private fun tuneDb(v: Int) = if (v > 0) "+$v dB" else if (v < 0) "−${-v} dB" else "0 dB"
 private const val HIGH_PASS_MAX = 500f
@@ -66,36 +66,35 @@ internal fun TuningTab(settings: Settings) {
     }
     Group("Stereo") {
         TuneSlider("Balance", if (t.balance == 0) "Centre" else if (t.balance < 0) "Left ${-t.balance}%" else "Right ${t.balance}%", t.balance != 0, t.balance.toFloat(), -100f..100f, 0f, Fill.CENTRE,
-            { settings.setTune(t.copy(balance = it.roundToInt()), false) }, save) { settings.setTune(t.copy(balance = 0)) }
+            { settings.setTune(t.copy(balance = it.roundToInt()), false) }, save)
         TuneSlider("Stereo width", if (t.width == 0) "Mono" else "${t.width}%", t.width != 100, t.width.toFloat(), 0f..200f, 100f, Fill.CENTRE,
-            { settings.setTune(t.copy(width = it.roundToInt()), false) }, save) { settings.setTune(t.copy(width = 100)) }
+            { settings.setTune(t.copy(width = it.roundToInt()), false) }, save)
     }
     Group("Volume") {
         TuneSlider("Gain", tuneDb(t.gainDb), t.gainDb != 0, t.gainDb.toFloat(), -15f..15f, 0f, Fill.CENTRE,
-            { settings.setTune(t.copy(gainDb = it.roundToInt()), false) }, save) { settings.setTune(t.copy(gainDb = 0)) }
+            { settings.setTune(t.copy(gainDb = it.roundToInt()), false) }, save)
         Item("Volume limiter", "Keeps peaks under −1 dB so a boost can't distort.", onClick = { settings.setTune(t.copy(limiter = !t.limiter)) }) {
             Switch(t.limiter, null, colors = switchColors())
         }
     }
     Group("Filters") {
         TuneSlider("High-pass", if (t.highPassHz == 0) "Off" else "${t.highPassHz} Hz", t.highPassHz != 0, if (t.highPassHz == 0) 0f else t.highPassHz.toFloat(), 0f..HIGH_PASS_MAX, 0f, Fill.LEFT,
-            { v -> settings.setTune(t.copy(highPassHz = if (v < HIGH_PASS_FLOOR) 0 else v.roundToInt()), false) }, save, hint = "Removes low rumble.") { settings.setTune(t.copy(highPassHz = 0)) }
+            { v -> settings.setTune(t.copy(highPassHz = if (v < HIGH_PASS_FLOOR) 0 else v.roundToInt()), false) }, save, hint = "Removes low rumble.")
         TuneSlider("Low-pass", if (t.lowPassHz == 0) "Off" else "${t.lowPassHz} Hz", t.lowPassHz != 0, if (t.lowPassHz == 0) LOW_PASS_TOP else t.lowPassHz.toFloat(), LOW_PASS_MIN..LOW_PASS_TOP, LOW_PASS_TOP, Fill.RIGHT,
-            { v -> settings.setTune(t.copy(lowPassHz = if (v >= LOW_PASS_TOP - 100) 0 else (v / 50).roundToInt() * 50), false) }, save, hint = "Softens harsh highs.") { settings.setTune(t.copy(lowPassHz = 0)) }
+            { v -> settings.setTune(t.copy(lowPassHz = if (v >= LOW_PASS_TOP - 100) 0 else (v / 50).roundToInt() * 50), false) }, save, hint = "Softens harsh highs.")
     }
     Group("Night mode") {
         Item("Strength", "Evens out loud and quiet parts, so you can play it low.", below = true) {
             Segments(listOf("Off", "Light", "Strong"), t.night, Modifier.fillMaxWidth(), fill = true) { settings.setTune(t.copy(night = it)) }
         }
     }
-    Text("Double-tap a slider to set it back to zero.", Modifier.padding(top = 12.dp, start = 4.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TuneSlider(
+internal fun TuneSlider(
     title: String, value: String, changed: Boolean, v: Float, range: ClosedFloatingPointRange<Float>, centre: Float, fill: Fill,
-    onChange: (Float) -> Unit, onDone: () -> Unit, hint: String? = null, onReset: () -> Unit,
+    onChange: (Float) -> Unit, onDone: () -> Unit, hint: String? = null, divider: Boolean = true,
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -105,7 +104,7 @@ private fun TuneSlider(
         }
         if (hint != null) Text(hint, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
         Slider(
-            v, onChange, Modifier.fillMaxWidth().doubleTapReset(onReset), valueRange = range, onValueChangeFinished = onDone,
+            v, onChange, Modifier.fillMaxWidth(), valueRange = range, onValueChangeFinished = onDone,
             thumb = { Box(Modifier.size(width = 4.dp, height = 22.dp).clip(RoundedCornerShape(2.dp)).background(if (changed) scheme.primary else scheme.outline)) },
             track = { st ->
                 val span = range.endInclusive - range.start
@@ -122,16 +121,6 @@ private fun TuneSlider(
             },
         )
     }
-    androidx.compose.material3.HorizontalDivider(color = scheme.outlineVariant)
+    if (divider) androidx.compose.material3.HorizontalDivider(color = scheme.outlineVariant)
 }
 
-/** A second tap within 300 ms resets the slider once the finger lifts, after the slider has taken the tap. */
-private fun Modifier.doubleTapReset(reset: () -> Unit): Modifier = pointerInput(reset) {
-    var last = 0L
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-        val second = down.uptimeMillis - last < 300
-        last = down.uptimeMillis
-        if (second) { waitForUpOrCancellation(PointerEventPass.Final); reset(); last = 0L }
-    }
-}

@@ -272,10 +272,15 @@ class BackupTest {
         s.setDataSaver(true); s.setSaveLow(true); s.setKeepScreenOn(true); s.setTheme(ThemeMode.DARK); s.setSameLoudness(true); s.setSkipSilence(true)
         s.setSmartTrim(true); s.setSpeed(1.5f); s.setPitch(1); s.setFadeSeconds(2); s.setEqOn(true); s.setEq("Flat", List(com.spotifry.music.player.EQ_BANDS) { 0 })
         s.saveEqBefore(); s.setAccent("EMBER", 1); s.setPureBlack(true); s.setJioSaavn(true); s.setArtists(listOf(PickedArtist("a", "", null)))
+        s.setTune(com.spotifry.music.player.FineTuneSetting(1, 90, 2, true, 40, 9000, 1)); s.setMono(true); s.setSpatialOn(true)
+        s.setSpatialTune(com.spotifry.music.player.SpatialSetting(600, 5, 90))
+        s.setEqShape(com.spotifry.music.player.EqShape.DEFAULT.with(3, hz = 300.0))
         s.markFirstLaunchSeen()
+        // the sound sets copy all of it, under their own names
+        s.setPerDevice(true, Settings.HEADPHONES)
         app.edit().commit()
         val written = app.all.filterKeys { it != FIRST_LAUNCH_SEEN }
-        assertEquals(19, written.size)
+        assertTrue(written.keys.any { it.startsWith(Settings.SET_PREFIX.getValue(Settings.SPEAKER)) })
         written.forEach { (k, v) -> assertEquals(k, prefType(v!!), SETTING_TYPES[k]) }
     }
 

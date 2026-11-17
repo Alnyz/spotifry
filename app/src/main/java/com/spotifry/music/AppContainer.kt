@@ -98,6 +98,15 @@ class AppContainer(private val context: Context) {
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
         .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
+    // headphones in or out, connected or gone: with Separate sound for headphones on, the sound follows. Android calls this
+    // once at once with what is there, which also catches up on a change made while the app was closed.
+    init {
+        context.getSystemService(android.media.AudioManager::class.java).registerAudioDeviceCallback(object : android.media.AudioDeviceCallback() {
+            private fun follow() = settings.useSoundSet(com.spotifry.music.player.soundSetFor(com.spotifry.music.player.outputInfo(context).kind))
+            override fun onAudioDevicesAdded(added: Array<out android.media.AudioDeviceInfo>?) = follow()
+            override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>?) = follow()
+        }, android.os.Handler(android.os.Looper.getMainLooper()))
+    }
     // A switch for Lossless or JioSaavn takes effect at once: links remembered from before are dropped, and when a better
     // source was just allowed, songs kept from a poorer one are forgotten so they come again from the better one.
     init {

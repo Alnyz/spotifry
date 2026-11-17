@@ -141,6 +141,8 @@ fun AudioPipelineHost(c: com.spotifry.music.AppContainer, songId: String, wholeM
         else codec = com.spotifry.music.player.bluetoothCodec(context)
     }
     val tune by c.settings.tune.collectAsStateWithLifecycle()
+    val perDevice by c.settings.perDevice.collectAsStateWithLifecycle()
+    val soundSet by c.settings.soundSet.collectAsStateWithLifecycle()
     var saved by remember(songId) { mutableStateOf(false) }
     androidx.compose.runtime.LaunchedEffect(songId) { saved = c.db.songs().get(songId)?.filePath != null }
     val input = com.spotifry.music.player.PipelineInput(
@@ -149,6 +151,7 @@ fun AudioPipelineHost(c: com.spotifry.music.AppContainer, songId: String, wholeM
             trimText = trimText(trim), skipSilence = silence, spatial = spatial,
             mixerRateHz = com.spotifry.music.player.mixerRateHz(context), directSupport = com.spotifry.music.player.directSupport(context, readings),
             output = com.spotifry.music.player.outputInfo(context, codec), tuning = !tune.neutral,
+            soundSet = soundSet.takeIf { perDevice },
         )
     AudioPipelineSheet(com.spotifry.music.player.pipelineGroups(input), onClose, com.spotifry.music.player.pipelineVerdict(input))
 }

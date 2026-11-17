@@ -107,7 +107,7 @@ fun productionServices(): Services {
     scope.launch { settings.sameLoudness.collect { player.setFilter("loud", if (it) Sound.LOUDNESS else null) } }
     // a drag changes the levels many times a second; mpv gets the latest at most ten times a second
     scope.launch {
-        kotlinx.coroutines.flow.combine(settings.eqOn, settings.eqLevels) { on, l -> if (on) Sound.equalizer(l) else null }.conflate()
+        kotlinx.coroutines.flow.combine(settings.eqOn, settings.eqLevels, settings.eqShape) { on, l, shape -> if (on) Sound.equalizer(l, shape) else null }.conflate()
             .collect { player.setFilter("eq", it); kotlinx.coroutines.delay(100) }
     }
     scope.launch { settings.mono.collect { player.setFilter("mono", if (it) Sound.MONO else null) } }

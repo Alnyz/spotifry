@@ -92,3 +92,6 @@ private fun readCodec(a2dp: BluetoothA2dp): BtCodec? {
 }
 
 private fun codecTypeName(type: Int?) = when (type) { 0 -> "SBC"; 1 -> "AAC"; 2 -> "aptX"; 3 -> "aptX HD"; 4 -> "LDAC"; else -> null }
+
+/** Which sound set an output uses: the phone's own speaker, or headphones for anything plugged in or connected. */
+fun soundSetFor(kind: OutputKind): String = if (kind == OutputKind.Phone) com.spotifry.music.data.Settings.SPEAKER else com.spotifry.music.data.Settings.HEADPHONES

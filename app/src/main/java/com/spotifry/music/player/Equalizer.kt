@@ -40,6 +40,7 @@ class Equalizer {
     }
 
     @Volatile private var wanted: List<Int>? = null
+    @Volatile private var shape = EqShape.DEFAULT
     @Volatile private var changed = false
     private var sampleRate = 44_100
     private var channels = 2
@@ -52,8 +53,8 @@ class Equalizer {
     /** True when samples have to go through [process]; false means they pass as they are. */
     val active get() = now != null || fadeLeft > 0
 
-    /** Any thread: the band levels in millibels, or null for off. Picked up by [update]. */
-    fun set(levelsMb: List<Int>?) { wanted = levelsMb; changed = true }
+    /** Any thread: the band levels in millibels, or null for off, and where the bands sit. Picked up by [update]. */
+    fun set(levelsMb: List<Int>?, shape: EqShape = EqShape.DEFAULT) { this.shape = shape; wanted = levelsMb; changed = true }
 
     /** A new format or a seek: filters start empty, because what they remember belongs to sound left behind. A waiting setting applies at once. */
     fun configure(sampleRate: Int, channels: Int) {
@@ -89,7 +90,7 @@ class Equalizer {
     }
 
     private fun filtersFor(levels: List<Int>?): Filters? =
-        if (levels == null || levels.all { it == 0 }) null else Filters(EqDesign(levels, sampleRate), channels)
+        if (levels == null || levels.all { it == 0 }) null else Filters(EqDesign(levels, sampleRate, shape), channels)
 
     private companion object {
         const val FADE_MS = 30
@@ -111,7 +112,7 @@ fun soundChain(equalizer: EqualizerProcessor, loudness: LoudnessProcessor, spati
 class EqualizerProcessor : BaseAudioProcessor() {
     private val eq = Equalizer()
 
-    fun set(levelsMb: List<Int>?) = eq.set(levelsMb)
+    fun set(levelsMb: List<Int>?, shape: EqShape = EqShape.DEFAULT) = eq.set(levelsMb, shape)
 
     override fun onConfigure(f: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat =
         if (f.encoding == C.ENCODING_PCM_16BIT) f else AudioProcessor.AudioFormat.NOT_SET

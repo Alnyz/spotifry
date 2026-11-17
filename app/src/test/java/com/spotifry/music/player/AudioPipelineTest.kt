@@ -18,6 +18,12 @@ class AudioPipelineTest {
     )
     private fun row(groups: List<PipelineGroup>, group: String, title: String) = groups.first { it.name == group }.rows.first { it.title == title }
 
+    @Test fun `the sound set shows only while headphones and the speaker keep their own`() {
+        assertTrue(pipelineGroups(input())[1].rows.none { it.title == "Sound set" })
+        assertEquals("Phone speaker", row(pipelineGroups(input().copy(soundSet = com.spotifry.music.data.Settings.SPEAKER)), "Spotifry", "Sound set").detail)
+        assertEquals("Headphones", row(pipelineGroups(input().copy(soundSet = com.spotifry.music.data.Settings.HEADPHONES)), "Spotifry", "Sound set").detail)
+    }
+
     @Test fun `the source says where the song really comes from`() {
         assertEquals("A file on this phone", sourceName(songSource("local:12", saved = false, cached = null, known = null)))
         assertEquals("Saved on this phone", sourceName(songSource("abc", saved = true, cached = "youtube", known = null)))

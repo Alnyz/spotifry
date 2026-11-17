@@ -28,6 +28,8 @@ data class PipelineInput(
     val mixerRateHz: Int?, val directSupport: Int?, val output: OutputInfo,
     /** Anything in the equalizer page's Tuning tab is changed. */
     val tuning: Boolean = false,
+    /** Whose sound is in use while headphones and the speaker each keep their own: [com.spotifry.music.data.Settings.HEADPHONES] or SPEAKER; null when they share one. */
+    val soundSet: String? = null,
 )
 
 private const val DASH = "—"
@@ -41,6 +43,8 @@ fun pipelineGroups(i: PipelineInput): List<PipelineGroup> {
     ))
     val on = i.eqOn || i.leveling || i.fadeSeconds > 0 || i.speed != 1f || i.pitch != 0 || i.trimText != null || i.skipSilence || i.spatial || i.tuning
     val spotifry = PipelineGroup("Spotifry", on, buildList {
+        i.soundSet?.let { add(PipelineRow(PipelineIcon.Headphones, "Sound set", if (it == com.spotifry.music.data.Settings.SPEAKER) "Phone speaker" else "Headphones",
+            note = "Headphones and the phone speaker each keep their own equalizer and tuning. The app switches by itself when headphones come or go.")) }
         add(PipelineRow(PipelineIcon.Format, "Processing format", r.outEncoding?.let(::encodingText) ?: DASH, note = "Spotifry works on the sound in 32-bit float when it can, so the equalizer and volume have room and never clip inside."))
         add(PipelineRow(PipelineIcon.Equalizer, "Equalizer", if (!i.eqOn) "Off" else i.eqName?.removePrefix(AUTOEQ_PREFIX) ?: "Your own mix", hot = i.eqOn))
         add(PipelineRow(PipelineIcon.Volume, "Same volume for every song", if (!i.leveling) "Off" else "On" + (i.gainDb?.let { " · " + signedDb(it) } ?: ""), hot = i.leveling,

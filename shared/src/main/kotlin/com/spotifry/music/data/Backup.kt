@@ -30,11 +30,17 @@ private fun aboutThisPhone(key: String) = key.startsWith(DESKTOP_KEY_PREFIX) || 
  * so one wrong value would stop the app opening until its data was cleared. A key added later and missing here is only
  * checked against this phone's value; add it here.
  */
-val SETTING_TYPES: Map<String, String> =
-    listOf(Settings.JIOSAAVN, Settings.MONOCHROME, Settings.DATA_SAVER, Settings.SAVE_LOW, Settings.KEEP_SCREEN_ON, Settings.SAME_LOUDNESS, Settings.SKIP_SILENCE, Settings.SMART_TRIM, Settings.EQ_ON, Settings.MONO, Settings.SPATIAL_ON, Settings.PURE_BLACK).associateWith { "boolean" } +
-        listOf(Settings.PITCH, Settings.FADE, Settings.TRANSITION, Settings.SILENCE_DB, Settings.SILENCE_CUT, Settings.ACCENT_COLOR, Settings.SPATIAL_HZ, Settings.SPATIAL_DB, Settings.SPATIAL_AMOUNT).associateWith { "int" } +
+val SETTING_TYPES: Map<String, String> = plainSettingTypes().let { plain ->
+    // each sound set keeps its own copy of the sound settings, read back as the same types
+    plain + Settings.SET_PREFIX.values.flatMap { p -> Settings.SOUND_KEYS.mapNotNull { k -> plain[k]?.let { p + k to it } } }
+}
+
+private fun plainSettingTypes(): Map<String, String> =
+    listOf(Settings.JIOSAAVN, Settings.MONOCHROME, Settings.DATA_SAVER, Settings.SAVE_LOW, Settings.KEEP_SCREEN_ON, Settings.SAME_LOUDNESS, Settings.SKIP_SILENCE, Settings.SMART_TRIM, Settings.EQ_ON, Settings.MONO, Settings.SPATIAL_ON, Settings.PURE_BLACK, Settings.SOUND_PER_DEVICE, Settings.TUNE_LIMITER).associateWith { "boolean" } +
+        listOf(Settings.PITCH, Settings.FADE, Settings.TRANSITION, Settings.SILENCE_DB, Settings.SILENCE_CUT, Settings.ACCENT_COLOR, Settings.SPATIAL_HZ, Settings.SPATIAL_DB, Settings.SPATIAL_AMOUNT,
+            Settings.TUNE_BALANCE, Settings.TUNE_WIDTH, Settings.TUNE_GAIN, Settings.TUNE_HIGH_PASS, Settings.TUNE_LOW_PASS, Settings.TUNE_NIGHT).associateWith { "int" } +
         (Settings.SPEED to "float") +
-        listOf(Settings.ARTISTS, Settings.NAME, Settings.THEME, Settings.EQ_PRESET, Settings.EQ_LEVELS, Settings.EQ_BANDS_KEY, Settings.EQ_BEFORE, Settings.ACCENT, "recent_searches").associateWith { "string" } +
+        listOf(Settings.ARTISTS, Settings.NAME, Settings.THEME, Settings.EQ_PRESET, Settings.EQ_LEVELS, Settings.EQ_BANDS_KEY, Settings.EQ_BEFORE, Settings.EQ_SHAPE, Settings.EQ_BASE, Settings.SOUND_SET, Settings.ACCENT, "recent_searches").associateWith { "string" } +
         ("not_suggested" to "set")
 
 /** Makes a [BackupFile] from this phone, and merges one into it. */

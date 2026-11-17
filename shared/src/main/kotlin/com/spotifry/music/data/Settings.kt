@@ -1,6 +1,7 @@
 package com.spotifry.music.data
 
 import com.spotifry.music.player.EQ_BANDS
+import com.spotifry.music.player.EqShape
 import com.spotifry.music.player.EQ_PRESETS
 import com.spotifry.music.player.AUTOEQ_PREFIX
 import com.spotifry.music.player.eqFromOldBands
@@ -72,16 +73,16 @@ class Settings(private val prefs: Prefs) {
     val transition: StateFlow<Int> = _transition
     fun setTransition(i: Int) { _transition.value = i; prefs.edit().putInt(TRANSITION, i).apply() }
 
-    private val _mono = MutableStateFlow(prefs.getBoolean(MONO, false))
+    private val _mono = MutableStateFlow(readMono())
     /** Left and right mixed into one. */
     val mono: StateFlow<Boolean> = _mono
     fun setMono(on: Boolean) { _mono.value = on; prefs.edit().putBoolean(MONO, on).apply() }
+    private fun readMono() = prefs.getBoolean(MONO, false)
 
-    private val _tune = MutableStateFlow(
-        com.spotifry.music.player.FineTuneSetting(
-            prefs.getInt(TUNE_BALANCE, 0), prefs.getInt(TUNE_WIDTH, 100), prefs.getInt(TUNE_GAIN, 0), prefs.getBoolean(TUNE_LIMITER, false),
-            prefs.getInt(TUNE_HIGH_PASS, 0), prefs.getInt(TUNE_LOW_PASS, 0), prefs.getInt(TUNE_NIGHT, 0),
-        ),
+    private val _tune = MutableStateFlow(readTune())
+    private fun readTune() = com.spotifry.music.player.FineTuneSetting(
+        prefs.getInt(TUNE_BALANCE, 0), prefs.getInt(TUNE_WIDTH, 100), prefs.getInt(TUNE_GAIN, 0), prefs.getBoolean(TUNE_LIMITER, false),
+        prefs.getInt(TUNE_HIGH_PASS, 0), prefs.getInt(TUNE_LOW_PASS, 0), prefs.getInt(TUNE_NIGHT, 0),
     )
     /** Balance, width, bass/mid/treble, plain gain and the limiter; all neutral until moved. */
     val tune: StateFlow<com.spotifry.music.player.FineTuneSetting> = _tune
@@ -99,9 +100,8 @@ class Settings(private val prefs: Prefs) {
 
     private val _spatialOn = MutableStateFlow(prefs.getBoolean(SPATIAL_ON, false))
     val spatialOn: StateFlow<Boolean> = _spatialOn
-    private val _spatialTune = MutableStateFlow(
-        com.spotifry.music.player.SpatialSetting(prefs.getInt(SPATIAL_HZ, 700), prefs.getInt(SPATIAL_DB, 6), prefs.getInt(SPATIAL_AMOUNT, 100)),
-    )
+    private val _spatialTune = MutableStateFlow(readSpatial())
+    private fun readSpatial() = com.spotifry.music.player.SpatialSetting(prefs.getInt(SPATIAL_HZ, 700), prefs.getInt(SPATIAL_DB, 6), prefs.getInt(SPATIAL_AMOUNT, 100))
     /** The three sliders, kept while the switch is off. */
     val spatialTune: StateFlow<com.spotifry.music.player.SpatialSetting> = _spatialTune
     /** What the sound chain uses: the sliders when the switch is on, else null. */
@@ -116,43 +116,61 @@ class Settings(private val prefs: Prefs) {
     private val _eqOn = MutableStateFlow(prefs.getBoolean(EQ_ON, false))
     val eqOn: StateFlow<Boolean> = _eqOn
     // until something is set on the ten bands, what the phone's own equalizer left behind counts, converted
-    private val eqSavedOld = !prefs.contains(EQ_BANDS_KEY)
-    private val _eqPreset = MutableStateFlow(prefs.getString(EQ_PRESET, null).takeIf { name -> !eqSavedOld || EQ_PRESETS.any { it.first == name } })
+    private fun eqSavedOld() = !prefs.contains(EQ_BANDS_KEY)
+    private fun readPreset() = prefs.getString(EQ_PRESET, null).takeIf { name -> !eqSavedOld() || EQ_PRESETS.any { it.first == name } }
+    private fun readLevels() = if (eqSavedOld()) eqFromOldBands(eqNumbers(EQ_LEVELS)) else eqNumbers(EQ_BANDS_KEY).takeIf { it.size == EQ_BANDS } ?: List(EQ_BANDS) { 0 }
+    private val _eqPreset = MutableStateFlow(readPreset())
     /** Name of the ready-made sound in use, or null for the user's own mix. */
     val eqPreset: StateFlow<String?> = _eqPreset
-    private val _eqLevels = MutableStateFlow(
-        if (eqSavedOld) eqFromOldBands(eqNumbers(EQ_LEVELS))
-        else eqNumbers(EQ_BANDS_KEY).takeIf { it.size == EQ_BANDS } ?: List(EQ_BANDS) { 0 },
-    )
+    private val _eqLevels = MutableStateFlow(readLevels())
     /** Level of each of the [EQ_BANDS] bands in millibels (100 = 1 dB), low to high. */
     val eqLevels: StateFlow<List<Int>> = _eqLevels
+    private val _eqShape = MutableStateFlow(EqShape.decode(prefs.getString(EQ_SHAPE, null)))
+    /** Where each band sits and how wide it is. Saved presets and older settings have none: the default spacing. */
+    val eqShape: StateFlow<EqShape> = _eqShape
+    private fun readBase() = prefs.getString(EQ_BASE, null) ?: _eqPreset.value
+    private val _eqBase = MutableStateFlow(readBase())
+    /** The last ready-made sound picked: what "Back to" returns to once bands were moved or dragged. */
+    val eqBase: StateFlow<String?> = _eqBase
     fun setEqOn(on: Boolean) { _eqOn.value = on; prefs.edit().putBoolean(EQ_ON, on).apply() }
     /**
      * The one way to change the sound's shape: a name to show (null for the user's own mix) and all [EQ_BANDS] levels.
      * A finger still dragging passes [save] false, and [saveEq] once it lifts.
      */
-    fun setEq(preset: String?, levels: List<Int>, save: Boolean = true) {
+    /**
+     * A named sound (a preset or a headphone correction) is levels for the default spacing, so it puts the bands back
+     * there unless [shape] says otherwise; the user's own mix (null) keeps them where they are.
+     */
+    fun setEq(preset: String?, levels: List<Int>, save: Boolean = true, shape: EqShape? = null) {
         require(levels.size == EQ_BANDS) { "the equalizer has $EQ_BANDS bands, got ${levels.size}" }
         _eqPreset.value = preset; _eqLevels.value = levels
+        _eqShape.value = shape ?: if (preset != null) EqShape.DEFAULT else _eqShape.value
+        if (preset != null) _eqBase.value = preset
         if (save) saveEq()
     }
+    /** Moves or widens bands: the user's own mix from then on. [save] false while a slider is still being dragged. */
+    fun setEqShape(shape: EqShape, save: Boolean = true) = setEq(null, _eqLevels.value, save, shape)
     fun saveEq() {
-        prefs.edit().putString(EQ_PRESET, _eqPreset.value).putString(EQ_BANDS_KEY, _eqLevels.value.joinToString(",")).apply()
+        prefs.edit().putString(EQ_PRESET, _eqPreset.value).putString(EQ_BANDS_KEY, _eqLevels.value.joinToString(","))
+            .putString(EQ_SHAPE, _eqShape.value.takeUnless { it.isDefault }?.encode()).putString(EQ_BASE, _eqBase.value).apply()
     }
     private val _eqBefore = MutableStateFlow(prefs.contains(EQ_BEFORE))
+    private val _eqOnRead get() = prefs.getBoolean(EQ_ON, false)
     /** Whether a setting is kept to [restoreEqBefore] to: the user's own, set aside when a headphone correction replaced it. */
     val eqBeforeSaved: StateFlow<Boolean> = _eqBefore
     /** Keeps the name, the levels and whether the equalizer is on. */
     fun saveEqBefore() {
-        prefs.edit().putString(EQ_BEFORE, "${_eqPreset.value.orEmpty()}\n${_eqLevels.value.joinToString(",")}\n${_eqOn.value}").apply()
+        prefs.edit().putString(EQ_BEFORE, "${_eqPreset.value.orEmpty()}\n${_eqLevels.value.joinToString(",")}\n${_eqOn.value}\n${_eqShape.value.encode()}").apply()
         _eqBefore.value = true
     }
     /** Puts back what [saveEqBefore] kept, or a flat curve (on or off as it is) when nothing is kept. */
     fun restoreEqBefore() {
-        val kept = prefs.getString(EQ_BEFORE, null)?.split('\n')?.takeIf { it.size == 3 }
-            ?.let { (n, l, on) -> Triple(n.ifEmpty { null }, l.split(',').mapNotNull { it.toIntOrNull() }, on.toBooleanStrictOrNull()) }
+        // a fourth line, the band shape, since bands can move; kept from before that it is missing and means the default
+        val lines = prefs.getString(EQ_BEFORE, null)?.split('\n')?.takeIf { it.size == 3 || it.size == 4 }
+        val kept = lines?.let { (n, l, on) -> Triple(n.ifEmpty { null }, l.split(',').mapNotNull { it.toIntOrNull() }, on.toBooleanStrictOrNull()) }
             ?.takeIf { it.second.size == EQ_BANDS && it.third != null }
-        if (kept == null) setEq("Flat", List(EQ_BANDS) { 0 }) else { setEq(kept.first, kept.second); setEqOn(kept.third == true) }
+        if (kept == null) setEq("Flat", List(EQ_BANDS) { 0 })
+        else { setEq(kept.first, kept.second, shape = EqShape.decode(lines.getOrNull(3))); setEqOn(kept.third == true) }
         prefs.edit().remove(EQ_BEFORE).apply()
         _eqBefore.value = false
     }
@@ -169,6 +187,50 @@ class Settings(private val prefs: Prefs) {
         return true
     }
     private fun eqNumbers(key: String) = prefs.getString(key, "").orEmpty().split(',').mapNotNull { it.toIntOrNull() }
+
+    private val _perDevice = MutableStateFlow(prefs.getBoolean(SOUND_PER_DEVICE, false))
+    /** Headphones and the phone speaker each keep their own sound. Off until chosen: one sound for everything. */
+    val perDevice: StateFlow<Boolean> = _perDevice
+    private val _soundSet = MutableStateFlow(if (prefs.getString(SOUND_SET, null) == SPEAKER) SPEAKER else HEADPHONES)
+    /** [HEADPHONES] or [SPEAKER]: whose sound the page and the player use now. Only means something while [perDevice] is on. */
+    val soundSet: StateFlow<String> = _soundSet
+
+    /** Turning it on gives both sets the sound in use now, so nothing changes until one of them is changed. */
+    fun setPerDevice(on: Boolean, now: String) {
+        saveEq()
+        val e = prefs.edit()
+        if (on) { keep(e, HEADPHONES); keep(e, SPEAKER); e.putString(SOUND_SET, now); _soundSet.value = now }
+        e.putBoolean(SOUND_PER_DEVICE, on).apply()
+        _perDevice.value = on
+    }
+
+    /** The sound went to [set] (headphones or the speaker): the sound in use is kept for the old one and the new one's comes back. */
+    fun useSoundSet(set: String) {
+        if (!_perDevice.value || set == _soundSet.value) return
+        saveEq()
+        val e = prefs.edit()
+        keep(e, _soundSet.value)
+        SOUND_KEYS.forEach { k -> copyPref(e, SET_PREFIX.getValue(set) + k, k) }
+        e.putString(SOUND_SET, set).apply()
+        _soundSet.value = set
+        _eqOn.value = _eqOnRead; _eqPreset.value = readPreset(); _eqLevels.value = readLevels()
+        _eqShape.value = EqShape.decode(prefs.getString(EQ_SHAPE, null)); _eqBase.value = readBase(); _eqBefore.value = prefs.contains(EQ_BEFORE)
+        _sameLoudness.value = prefs.getBoolean(SAME_LOUDNESS, true); _mono.value = readMono()
+        _spatialOn.value = prefs.getBoolean(SPATIAL_ON, false); _spatialTune.value = readSpatial(); _tune.value = readTune()
+    }
+
+    /** Copies the sound in use into [set]'s own keys. */
+    private fun keep(e: Prefs.Editor, set: String) = SOUND_KEYS.forEach { k -> copyPref(e, k, SET_PREFIX.getValue(set) + k) }
+
+    /** [to] gets [from]'s value, or goes when [from] has none. */
+    @Suppress("UNCHECKED_CAST")
+    private fun copyPref(e: Prefs.Editor, from: String, to: String) {
+        when (val v = prefs.all[from]) {
+            null -> e.remove(to)
+            is Boolean -> e.putBoolean(to, v); is Int -> e.putInt(to, v); is Long -> e.putLong(to, v); is Float -> e.putFloat(to, v)
+            is String -> e.putString(to, v); is Set<*> -> e.putStringSet(to, v as Set<String>)
+        }
+    }
 
     private val _accent = MutableStateFlow(prefs.getString(ACCENT, null) ?: "EMBER")
     /** Name of the accent choice: a ready colour, PHONE (from the wallpaper) or CUSTOM ([accentColor]). */
@@ -297,6 +359,20 @@ class Settings(private val prefs: Prefs) {
         const val EQ_LEVELS = "eq_levels"
         const val EQ_BANDS_KEY = "eq_bands"
         const val EQ_BEFORE = "eq_before"
+        const val EQ_SHAPE = "eq_shape"
+        const val EQ_BASE = "eq_base"
+        const val SOUND_PER_DEVICE = "sound_per_device"
+        /** Which set's sound the plain keys hold now. */
+        const val SOUND_SET = "sound_set"
+        const val HEADPHONES = "headphones"
+        const val SPEAKER = "speaker"
+        /** Each set keeps its own copy of these under its prefix. Speed and pitch stay the same everywhere. */
+        val SOUND_KEYS = listOf(
+            EQ_ON, EQ_PRESET, EQ_BANDS_KEY, EQ_LEVELS, EQ_SHAPE, EQ_BASE, EQ_BEFORE, SAME_LOUDNESS, MONO,
+            SPATIAL_ON, SPATIAL_HZ, SPATIAL_DB, SPATIAL_AMOUNT,
+            TUNE_BALANCE, TUNE_WIDTH, TUNE_GAIN, TUNE_LIMITER, TUNE_HIGH_PASS, TUNE_LOW_PASS, TUNE_NIGHT,
+        )
+        val SET_PREFIX = mapOf(HEADPHONES to "set_headphones_", SPEAKER to "set_speaker_")
         const val ACCENT = "accent"
         const val PURE_BLACK = "pure_black"
         const val ACCENT_COLOR = "accent_color"

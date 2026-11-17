@@ -1,7 +1,7 @@
 package com.spotifry.desktop
 
-import com.spotifry.music.player.EQ_CENTERS_HZ
-import com.spotifry.music.player.EQ_WIDTH_OCTAVES
+import com.spotifry.music.player.EqShape
+import com.spotifry.music.player.octavesOf
 import com.spotifry.music.player.EqDesign
 import com.spotifry.music.player.FILTER_HIGHPASS
 import com.spotifry.music.player.SilenceRules
@@ -57,11 +57,11 @@ object Sound {
      * same octave width), each set to [EqDesign]'s corrected gain, then turned down by its preamp so a boost can't clip.
      * Null when flat. Gains are worked out for 48 kHz; at 44.1 kHz the top band lands a fraction of a dB off.
      */
-    fun equalizer(levelsMb: List<Int>): String? {
+    fun equalizer(levelsMb: List<Int>, shape: EqShape = EqShape.DEFAULT): String? {
         if (levelsMb.all { it == 0 }) return null
-        val d = EqDesign(levelsMb)
+        val d = EqDesign(levelsMb, shape = shape)
         val bands = d.gainsDb.withIndex().filter { kotlin.math.abs(it.value) >= .01 }
-            .map { (i, g) -> "equalizer=f=${EQ_CENTERS_HZ[i]}:t=o:w=$EQ_WIDTH_OCTAVES:g=${"%.2f".format(java.util.Locale.US, g)}" }
+            .map { (i, g) -> "equalizer=f=${shape.hz[i]}:t=o:w=${octavesOf(shape.q[i])}:g=${"%.2f".format(java.util.Locale.US, g)}" }
         return "lavfi=[${(bands + "volume=${"%.4f".format(java.util.Locale.US, d.preamp)}").joinToString(",")}]"
     }
 }
