@@ -32,6 +32,8 @@ class SoundPathTest {
         assertEquals("No, the sound server changes the sample rate", soundPathVerdict(opus, PathSettings(), speakers.copy(spec = "s32le 2ch 44100Hz")))
         // trimming only cuts the ends; the sound itself is untouched
         assertEquals(soundPathVerdict(opus, PathSettings(), speakers), soundPathVerdict(opus, PathSettings(trim = com.spotifry.music.player.Trim(5_000)), speakers))
+        assertEquals("No, sound tuning is on", soundPathVerdict(opus, PathSettings(tuning = true), speakers))
+        assertEquals("Sound tuning", soundPathGroups(opus, PathSettings(tuning = true), speakers)[1].rows.last().title)
     }
 
     @Test fun theRowsShowOnlyWhatIsKnownAndOnlyWhatIsOn() {

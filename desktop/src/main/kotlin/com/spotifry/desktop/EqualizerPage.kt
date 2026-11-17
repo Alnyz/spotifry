@@ -65,7 +65,7 @@ import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-private val TABS = listOf("Graph", "Bands", "Headphone")
+private val TABS = listOf("Graph", "Bands", "Headphone", "Tuning")
 private const val STEP_MB = 50
 private const val MIN_HZ = 20.0
 private const val MAX_HZ = 20_000.0
@@ -81,6 +81,8 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
     val preset by settings.eqPreset.collectAsState()
     val levels by settings.eqLevels.collectAsState()
     val bands by settings.eqShape.collectAsState()
+    val tune by settings.tune.collectAsState()
+    val compare by settings.compare.collectAsState()
     var tab by remember { mutableStateOf(0) }
     val playing by services.player.state.collectAsState()
     val autoEq = remember { AutoEqSource(services.library.client, File(dataDir(), "autoeq")) }
@@ -98,7 +100,9 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
             Text("‹ Settings", color = Palette.ink2, fontSize = 14.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onBack).padding(vertical = 6.dp, horizontal = 4.dp))
         }
         item {
-            PageHeader("Equalizer", if (on) "On · ${preset?.removePrefix(AUTOEQ_PREFIX) ?: "Custom"}" else "Off") {
+            PageHeader("Equalizer & tuning", if (on) "On · ${preset?.removePrefix(AUTOEQ_PREFIX) ?: "Custom"}" else if (!tune.neutral) "Off · Tuning still works" else "Off") {
+                // hear the music without the equalizer and the tuning; "Original" and filled while it is on
+                Tip("Hear the music without your changes") { Pill(if (compare) "Original" else "Compare", accent = compare) { settings.setCompare(!compare) } }
                 Pill("Reset") { settings.setEq("Flat", List(EQ_BANDS) { 0 }) }
                 Box(Modifier.align(androidx.compose.ui.Alignment.CenterVertically).clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { settings.setEqOn(!on) }) { OnOffSwitch(on) }
             }
@@ -114,16 +118,19 @@ fun EqualizerPage(services: Services, onBack: () -> Unit, modifier: Modifier = M
         }
         item {
             Row(Modifier.padding(top = 26.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TABS.forEachIndexed { i, t -> Chip(t, tab == i) { tab = i } }
+                TABS.forEachIndexed { i, t -> Chip(if (i == 3 && !tune.neutral) "$t •" else t, tab == i) { tab = i } }
             }
         }
         item {
-            when (tab) {
+            // Compare dims everything, as none of it is heard while it is on
+            Column(Modifier.alpha(if (compare) .45f else 1f)) { when (tab) {
                 0 -> Column(Modifier.alpha(dim)) { Graph(on, levels, bands, shape, settings::saveEq, rememberLivePicture(services.listening, playing.isPlaying)) }
                 1 -> Column(Modifier.alpha(dim)) { Bands(levels, bands, shape, settings::saveEq, settings) }
                 // the headphone list works with the equalizer off, so it isn't dimmed like the rest
-                else -> Headphone(settings, autoEq, preset, on)
-            }
+                2 -> Headphone(settings, autoEq, preset, on)
+                // the tuning works with the equalizer off, so it isn't dimmed either
+                else -> Tuning(settings)
+            } }
         }
         item { Spacer(Modifier.height(24.dp + LocalBottomInset.current)) }
     }
@@ -164,6 +171,98 @@ private fun SoundSetCard(settings: Settings, output: SoundOutput?) {
             }
             Text(if (headphones) "Unplug them to set the speakers' sound." else "Plug in headphones to set their sound.", fontSize = 13.sp, color = Palette.ink2)
         }
+    }
+}
+
+private fun tuneDb(v: Int) = if (v > 0) "+$v dB" else if (v < 0) "−${-v} dB" else "0 dB"
+private const val HIGH_PASS_MAX = 500f
+private const val LOW_PASS_MIN = 1_000f
+private const val LOW_PASS_TOP = 20_000f
+/** Below this on the high-pass track it is off. */
+private const val HIGH_PASS_FLOOR = 20f
+
+/** Where a slider's coloured part starts: the middle (zero is empty), the left end, or the right end. */
+private enum class Fill { CENTRE, LEFT, RIGHT }
+
+/** Balance, width, gain, the limiter, the two filters and night mode, as on the phone. Works with the equalizer off. */
+@Composable
+private fun Tuning(settings: Settings) {
+    val t by settings.tune.collectAsState()
+    val save = { settings.setTune(settings.tune.value) }
+    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Text("Back to how the music was recorded.", Modifier.weight(1f), fontSize = 13.sp, color = Palette.ink2)
+        Box(Modifier.alpha(if (t.neutral) .4f else 1f)) { Chip("Reset", false) { if (!t.neutral) settings.setTune(com.spotifry.music.player.FineTuneSetting()) } }
+    }
+    TuneGroup("Stereo") {
+        TuneSlider("Balance", if (t.balance == 0) "Centre" else if (t.balance < 0) "Left ${-t.balance}%" else "Right ${t.balance}%", t.balance != 0, t.balance.toFloat(), -100f..100f, 0f, Fill.CENTRE,
+            { settings.setTune(t.copy(balance = it.roundToInt()), false) }, save)
+        TuneSlider("Stereo width", if (t.width == 0) "Mono" else "${t.width}%", t.width != 100, t.width.toFloat(), 0f..200f, 100f, Fill.CENTRE,
+            { settings.setTune(t.copy(width = it.roundToInt()), false) }, save)
+    }
+    TuneGroup("Volume") {
+        TuneSlider("Gain", tuneDb(t.gainDb), t.gainDb != 0, t.gainDb.toFloat(), -15f..15f, 0f, Fill.CENTRE,
+            { settings.setTune(t.copy(gainDb = it.roundToInt()), false) }, save)
+        Row(
+            Modifier.fillMaxWidth().clickable(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { settings.setTune(t.copy(limiter = !t.limiter)) }.padding(vertical = 8.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Volume limiter", fontSize = 15.sp, color = Palette.ink)
+                Text("Keeps peaks under −1 dB so a boost can't distort.", fontSize = 13.sp, color = Palette.ink2)
+            }
+            OnOffSwitch(t.limiter)
+        }
+    }
+    TuneGroup("Filters") {
+        TuneSlider("High-pass", if (t.highPassHz == 0) "Off" else "${t.highPassHz} Hz", t.highPassHz != 0, if (t.highPassHz == 0) 0f else t.highPassHz.toFloat(), 0f..HIGH_PASS_MAX, 0f, Fill.LEFT,
+            { v -> settings.setTune(t.copy(highPassHz = if (v < HIGH_PASS_FLOOR) 0 else v.roundToInt()), false) }, save, hint = "Removes low rumble.")
+        TuneSlider("Low-pass", if (t.lowPassHz == 0) "Off" else "${t.lowPassHz} Hz", t.lowPassHz != 0, if (t.lowPassHz == 0) LOW_PASS_TOP else t.lowPassHz.toFloat(), LOW_PASS_MIN..LOW_PASS_TOP, LOW_PASS_TOP, Fill.RIGHT,
+            { v -> settings.setTune(t.copy(lowPassHz = if (v >= LOW_PASS_TOP - 100) 0 else (v / 50).roundToInt() * 50), false) }, save, hint = "Softens harsh highs.")
+    }
+    TuneGroup("Night mode") {
+        Text("Strength", fontSize = 15.sp, color = Palette.ink)
+        Text("Evens out loud and quiet parts, so you can play it low.", fontSize = 13.sp, color = Palette.ink2)
+        Row(Modifier.padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Off", "Light", "Strong").forEachIndexed { i, n -> Chip(n, t.night == i) { settings.setTune(t.copy(night = i)) } }
+        }
+    }
+}
+
+@Composable
+private fun TuneGroup(name: String, content: @Composable ColumnScope.() -> Unit) {
+    Kicker(name, Modifier.padding(top = 18.dp, bottom = 8.dp))
+    Column(Modifier.fillMaxWidth().stage().padding(horizontal = 20.dp, vertical = 10.dp), content = content)
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun TuneSlider(
+    title: String, value: String, changed: Boolean, v: Float, range: ClosedFloatingPointRange<Float>, centre: Float, fill: Fill,
+    onChange: (Float) -> Unit, onDone: () -> Unit, hint: String? = null,
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), fontSize = 15.sp, color = Palette.ink)
+            Text(value, fontSize = 14.sp, color = if (changed) Palette.accent else Palette.ink2, fontWeight = if (changed) FontWeight.Bold else FontWeight.Normal)
+        }
+        if (hint != null) Text(hint, fontSize = 13.sp, color = Palette.ink2)
+        val base = Palette.ink.copy(alpha = .1f); val color = Palette.accent; val tick = Palette.ink.copy(alpha = .35f)
+        androidx.compose.material3.Slider(
+            v, onChange, Modifier.fillMaxWidth(), valueRange = range, onValueChangeFinished = onDone,
+            thumb = { Box(Modifier.size(width = 4.dp, height = 22.dp).clip(RoundedCornerShape(2.dp)).background(if (changed) Palette.accent else tick)) },
+            track = { st ->
+                val span = range.endInclusive - range.start
+                val at = (st.value - range.start) / span
+                val mid = (centre - range.start) / span
+                Canvas(Modifier.fillMaxWidth().height(6.dp)) {
+                    val r = CornerRadius(size.height / 2)
+                    drawRoundRect(base, size = size, cornerRadius = r)
+                    val (from, to) = when (fill) { Fill.CENTRE -> minOf(mid, at) to maxOf(mid, at); Fill.LEFT -> 0f to at; Fill.RIGHT -> at to 1f }
+                    if (to > from) drawRoundRect(color, Offset(size.width * from, 0f), Size(size.width * (to - from), size.height), r)
+                    if (fill == Fill.CENTRE) drawRect(tick, Offset(size.width * mid - 1f, -3f), Size(2f, size.height + 6f))
+                }
+            },
+        )
     }
 }
 

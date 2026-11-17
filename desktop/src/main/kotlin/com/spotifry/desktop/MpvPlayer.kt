@@ -116,7 +116,7 @@ class MpvPlayer(
     /** The playing song began by running on from the one before, so it fades in. */
     private var ranOn = false
     /** mpv's sound filters by name, in the order the sound goes through them. */
-    private val filters = linkedMapOf<String, String?>("loud" to null, "eq" to null, "mono" to null, "space" to null, "quiet" to null)
+    private val filters = linkedMapOf<String, String?>("loud" to null, "eq" to null, "mono" to null, "space" to null, "tune" to null, "quiet" to null)
     /** The filter a crossfade moves while it runs ([FILTER_OFF] when none): it sits last in the chain of the two songs involved. */
     private var sweepMode = FILTER_OFF
     private val failures = FailureTracker()

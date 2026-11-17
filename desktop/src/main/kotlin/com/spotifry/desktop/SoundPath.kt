@@ -54,6 +54,8 @@ data class PathSettings(
     val eqOn: Boolean = false, val eqName: String? = null, val leveling: Boolean = false, val fadeSeconds: Int = 0,
     val speed: Float = 1f, val pitch: Int = 0, val trim: Trim? = null, val mono: Boolean = false,
     val skipSilence: Boolean = false, val spatial: Boolean = false, val soundSet: String? = null,
+    /** Anything in the Tuning tab is changed. */
+    val tuning: Boolean = false,
 )
 
 enum class PathIcon { Source, File, Decoder, SoundSet, Equalizer, Volume, Mono, Silence, Spatial, Server, Speakers, Headphones, Receives }
@@ -146,6 +148,7 @@ fun soundPathGroups(m: MpvSound, s: PathSettings, out: SoundOutput?): List<PathG
         if (s.mono) add(PathRow(PathIcon.Mono, "Mono", "On", hot = true))
         if (s.skipSilence) add(PathRow(PathIcon.Silence, "Skip silence", "On", hot = true))
         if (s.spatial) add(PathRow(PathIcon.Spatial, "Spatial sound", "On", hot = true))
+        if (s.tuning) add(PathRow(PathIcon.Equalizer, "Sound tuning", "On", hot = true, note = "Balance, width, gain, filters or night mode from the Equalizer & tuning page."))
     }
     // steps left alone are listed small, so the ones that change the sound stand out
     val idle = listOfNotNull("Fade · Off".takeIf { s.fadeSeconds == 0 }, "Speed · 1.0×".takeIf { s.speed == 1f && s.pitch == 0 }, "Whole song".takeIf { trim == null })
@@ -176,6 +179,7 @@ internal fun soundPathReason(m: MpvSound, s: PathSettings, out: SoundOutput?): S
     s.mono -> "mono is on"
     s.skipSilence -> "skip silence is on"
     s.spatial -> "spatial sound is on"
+    s.tuning -> "sound tuning is on"
     rateChanged(m, out) == true -> "the sound server changes the sample rate"
     else -> null
 }
@@ -202,7 +206,9 @@ fun SoundPathPanel(services: Services, width: Dp, onClose: () -> Unit, onEqualiz
     val fade by st.fadeSeconds.collectAsState(); val speed by st.speed.collectAsState(); val pitch by st.pitch.collectAsState()
     val mono by st.mono.collectAsState(); val silence by st.skipSilence.collectAsState(); val spatial by st.spatial.collectAsState()
     val perDevice by st.perDevice.collectAsState(); val set by st.soundSet.collectAsState()
-    val s = PathSettings(eqOn, eqName, leveling, fade, speed, pitch, state.trim, mono, silence, spatial != null, set.takeIf { perDevice })
+    val tune by st.tune.collectAsState(); val compare by st.compare.collectAsState()
+    // Compare takes the equalizer and the tuning out of what is heard
+    val s = PathSettings(eqOn && !compare, eqName, leveling, fade, speed, pitch, state.trim, mono, silence, spatial != null, set.takeIf { perDevice }, !tune.neutral && !compare)
     val groups = soundPathGroups(m, s, out)
     val reason = soundPathReason(m, s, out)
     val rail = Palette.ink.copy(alpha = .14f)

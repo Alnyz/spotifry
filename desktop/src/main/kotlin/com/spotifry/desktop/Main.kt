@@ -111,7 +111,8 @@ fun productionServices(): Services {
     scope.launch { settings.sameLoudness.collect { player.setFilter("loud", if (it) Sound.LOUDNESS else null) } }
     // a drag changes the levels many times a second; mpv gets the latest at most ten times a second
     scope.launch {
-        kotlinx.coroutines.flow.combine(settings.eqOn, settings.eqLevels, settings.eqShape) { on, l, shape -> if (on) Sound.equalizer(l, shape) else null }.conflate()
+        // Compare hears the music without the equalizer and the tuning, as on the phone
+        kotlinx.coroutines.flow.combine(settings.eqOn, settings.eqLevels, settings.eqShape, settings.compare) { on, l, shape, cmp -> if (on && !cmp) Sound.equalizer(l, shape) else null }.conflate()
             .collect { player.setFilter("eq", it); kotlinx.coroutines.delay(100) }
     }
     // headphones and speakers keep their own sound, when that is on: the set follows the output as it changes
@@ -120,6 +121,11 @@ fun productionServices(): Services {
         kotlinx.coroutines.flow.combine(output, settings.perDevice, ::Pair).collect { (o, on) ->
             if (o != null && on) settings.useSoundSet(if (o.headphones) com.spotifry.music.data.Settings.HEADPHONES else com.spotifry.music.data.Settings.SPEAKER)
         }
+    }
+    scope.launch(Dispatchers.IO) {
+        val afs = Sound.available()
+        kotlinx.coroutines.flow.combine(settings.tune, settings.compare) { t, cmp -> if (cmp) null else Sound.tune(t) { afs.isEmpty() || it in afs } }.conflate()
+            .collect { player.setFilter("tune", it); kotlinx.coroutines.delay(100) }
     }
     scope.launch { settings.mono.collect { player.setFilter("mono", if (it) Sound.MONO else null) } }
     scope.launch { settings.spatial.collect { player.setFilter("space", it?.let(Sound::spatial)); kotlinx.coroutines.delay(100) } }
