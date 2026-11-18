@@ -46,9 +46,12 @@ class ChoosingSource(
         if (prefer != null) return carryOn(song, prefer, llOn, jioOn)
         val r = races.computeIfAbsent(song.id) { start(song, low, llOn, jioOn) }
         if (patient) {
-            r.ll?.let { withTimeoutOrNull(WAIT_MS) { it.await() } }?.let { return it }
-            r.jio?.let { withTimeoutOrNull(WAIT_MS) { it.await() } }?.let { return it }
-            return r.yt.await().getOrThrow()
+            val chosen = r.ll?.let { withTimeoutOrNull(WAIT_MS) { it.await() } }
+                ?: r.jio?.let { withTimeoutOrNull(WAIT_MS) { it.await() } }
+                ?: r.yt.await().getOrThrow()
+            // a lookup ahead settles for YouTube after 5 s, and that link is what plays: a lossless answer coming later must still be heard of
+            offerLater(song, r, chosen)
+            return chosen
         }
         val first = CompletableDeferred<ResolvedStream>()
         r.ll?.let { scope.launch { it.await()?.let(first::complete) } }
@@ -57,11 +60,14 @@ class ChoosingSource(
             r.yt.await().onSuccess(first::complete).onFailure { e -> if (r.ll?.await() == null && r.jio?.await() == null) first.completeExceptionally(e) }
         }
         val chosen = first.await()
-        scope.launch {
-            listOfNotNull(r.ll, r.jio).mapNotNull { it.await() }.filter { qualityRank(it.origin) > qualityRank(chosen.origin) }
-                .maxByOrNull { qualityRank(it.origin) }?.let { onBetter(song, it) }
-        }
+        offerLater(song, r, chosen)
         return chosen
+    }
+
+    /** The best copy better than [chosen] that answers later is passed to [onBetter], for the next play. */
+    private fun offerLater(song: Song, r: Race, chosen: ResolvedStream) = scope.launch {
+        listOfNotNull(r.ll, r.jio).mapNotNull { it.await() }.filter { qualityRank(it.origin) > qualityRank(chosen.origin) }
+            .maxByOrNull { qualityRank(it.origin) }?.let { onBetter(song, it) }
     }
 
     private class Race(val ll: Deferred<ResolvedStream?>?, val jio: Deferred<ResolvedStream?>?, val yt: Deferred<Result<ResolvedStream>>)

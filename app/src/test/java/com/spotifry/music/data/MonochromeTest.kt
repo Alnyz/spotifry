@@ -96,13 +96,21 @@ class MonochromeTest {
         server.shutdown()
     }
 
+    @Test fun aSearchThatFailsOnceIsAskedAgainAtOnce() = runBlocking {
+        val server = MockWebServer().apply {
+            enqueue(MockResponse().setResponseCode(502)); enqueue(MockResponse().setBody(answer(track("9", "Creep", 238640)))); enqueue(file()); start()
+        }
+        assertTrue(source(server).find(creep) != null)
+        server.shutdown()
+    }
+
     @Test fun aDeadServerIsLeftAloneForAFewMinutes() = runBlocking {
         var now = 1_000L
-        val server = MockWebServer().apply { enqueue(MockResponse().setResponseCode(502)); start() }
+        val server = MockWebServer().apply { repeat(2) { enqueue(MockResponse().setResponseCode(502)) }; start() }
         val s = source(server) { now }
         assertNull(s.find(creep))
         assertNull(s.find(creep))
-        assertEquals(1, server.requestCount)
+        assertEquals("asked twice, then left alone", 2, server.requestCount)
         now += 6 * 60_000L
         server.enqueue(MockResponse().setBody(answer(track("9", "Creep", 238640)))); server.enqueue(file())
         assertTrue(s.find(creep) != null)
@@ -149,6 +157,14 @@ class ChoosingLosslessTest {
         assertEquals("youtube", src.resolve(song).origin)
         assertTrue(System.currentTimeMillis() - started < 500)
         assertEquals(flac, ahead.await())
+    }
+    @Test fun aSongLookedUpAheadThatSettledForYoutubeStillHearsOfALateLosslessAnswer() = runBlocking {
+        // past the 5 s a lookup ahead waits: it settles for YouTube, and that link is what plays
+        val lateFlac: suspend (Song) -> ResolvedStream? = { delay(6_000); flac }
+        val better = CompletableDeferred<ResolvedStream>()
+        val src = ChoosingSource(yt, { null }, { true }, lateFlac, { true }).also { it.onBetter = { _, s -> better.complete(s) } }
+        assertEquals("youtube", src.resolve(song, false, true, null).origin)
+        assertEquals(flac, withTimeout(3_000) { better.await() })
     }
     @Test fun aSongLookedUpAheadWaitsForTheBestAnswer() = runBlocking {
         val slowFlac: suspend (Song) -> ResolvedStream? = { delay(300); flac }

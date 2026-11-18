@@ -89,7 +89,7 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
     fun incoming(id: String, origin: String) = File(dir.also { it.mkdirs() }, "${safe(id)}.$origin.better")
 
     /**
-     * A whole better copy of song [id] from [origin] becomes its kept copy, and the poorer ones go, halves included.
+     * A whole better copy of song [id] from [origin] becomes its kept copy, and the poorer ones go, halves included (its own source's half too).
      * Not while the song is being played from here: the caller waits until it isn't.
      */
     @Synchronized fun install(id: String, origin: String, file: File): Boolean {
@@ -98,7 +98,7 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         if (!renamed(file, done)) { file.delete(); return false }
         done.setLastModified(System.currentTimeMillis())
         dir.listFiles { f -> f.isFile && f != done && f.name.startsWith(safe(id) + ".") && !f.name.endsWith(".better") }?.forEach { f ->
-            if (qualityRank(f.name.removeSuffix(".part").substringAfterLast('.')) < qualityRank(origin)) { f.delete(); sizes.edit().remove(f.name.removeSuffix(".part")).apply() }
+            if (qualityRank(f.name.removeSuffix(".part").substringAfterLast('.')) <= qualityRank(origin)) { f.delete(); sizes.edit().remove(f.name.removeSuffix(".part")).apply() }
         }
         makeRoom(done)
         return true

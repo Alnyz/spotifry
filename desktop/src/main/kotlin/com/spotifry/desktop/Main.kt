@@ -95,7 +95,7 @@ fun productionServices(): Services {
     // a song's sound from Monochrome (lossless) or JioSaavn when turned on and sure of the match, else YouTube
     val source = com.spotifry.music.data.source.ChoosingSource(
         NewPipeSource(), com.spotifry.music.data.source.JioSaavnSource(client)::find, { library.settings.jioSaavn.value },
-        com.spotifry.music.data.source.MonochromeSource(client)::find, { library.settings.monochrome.value },
+        com.spotifry.music.data.source.MonochromeSource(client, log = { System.err.println("${java.time.LocalTime.now().withNano(0)} lossless: $it") })::find, { library.settings.monochrome.value },
     )
     val resolver = StreamResolver(source, scope)
     val dir = dataDir()
@@ -156,7 +156,23 @@ fun productionServices(): Services {
     return services
 }
 
-fun main() = application {
+/** The app's messages also go to last.log, written anew each start: opened from a menu, it has no terminal to show them. */
+private fun keepLog() = runCatching {
+    val file = java.io.FileOutputStream(File(dataDir(), "last.log"))
+    val terminal = System.err
+    System.setErr(java.io.PrintStream(object : java.io.OutputStream() {
+        override fun write(b: Int) { terminal.write(b); file.write(b) }
+        override fun write(b: ByteArray, off: Int, len: Int) { terminal.write(b, off, len); file.write(b, off, len) }
+        override fun flush() { terminal.flush(); file.flush() }
+    }, true))
+}
+
+fun main() {
+    keepLog()
+    window()
+}
+
+private fun window() = application {
     com.spotifry.music.data.AppVersion.name = desktopVersion
     // a restored backup changes every setting: the window is built again from the files
     var generation by remember { mutableStateOf(0) }

@@ -7,9 +7,11 @@ const val MAX_LOSSY_KBPS = 512
  * The playing song's real sound as a short label: "Opus 160 kbps", "Lossless" or "Hi-Res Lossless", from what mpv reports.
  * Only what the file really is, never "Hi-Res" on a lossy song. Null when the codec is unknown or not yet known.
  */
-fun qualityLabel(codec: String?, bitrateBps: Double?, sampleRate: Int?): String? {
+fun qualityLabel(codec: String?, bitrateBps: Double?, sampleRate: Int?, format: String? = null): String? {
     val c = codec?.lowercase() ?: return null
-    if (c == "flac" || c == "alac") return if ((sampleRate ?: 0) > 48_000) "Hi-Res Lossless" else "Lossless"
+    // as on the phone: above CD quality, more than 16 bits or above 48 kHz. mpv decodes a 24-bit file to s32, a 16-bit one to s16
+    val deep = format?.removeSuffix("p") in setOf("s24", "s32")
+    if (c == "flac" || c == "alac") return if (deep || (sampleRate ?: 0) > 48_000) "Hi-Res Lossless" else "Lossless"
     val name = when (c) { "opus" -> "Opus"; "aac" -> "AAC"; "mp3" -> "MP3"; "vorbis" -> "Vorbis"; else -> return null }
     // a lossy song is never that high: a figure above this is another file's (a lossless copy's), so only the name is shown
     val kbps = bitrateBps?.takeIf { it > 0 }?.let { ((it + 500) / 1000).toInt() }?.takeIf { it <= MAX_LOSSY_KBPS }

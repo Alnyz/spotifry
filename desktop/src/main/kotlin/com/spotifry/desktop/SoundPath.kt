@@ -129,7 +129,7 @@ fun soundPathGroups(m: MpvSound, s: PathSettings, out: SoundOutput?, coming: Str
     val d = m.decoded
     val file = listOfNotNull(
         d?.rate?.let(::khz), d?.channels?.let { when (it) { 0 -> null; 1 -> "Mono"; 2 -> "Stereo"; else -> "$it channels" } },
-        if (m.codec?.lowercase() in setOf("flac", "alac")) "Lossless" else m.bitrateBps?.takeIf { it > 0 }?.let { "${((it + 500) / 1000).toInt()} kbps" },
+        if (m.codec?.lowercase() in setOf("flac", "alac")) qualityLabel(m.codec, null, d?.rate, d?.format) else m.bitrateBps?.takeIf { it > 0 }?.let { "${((it + 500) / 1000).toInt()} kbps" },
     ).joinToString(" · ")
     val input = PathGroup("Input", false, listOfNotNull(
         PathRow(PathIcon.Source, "Source", sourceName(m.origin) + if (m.fellBack) "\nThe better copy was too slow, so it went on from here" else "",

@@ -154,9 +154,10 @@ class MpvPlayer(
     private var slowStream: com.spotifry.music.data.source.ResolvedStream? = null
     private var fellBack = false
     private val stalls = com.spotifry.music.player.StallWatch()
-    /** How much of the playing song is ready ahead, from mpv; a background download waits while it is low. */
-    @Volatile var bufferedAheadMs: Long = Long.MAX_VALUE
-        private set
+    /** How much of the playing song is ready ahead; a background download waits while it is low. A song played from a file on disk never is. */
+    val bufferedAheadMs: Long get() = if (playingUrl?.startsWith("http") == true) cacheAheadMs else Long.MAX_VALUE
+    /** mpv's reading; a file on disk reads it about a second at a time, so it says ~1 s there though nothing is short. */
+    @Volatile private var cacheAheadMs: Long = Long.MAX_VALUE
     private val _sound = MutableStateFlow(MpvSound())
     /** The playing song's path through mpv, for the Sound path panel. */
     val sound: StateFlow<MpvSound> = _sound
@@ -172,7 +173,7 @@ class MpvPlayer(
     private var posAt = 0L
     private val grids = HashMap<String, BeatGrid>()
     /** What mpv is reading for the playing song: a file, or replay storage's link. */
-    private var playingUrl: String? = null
+    @Volatile private var playingUrl: String? = null
     private var speed = 1f
     @Volatile private var closed = false
     private var pitchRatio = 1.0
@@ -190,8 +191,18 @@ class MpvPlayer(
 
     /** What the screens show of a song; observing sends the value at once, so a song already playing in a voice is caught up. */
     private fun observeAll(m: Mpv) {
-        m.observe(2, "duration"); m.observe(3, "paused-for-cache"); m.observe(4, "audio-codec-name"); m.observe(6, "audio-params/samplerate")
-        m.observe(7, "audio-params"); m.observe(8, "audio-out-params"); m.observe(9, "current-ao"); m.observe(10, "demuxer-cache-duration")
+        m.observe(2, "duration"); m.observe(3, "paused-for-cache"); m.observe(9, "current-ao"); m.observe(10, "demuxer-cache-duration")
+        observeFormat(m)
+    }
+
+    /**
+     * The file's format, observed anew: mpv tells only of a change, so a song in the same format as the one before (Opus
+     * after Opus) would leave the panel blank. Observing again sends the value as it is now.
+     */
+    private fun observeFormat(m: Mpv) {
+        for ((id, p) in listOf(4 to "audio-codec-name", 6 to "audio-params/samplerate", 7 to "audio-params", 8 to "audio-out-params")) {
+            m.command("unobserve_property", id); m.observe(id, p)
+        }
     }
 
     init {
@@ -561,7 +572,9 @@ class MpvPlayer(
                     if (slowStream != null) stalls.newSong(System.currentTimeMillis())
                     playingUrl = url
                     // the source's own bitrate figure: mpv's live reading of a stream keeps moving, so it makes a restless label
+                    // a kept copy has no source's figure: its size over the song's length, as the phone works it out
                     bitrate = stream?.bitrateKbps?.takeIf { it > 0 }?.let { it * 1000.0 }
+                        ?: kept?.let { File(it.first).length() * 8.0 / song.durationSec }?.takeIf { song.durationSec > 0 }
                     originOf(song.id, local != null, kept?.second ?: stream?.origin)?.let { origins[song.id] = it }; publishSound()
                     mpv.set("pause", !wants)
                     val at = pendingStart; seekOnStart = null
@@ -641,7 +654,7 @@ class MpvPlayer(
                     val now = System.currentTimeMillis()
                     if (slowStream != null && !fellBack) { if (buffering) { if (stalls.stalled(now)) queue.getOrNull(index)?.let(::fallBack) } else if (loaded) stalls.playing() }
                 }
-                "demuxer-cache-duration" -> bufferedAheadMs = if (e.isNull("data")) Long.MAX_VALUE else (e.optDouble("data") * 1000).toLong()
+                "demuxer-cache-duration" -> cacheAheadMs = if (e.isNull("data")) Long.MAX_VALUE else (e.optDouble("data") * 1000).toLong()
                 "audio-codec-name" -> { codec = if (e.isNull("data")) null else e.optString("data"); publish(); publishSound() }
                 "audio-params/samplerate" -> { rate = if (e.isNull("data")) null else e.optInt("data"); publish() }
                 "audio-params" -> { decoded = AudioFormat.of(e.optJSONObject("data")); publishSound() }
@@ -651,7 +664,7 @@ class MpvPlayer(
             "playback-restart" -> {
                 if (!loaded) {
                     loaded = true; buffering = false; failsOfThisSong = 0
-                    stalls.playing()
+                    stalls.playing(); observeFormat(mpv)
                     failures.onSuccess(); _notice.value = null
                     seekOnStart?.let { mpv.command("seek", (it + startMs) / 1000.0, "absolute"); seekOnStart = null }
                     publish()
@@ -901,7 +914,7 @@ class MpvPlayer(
             ended = ended, buffering = buffering && wants, failed = failed,
             durationMs = durationMs, wholeMs = wholeMs, trim = trim,
             queue = queue, currentIndex = index, shuffle = shuffle, smart = smart && shuffle, repeatMode = repeat, order = order, from = from,
-            quality = if (loaded) qualityLabel(codec, bitrate, rate) else null,
+            quality = if (loaded) qualityLabel(codec, bitrate, rate, decoded?.format) else null,
         )
     }
 
