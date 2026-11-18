@@ -29,6 +29,8 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
     private val process: Process
     private val out: OutputStream
     private val reader: java.io.BufferedReader
+    /** Set by [close]: the socket then breaks on purpose, and the event reader ends without a word. */
+    @Volatile private var closing = false
 
     init {
         process = try { ProcessBuilder(
@@ -74,7 +76,7 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
 
     private fun listen() {
         while (true) {
-            val line = reader.readLine() ?: return
+            val line = try { reader.readLine() } catch (e: java.io.IOException) { if (closing) return else throw e } ?: return
             val event = runCatching { JSONObject(line) }.getOrNull() ?: continue
             // one bad event must not end the listener, or the player would go deaf
             event.optString("event").takeIf { it.isNotEmpty() }?.let { runCatching { onEvent(it, event) }.onFailure { e -> System.err.println("mpv event $it: $e") } }
@@ -90,6 +92,7 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
     fun set(property: String, value: Any) = command("set_property", property, value)
 
     override fun close() {
+        closing = true
         runCatching { command("quit") }
         process.destroy()
         runCatching { pipe?.close() }
