@@ -36,7 +36,7 @@ class JioSaavnSource(
         val url = base.toHttpUrl().newBuilder().addPathSegment("api.php")
             .addQueryParameter("__call", "search.getResults").addQueryParameter("_format", "json").addQueryParameter("_marker", "0")
             .addQueryParameter("api_version", "4").addQueryParameter("ctx", "web6dot0").addQueryParameter("n", "5").addQueryParameter("p", "1")
-            .addQueryParameter("q", "${cleanTitle(song.title)} ${song.artist.removeSuffix(" - Topic")}").build()
+            .addQueryParameter("q", "${searchTitle(song)} ${song.artist.removeSuffix(" - Topic")}").build()
         val body = client.newCall(request(url.toString()).build()).read { r -> if (r.isSuccessful) r.body!!.string() else throw IOException("HTTP ${r.code}") }
         val hit = parseSaavnResults(body).firstOrNull { isSameSong(song, it) } ?: return null
         val link = url320(decryptMediaUrl(hit.encryptedUrl)) ?: return null
@@ -115,7 +115,7 @@ fun isSameSong(song: Song, r: SaavnResult): Boolean =
 /** The same checks for any service's result; Monochrome uses them too. */
 fun isSameRecording(song: Song, title: String, artists: List<String>, album: String, durationSec: Long): Boolean {
     if (song.durationSec <= 0 || abs(song.durationSec - durationSec) > MAX_LENGTH_DIFF_SEC) return false
-    val own = cleanTitle(song.title)
+    val own = cleanTitle(withoutArtist(song.title, artistNames(song.artist) + artists.flatMap(::artistNames)))
     if (own.isEmpty() || own != cleanTitle(title)) return false
     if (artistNames(song.artist).intersect(artists.flatMap(::artistNames).toSet()).isEmpty()) return false
     val ownVersions = VERSION.findAll(plain(song.title)).map { it.value }.toSet()
@@ -123,9 +123,11 @@ fun isSameRecording(song: Song, title: String, artists: List<String>, album: Str
 }
 
 /** Another recording or arrangement. A group with one of these words stays in the title, so it never matches the plain song. */
-private val VERSION = Regex("\\b(cover|covers|karaoke|tribute|remix|remixes|instrumental|live|acoustic|unplugged|reprise|lofi|nightcore|slowed|reverb|sped|demo|version|edit|mix|techno|ambient|extended|radio|club|dub|piano|orchestra|orchestral|mashup|bootleg|session|sessions)\\b")
+private val VERSION = Regex("\\b(8d|cover|covers|karaoke|tribute|remix|remixes|instrumental|live|acoustic|unplugged|reprise|lofi|nightcore|slowed|reverb|sped|demo|version|edit|mix|techno|ambient|extended|radio|club|dub|piano|orchestra|orchestral|mashup|bootleg|session|sessions)\\b")
 /** Words on a group that says nothing about the recording: (feat. X), (with X), (Official Video), - Remastered 2011, (From "Film"). */
-private val EXTRA = Regex("\\b(feat|ft|featuring|with|official|lyric|lyrics|visuali[sz]er|remaster|remastered|from)\\b")
+private val EXTRA = Regex("\\b(feat|ft|featuring|with|official|lyric|lyrics|audio|video|mv|hd|hq|visuali[sz]er|remaster|remastered|from)\\b")
+/** Words in a group that are only about the upload, dropped even next to a version word. */
+private val NOISE = Regex("\\b(official|lyric|lyrics|audio|video|music|mv|hd|hq|visuali[sz]er)\\b")
 private val GROUP = Regex("[(\\[][^)\\]]*[)\\]]|\\s[-–—|]\\s.*$")
 private val TRAILING_FEAT = Regex("\\s(feat\\.?|ft\\.?|featuring)\\s.*$", RegexOption.IGNORE_CASE)
 /** Latin accents only: the vowel signs of Hindi and other scripts are marks too, and without them different words look the same. */
@@ -139,9 +141,22 @@ private fun plain(s: String) = NOT_WORD.replace(ACCENTS.replace(Normalizer.norma
 fun cleanTitle(title: String): String = plain(
     GROUP.replace(title) { m ->
         val group = plain(m.value)
-        if (EXTRA.containsMatchIn(group) && !VERSION.containsMatchIn(group)) "" else m.value
+        when {
+            !VERSION.containsMatchIn(group) -> if (EXTRA.containsMatchIn(group)) "" else m.value
+            // "(Remix / Lyric Video)": the version stays, the video words go
+            else -> " " + NOISE.replace(group, " ")
+        }
     }.replace(TRAILING_FEAT, ""),
 )
+
+/** "Artist - Song" as many YouTube uploads write it: the song, when the part before the dash names one of [names]. */
+private fun withoutArtist(title: String, names: Set<String>): String {
+    val head = title.substringBefore(" - ", "")
+    return if (head.isNotEmpty() && artistNames(head).intersect(names).isNotEmpty()) title.substringAfter(" - ") else title
+}
+
+/** The title to search other services with: no "Artist - " in front, no extras. */
+fun searchTitle(song: Song): String = cleanTitle(withoutArtist(song.title, artistNames(song.artist)))
 
 /** Without spaces, so the channel ArijitSinghVEVO is Arijit Singh. */
 fun artistNames(artist: String): Set<String> =

@@ -97,8 +97,24 @@ class JioSaavnMatcherTest {
         assertTrue(same(youtube.copy(title = "Tum Hi Ho (with Someone)"), result()))
         assertFalse(same(youtube.copy(title = "Tum Hi Ho (with Orchestra)"), result()))
     }
-    // ponytail: "Artist - Song" stays YouTube; strip the artist if those turn out to be common among misses
-    @Test fun artistInTheTitleDoesNotMatch() = assertFalse(same(youtube.copy(title = "Arijit Singh - Tum Hi Ho"), result()))
+    @Test fun artistInFrontOfTheTitleIsDropped() {
+        for (t in listOf("Arijit Singh - Tum Hi Ho", "Arijit Singh, Mithoon - Tum Hi Ho (Lyric Video)", "Mithoon - Tum Hi Ho (Official Audio)"))
+            assertTrue(t, same(youtube.copy(title = t), result()))
+        // a dash before someone who isn't on the song stays part of the title
+        assertFalse(same(youtube.copy(title = "Nxsser - Tum Hi Ho"), result()))
+        assertFalse(same(youtube.copy(title = "Tum Hi Ho - Arijit Singh Live"), result()))
+    }
+    @Test fun videoWordsNextToAVersionAreDropped() {
+        val remix = result(title = "Tum Hi Ho - Remix")
+        assertTrue(same(youtube.copy(title = "Arijit Singh - Tum Hi Ho (Remix / Lyric Video)"), remix))
+        assertTrue(same(youtube.copy(title = "Tum Hi Ho (Official Remix Video)"), remix))
+        assertFalse(same(youtube.copy(title = "Tum Hi Ho (Remix / Lyric Video)"), result()))
+    }
+    @Test fun moreYoutubeExtrasAreDropped() {
+        for (t in listOf("Tum Hi Ho (Audio)", "Tum Hi Ho [Official Music Video]", "Tum Hi Ho (Lyrics Video)", "Tum Hi Ho [MV]", "Tum Hi Ho (HD)"))
+            assertTrue(t, same(youtube.copy(title = t), result()))
+        assertFalse(same(youtube.copy(title = "Tum Hi Ho (8D Audio)"), result()))
+    }
     @Test fun vevoChannelsCount() {
         assertTrue(same(youtube.copy(artist = "ArijitSinghVEVO"), result()))
         assertTrue(same(youtube.copy(artist = "Arijit Singh VEVO"), result()))

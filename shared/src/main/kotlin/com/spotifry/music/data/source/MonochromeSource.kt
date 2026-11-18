@@ -56,7 +56,7 @@ class MonochromeSource(
     private suspend fun lookup(song: Song): ResolvedStream? {
         try {
             val search = base.toHttpUrl().newBuilder().addPathSegments("search/tracks")
-                .addQueryParameter("q", "${cleanTitle(song.title)} ${song.artist.removeSuffix(" - Topic")}").addQueryParameter("limit", "8").build()
+                .addQueryParameter("q", "${searchTitle(song)} ${song.artist.removeSuffix(" - Topic")}").addQueryParameter("limit", "8").build()
             val body = searchOnce(search.toString()) ?: searchOnce(search.toString(), last = true)!!
             val results = parseMonochromeResults(body)
             val hit = results.firstOrNull { it.playable && isSameRecording(song, it.title, it.artists, "", it.durationMs / 1000) }
