@@ -85,8 +85,12 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         return f.path to f.extension
     }
 
-    /** Where a better copy of a song is downloaded before [install] puts it in place. */
+    /** Where a whole better copy of a song waits for [install] to put it in place; it downloads as this name plus ".part". */
     fun incoming(id: String, origin: String) = File(dir.also { it.mkdirs() }, "${safe(id)}.$origin.better")
+
+    /** Whole better copies on disk, as (song, source, file): ones finished before the app last closed are put in place too. */
+    fun waitingBetter(): List<Triple<String, String, File>> = dir.listFiles { f -> f.isFile && f.name.endsWith(".better") }.orEmpty()
+        .map { f -> f.name.removeSuffix(".better").let { Triple(it.substringBeforeLast('.'), it.substringAfterLast('.'), f) } }
 
     /**
      * A whole better copy of song [id] from [origin] becomes its kept copy, and the poorer ones go, halves included (its own source's half too).
@@ -97,7 +101,7 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         val done = File(dir, "${safe(id)}.$origin")
         if (!renamed(file, done)) { file.delete(); return false }
         done.setLastModified(System.currentTimeMillis())
-        dir.listFiles { f -> f.isFile && f != done && f.name.startsWith(safe(id) + ".") && !f.name.endsWith(".better") }?.forEach { f ->
+        dir.listFiles { f -> f.isFile && f != done && f.name.startsWith(safe(id) + ".") && ".better" !in f.name }?.forEach { f ->
             if (qualityRank(f.name.removeSuffix(".part").substringAfterLast('.')) <= qualityRank(origin)) { f.delete(); sizes.edit().remove(f.name.removeSuffix(".part")).apply() }
         }
         makeRoom(done)
@@ -131,7 +135,7 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
     }
 
     /** Kept songs, whole or half, but not the one coming in now, nor a better copy still downloading. */
-    private fun kept() = dir.listFiles { f -> f.isFile && f.name != "parts.json" && !f.name.endsWith(".better") && live.none { c -> c.file == f } }.orEmpty().toList()
+    private fun kept() = dir.listFiles { f -> f.isFile && f.name != "parts.json" && ".better" !in f.name && live.none { c -> c.file == f } }.orEmpty().toList()
 
     /** Space the kept songs take. */
     fun usedBytes() = kept().sumOf { it.length() }

@@ -116,7 +116,7 @@ class QualityUpgrader(
         while (true) {
             val have = part.length()
             if (total in 0..have) return total == have
-            var clean = false
+            var clean = false; var tooMany = false
             val src = http.createDataSource()
             try {
                 val rest = src.open(DataSpec.Builder().setUri(url).setPosition(have).build())
@@ -135,10 +135,12 @@ class QualityUpgrader(
                 }
                 clean = true
             } catch (e: Exception) {
+                tooMany = (e as? androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException)?.responseCode == 429
                 say("going on from ${have / 1024} KB of ${total / 1024}: $e".take(200))
             } finally { runCatching { src.close() } }
             if (clean && total < 0) return part.length() > 0 // no size given: a clean end is all there is
-            if (part.length() > have) fails = 0 else if (++fails > 8) return false else Thread.sleep(1000L * fails)
+            // "too many" (429) is the server's rest of about a minute; asking sooner only keeps it going
+            if (part.length() > have) fails = 0 else if (++fails > 8) return false else Thread.sleep(if (tooMany) 60_000L else 1000L * fails)
         }
     }
 

@@ -9,6 +9,7 @@ import com.spotifry.music.player.UPGRADE_RETRY_MS
 import com.spotifry.music.player.shouldLook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -45,6 +46,12 @@ class BetterCopies(
     val coming: StateFlow<Map<String, String>> = _coming
     private fun note() { _coming.value = (offers.mapValues { it.value.second.origin }.filterKeys { it in downloading } + ready.mapValues { it.value.second }) }
     private val downloading = ConcurrentHashMap.newKeySet<String>()
+    /** The songs playing or next, as last told by [upgradeWhenFree]. */
+    @Volatile private var busyNow = emptySet<String>()
+    private var retrying: Job? = null
+
+    // copies finished before the app last closed (their song id is the file's name, which a YouTube id keeps as it is)
+    init { for ((id, origin, file) in replay.waitingBetter()) ready[id] = file to origin }
 
     /** A better copy than the one in use turned up; the best one offered is kept. */
     fun offer(song: Song, stream: ResolvedStream) {
@@ -87,10 +94,12 @@ class BetterCopies(
         scope.launch(Dispatchers.IO) {
             try {
                 loader.withLock {
-                    val part = replay.incoming(song.id, stream.origin)
+                    val done = replay.incoming(song.id, stream.origin)
+                    val part = File(done.path + ".part")
                     say("downloading ${stream.origin} copy of ${song.id}")
                     val why = fetchResuming(client, stream.url, part, { bufferedAheadMs() >= LOW_BUFFER_MS }, ::say)
-                    if (why == null) { ready[song.id] = part to stream.origin; say("${stream.origin} copy of ${song.id} done, ${part.length() / 1024} KB") }
+                        ?: "could not rename".takeUnless { part.renameTo(done) }
+                    if (why == null) { ready[song.id] = done to stream.origin; say("${stream.origin} copy of ${song.id} done, ${done.length() / 1024} KB") }
                     else {
                         part.delete()
                         say("${stream.origin} copy of ${song.id} failed: $why")
@@ -103,17 +112,27 @@ class BetterCopies(
         }
     }
 
-    /** The player moved on: finished copies go in place, except for the songs [busy] (playing or next). */
+    /**
+     * The player moved on: finished copies go in place, except for the songs [busy] (playing or next). The store says no
+     * while the song before still fades out from it, so a copy turned down is tried again every few seconds for 2 minutes.
+     */
     fun upgradeWhenFree(busy: Set<String>) {
+        busyNow = busy
+        if (installReady(loud = true) || retrying?.isActive == true) return
+        retrying = scope.launch { repeat(24) { kotlinx.coroutines.delay(5_000); if (installReady(loud = false)) return@launch } }
+    }
+
+    /** Puts the finished copies of songs not busy in place; true when none of those is left. */
+    @Synchronized private fun installReady(loud: Boolean): Boolean {
         for (id in ready.keys.toList()) {
-            if (id in busy) continue
+            if (id in busyNow) continue
             val (file, origin) = ready[id] ?: continue
-            // the store says no while the song still plays from it; it is tried again at the next song change
             val ok = replay.install(id, origin, file)
-            say("$origin copy of $id ${if (ok) "in place" else "waits, the song still plays"}")
+            if (ok || loud) say("$origin copy of $id ${if (ok) "in place" else "waits, the song still plays"}")
             if (ok) { ready.remove(id); offers.remove(id) }
         }
         note()
+        return ready.keys.all { it in busyNow }
     }
 
     private fun say(text: String) = System.err.println("${java.time.LocalTime.now().withNano(0)} better: $text")
@@ -160,8 +179,11 @@ internal fun fetchResuming(client: OkHttpClient, url: String, part: File, mayGo:
         } catch (e: Exception) { why = e.toString() }
         if (part.length() > have) fails = 0
         else if (++fails > 8) return why ?: "no progress"
-        else Thread.sleep(1000L * fails)
+        // "too many" (429) is the server's rest of about a minute; asking sooner only keeps it going
+        else Thread.sleep(if (why?.endsWith("answer 429") == true) RATE_LIMIT_WAIT_MS else 1000L * fails)
         if (total >= 0 && part.length() < total) say("going on from ${part.length() / 1024} KB of ${total / 1024}: $why")
     }
     return if (part.length() == total) null else "longer than said"
 }
+
+private const val RATE_LIMIT_WAIT_MS = 60_000L

@@ -91,4 +91,28 @@ class BetterCopyTest {
             assertEquals("flac", File(dir, "yt_1.monochrome").readText())
         } finally { store.close() }
     }
+
+    @Test fun aCopyFinishedBeforeTheAppClosedGoesInPlaceAfterIt() {
+        val dir = tmp.newFolder("left")
+        File(dir, "abc.youtube").writeText("opus")
+        File(dir, "abc.monochrome.better").writeText("flac")
+        File(dir, "def.monochrome.better.part").writeText("half")
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val store = ReplayStore(OkHttpClient(), scope, dir) { 0 }
+        try {
+            val source = com.spotifry.music.data.source.ChoosingSource(object : com.spotifry.music.data.source.MusicSource {
+                override suspend fun search(query: String) = emptyList<com.spotifry.music.data.source.Song>()
+                override suspend fun resolve(song: com.spotifry.music.data.source.Song, low: Boolean) = error("not asked")
+                override suspend fun related(song: com.spotifry.music.data.source.Song) = emptyList<com.spotifry.music.data.source.Song>()
+            }, { null }, { false })
+            val better = BetterCopies(OkHttpClient(), source, store, { Long.MAX_VALUE }, scope)
+            better.upgradeWhenFree(setOf("abc"))
+            assertTrue("busy: waits", File(dir, "abc.monochrome.better").exists())
+            better.upgradeWhenFree(emptySet())
+            assertEquals(File(dir, "abc.monochrome").path to "monochrome", store.best("abc"))
+            assertFalse(File(dir, "abc.youtube").exists())
+            // a download cut off when the app closed is not taken as whole
+            assertNull(store.best("def"))
+        } finally { store.close() }
+    }
 }
