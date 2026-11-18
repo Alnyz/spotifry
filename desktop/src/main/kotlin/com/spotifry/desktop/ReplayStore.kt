@@ -229,6 +229,9 @@ class ReplayStore(private val client: OkHttpClient, private val scope: Coroutine
         return true
     }
 
+    /** The song before has faded out: its copy is let go, so a better copy waiting for it can take its place now. */
+    @Synchronized fun fadedOut() = live.dropLast(1).forEach(::stop)
+
     /** Stops the copies in use; a song not finished is not kept. A finished one becomes kept as it finishes, not here. */
     @Synchronized fun drop() = live.forEach(::stop)
 

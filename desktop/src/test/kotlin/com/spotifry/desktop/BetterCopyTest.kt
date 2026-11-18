@@ -115,4 +115,17 @@ class BetterCopyTest {
             assertNull(store.best("def"))
         } finally { store.close() }
     }
+
+    @Test fun theSongBeforeLetsGoOfItsCopyOnceItHasFadedOut() {
+        val dir = tmp.newFolder("fade")
+        val store = ReplayStore(OkHttpClient(), CoroutineScope(SupervisorJob() + Dispatchers.IO), dir) { 0 }
+        try {
+            store.open("a", "youtube", "http://127.0.0.1:1/a")
+            store.open("b", "youtube", "http://127.0.0.1:1/b", alongside = true) // "a" fades out as "b" comes in
+            val better = store.incoming("a", "monochrome").apply { writeText("flac") }
+            assertFalse("a is still heard", store.install("a", "monochrome", better))
+            store.fadedOut()
+            assertTrue(store.install("a", "monochrome", better))
+        } finally { store.close() }
+    }
 }

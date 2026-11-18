@@ -112,6 +112,8 @@ fun productionServices(): Services {
         related = source::related, notSuggested = library::notSuggested, beatsAllowed = { !settings.skipSilence.value },
         keptCopy = replay::best, onHeard = { s, o -> better.onHeard(s, o) }, onSongChange = { better.upgradeWhenFree(it) },
         onFellBack = { s, b -> if (b != null) { better.offer(s, b); better.download(s) } },
+        // the retry in BetterCopies then puts a waiting better copy of the song before in place within 5 s
+        onFadeDone = replay::fadedOut,
     )
     // a lossless or JioSaavn copy that answers after the song started is fetched for the next play
     better = BetterCopies(client, source, replay, { player.bufferedAheadMs }, scope)

@@ -87,6 +87,8 @@ class MpvPlayer(
     private val onSongChange: (Set<String>) -> Unit = {},
     /** A lossless or JioSaavn song couldn't keep up and went on from YouTube; its better copy, to fetch for the next play. */
     private val onFellBack: (Song, com.spotifry.music.data.source.ResolvedStream?) -> Unit = { _, _ -> },
+    /** The song before has faded out completely: only the new one is heard now. */
+    private val onFadeDone: () -> Unit = {},
 ) : MusicPlayer, SleepTimer.Target {
     private val _state = MutableStateFlow(PlayerUiState())
     override val state: StateFlow<PlayerUiState> = _state
@@ -856,7 +858,7 @@ class MpvPlayer(
     /** The overlap: the old song (the tail) goes down as the new one comes up, the two together about as loud as one. */
     private fun fading(s: Fading, pos: Long): Boolean {
         val f = ((pos - s.plan.cueMs).toFloat() / s.plan.lengthMs).coerceIn(0f, 1f)
-        if (f >= 1f || s.ended) { drop(s.tail, 0f); stage = Watching; songGain = 1f; applyVolume(); clearSweep(); log("overlap done"); return false }
+        if (f >= 1f || s.ended) { drop(s.tail, 0f); stage = Watching; songGain = 1f; applyVolume(); clearSweep(); log("overlap done"); onFadeDone(); return false }
         val cut = 1 - OVERLAP_CUT * sin(f * PI).toFloat()
         s.gain = cos(f * PI / 2).toFloat() * cut
         songGain = sin(f * PI / 2).toFloat() * cut
