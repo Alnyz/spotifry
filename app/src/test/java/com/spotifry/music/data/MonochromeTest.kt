@@ -72,6 +72,17 @@ class MonochromeTest {
         server.shutdown()
     }
 
+    @Test fun aFileCheckTheServerTurnsDownIsAskedAgain() = runBlocking {
+        val server = MockWebServer().apply {
+            enqueue(MockResponse().setBody(answer(track("9", "Creep", 238640)))); enqueue(MockResponse().setResponseCode(502))
+            enqueue(MockResponse().setBody(answer(track("9", "Creep", 238640)))); enqueue(file()); start()
+        }
+        val s = source(server)
+        assertNull(s.find(creep))
+        assertTrue("not kept as no match", s.find(creep) != null)
+        server.shutdown()
+    }
+
     @Test fun theSameSongIsLookedUpOnce() = runBlocking {
         val server = MockWebServer().apply { enqueue(MockResponse().setBody(answer(track("9", "Creep", 238640)))); enqueue(file()); start() }
         val s = source(server)

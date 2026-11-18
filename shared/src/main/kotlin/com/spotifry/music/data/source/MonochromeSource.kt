@@ -65,12 +65,18 @@ class MonochromeSource(
                     log("no match for ${song.id} \"${song.title}\" ${song.durationSec}s among ${results.joinToString { "\"${it.title}\" ${it.durationMs / 1000}s" }}")
                 }
             val link = base.toHttpUrl().newBuilder().addPathSegments("track").addPathSegment(hit.id).build().toString()
-            // the first bytes say whether it really is FLAC; the range's total says how big, which gives the bitrate for the label
+            // the first bytes say whether it really is FLAC; the range's total says how big, which gives the bitrate for the label.
+            // -1: not FLAC, kept as no match. null: the server said no this time (busy, an error), so it is asked again next time
+            var code = 0
             val total = client.newCall(request(link).header("Range", "bytes=0-3").build()).read { r ->
-                if (r.code != 206 && r.code != 200) return@read null
-                val isFlac = r.body!!.source().readUtf8(4) == "fLaC"
-                if (isFlac) r.header("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: 0L else null
-            } ?: return null.also { seen[song.id] = Seen(now(), null); log("${song.id}: the found copy isn't FLAC") }
+                code = r.code
+                if (code != 206 && code != 200) return@read null
+                if (r.body!!.source().readUtf8(4) == "fLaC") r.header("Content-Range")?.substringAfter('/')?.toLongOrNull() ?: 0L else -1L
+            } ?: return null.also {
+                if (code == 429) downUntil = now() + RATE_LIMITED_MS
+                log("${song.id}: the file check got answer $code, asked again next time")
+            }
+            if (total < 0) return null.also { seen[song.id] = Seen(now(), null); log("${song.id}: the found copy isn't FLAC") }
             val kbps = if (total > 0 && hit.durationMs > 0) (total * 8 / hit.durationMs).toInt() else 0
             return ResolvedStream(link, "audio/flac", kbps, now() + LINK_LIFE_MS, fromMonochrome = true).also { seen[song.id] = Seen(now(), it) }
         } catch (e: IOException) {
