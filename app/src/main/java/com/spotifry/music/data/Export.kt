@@ -60,6 +60,7 @@ fun exportToMusic(context: Context, path: String, title: String, artist: String)
     return copyOut(context, path, title, artist)?.also { exportTick.value++ }
 }
 
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.Q) // MediaStore.Downloads; reached only through exportToMusic's canExport check
 private fun copyOut(context: Context, path: String, title: String, artist: String): String? {
     val resolver = context.contentResolver
     var uri: android.net.Uri? = null
@@ -116,6 +117,7 @@ private fun exportAsOpus(resolver: android.content.ContentResolver, file: File, 
 }
 
 /** Moves the Opus track of [source] (a .webm) into an Ogg file at [out], sample by sample. False if there is no Opus track or the muxer refuses. */
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.Q) // Ogg muxing; called only from exportAsOpus
 private fun webmToOgg(source: File, out: java.io.FileDescriptor): Boolean {
     val extractor = android.media.MediaExtractor()
     var muxer: android.media.MediaMuxer? = null
