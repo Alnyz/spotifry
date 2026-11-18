@@ -62,7 +62,7 @@ Needs Android 7 or newer.
 On [Releases](../../releases), pick the newest one named **Spotifry desktop**.
 
 - **Linux:** download `Spotifry-x.y.z-x86_64.AppImage`, make it executable (`chmod +x`) and open it. It needs `mpv` and `ffmpeg` installed.
-- **Windows:** download the `.msi` and run it. I don't have a Windows PC myself, but a friend and some Reddit users run it and their feedback shaped 0.9.0.
+- **Windows:** download the `.msi` and run it. I don't have a Windows PC myself; each version is built and started on a Windows machine on GitHub with all tests passing.
 
 The desktop app looks like the phone app. It has Your rotation, lyrics and the sound settings, restores a phone backup, and updates itself from Settings.
 
