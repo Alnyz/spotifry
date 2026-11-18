@@ -45,7 +45,7 @@ class AppContainer(private val context: Context) {
     val smartTrims = com.spotifry.music.player.SmartTrims(context.getSharedPreferences("smart_trims", Context.MODE_PRIVATE), client)
     private val choosing = com.spotifry.music.data.source.ChoosingSource(
         NewPipeSource(), com.spotifry.music.data.source.JioSaavnSource(client)::find, { settings.jioSaavn.value },
-        com.spotifry.music.data.source.MonochromeSource(client)::find, { settings.monochrome.value },
+        com.spotifry.music.data.source.MonochromeSource(client, log = { android.util.Log.i("lossless", it) })::find, { settings.monochrome.value },
     )
     val source: MusicSource = choosing
     val musicBrainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = "Spotifry/${BuildConfig.VERSION_NAME} (https://github.com/Alnyz/spotifry)")
