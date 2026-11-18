@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 # Builds desktop/build/appimage/Spotifry-<version>-x86_64.AppImage from the app folder Gradle makes.
-# Needs a JDK with jpackage (21 or newer) and curl. The listener also needs mpv installed.
+# Needs a JDK with jpackage (21 or newer), curl, strip (binutils) and zip. The listener also needs mpv installed.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$here/../.."
 cd "$root"
 
 version="$(sed -n 's/.*packageVersion = "\(.*\)".*/\1/p' desktop/build.gradle.kts)"
-./gradlew :desktop:createDistributable
+./gradlew :desktop:createReleaseDistributable
 
-app="desktop/build/compose/binaries/main/app/spotifry"
+app="desktop/build/compose/binaries/main-release/app/spotifry"
 out="desktop/build/appimage"
 dir="$out/AppDir"
 rm -rf "$dir"; mkdir -p "$dir/usr"
 cp -r "$app"/. "$dir/usr/"
+# smaller download: no debug symbols in the native libraries (Java's, Skia's), and only SQLite's Linux x64 part, not its
+# Windows, Mac and ARM ones
+find "$dir" -name '*.so' -exec strip --strip-unneeded {} +
+for j in "$dir"/usr/lib/app/sqlite-bundled-jvm-*.jar; do zip -qd "$j" 'natives/linux_arm64/*' 'natives/windows_x64/*' 'natives/osx_*'; done
 
 cat > "$dir/AppRun" <<'RUN'
 #!/bin/sh
@@ -43,5 +47,6 @@ if [ ! -x "$tool" ]; then
   chmod +x "$tool"
 fi
 # --appimage-extract-and-run: works without FUSE
-ARCH=x86_64 "$tool" --appimage-extract-and-run "$dir" "$out/Spotifry-$version-x86_64.AppImage"
+# zstd at its strongest with 1 MB blocks packs about 4 MB tighter than the default
+ARCH=x86_64 "$tool" --appimage-extract-and-run --mksquashfs-opt -b --mksquashfs-opt 1M --mksquashfs-opt -Xcompression-level --mksquashfs-opt 19 "$dir" "$out/Spotifry-$version-x86_64.AppImage"
 echo "Built $out/Spotifry-$version-x86_64.AppImage"

@@ -33,6 +33,11 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "com.spotifry.desktop.MainKt"
+        // the release build drops library code the app never uses (about 20 MB less); to turn it off: isEnabled.set(false)
+        buildTypes.release.proguard {
+            configurationFiles.from(project.file("proguard-rules.pro"))
+            obfuscate.set(false)
+        }
         nativeDistributions {
             // an app folder with its own Java inside; packaging/build-appimage.sh turns it into one AppImage file
             packageName = "spotifry"
