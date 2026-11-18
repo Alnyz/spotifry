@@ -3,7 +3,7 @@
 <img src=".github/assets/banner.jpg" alt="Spotifry: Ads are for someone else. Music for your ears. An ad-free music player for Android, Linux and Windows" width="100%">
 
 [![Download the latest release](https://img.shields.io/badge/download-latest-FF8A3D?style=for-the-badge&labelColor=2B1408)](../../releases/latest)
-[![Android 8 or newer, Linux, Windows](https://img.shields.io/badge/Android%208%2B%20%C2%B7%20Linux%20%C2%B7%20Windows-FF8A3D?style=for-the-badge&labelColor=2B1408)](#download)
+[![Android 7 or newer, Linux, Windows](https://img.shields.io/badge/Android%207%2B%20%C2%B7%20Linux%20%C2%B7%20Windows-FF8A3D?style=for-the-badge&labelColor=2B1408)](#download)
 [![GPL-3.0 license](https://img.shields.io/badge/license-GPL--3.0-FF8A3D?style=for-the-badge&labelColor=2B1408)](LICENSE)
 
 [**Website**](https://alnyz.github.io/spotifry/) · [**Download**](#download) · [**Features**](#features) · [**Disclaimer**](#disclaimer) · [**Build**](#build)
@@ -55,7 +55,7 @@
 2. Open the file. Android asks whether your browser or file manager may install apps. Allow it once.
 3. After that the app tells you when an update is out and installs it. Your songs and playlists stay.
 
-Needs Android 8 or newer.
+Needs Android 7 or newer.
 
 ### Linux and Windows
 
