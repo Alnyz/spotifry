@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -177,7 +178,7 @@ private fun window() = application {
     // a restored backup changes every setting: the window is built again from the files
     var generation by remember { mutableStateOf(0) }
     key(generation) {
-        val started = remember { runCatching { productionServices() } }
+        val started = remember { runCatching { productionServices() }.onFailure { System.err.println("${java.time.LocalTime.now().withNano(0)} start failed:"); it.printStackTrace() } }
         val services = started.getOrNull()
         var restarting by remember { mutableStateOf(false) }
         if (services == null) StartFailedWindow(started.exceptionOrNull())
@@ -191,7 +192,7 @@ private fun window() = application {
 
 @androidx.compose.runtime.Composable
 private fun ApplicationScope.StartFailedWindow(error: Throwable?) {
-    Window(onCloseRequest = ::exitApplication, title = "Spotifry", state = rememberWindowState(size = DpSize(640.dp, 360.dp))) {
+    Window(onCloseRequest = ::exitApplication, title = "Spotifry", state = rememberWindowState(size = DpSize(720.dp, 480.dp))) {
         SpotifryTheme { StartFailed(error) }
     }
 }
@@ -236,15 +237,17 @@ private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean,
 fun StartFailed(error: Throwable?) {
     val missing = error is MpvMissing || error?.cause is MpvMissing
     androidx.compose.foundation.layout.Column(
-        androidx.compose.ui.Modifier.fillMaxSize().background(Palette.bg).padding(40.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+        // mpv's own words can run long: the text scrolls, and can be selected to copy into a bug report
+        androidx.compose.ui.Modifier.fillMaxSize().background(Palette.bg).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(40.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
     ) {
         androidx.compose.material3.Text(if (missing) "Spotifry needs mpv" else "Spotifry couldn't start", fontSize = 28.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-        androidx.compose.material3.Text(
+        androidx.compose.foundation.text.selection.SelectionContainer { androidx.compose.material3.Text(
             if (missing && Platform.isWindows) "Spotifry plays music through mpv, which should come inside Spotifry, and it can't be started. Install Spotifry again, or put mpv.exe next to Spotifry's own files."
             else if (missing) "Spotifry plays music through mpv, and mpv isn't installed. Install it with your package manager, for example:\n\n    sudo pacman -S mpv\n    sudo apt install mpv\n\nThen open Spotifry again."
             else "Something went wrong while starting: ${error?.message ?: "unknown error"}",
             color = Palette.ink2, fontSize = 15.sp, lineHeight = 22.sp, modifier = androidx.compose.ui.Modifier.padding(top = 14.dp),
-        )
+        ) }
     }
 }
 

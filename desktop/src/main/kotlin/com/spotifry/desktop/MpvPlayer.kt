@@ -182,9 +182,9 @@ class MpvPlayer(
     private var mpv: Mpv = newMpv().also(::observeAll)
 
     private fun newMpv(): Mpv {
-        lateinit var m: Mpv
-        // events before m is set can only be mpv starting up; the listener drops them
-        m = Mpv(mpvArgs) { name, e -> onMpv(m, name, e) }
+        var m: Mpv? = null
+        // events before m is set can only be mpv starting up (its first "idle"); they are dropped
+        m = Mpv(mpvArgs) { name, e -> m?.let { onMpv(it, name, e) } }
         m.observe(1, "time-pos")
         return m
     }

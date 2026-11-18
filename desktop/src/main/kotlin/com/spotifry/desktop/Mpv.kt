@@ -26,27 +26,23 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
     /** mpv's control address: a socket file on Linux, a named pipe on Windows. */
     private val endpoint = if (Platform.isWindows) "\\\\.\\pipe\\spotifry-mpv-${ProcessHandle.current().pid()}-${System.nanoTime()}" else socket.toString()
     private var pipe: AsynchronousFileChannel? = null
-    private val process: Process
+    private var process: Process
+    /** mpv's own messages (warnings and errors only): read when it stops at start, so the reason can be shown; gone on close. */
+    private val log = dir.resolve("mpv.log")
+    private var retried = false
     private val out: OutputStream
     private val reader: java.io.BufferedReader
     /** Set by [close]: the socket then breaks on purpose, and the event reader ends without a word. */
     @Volatile private var closing = false
 
     init {
-        process = try { ProcessBuilder(
-            // --no-config: a listener's own mpv.conf (keep-open=yes, say) must not change how the player behaves
-            listOf(binary, "--no-config", "--idle=yes", "--keep-open=no", "--no-video", "--no-terminal", "--audio-display=no", "--ytdl=no",
-                "--audio-client-name=Spotifry", "--input-ipc-server=$endpoint",
-                // the whole song is fetched ahead: a lossless file's server takes seconds per request, and a jump into a
-                // part not yet fetched could need several (mpv has to search the file for the spot)
-                "--cache=yes", "--demuxer-max-bytes=200MiB", "--demuxer-readahead-secs=3600") + extraArgs,
-        ).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start() } catch (e: java.io.IOException) { throw MpvMissing(e) }
+        process = launch(binary, extraArgs)
         // the socket (or pipe) shows up a moment after mpv starts
-        val until = System.currentTimeMillis() + 5_000
+        val until = System.currentTimeMillis() + 7_000
         if (Platform.isWindows) {
             // a pipe can't be asked whether it exists, only opened; opened without blocking, so a read waiting for an event never holds up a write
             while (pipe == null) {
-                check(process.isAlive) { "mpv stopped at start. Is mpv installed?" }
+                if (!process.isAlive) startAgain(binary, extraArgs)
                 check(System.currentTimeMillis() < until) { "mpv did not open its control pipe" }
                 pipe = runCatching { AsynchronousFileChannel.open(Path.of(endpoint), StandardOpenOption.READ, StandardOpenOption.WRITE) }.getOrNull() ?: run { Thread.sleep(20); null }
             }
@@ -62,7 +58,7 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
             }, Charsets.UTF_8).buffered()
         } else {
             while (!Files.exists(socket)) {
-                check(process.isAlive) { "mpv stopped at start. Is mpv installed?" }
+                if (!process.isAlive) startAgain(binary, extraArgs)
                 check(System.currentTimeMillis() < until) { "mpv did not open its control socket" }
                 Thread.sleep(20)
             }
@@ -72,6 +68,25 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
         }
         Thread(::listen, "mpv-events").apply { isDaemon = true }.start()
         Runtime.getRuntime().addShutdownHook(Thread { close() })
+    }
+
+    private fun launch(binary: String, extraArgs: List<String>): Process = try { ProcessBuilder(
+        // --no-config: a listener's own mpv.conf (keep-open=yes, say) must not change how the player behaves.
+        // No --no-terminal: that would hide why mpv refused to start; its warnings and errors go to [log] instead.
+        listOf(binary, "--no-config", "--idle=yes", "--keep-open=no", "--no-video", "--input-terminal=no", "--term-osd=no", "--msg-level=all=warn",
+            "--audio-display=no", "--ytdl=no", "--audio-client-name=Spotifry", "--input-ipc-server=$endpoint",
+            // the whole song is fetched ahead: a lossless file's server takes seconds per request, and a jump into a
+            // part not yet fetched could need several (mpv has to search the file for the spot)
+            "--cache=yes", "--demuxer-max-bytes=200MiB", "--demuxer-readahead-secs=3600") + extraArgs,
+    ).redirectErrorStream(true).redirectOutput(log.toFile()).start() } catch (e: java.io.IOException) { throw MpvMissing(e) }
+
+    /** mpv stopped before it opened its socket: once more a second later (an antivirus checking a new mpv.exe can stop it the first time), then the reason. */
+    private fun startAgain(binary: String, extraArgs: List<String>) {
+        val code = process.waitFor()
+        if (!retried) { retried = true; Thread.sleep(1000); process = launch(binary, extraArgs); return }
+        val said = runCatching { Files.readAllLines(log).filter { it.isNotBlank() }.takeLast(20) }.getOrDefault(emptyList())
+        runCatching { Files.deleteIfExists(log); Files.deleteIfExists(dir) }
+        throw IllegalStateException(mpvStopped(binary, code, said, Platform.isWindows))
     }
 
     private fun listen() {
@@ -96,6 +111,20 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
         runCatching { command("quit") }
         process.destroy()
         runCatching { pipe?.close() }
+        runCatching { process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS); Files.deleteIfExists(log) }
         runCatching { Files.deleteIfExists(socket); Files.deleteIfExists(dir) }
     }
+}
+
+/** Why mpv stopped at start, for the start screen and the log: its exit code, its last words, and on Windows the usual causes. */
+internal fun mpvStopped(binary: String, code: Int, said: List<String>, windows: Boolean): String = buildString {
+    append("mpv stopped at start (exit code $code")
+    if (code < 0 || code > 0xFFFF) append(", 0x%08X".format(code))
+    append(").")
+    when (code) {
+        0xC000001D.toInt() -> append(" This PC's processor can't run this mpv.")
+        0xC0000135.toInt() -> append(" A file mpv needs is missing.")
+    }
+    if (windows) append("\nAn antivirus may be blocking mpv.exe, or this Windows or PC is too old for it. mpv tried: $binary")
+    if (said.isNotEmpty()) append("\n\nmpv said:\n").append(said.joinToString("\n"))
 }
