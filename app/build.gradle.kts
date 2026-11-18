@@ -18,7 +18,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.spotifry.music"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 36
         versionCode = 26
         versionName = "0.16.1"

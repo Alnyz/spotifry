@@ -67,7 +67,7 @@ fun drawCard(
 
     val font = ResourcesCompat.getFont(context, R.font.albertsans)
     fun paint(size: Float, color: Color, weight: Int = 700, tight: Float = -.02f) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = font; textSize = size * em; this.color = color.toArgb(); fontVariationSettings = "'wght' $weight"; letterSpacing = tight
+        typeface = font; textSize = size * em; this.color = color.toArgb(); setWeight(weight); letterSpacing = tight
     }
     fun layout(text: String, p: TextPaint, width: Float, maxLines: Int, lineHeight: Float? = null): StaticLayout {
         val natural = p.fontMetrics.let { it.descent - it.ascent }
@@ -123,10 +123,13 @@ fun drawCard(
     return out
 }
 
+/** The font's weight axis moves from Android 8; older phones draw the font's own weight. */
+private fun TextPaint.setWeight(w: Int) { if (android.os.Build.VERSION.SDK_INT >= 26) fontVariationSettings = "'wght' $w" }
+
 /** The watermark at ([side], [top]): three bars, then the name. Returns its bottom. */
 internal fun drawWatermark(c: Canvas, font: Typeface?, em: Float, side: Float, top: Float, ink: CardInk): Float {
     val wm = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        typeface = font; textSize = .78f * em; color = ink.text.copy(alpha = ink.text.alpha * .88f).toArgb(); fontVariationSettings = "'wght' 700"; letterSpacing = -.01f
+        typeface = font; textSize = .78f * em; color = ink.text.copy(alpha = ink.text.alpha * .88f).toArgb(); setWeight(700); letterSpacing = -.01f
     }
     val wmEm = .78f * em
     val fm = wm.fontMetrics

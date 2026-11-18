@@ -195,7 +195,7 @@ class Updates(
     /** Android's installer; the first time Android asks to allow installs from Spotifry, then the user taps Update again. */
     private fun install(file: File) {
         val pm = context.packageManager
-        val intent = if (!pm.canRequestPackageInstalls()) {
+        val intent = if (android.os.Build.VERSION.SDK_INT >= 26 && !pm.canRequestPackageInstalls()) {
             Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
         } else {
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", file)

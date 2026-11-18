@@ -54,6 +54,7 @@ fun isExported(context: Context, path: String, title: String, artist: String): B
  * see it. Returns the folder it went to, or null if it could not be copied; it never throws, so a phone that refuses
  * cannot take the app down. Run off the main thread.
  */
+@android.annotation.SuppressLint("NewApi") // only reached when canExport (Android 10+): the menu hides the option before that
 fun exportToMusic(context: Context, path: String, title: String, artist: String): String? {
     if (!canExport) return null
     return copyOut(context, path, title, artist)?.also { exportTick.value++ }
@@ -92,6 +93,7 @@ private const val OPUS_FOLDER = "Music/Spotifry"
  * The .webm's Opus sound written into an Ogg Opus file in Music/Spotifry by Android's own muxer (Android 10 and up),
  * with nothing re-encoded. Returns the folder, or null when the phone could not do it; a half-made file is removed.
  */
+@android.annotation.SuppressLint("NewApi") // Ogg muxing: Android 10+, called only from exportToMusic
 private fun exportAsOpus(resolver: android.content.ContentResolver, file: File, title: String, artist: String): String? {
     var uri: android.net.Uri? = null
     return try {
