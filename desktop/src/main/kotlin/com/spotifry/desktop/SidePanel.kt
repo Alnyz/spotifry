@@ -136,7 +136,7 @@ fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haz
                     }
                 }
                 BarIcon(Icons.Next, "Next", Palette.ink, 4.dp) { player.next() }
-                BarIcon(Icons.Repeat, when (state.repeatMode) { RepeatMode.ALL -> "Repeat all"; RepeatMode.ONE -> "Repeat this song"; else -> "Repeat off" }, if (state.repeatMode != RepeatMode.OFF) Palette.accent else Palette.ink2) { player.cycleRepeat() }
+                BarIcon(if (state.repeatMode == RepeatMode.ONE) Icons.RepeatOne else Icons.Repeat, when (state.repeatMode) { RepeatMode.ALL -> "Repeat all"; RepeatMode.ONE -> "Repeat this song"; else -> "Repeat off" }, if (state.repeatMode != RepeatMode.OFF) Palette.accent else Palette.ink2) { player.cycleRepeat() }
             }
             BarSeek(player, state)
         }
