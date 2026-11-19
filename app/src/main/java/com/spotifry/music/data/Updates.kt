@@ -28,13 +28,24 @@ data class Release(val version: String, val notes: String, val apkUrl: String, v
 /** One line of the change log: a version, its notes as written, and the date it came out (GitHub's ISO text, may be empty). */
 data class LogEntry(val version: String, val notes: String, val date: String)
 
-/** Every published release, newest first as GitHub sends them; drafts and releases without a tag are left out. */
+/**
+ * Every published phone release, newest first as GitHub sends them. The desktop app has its own releases in the same
+ * list; only the ones carrying an APK belong to the phone. Drafts and releases without a tag are left out.
+ */
 fun parseReleases(json: String): List<LogEntry> {
     val a = org.json.JSONArray(json)
     return (0 until a.length()).map { a.getJSONObject(it) }
-        .filter { !it.optBoolean("draft") && it.optString("tag_name").isNotEmpty() }
-        .map { LogEntry(it.optString("tag_name").removePrefix("v"), it.optString("body"), it.optString("published_at")) }
+        .filter { !it.optBoolean("draft") && it.optString("tag_name").isNotEmpty() && it.hasApk() }
+        .map { LogEntry(tagVersion(it.optString("tag_name")), it.optString("body"), it.optString("published_at")) }
 }
+
+private fun JSONObject.hasApk(): Boolean {
+    val assets = optJSONArray("assets") ?: return false
+    return (0 until assets.length()).any { assets.getJSONObject(it).optString("name").endsWith(".apk") }
+}
+
+/** "v1.0.0" and "android-v1.0.1" both give the bare number. */
+fun tagVersion(tag: String) = tag.removePrefix("android-").removePrefix("v")
 
 private fun List<LogEntry>.toJson() = org.json.JSONArray(map { org.json.JSONObject().put("v", it.version).put("n", it.notes).put("d", it.date) }).toString()
 private fun logFromJson(json: String): List<LogEntry> = runCatching {
@@ -58,14 +69,26 @@ sealed interface UpdateState {
     data class Ready(val release: Release, val file: File) : UpdateState
 }
 
-/** Reads GitHub's answer for the latest release; null if it has no APK attached. */
-fun parseRelease(json: String): Release? {
-    val o = JSONObject(json)
+/**
+ * The newest phone release in GitHub's release list: the first one, not a draft or pre-release, with an APK attached.
+ * GitHub's own "latest" can be a desktop release, which has no APK, so it isn't used.
+ */
+fun newestPhoneRelease(json: String): Release? {
+    val a = org.json.JSONArray(json)
+    return (0 until a.length()).map { a.getJSONObject(it) }
+        .filter { !it.optBoolean("draft") && !it.optBoolean("prerelease") }
+        .firstNotNullOfOrNull(::parseRelease)
+}
+
+/** Reads one release from GitHub; null if it has no APK attached. */
+fun parseRelease(json: String): Release? = parseRelease(JSONObject(json))
+
+private fun parseRelease(o: JSONObject): Release? {
     val assets = o.optJSONArray("assets") ?: return null
     for (i in 0 until assets.length()) {
         val a = assets.getJSONObject(i)
         if (a.optString("name").endsWith(".apk")) {
-            return Release(o.optString("tag_name").removePrefix("v"), o.optString("body"), a.getString("browser_download_url"), a.optLong("size"))
+            return Release(tagVersion(o.optString("tag_name")), o.optString("body"), a.getString("browser_download_url"), a.optLong("size"))
         }
     }
     return null
@@ -165,10 +188,10 @@ class Updates(
     }
 
     private fun fetchLatest(): Release? {
-        val req = Request.Builder().url(LATEST).header("Accept", "application/vnd.github+json").header("User-Agent", "Spotifry/$currentVersion").build()
+        val req = Request.Builder().url("$RELEASES?per_page=30").header("Accept", "application/vnd.github+json").header("User-Agent", "Spotifry/$currentVersion").build()
         return client.newCall(req).execute().use { r ->
             check(r.isSuccessful) { "GitHub answered ${r.code}" }
-            parseRelease(r.body!!.string())
+            newestPhoneRelease(r.body!!.string())
         }
     }
 
@@ -207,7 +230,6 @@ class Updates(
     companion object {
         private const val RELEASES = "https://api.github.com/repos/Alnyz/spotifry/releases"
         const val LOG = "change_log"
-        private const val LATEST = "https://api.github.com/repos/Alnyz/spotifry/releases/latest"
         const val LAST_CHECK = UPDATE_LAST_CHECK
         const val LATER = UPDATE_LATER
         private const val DAY_MS = 24 * 60 * 60 * 1000L

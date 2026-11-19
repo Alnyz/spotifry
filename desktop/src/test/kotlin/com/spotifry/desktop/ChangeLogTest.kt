@@ -18,6 +18,14 @@ class ChangeLogTest {
         assertEquals("2026-11-10T00:00:00Z", log[1].date)
     }
 
+    @Test fun theSharedReleaseCountsAndPhoneOnlyOnesDont() {
+        val json = "[" + listOf(
+            release("android-v1.0.1", "phone fixes", extra = ""","assets":[{"name":"spotifry-1.0.1.apk"}]"""),
+            release("v1.0.0", "both", extra = ""","assets":[{"name":"spotifry-1.0.0.apk"},{"name":"Spotifry-1.0.0-x86_64.AppImage"}]"""),
+        ).joinToString(",") + "]"
+        assertEquals(listOf("1.0.0"), parseDesktopLog(json).map { it.version })
+    }
+
     @Test fun notesLoseTheirMarkdown() {
         val md = "## What's new\n\n- **Settings** page\n* Fixed `Opus` export\n\n\n\nSee [the site](https://x.y/z)."
         assertEquals("What's new\n\n• Settings page\n• Fixed Opus export\n\nSee the site.", plainNotes(md))

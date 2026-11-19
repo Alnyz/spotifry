@@ -36,4 +36,17 @@ class UpdatesTest {
     @Test fun releaseWithoutApkIsIgnored() = assertNull(parseRelease("""{"tag_name":"v9.0.0","body":"","assets":[]}"""))
 
     @Test fun headlineSkipsMarkdownMarks() = assertEquals("New things", Release("1", "\n## New things\nmore", "", 0).headline)
+
+    @Test fun skipsDesktopReleasesWhenLookingForThePhones() {
+        val json = """
+            [{"tag_name":"desktop-v1.1.0","body":"New Home","assets":[{"name":"Spotifry-1.1.0-x86_64.AppImage","browser_download_url":"https://x/a","size":1}]},
+             {"tag_name":"android-v1.0.2","body":"Next","prerelease":true,"assets":[{"name":"spotifry-1.0.2.apk","browser_download_url":"https://x/p","size":1}]},
+             {"tag_name":"android-v1.0.1","body":"Fixes","assets":[{"name":"spotifry-1.0.1.apk","browser_download_url":"https://x/b","size":2}]},
+             {"tag_name":"v1.0.0","body":"First","assets":[{"name":"spotifry-1.0.0.apk","browser_download_url":"https://x/c","size":3}]}]
+        """.trimIndent()
+        val r = newestPhoneRelease(json)!!
+        assertEquals("1.0.1", r.version)
+        assertEquals("https://x/b", r.apkUrl)
+        assertEquals(listOf("1.0.2", "1.0.1", "1.0.0"), parseReleases(json).map { it.version })
+    }
 }

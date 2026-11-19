@@ -1523,8 +1523,10 @@ document.querySelectorAll('details.qa').forEach(d => d.addEventListener('toggle'
 </script>
 <script>
 /* the newest version from GitHub, so the page never shows an old number */
-fetch('https://api.github.com/repos/Alnyz/spotifry/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
-  const v = j && String(j.tag_name || '').replace(/^v/, ''); if (!/^\d+(\.\d+)*$/.test(v || '')) return;
+fetch('https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30').then(r => r.ok ? r.json() : null).then(list => {
+  /* the newest release with the phone's APK in it; GitHub's own "latest" can be a desktop-only release */
+  const j = (list || []).find(r => !r.draft && !r.prerelease && (r.assets || []).some(x => x.name.endsWith('.apk')));
+  const v = j && String(j.tag_name || '').replace(/^android-/, '').replace(/^v/, ''); if (!/^\d+(\.\d+)*$/.test(v || '')) return;
   document.querySelectorAll('[data-ver]').forEach(e => { e.textContent = v; });
   const f = (j.assets || []).find(x => x.name.endsWith('.apk')); if (f) document.querySelectorAll('[data-dl="apk"]').forEach(a => { a.href = f.browser_download_url; });
 }).catch(() => {});
@@ -1534,7 +1536,7 @@ fetch('https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30').then(r
   const dv = (t.assets.find(x => /\.AppImage$/.test(x.name)).name.match(/^Spotifry-(.+)-x86_64\.AppImage$/) || [])[1];
   if (dv) document.querySelectorAll('[data-ver-desktop]').forEach(e => { e.textContent = dv; });
   /* the download buttons point straight at the file of the newest desktop release */
-  document.querySelectorAll('[data-dl]').forEach(a => { const f = (t.assets || []).find(x => x.name.endsWith('.' + a.dataset.dl)); if (f) a.href = f.browser_download_url; });
+  document.querySelectorAll('[data-dl]:not([data-dl="apk"])').forEach(a => { const f = (t.assets || []).find(x => x.name.endsWith('.' + a.dataset.dl)); if (f) a.href = f.browser_download_url; });
 }).catch(() => {});
 </script>
 <script>

@@ -14,12 +14,20 @@ import java.io.File
 /** One desktop release in the change log: its version, GitHub's ISO date text (may be empty) and its notes as plain text. */
 data class DesktopLogEntry(val version: String, val date: String, val notes: String)
 
-/** The desktop releases (tag "desktop-…") in GitHub's list, in its order; the phone's releases, drafts and pre-releases are left out. */
+/**
+ * The desktop releases in GitHub's list, in its order: tagged "desktop-…", or carrying the desktop files (1.0.0 was one
+ * release for the phone and the desktop). The phone's own releases, drafts and pre-releases are left out.
+ */
 fun parseDesktopLog(json: String): List<DesktopLogEntry> {
     val list = JSONArray(json)
     return (0 until list.length()).map(list::getJSONObject)
-        .filter { it.optString("tag_name").startsWith("desktop-") && !it.optBoolean("draft") && !it.optBoolean("prerelease") }
+        .filter { (it.optString("tag_name").startsWith("desktop-") || it.hasDesktopFiles()) && !it.optBoolean("draft") && !it.optBoolean("prerelease") }
         .map { DesktopLogEntry(it.optString("tag_name").removePrefix("desktop-").removePrefix("v"), it.optString("published_at"), plainNotes(it.optString("body"))) }
+}
+
+private fun JSONObject.hasDesktopFiles(): Boolean {
+    val assets = optJSONArray("assets") ?: return false
+    return (0 until assets.length()).any { assets.getJSONObject(it).optString("name").let { n -> n.endsWith(".AppImage") || n.endsWith(".msi") } }
 }
 
 /** Release notes as people read them: no #, **, backticks or link addresses; list dashes become bullets. */
