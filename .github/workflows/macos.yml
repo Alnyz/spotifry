@@ -55,6 +55,8 @@ jobs:
         run: |
           app=$(find desktop/build/compose/binaries/main/app -maxdepth 1 -name "*.app" | head -1)
           echo "starting $app"
+          res="$app/Contents/app/resources"; ls -la "$res" || find "$app" -name mpv -exec ls -la {} \;
+          "$res/mpv" --version | head -1 || true
           codesign --verify --deep --strict "$app" && echo "signature ok"
           open "$app"
           sleep 30
