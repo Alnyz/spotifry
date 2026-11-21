@@ -12,10 +12,11 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class ChangeLogTest {
     @Test fun releasesKeepOrderAndSkipDrafts() {
+        // every release here carries a phone file; a desktop-only release is left out (see the apk check in Updates.kt)
         val json = """[
-            {"tag_name":"v0.16.0","body":"New page","published_at":"2026-11-14T09:00:00Z","draft":false},
-            {"tag_name":"v0.15.9","body":"x","draft":true},
-            {"tag_name":"0.15.2","body":"Fix","published_at":"2026-11-13T09:00:00Z"}]"""
+            {"tag_name":"v0.16.0","body":"New page","published_at":"2026-11-14T09:00:00Z","draft":false,"assets":[{"name":"spotifry.apk"}]},
+            {"tag_name":"v0.15.9","body":"x","draft":true,"assets":[{"name":"spotifry.apk"}]},
+            {"tag_name":"0.15.2","body":"Fix","published_at":"2026-11-13T09:00:00Z","assets":[{"name":"spotifry.apk"}]}]"""
         val list = parseReleases(json)
         assertEquals(listOf("0.16.0", "0.15.2"), list.map { it.version })
         assertEquals("New page", list[0].notes)
