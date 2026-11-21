@@ -20,8 +20,8 @@ android {
         applicationId = "com.spotifry.music"
         minSdk = 24
         targetSdk = 36
-        versionCode = 28
-        versionName = "1.1.0"
+        versionCode = 29
+        versionName = "1.1.1"
         // shown under Settings > About, so it is clear when the YouTube reader is due an update
         buildConfigField("String", "NEWPIPE_VERSION", "\"${libs.versions.newpipe.get()}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
