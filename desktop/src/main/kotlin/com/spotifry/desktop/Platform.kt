@@ -2,13 +2,14 @@ package com.spotifry.desktop
 
 import java.io.File
 
-/** Where the app runs, and the few things that differ between Linux and Windows. */
+/** Where the app runs, and the few things that differ between Linux, Windows and macOS. */
 object Platform {
     private val os = System.getProperty("os.name").lowercase()
     val isWindows = os.contains("win")
     val isLinux = os.contains("linux")
+    val isMac = os.contains("mac")
 
-    /** Files that come inside the installed app (mpv and ffmpeg on Windows); null when the app runs from Gradle. */
+    /** Files that come inside the installed app (mpv and ffmpeg on Windows and macOS); null when the app runs from Gradle. */
     private val bundled: File? = System.getProperty("compose.application.resources.dir")?.let(::File)
 
     /** [name] as a command: the copy that came with the app when there is one, else whatever the PATH holds. */
@@ -26,9 +27,10 @@ object Platform {
         }.getOrNull()
     }
 
-    /** Where the app keeps its files: %APPDATA%\spotifry on Windows, $XDG_DATA_HOME/spotifry (else ~/.local/share/spotifry) elsewhere. */
+    /** Where the app keeps its files: %APPDATA%\spotifry on Windows, ~/Library/Application Support/spotifry on macOS, $XDG_DATA_HOME/spotifry (else ~/.local/share/spotifry) on Linux. */
     fun dataRoot(): File {
         val home = System.getProperty("user.home")
+        if (isMac) return File(home, "Library/Application Support")
         return if (isWindows) File(System.getenv("APPDATA") ?: "$home/AppData/Roaming") else File(System.getenv("XDG_DATA_HOME") ?: "$home/.local/share")
     }
 

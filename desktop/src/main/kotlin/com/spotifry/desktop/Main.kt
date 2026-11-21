@@ -210,7 +210,7 @@ private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean,
     if (trayOk && !restarting) {
         val st by services.player.state.collectAsState()
         Tray(
-            androidx.compose.ui.graphics.vector.rememberVectorPainter(if (Platform.isWindows) Logo.image else Logo.tray), tooltip = "Spotifry", onAction = { shown = true; services.raise() },
+            androidx.compose.ui.graphics.vector.rememberVectorPainter(if (Platform.isLinux) Logo.tray else Logo.image), tooltip = "Spotifry", onAction = { shown = true; services.raise() },
             menu = {
                 Item("Open Spotifry", onClick = { shown = true; services.raise() })
                 Item(if (st.wantsPlay) "Pause" else "Play", onClick = { services.player.toggle() })
@@ -246,6 +246,7 @@ fun StartFailed(error: Throwable?) {
         androidx.compose.material3.Text(if (missing) "Spotifry needs mpv" else "Spotifry couldn't start", fontSize = 28.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
         androidx.compose.foundation.text.selection.SelectionContainer { androidx.compose.material3.Text(
             if (missing && Platform.isWindows) "Spotifry plays music through mpv, which should come inside Spotifry, and it can't be started. Install Spotifry again, or put mpv.exe next to Spotifry's own files."
+            else if (missing && Platform.isMac) "Spotifry plays music through mpv, which should come inside Spotifry, and it can't be started. Download Spotifry again and drag it into Applications."
             else if (missing) "Spotifry plays music through mpv, and mpv isn't installed. Install it with your package manager, for example:\n\n    sudo pacman -S mpv\n    sudo apt install mpv\n\nThen open Spotifry again."
             else "Something went wrong while starting: ${error?.message ?: "unknown error"}",
             color = Palette.ink2, fontSize = 15.sp, lineHeight = 22.sp, modifier = androidx.compose.ui.Modifier.padding(top = 14.dp),

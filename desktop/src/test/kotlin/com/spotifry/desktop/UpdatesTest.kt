@@ -10,28 +10,29 @@ class UpdatesTest {
 
     @Test fun phoneReleasesAreSkipped() {
         val json = "[" + listOf(release("v0.14.0", "spotifry-0.14.0.apk"), release("desktop-v0.3.0", "Spotifry-0.3.0-x86_64.AppImage"), release("desktop-v0.2.0", "Spotifry-0.2.0-x86_64.AppImage")).joinToString(",") + "]"
-        assertEquals(DesktopRelease("0.3.0", "https://github.com/x/releases/tag/desktop-v0.3.0"), newestDesktopRelease(json, windows = false))
+        assertEquals(DesktopRelease("0.3.0", "https://github.com/x/releases/tag/desktop-v0.3.0"), newestDesktopRelease(json, windows = false, mac = false))
     }
 
     @Test fun draftsDontCountAndNoAppImageIsNothing() {
-        assertNull(newestDesktopRelease("[" + release("desktop-v0.4.0", "Spotifry-0.4.0-x86_64.AppImage", draft = true) + "," + release("v0.14.0", "a.apk") + "]", windows = false))
+        assertNull(newestDesktopRelease("[" + release("desktop-v0.4.0", "Spotifry-0.4.0-x86_64.AppImage", draft = true) + "," + release("v0.14.0", "a.apk") + "]", windows = false, mac = false))
     }
 
     @Test fun eachSystemLooksForItsOwnFile() {
-        val json = "[" + release("desktop-v0.7.0", "Spotifry-0.7.0-windows-x64.msi") + "," + release("desktop-v0.6.0", "Spotifry-0.6.0-x86_64.AppImage") + "]"
+        val json = "[" + release("desktop-v0.7.0", "Spotifry-0.7.0-windows-x64.msi") + "," + release("desktop-v0.6.0", "Spotifry-0.6.0-x86_64.AppImage") + "," + release("desktop-v0.5.0", "Spotifry-0.5.0-macos-arm64.dmg") + "]"
         assertEquals("0.7.0", newestDesktopRelease(json, windows = true)!!.version)
-        assertEquals("0.6.0", newestDesktopRelease(json, windows = false)!!.version)
+        assertEquals("0.5.0", newestDesktopRelease(json, windows = false, mac = true)!!.version)
+        assertEquals("0.6.0", newestDesktopRelease(json, windows = false, mac = false)!!.version)
     }
 
     @Test fun theNewestWinsWhateverTheOrder() {
         val json = "[" + release("d2", "Spotifry-0.2.0-x86_64.AppImage") + "," + release("d10", "Spotifry-0.10.0-x86_64.AppImage") + "]"
-        assertEquals("0.10.0", newestDesktopRelease(json, windows = false)!!.version)
+        assertEquals("0.10.0", newestDesktopRelease(json, windows = false, mac = false)!!.version)
     }
 
     @Test fun theReleaseKeepsItsDownloadAddressSizeAndChecksum() {
         val sum = "a".repeat(64)
         val json = """[{"tag_name":"d","html_url":"page","draft":false,"prerelease":false,"assets":[{"name":"Spotifry-0.8.0-x86_64.AppImage","browser_download_url":"https://github.com/x/f","size":42,"digest":"sha256:$sum"}]}]"""
-        assertEquals(DesktopRelease("0.8.0", "page", "https://github.com/x/f", 42, sum), newestDesktopRelease(json, windows = false))
+        assertEquals(DesktopRelease("0.8.0", "page", "https://github.com/x/f", 42, sum), newestDesktopRelease(json, windows = false, mac = false))
     }
 
     @Test fun swappingReplacesTheFileAndMakesItRunnable() {

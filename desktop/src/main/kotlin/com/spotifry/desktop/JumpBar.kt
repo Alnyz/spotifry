@@ -36,7 +36,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import com.spotifry.music.data.db.SongEntity
 
-val isMac = System.getProperty("os.name").orEmpty().lowercase().contains("mac")
+val isMac = Platform.isMac
 
 /** What the shortcut is called on this system: ⌘ K on a Mac, Ctrl K elsewhere (the Windows key is reserved by Windows, so it is not used). */
 val jumpShortcut = if (isMac) "⌘ K" else "Ctrl K"

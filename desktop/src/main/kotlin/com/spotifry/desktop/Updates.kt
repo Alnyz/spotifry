@@ -18,10 +18,15 @@ data class DesktopRelease(val version: String, val page: String, val file: Strin
 /**
  * The newest desktop release in GitHub's list of releases for this system. The phone's releases share the repository, so a
  * release counts only when it carries this system's file, and its version is read from the file's name:
- * Spotifry-<version>-x86_64.AppImage on Linux, Spotifry-<version>-windows-x64.msi on Windows. Drafts and pre-releases are skipped.
+ * Spotifry-<version>-x86_64.AppImage on Linux, Spotifry-<version>-windows-x64.msi on Windows, Spotifry-<version>-macos-arm64.dmg
+ * on macOS. Drafts and pre-releases are skipped.
  */
-fun newestDesktopRelease(json: String, windows: Boolean = Platform.isWindows): DesktopRelease? {
-    val file = if (windows) Regex("^Spotifry-(.+)-windows-x64\\.msi$") else Regex("^Spotifry-(.+)-x86_64\\.AppImage$")
+fun newestDesktopRelease(json: String, windows: Boolean = Platform.isWindows, mac: Boolean = Platform.isMac): DesktopRelease? {
+    val file = when {
+        windows -> Regex("^Spotifry-(.+)-windows-x64\\.msi$")
+        mac -> Regex("^Spotifry-(.+)-macos-arm64\\.dmg$")
+        else -> Regex("^Spotifry-(.+)-x86_64\\.AppImage$")
+    }
     val list = JSONArray(json)
     return (0 until list.length()).map(list::getJSONObject).filter { !it.optBoolean("draft") && !it.optBoolean("prerelease") }.mapNotNull { r ->
         val assets = r.optJSONArray("assets") ?: return@mapNotNull null
@@ -37,6 +42,7 @@ val desktopVersion get() = APP_VERSION.removePrefix("desktop-")
 /**
  * Asks GitHub, at most once a day, whether a newer desktop Spotifry is out, and installs it from inside the app: on Linux
  * the new AppImage is downloaded next to the running one and moved over it; on Windows the new .msi is downloaded and run.
+ * On macOS the download page opens: an app the user dragged into Applications is replaced the same way, by hand.
  * Where that can't work (the app doesn't run from an AppImage, the folder can't be written, the download fails) the
  * release page opens in the browser as before.
  */

@@ -41,19 +41,27 @@ compose.desktop {
         nativeDistributions {
             // an app folder with its own Java inside; packaging/build-appimage.sh turns it into one AppImage file
             packageName = "spotifry"
-            // the Windows installer; Linux is packed by packaging/build-appimage.sh from createDistributable
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
+            // the Windows installer and the macOS disk image; Linux is packed by packaging/build-appimage.sh from createDistributable
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg)
             packageVersion = "1.1.0"
             // only what the app needs (from suggestRuntimeModules); jdk.crypto.ec keeps the HTTPS connections working
             modules("java.instrument", "java.net.http", "jdk.dynalink", "jdk.httpserver", "jdk.security.auth", "jdk.unsupported", "jdk.crypto.ec")
-            // files that travel inside the installed app: on Windows mpv.exe, ffmpeg.exe and ffprobe.exe, put in app-resources/windows
-            // by the build recipe (.github/workflows/windows.yml) before packaging; nothing in the repo
+            // files that travel inside the installed app: mpv, ffmpeg and ffprobe, put in app-resources/windows (and app-resources/macos)
+            // by the build recipe (.github/workflows/windows.yml and macos.yml) before packaging; nothing in the repo
             appResourcesRootDir.set(project.layout.projectDirectory.dir("app-resources"))
             linux { iconFile.set(project.file("packaging/spotifry.png")); appCategory = "AudioVideo" }
             windows {
                 iconFile.set(project.file("packaging/spotifry.ico"))
                 menuGroup = "Spotifry"; shortcut = true; perUserInstall = true; dirChooser = true
                 upgradeUuid = "6e0f4f0e-3f0c-4a54-9a8b-7a1f2c5d9b31"
+            }
+            // no Apple developer account: the app is signed only by itself, so the first start needs "Open Anyway" in Privacy & Security
+            macOS {
+                iconFile.set(project.file("packaging/spotifry.icns"))
+                packageName = "Spotifry"; dockName = "Spotifry"
+                bundleID = "com.spotifry.desktop"
+                appCategory = "public.app-category.music"
+                minimumSystemVersion = "12.0"
             }
         }
     }

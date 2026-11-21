@@ -1,0 +1,100 @@
+name: macos
+
+# Builds Spotifry for desktop on a Mac (Apple chip) GitHub lends for a few minutes, runs the tests there, starts the
+# packaged app and takes a picture of it. The disk image and the pictures are kept under "Artifacts" on the run's page.
+on:
+  push:
+    branches: [desktop]
+    paths: ["desktop/**", "shared/**", "buildSrc/**", "gradle/**", "*.kts", "gradle.properties", ".github/workflows/macos.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # mpv plays the music and ffmpeg reads covers and music folders; both travel inside the app. Homebrew's builds are
+      # copied in with every library they need (dylibbundler), so the app runs on a Mac without Homebrew.
+      # ponytail: Homebrew's newest builds, not pinned; the app is as old a macOS as these were built for (the runner's).
+      - name: mpv and ffmpeg
+        run: |
+          brew install mpv ffmpeg dylibbundler
+          out=desktop/app-resources/macos
+          mkdir -p "$out/libs"
+          for t in mpv ffmpeg ffprobe; do cp "$(brew --prefix)/bin/$t" "$out/$t"; chmod u+w "$out/$t"; done
+          dylibbundler -od -b -cd -ns -d "$out/libs" -p @executable_path/libs/ -s "$(brew --prefix)/lib" \
+            -x "$out/mpv" -x "$out/ffmpeg" -x "$out/ffprobe" > /dev/null
+          # install_name_tool broke the signatures; an Apple chip refuses to run unsigned code, so each file signs itself again
+          find "$out" -type f -exec codesign --force -s - {} \;
+          bad=$(for f in "$out"/mpv "$out"/libs/*; do otool -L "$f" | tail -n +2 | grep -v -e @executable_path -e /usr/lib/ -e /System/; done || true)
+          [ -z "$bad" ] || { echo "still pointing outside the app:"; echo "$bad"; exit 1; }
+          du -sh "$out"; ls "$out/libs" | wc -l
+          # the copied mpv must run with Homebrew out of the way
+          env -i "$out/mpv" --version | head -1
+
+      - name: Tests
+        run: ./gradlew :shared:test :desktop:test --continue
+
+      - name: Disk image
+        run: ./gradlew :desktop:packageDmg :desktop:createDistributable
+
+      - name: Start the packaged app and take a picture
+        run: |
+          app=$(find desktop/build/compose/binaries/main/app -maxdepth 1 -name "*.app" | head -1)
+          echo "starting $app"
+          codesign --verify --deep --strict "$app" && echo "signature ok"
+          open "$app"
+          sleep 30
+          screencapture -x app-started.png || true
+          ps -axo pid,comm | grep -iE "spotifry|mpv" | grep -v grep || true
+          pgrep -f "$app/Contents/MacOS" > /dev/null || { echo "the app closed by itself"; exit 1; }
+          pgrep -x mpv > /dev/null || { echo "mpv did not start: the app has no player"; exit 1; }
+          pkill -f "$app/Contents/MacOS" || true; pkill -x mpv || true
+
+      - name: Name the disk image
+        if: always()
+        run: |
+          mkdir -p out
+          v=$(sed -n 's/.*packageVersion = "\(.*\)".*/\1/p' desktop/build.gradle.kts | head -1)
+          for f in desktop/build/compose/binaries/main/dmg/*.dmg; do cp "$f" "out/Spotifry-$v-macos-arm64.dmg"; done
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-disk-image
+          path: out/*.dmg
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-pictures
+          path: |
+            app-started.png
+            desktop/build/snapshots/*.png
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-test-reports
+          path: |
+            desktop/build/reports/tests
+            shared/build/reports/tests
+            desktop/build/test-results/test/*.xml
+            shared/build/test-results/test/*.xml
+          if-no-files-found: warn
