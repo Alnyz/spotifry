@@ -1,5 +1,6 @@
 package com.spotifry.music.player
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,5 +23,21 @@ class QualityUpgraderTest {
         assertFalse(fetchWhole(data.size.toLong(), read(data, 150_000), f) { true }) // cut short
         assertTrue(fetchWhole(-1, read(data, 1_000), f) { true }) // length not announced: what came is taken
         f.delete()
+    }
+
+    @Test fun `whole better copies outlive a restart, cut downloads and copies no better than the stored one go`() {
+        val dir = kotlin.io.path.createTempDirectory("upgrades").toFile()
+        fun put(f: java.io.File) = f.apply { writeText("x") }
+        val lossless = put(betterFile(dir, "a/b.c", "monochrome")) // an id with a slash and a dot comes back whole
+        val poorer = put(betterFile(dir, "a/b.c", "saavn")) // the same song's poorer copy
+        val part = put(java.io.File(betterFile(dir, "cut", "monochrome").path + ".part"))
+        val notBetter = put(betterFile(dir, "kept", "saavn"))
+        val old = put(java.io.File(dir, "123.copy")) // named the old way
+        val stored = mapOf("kept" to "saavn")
+        val ready = waitingCopies(dir) { stored[it] }
+        assertEquals(mapOf("a/b.c" to (lossless to "monochrome")), ready)
+        assertTrue(lossless.exists())
+        for (f in listOf(poorer, part, notBetter, old)) assertFalse(f.name, f.exists())
+        dir.deleteRecursively()
     }
 }

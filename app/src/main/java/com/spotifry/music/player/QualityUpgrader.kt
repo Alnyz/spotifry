@@ -37,7 +37,7 @@ class QualityUpgrader(
     private val onUnmetered: () -> Boolean,
     private val isSaved: suspend (String) -> Boolean,
     private val http: DataSource.Factory? = null,
-    /** Where better copies wait while they download; emptied when the app starts. */
+    /** Where better copies download and wait to go in place; a whole one is kept across restarts (see [waitingCopies]). */
     private val dir: java.io.File? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     private val now: () -> Long = System::currentTimeMillis,
@@ -51,7 +51,8 @@ class QualityUpgrader(
     private val loader = Mutex()
     /** Seconds of the playing song buffered ahead, set by the player. A download waits while it is low, so a weak connection goes to the song being heard. */
     @Volatile var bufferedAheadMs: Long = Long.MAX_VALUE
-    init { dir?.let { d -> d.mkdirs(); d.listFiles()?.forEach { it.delete() } } }
+    // copies finished before Android closed the app go in place at the next song change instead of downloading again
+    init { dir?.let { d -> d.mkdirs(); ready.putAll(waitingCopies(d, ::storedOrigin)) } }
 
     /** The songs playing or next, as of the last song change. ponytail: a song that starts after a swap has begun can still be caught; nothing guards that gap. */
     @Volatile private var busyNow: Set<String> = emptySet()
@@ -89,13 +90,13 @@ class QualityUpgrader(
         scope.launch {
             try {
                 loader.withLock {
-                    val part = java.io.File(dir, "${song.id.hashCode()}.part")
+                    val done = betterFile(dir, song.id, stream.origin)
+                    val part = java.io.File(done.path + ".part")
                     part.delete()
                     val ok = runCatching { fetchResuming(http, stream.url, part) { bufferedAheadMs >= LOW_BUFFER_MS } }
                         .onFailure { say("download of ${song.id} failed: $it") }.getOrDefault(false)
                     if (ok) {
                         say("${stream.origin} copy of ${song.id} done, waits for the song to stop")
-                        val done = java.io.File(dir, "${song.id.hashCode()}.copy")
                         if (part.renameTo(done)) ready[song.id] = done to stream.origin else part.delete()
                     } else {
                         part.delete()
@@ -196,3 +197,24 @@ class QualityUpgrader(
 }
 
 private const val LOW_BUFFER_MS = 20_000L
+
+/** Where the whole better copy of song [id] from [origin] waits; it downloads as this name plus ".part". */
+internal fun betterFile(dir: java.io.File, id: String, origin: String) =
+    java.io.File(dir, "${java.net.URLEncoder.encode(id, "UTF-8")}.$origin.better")
+
+/**
+ * The whole better copies in [dir] still worth putting in place, as song id to the file and its origin. Everything else
+ * goes: downloads cut short, and copies no better than the one stored now ([storedOrigin], null when none is stored).
+ */
+internal fun waitingCopies(dir: java.io.File, storedOrigin: (String) -> String?): Map<String, Pair<java.io.File, String>> {
+    val keep = HashMap<String, Pair<java.io.File, String>>()
+    for (f in dir.listFiles().orEmpty()) {
+        val name = f.name.removeSuffix(".better")
+        val id = runCatching { java.net.URLDecoder.decode(name.substringBeforeLast('.'), "UTF-8") }.getOrNull()
+        val origin = name.substringAfterLast('.')
+        val stored = id?.let(storedOrigin)
+        val wanted = id != null && name != f.name && '.' in name && (stored == null || qualityRank(origin) > qualityRank(stored))
+        if (wanted && qualityRank(origin) > qualityRank(keep[id]?.second)) { keep[id]?.first?.delete(); keep[id] = f to origin } else f.delete()
+    }
+    return keep
+}
