@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
@@ -175,11 +177,12 @@ fun main() {
     window()
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 private fun window() = application {
     com.spotifry.music.data.AppVersion.name = desktopVersion
     // a restored backup changes every setting: the window is built again from the files
     var generation by remember { mutableStateOf(0) }
-    key(generation) {
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.window.LocalWindowExceptionHandlerFactory provides LoggedErrors) { key(generation) {
         val started = remember { runCatching { productionServices() }.onFailure { System.err.println("${java.time.LocalTime.now().withNano(0)} start failed:"); it.printStackTrace() } }
         val services = started.getOrNull()
         var restarting by remember { mutableStateOf(false) }
@@ -189,6 +192,16 @@ private fun window() = application {
             // the old screens leave first: one last redraw of them would read from the closed database and crash
             if (restarting) LaunchedEffect(Unit) { services.close(); generation++ }
         }
+    } }
+}
+
+/** A crash inside a window still shows Compose's error box, but its full story goes to last.log first, so a report can say where. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+private object LoggedErrors : androidx.compose.ui.window.WindowExceptionHandlerFactory {
+    override fun exceptionHandler(window: java.awt.Window) = androidx.compose.ui.window.WindowExceptionHandler { e ->
+        System.err.println("${java.time.LocalTime.now().withNano(0)} window crashed ($APP_VERSION, ${System.getProperty("os.name")}):")
+        e.printStackTrace()
+        androidx.compose.ui.window.DefaultWindowExceptionHandlerFactory.exceptionHandler(window).onException(e)
     }
 }
 
@@ -220,9 +233,11 @@ private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean,
             },
         )
     }
+    val windowState = rememberWindowState(size = DpSize(1280.dp, 800.dp))
+    val before = remember { arrayOf(androidx.compose.ui.window.WindowPlacement.Floating) }
     Window(
         visible = shown, onCloseRequest = { if (trayOk) shown = false else { services.close(); exitApplication() } }, title = "Spotifry", icon = icon,
-        state = rememberWindowState(size = DpSize(1280.dp, 800.dp)),
+        state = windowState, onPreviewKeyEvent = { fullScreenKey(it, windowState, before) },
     ) {
         LaunchedEffect(services) {
             services.raise = { shown = true; window.toFront(); window.requestFocus() }
@@ -232,6 +247,20 @@ private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean,
         if (!restarting) ApplyTheme(services)
         SpotifryTheme { if (!restarting) App(services, restart = restart) }
     }
+}
+
+/**
+ * Full screen: F11 turns it on and off (on a Mac also Ctrl ⌘ F, its own shortcut), Esc leaves it. The window's earlier
+ * size, or maximized, comes back on leaving ([before] keeps it).
+ */
+private fun fullScreenKey(e: androidx.compose.ui.input.key.KeyEvent, state: androidx.compose.ui.window.WindowState, before: Array<androidx.compose.ui.window.WindowPlacement>): Boolean {
+    if (e.type != KeyEventType.KeyDown) return false
+    val full = state.placement == androidx.compose.ui.window.WindowPlacement.Fullscreen
+    val toggle = e.key == Key.F11 || (Platform.isMac && e.key == Key.F && e.isCtrlPressed && e.isMetaPressed)
+    if (!toggle && !(full && e.key == Key.Escape)) return false
+    if (full) state.placement = before[0]
+    else { before[0] = state.placement; state.placement = androidx.compose.ui.window.WindowPlacement.Fullscreen }
+    return true
 }
 
 /** What the window says when the app can't start, in plain words with the one thing to do. */

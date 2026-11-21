@@ -55,7 +55,7 @@ enum class Tab(val label: String, val icon: androidx.compose.ui.graphics.vector.
 @Composable
 fun TopBar(
     tab: Tab?, onTab: (Tab) -> Unit, onSettings: () -> Unit, settingsOn: Boolean,
-    compact: Boolean, update: DesktopRelease? = null, onUpdate: () -> Unit = {}, modifier: Modifier = Modifier, jumpBar: @Composable (tight: Boolean) -> Unit,
+    compact: Boolean, update: DesktopRelease? = null, onUpdate: () -> Unit = {}, modifier: Modifier = Modifier, updateLabel: String = "Update", jumpBar: @Composable (tight: Boolean) -> Unit,
 ) = androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
     // the row's own room, not the window's: beside the side panel a 1280 window leaves about 900, where the full
     // spacing pushed the gear off the edge; there everything sits closer and the search bar is narrower
@@ -66,14 +66,14 @@ fun TopBar(
         Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(if (close) 2.dp else 8.dp)) { Tab.entries.forEach { TabPill(it, it == tab) { onTab(it) } } }
         Spacer(Modifier.weight(1f))
         jumpBar(tight)
-        // a newer version out: a small accent pill by the gear, which opens its download page
-        if (update != null) Tip("Spotifry ${update.version} is out. Opens the download page.") {
+        // a newer version out: a small accent pill by the gear, which downloads and installs it (or opens its page where it can't)
+        if (update != null) Tip("Spotifry ${update.version} is out.") {
             Row(
                 Modifier.height(38.dp).clip(CircleShape).background(Palette.accent).clickable(onClick = onUpdate).padding(horizontal = if (tight) 11.dp else 14.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(Icons.Download, "Update", Modifier.size(16.dp), tint = Color.White)
-                if (!tight) Text("Update", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                if (!tight) Text(updateLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
         Box(Modifier.size(38.dp).clip(CircleShape).glassFill().clickable(onClick = onSettings), contentAlignment = Alignment.Center) {

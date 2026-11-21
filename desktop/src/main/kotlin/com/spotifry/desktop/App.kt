@@ -127,6 +127,13 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
     val base by animateColorAsState(lerp(Palette.bg, tint ?: Palette.accent, if (Palette.dark) 0.12f else 0.10f), tween(600))
 
     val update by services.library.updates.available.collectAsState()
+    val updating by services.library.updates.progress.collectAsState()
+    // the pill by the search bar updates inside the app, like the Update in Settings: download, then install or restart
+    val updateLabel = when (updating?.step) { UpdateStep.Working -> updating!!.text; UpdateStep.Done -> if (Platform.isWindows) "Install" else "Restart"; else -> "Update" }
+    val onUpdate: () -> Unit = {
+        val u = services.library.updates
+        when (updating?.step) { UpdateStep.Working -> {}; UpdateStep.Done -> { u.finish(); services.quit() }; else -> update?.let { u.install(it) } }
+    }
     val haze = remember { dev.chrisbanes.haze.HazeState() }
     val homeList = androidx.compose.foundation.lazy.rememberLazyListState()
     val bannerHaze = remember { dev.chrisbanes.haze.HazeState() }
@@ -166,7 +173,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                     TopBar(
                         tab, { t -> when (t) { Tab.Home -> { route = Route.Home; nowPlaying = false }; Tab.NowPlaying -> nowPlaying = true; Tab.Saved -> { route = Route.Saved; nowPlaying = false } } },
                         { route = Route.Settings; nowPlaying = false }, route == Route.Settings && !nowPlaying,
-                        compact, update, { update?.let(services.library.updates::open) },
+                        compact, update, onUpdate, updateLabel = updateLabel,
                     ) { tight ->
                         JumpBar(services, query, { query = it }, jump, { root.requestFocus() }, if (tight) 200.dp else if (compact) 220.dp else 260.dp, { route = it; nowPlaying = false }, { nowPlaying = true }, { search() }, { searchTerm = ""; route = Route.Search; nowPlaying = false })
                     }
