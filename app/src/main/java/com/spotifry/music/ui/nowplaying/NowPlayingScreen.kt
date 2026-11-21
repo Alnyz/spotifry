@@ -462,7 +462,7 @@ internal fun KeepScreenOn(on: Boolean) {
     }
 }
 
-/** A soft circle like the ⋯ beside it: download when not saved, a filling ring while saving, an accent check once saved, red when it failed. */
+/** A soft circle like the ⋯ beside it: download when not saved, a filling ring while saving, a check once saved, red when it failed. No accent: a user's accent can clash with the cover. */
 @Composable
 private fun SaveButton(save: SaveUi, onSave: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
@@ -475,9 +475,9 @@ private fun SaveButton(save: SaveUi, onSave: () -> Unit) {
         when (save) {
             SaveUi.Unsaved -> Box(Modifier.size(40.dp).clip(CircleShape).background(Dim), Alignment.Center) { Icon(Icons.Download, null, Modifier.size(22.dp)) }
             is SaveUi.Saving -> Box(Modifier.size(40.dp).clip(CircleShape).background(Dim), Alignment.Center) {
-                CircularProgressIndicator(progress = { save.progress }, modifier = Modifier.size(30.dp), strokeWidth = 2.5.dp, color = scheme.primary)
+                CircularProgressIndicator(progress = { save.progress }, modifier = Modifier.size(30.dp), strokeWidth = 2.5.dp, color = LocalContentColor.current)
             }
-            SaveUi.Saved -> Box(Modifier.size(40.dp).clip(CircleShape).background(scheme.primary), Alignment.Center) { Icon(Icons.Check, null, Modifier.size(22.dp), tint = scheme.onPrimary) }
+            SaveUi.Saved -> Box(Modifier.size(40.dp).clip(CircleShape).background(Dim), Alignment.Center) { Icon(Icons.Check, null, Modifier.size(22.dp)) }
             SaveUi.Failed -> Box(Modifier.size(40.dp).clip(CircleShape).background(scheme.error.copy(alpha = .18f)), Alignment.Center) { Icon(Icons.Download, null, Modifier.size(22.dp), tint = scheme.error) }
         }
     }
@@ -574,8 +574,9 @@ private fun Controls(
 @Composable
 private fun ToggleIcon(icon: ImageVector, description: String, active: Boolean, onClick: () -> Unit) {
     Box(Modifier.size(48.dp), Alignment.Center) {
-        IconButton(onClick, Modifier.size(48.dp)) { Icon(icon, description, tint = if (active) MaterialTheme.colorScheme.primary else LocalContentColor.current) }
-        if (active) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+        // on is full white (or ink) with a dot, off is faded; no accent, which can clash with the cover
+        IconButton(onClick, Modifier.size(48.dp)) { Icon(icon, description, tint = if (active) LocalContentColor.current else Faint.copy(alpha = .45f)) }
+        if (active) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(6.dp).clip(CircleShape).background(LocalContentColor.current))
     }
 }
 
