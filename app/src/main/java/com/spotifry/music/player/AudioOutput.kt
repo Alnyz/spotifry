@@ -2,6 +2,7 @@ package com.spotifry.music.player
 
 import android.Manifest
 import android.bluetooth.BluetoothA2dp
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
@@ -20,11 +21,41 @@ import kotlin.coroutines.resume
 fun outputInfo(context: Context, codec: BtCodec? = null): OutputInfo {
     val devices = (context.getSystemService(Context.AUDIO_SERVICE) as AudioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS)
     fun named(d: AudioDeviceInfo, fallback: String) = d.productName?.toString()?.takeIf { it.isNotBlank() } ?: fallback
-    fun info(d: AudioDeviceInfo, kind: OutputKind, fallback: String) = OutputInfo(kind, named(d, fallback), maxBits(d), d.sampleRates.maxOrNull()?.takeIf { it > 0 }, if (kind == OutputKind.Bluetooth) codec else null)
+    fun info(d: AudioDeviceInfo, kind: OutputKind, fallback: String) = named(d, fallback).let { name ->
+        OutputInfo(kind, name, maxBits(d), d.sampleRates.maxOrNull()?.takeIf { it > 0 }, if (kind == OutputKind.Bluetooth) codec else null,
+            outputLook(kind, d.type, if (kind == OutputKind.Bluetooth) bluetoothClass(context, d) else null, name))
+    }
     devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET || it.type == AudioDeviceInfo.TYPE_BLE_SPEAKER }?.let { return info(it, OutputKind.Bluetooth, "Bluetooth") }
     devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }?.let { return info(it, OutputKind.Usb, "USB") }
     devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES || it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET }?.let { return info(it, OutputKind.Wired, "Headphones") }
     return OutputInfo(OutputKind.Phone, "Phone speaker", null, null)
+}
+
+/**
+ * Which picture fits the output. Android has no "earbuds" flag, so this guesses: the Bluetooth device class first
+ * ([btClass], null when unknown), then the name, else headphones. A wired set with a microphone is usually earphones.
+ */
+fun outputLook(kind: OutputKind, type: Int?, btClass: Int?, name: String): OutputLook {
+    if (kind == OutputKind.Phone || type == AudioDeviceInfo.TYPE_BLE_SPEAKER) return OutputLook.Speaker
+    if (kind == OutputKind.Wired) return if (type == AudioDeviceInfo.TYPE_WIRED_HEADSET) OutputLook.Earbuds else OutputLook.Headphones
+    when (btClass) {
+        BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES -> return OutputLook.Headphones
+        BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET, BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE -> return OutputLook.Earbuds
+        BluetoothClass.Device.AUDIO_VIDEO_LOUDSPEAKER, BluetoothClass.Device.AUDIO_VIDEO_PORTABLE_AUDIO -> return OutputLook.Speaker
+    }
+    val n = name.lowercase()
+    return when {
+        listOf("buds", "pods", "tws", "earphone", "in-ear").any { it in n } -> OutputLook.Earbuds
+        else -> OutputLook.Headphones
+    }
+}
+
+/** The Bluetooth class of the device behind [d]; null without the Nearby devices permission or an address. */
+@android.annotation.SuppressLint("MissingPermission")
+private fun bluetoothClass(context: Context, d: AudioDeviceInfo): Int? {
+    if (needsBluetoothPermission(context) || Build.VERSION.SDK_INT < 28) return null
+    val address = d.address.takeIf { it.isNotBlank() } ?: return null
+    return runCatching { context.getSystemService(BluetoothManager::class.java)?.adapter?.getRemoteDevice(address)?.bluetoothClass?.deviceClass }.getOrNull()
 }
 
 /** The most bits the device says it takes; null when it does not list encodings. */

@@ -1,11 +1,16 @@
 package com.spotifry.music.ui.nowplaying
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import com.spotifry.music.data.testSong
 import com.spotifry.music.player.PlayerUiState
 import com.spotifry.music.ui.theme.MusicTheme
@@ -23,7 +28,15 @@ class NowPlayingTest {
     private val playing = PlayerUiState(current = testSong, isPlaying = true, durationMs = 200_000, queue = listOf(testSong))
 
     private fun show(save: SaveUi, onSave: () -> Unit = {}) = compose.setContent {
-        MusicTheme { NowPlayingContent(playing, save, {}, {}, {}, {}, {}, {}, {}, onSave, {}, {}) }
+        MusicTheme { NowPlayingContent(playing, save, {}, {}, {}, {}, {}, {}, {}, onSave, {}) }
+    }
+
+    private val queue = (0 until 3).map { com.spotifry.music.data.source.Song("id$it", "Song $it", "Artist", 100, null) }
+
+    /** Now playing with its mode kept here, as the app shell does. */
+    private fun showWithModes(state: PlayerUiState = PlayerUiState(current = queue[0], queue = queue, from = "chill"), lyrics: LyricsUi = LyricsUi.None) = compose.setContent {
+        var mode by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(NowPlayingMode.Cover) }
+        MusicTheme { NowPlayingContent(state, SaveUi.Unsaved, {}, {}, {}, {}, {}, {}, {}, {}, {}, lyrics = lyrics, mode = mode, onMode = { mode = it }) }
     }
 
     @Test fun unsavedSongOffersSave() { show(SaveUi.Unsaved); compose.onNodeWithContentDescription("Save on this phone").assertIsDisplayed() }
@@ -35,7 +48,42 @@ class NowPlayingTest {
         compose.onNodeWithContentDescription("Save failed. Retry").performClick()
         assertEquals(1, taps)
     }
-    @Test fun upNextIsReachable() { show(SaveUi.Unsaved); compose.onNodeWithText("Open queue").performScrollTo().assertIsDisplayed() }
+    @Test fun theQueueOpensInPlaceWithoutANowPlayingRow() {
+        showWithModes()
+        compose.onNodeWithContentDescription("Queue").performClick()
+        compose.onNodeWithText("Next from chill").assertIsDisplayed()
+        compose.onNodeWithText("Song 1").assertIsDisplayed()
+        // the playing song is only in the header row, not in the list
+        compose.onAllNodesWithText("Song 0").assertCountEquals(1)
+        compose.onNodeWithContentDescription("Next song").assertIsDisplayed()
+    }
+
+    @Test fun lyricsModeKeepsOnlyTheBarAndTheSmallCoverGoesBack() {
+        showWithModes(lyrics = LyricsUi.Ready(com.spotifry.music.data.Lyrics.Timed(listOf(com.spotifry.music.data.LyricLine(0, "la la")))))
+        compose.onNodeWithContentDescription("Show all lyrics. la la").performClick()
+        compose.onNodeWithContentDescription("Song position").assertIsDisplayed()
+        compose.onNodeWithText("Lyrics from", substring = true).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Next song").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Queue").assertDoesNotExist()
+        compose.onNodeWithText("Song 0").performClick()
+        compose.onNodeWithContentDescription("Next song").assertIsDisplayed()
+    }
+
+    @Test fun theGrabberAndAPullDownOnTheHeaderGoBackToTheCover() {
+        showWithModes()
+        compose.onNodeWithContentDescription("Queue").performClick()
+        compose.onNodeWithContentDescription("Back to the cover").performClick()
+        compose.onNodeWithText("Next from chill").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Queue").performClick()
+        compose.onNodeWithContentDescription("Back to the cover").performTouchInput { swipeDown(startY = top, endY = top + 600f) }
+        compose.onNodeWithText("Next from chill").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Next song").assertIsDisplayed()
+    }
+
+    @Test fun theOutputButtonNamesWhereTheSoundPlays() {
+        showWithModes()
+        compose.onNodeWithContentDescription("Audio output: Phone speaker").assertIsDisplayed()
+    }
     @Test fun showsTitleAndArtist() { show(SaveUi.Unsaved); compose.onNodeWithText("Title").assertIsDisplayed(); compose.onNodeWithText("Artist").assertIsDisplayed() }
 }
 

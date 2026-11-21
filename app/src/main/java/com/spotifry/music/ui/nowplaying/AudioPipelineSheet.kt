@@ -45,16 +45,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.player.PipelineGroup
 import com.spotifry.music.player.PipelineRow
 
-/** Every step the sound goes through from the file to the speaker; opens from the quality label on Now playing. */
+/** Every step the sound goes through from the file to the speaker; opens from the quality label on Now playing and from the output sheet. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioPipelineSheet(groups: List<PipelineGroup>, onClose: () -> Unit, verdict: String? = null) {
     ModalBottomSheet(onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start = 22.dp, end = 22.dp, bottom = 24.dp)) {
-            Text("Audio pipeline", style = MaterialTheme.typography.headlineSmall)
-            Text("Every step from the file to your ears, live.", Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (verdict != null) Text(verdict, Modifier.padding(top = 10.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-            Rail(groups, Modifier.padding(top = 16.dp))
+        Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 22.dp, bottom = 24.dp)) {
+            Text("Audio pipeline", style = SheetTitle)
+            Text("Every step from the file to your ears, live.", Modifier.padding(top = 2.dp), fontSize = 14.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (verdict != null) Text(verdict, Modifier.padding(top = 10.dp), fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Rail(groups, Modifier.padding(top = 14.dp))
         }
     }
 }
@@ -65,7 +65,7 @@ private fun Rail(groups: List<PipelineGroup>, modifier: Modifier = Modifier) {
     val rail = MaterialTheme.colorScheme.outline.copy(alpha = .55f)
     Column(modifier.drawBehind { drawLine(rail, Offset(6.dp.toPx(), 8.dp.toPx()), Offset(6.dp.toPx(), size.height - 8.dp.toPx()), strokeWidth = 2.dp.toPx()) }) {
         groups.forEachIndexed { n, g ->
-            if (n > 0) Spacer(Modifier.height(18.dp))
+            if (n > 0) Spacer(Modifier.height(16.dp))
             Group(g)
         }
     }
@@ -79,7 +79,7 @@ private fun Group(g: PipelineGroup) {
         Modifier.fillMaxWidth().drawBehind { drawCircle(dot, 6.dp.toPx(), Offset(6.dp.toPx(), size.height / 2)) }.padding(start = 22.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(g.name.uppercase(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.9.sp)
+        Text(g.name, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
         Box(Modifier.weight(1f).height(1.dp).background(line))
     }
     g.rows.forEach { PipelineRowItem(it) }
@@ -90,14 +90,14 @@ private fun PipelineRowItem(row: PipelineRow) {
     val rowDot = MaterialTheme.colorScheme.outline
     var open by remember { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().drawBehind { drawCircle(rowDot, 3.dp.toPx(), Offset(6.dp.toPx(), 22.dp.toPx())) }.padding(start = 22.dp, top = 11.dp),
+        Modifier.fillMaxWidth().drawBehind { drawCircle(rowDot, 3.dp.toPx(), Offset(6.dp.toPx(), 22.dp.toPx())) }.padding(start = 22.dp, top = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(pipelineIcon(row.icon), null, Modifier.padding(top = 1.dp).size(22.dp))
+        Icon(pipelineIcon(row.icon), null, Modifier.padding(top = 1.dp).size(20.dp))
         Column(Modifier.weight(1f)) {
-            Text(row.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, lineHeight = 21.sp)
+            Text(row.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, lineHeight = 20.sp)
             Text(
-                row.detail, Modifier.padding(top = 1.dp), fontSize = 13.5.sp, lineHeight = 18.sp,
+                row.detail, fontSize = 13.sp, lineHeight = 18.sp,
                 color = if (row.hot) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = if (row.hot) FontWeight.SemiBold else FontWeight.Normal,
             )

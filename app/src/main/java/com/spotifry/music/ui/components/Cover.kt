@@ -187,6 +187,40 @@ fun tintOf(cover: android.graphics.Bitmap): Color {
     return c
 }
 
+private val blurs = LruCache<String, ImageBitmap>(8)
+
+/**
+ * The cover as a tiny blurred picture (32 px a side) for the Now playing background, drawn stretched with smoothing.
+ * Made off the main thread once per cover and kept; works the same on every Android version. Null until it has loaded.
+ */
+suspend fun coverBlur(client: OkHttpClient?, url: String?, localPath: String?, files: ContentResolver? = null): ImageBitmap? {
+    val key = localPath ?: url ?: return null
+    blurs.get(key)?.let { return it }
+    val img = loadRetrying(client, url, localPath, files = files) ?: return null
+    return withContext(Dispatchers.Default) { blurOf(img.asAndroidBitmap()).asImageBitmap().also { blurs.put(key, it) } }
+}
+
+/** [cover] shrunk to 32 x 32 and box-blurred three times each way, which is close to a soft Gaussian. */
+internal fun blurOf(cover: android.graphics.Bitmap, side: Int = 32): android.graphics.Bitmap {
+    val small = android.graphics.Bitmap.createScaledBitmap(cover, side, side, true)
+    val px = IntArray(side * side).also { small.getPixels(it, 0, side, 0, 0, side, side) }
+    val tmp = IntArray(px.size)
+    repeat(3) { boxPass(px, tmp, side, 1, side); boxPass(tmp, px, side, side, 1) }
+    return android.graphics.Bitmap.createBitmap(px, side, side, android.graphics.Bitmap.Config.ARGB_8888)
+}
+
+/** One 5-wide box blur along rows ([step] 1) or columns ([step] side), edges held. */
+private fun boxPass(src: IntArray, dst: IntArray, side: Int, step: Int, lineStep: Int) {
+    for (line in 0 until side) for (i in 0 until side) {
+        var r = 0; var g = 0; var b = 0
+        for (k in -2..2) {
+            val c = src[line * lineStep + (i + k).coerceIn(0, side - 1) * step]
+            r += c shr 16 and 0xFF; g += c shr 8 and 0xFF; b += c and 0xFF
+        }
+        dst[line * lineStep + i * step] = (0xFF shl 24) or (r / 5 shl 16) or (g / 5 shl 8) or (b / 5)
+    }
+}
+
 /** The large cover as a plain bitmap, for the pictures Share draws. One try, no retries; null when there is none. */
 suspend fun coverBitmap(client: OkHttpClient?, url: String?, localPath: String?, files: ContentResolver?): android.graphics.Bitmap? =
     load(client, url, localPath, large = true, files = files)?.asAndroidBitmap()

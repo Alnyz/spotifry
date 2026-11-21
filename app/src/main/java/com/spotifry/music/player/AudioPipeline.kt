@@ -18,7 +18,10 @@ enum class OutputKind { Phone, Bluetooth, Usb, Wired }
 data class BtCodec(val name: String, val rateHz: Int?, val bits: Int?)
 
 /** Where the sound goes. [maxBits] and [maxRateHz] are what the device says it can take; null when it does not say. */
-data class OutputInfo(val kind: OutputKind, val name: String, val maxBits: Int?, val maxRateHz: Int?, val codec: BtCodec? = null)
+data class OutputInfo(val kind: OutputKind, val name: String, val maxBits: Int?, val maxRateHz: Int?, val codec: BtCodec? = null, val look: OutputLook = OutputLook.Speaker)
+
+/** The picture Now playing shows for the output. */
+enum class OutputLook { Speaker, Headphones, Earbuds }
 
 /** Everything the sheet shows, gathered. [directSupport] is `AudioManager.getDirectPlaybackSupport` (Android 13 and up), null before. */
 data class PipelineInput(

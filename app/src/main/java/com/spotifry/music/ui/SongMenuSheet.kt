@@ -108,8 +108,11 @@ fun SongMenuSheet(song: Song, actions: List<MenuAction>, trimNote: String? = nul
     ModalBottomSheet(onDismiss, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
         // scrolls: on a short phone the longer Now playing menu would otherwise run off the bottom
         Column(Modifier.navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-            Text(song.title, Modifier.padding(horizontal = 24.dp), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            Row(Modifier.padding(horizontal = 24.dp, vertical = 2.dp), Arrangement.spacedBy(5.dp), Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 6.dp), Arrangement.spacedBy(14.dp), Alignment.CenterVertically) {
+            com.spotifry.music.ui.components.Cover(song.id, song.thumbnailUrl, song.localThumbPath, 48.dp, radius = 6.dp)
+            Column(Modifier.weight(1f)) {
+            Text(song.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Row(Modifier.padding(vertical = 2.dp), Arrangement.spacedBy(5.dp), Alignment.CenterVertically) {
                 if (song.suggested) Icon(Icons.Sparkle, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(if (song.suggested) "${song.artist} · suggested for you" else song.artist, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 if (trimNote != null) {
@@ -117,6 +120,8 @@ fun SongMenuSheet(song: Song, actions: List<MenuAction>, trimNote: String? = nul
                     Icon(Icons.Cut, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(trimNote, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
+            }
+            }
             }
             actions.forEach { a ->
                 if (a.lineAbove) HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -150,60 +155,30 @@ fun AddToPlaylistSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun QueueSheet(
-    state: PlayerUiState, saved: Set<String>, onPick: (Int) -> Unit, onDismiss: () -> Unit, onSuggestionMore: (Int) -> Unit = {},
-    onMove: (Int, Int) -> Unit = { _, _ -> }, onRemove: (Int, String) -> Unit = { _, _ -> }, onUndo: (Int, Song, List<Int>?) -> Unit = { _, _, _ -> },
-) {
-    // fully open: half open, the bottom of the list (and its padding) sits off screen, under the gesture bar
-    val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    // the sheet covers the app's own snackbar, so it has its own
-    val snackbar = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    ModalBottomSheet(onDismiss, sheetState = sheet, containerColor = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)) {
-        Box {
-            Column(Modifier.navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
-                Text("Queue", Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.headlineSmall)
-                QueueList(state, saved, onSuggestionMore, onMove, onRemove = { i ->
-                    val s = state.queue[i]
-                    // with shuffle on, Undo also needs what was still to come, to put the song back in its place
-                    val upcoming = state.order?.drop(1)
-                    onRemove(i, s.id)
-                    snackbar.currentSnackbarData?.dismiss()
-                    scope.launch {
-                        if (snackbar.showSnackbar("Removed from queue", "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) onUndo(i, s, upcoming)
-                    }
-                }) { onPick(it); onDismiss() }
-            }
-            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
-        }
-    }
-}
-
 /**
- * Scrolls, because the queue grows by about 20 similar songs every time it runs out. With [onMove] and [onRemove] the
- * songs after the playing one can be dragged by their handle and swiped away; the playing song stays on top.
+ * The songs after the playing one, in the order they will play. Scrolls, because the queue grows by about 20 similar
+ * songs every time it runs out. With [onMove] and [onRemove] they can be dragged by their handle and swiped away.
+ * [rowColor] is put under a row only while it moves, so the red bin under it doesn't show through.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QueueList(
     state: PlayerUiState, saved: Set<String> = emptySet(), onSuggestionMore: (Int) -> Unit = {},
-    onMove: ((Int, Int) -> Unit)? = null, onRemove: ((Int) -> Unit)? = null, onPick: (Int) -> Unit,
+    onMove: ((Int, Int) -> Unit)? = null, onRemove: ((Int) -> Unit)? = null, modifier: Modifier = Modifier,
+    rowColor: Color = MaterialTheme.colorScheme.surface, onPick: (Int) -> Unit,
 ) {
     // follows the finger while dragging; the player's next change replaces it with what it will really play
-    var list by remember(state.queue, state.order, state.currentIndex) { mutableStateOf(state.upNextIndices()) }
+    var list by remember(state.queue, state.order, state.currentIndex) { mutableStateOf(state.upNextIndices().drop(1)) }
     var dragFrom by remember { mutableStateOf(-1) }
     val listState = rememberLazyListState()
     val reorder = rememberReorderableLazyListState(listState) { from, to ->
-        if (from.index > 0 && to.index > 0) list = list.toMutableList().apply { add(to.index, removeAt(from.index)) }
+        list = list.toMutableList().apply { add(to.index, removeAt(from.index)) }
     }
-    LazyColumn(Modifier.testTag("queue_list"), listState) {
+    LazyColumn(modifier.testTag("queue_list"), listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
         // the queue position is in the key: the same song can be queued twice
         items(list, key = { "${state.queue[it].id}/$it" }) { i ->
             val s = state.queue[i]
-            val playing = i == state.currentIndex
-            ReorderableItem(reorder, "${s.id}/$i", enabled = !playing && onMove != null) { dragging ->
+            ReorderableItem(reorder, "${s.id}/$i", enabled = onMove != null) { dragging ->
                 val swipe = rememberSwipeToDismissBoxState()
                 LaunchedEffect(swipe.currentValue) {
                     if (swipe.currentValue == SwipeToDismissBoxValue.Settled) return@LaunchedEffect
@@ -214,23 +189,21 @@ fun QueueList(
                 }
                 SwipeToDismissBox(
                     swipe, backgroundContent = { RemoveBackground(swipe.dismissDirection) },
-                    gesturesEnabled = !playing && onRemove != null && !dragging,
+                    gesturesEnabled = onRemove != null && !dragging,
                 ) {
                     val lift by animateDpAsState(if (dragging) 8.dp else 0.dp, label = "lift")
-                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), shadowElevation = lift, color = MaterialTheme.colorScheme.surface) {
+                    val moving = dragging || swipe.dismissDirection != SwipeToDismissBoxValue.Settled
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), shadowElevation = lift, color = if (moving) rowColor else Color.Transparent) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            SongRow(
-                                s, s.id in saved, { onPick(i) }, if (s.suggested) { { onSuggestionMore(i) } } else null, Modifier.weight(1f),
-                                subtitleExtra = if (playing) "Playing" else null,
-                                titleColor = if (playing) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                            )
-                            if (onMove != null && !playing) IconButton(
+                            // positions count from the playing song: 1 is next
+                            if (onMove != null) IconButton(
                                 {},
                                 Modifier.draggableHandle(
-                                    onDragStarted = { dragFrom = list.indexOf(i) },
-                                    onDragStopped = { list.indexOf(i).let { to -> if (dragFrom > 0 && to > 0 && to != dragFrom) onMove(dragFrom, to) } },
+                                    onDragStarted = { dragFrom = list.indexOf(i) + 1 },
+                                    onDragStopped = { (list.indexOf(i) + 1).let { to -> if (dragFrom > 0 && to > 0 && to != dragFrom) onMove(dragFrom, to) } },
                                 ).size(48.dp),
                             ) { Icon(Icons.DragHandle, "Drag to move ${s.title}") }
+                            SongRow(s, s.id in saved, { onPick(i) }, if (s.suggested) { { onSuggestionMore(i) } } else null, Modifier.weight(1f).padding(start = 4.dp))
                         }
                     }
                 }
@@ -242,10 +215,11 @@ fun QueueList(
 /** Shown under a row while it is swiped away. */
 @Composable
 private fun RemoveBackground(direction: SwipeToDismissBoxValue) {
+    // nothing at rest: the rows sit on the page's own colour
     Box(
-        Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 20.dp),
+        Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).let { if (direction != SwipeToDismissBoxValue.Settled) it.background(MaterialTheme.colorScheme.errorContainer) else it }.padding(horizontal = 20.dp),
         if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd,
-    ) { Icon(Icons.Trash, "Remove from queue", tint = MaterialTheme.colorScheme.onErrorContainer) }
+    ) { if (direction != SwipeToDismissBoxValue.Settled) Icon(Icons.Trash, "Remove from queue", tint = MaterialTheme.colorScheme.onErrorContainer) }
 }
 
 /** Sleep timer choices, from the Now playing menu or its countdown pill. Each choice starts over from now. */

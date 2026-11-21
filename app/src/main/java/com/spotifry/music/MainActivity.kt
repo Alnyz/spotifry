@@ -77,7 +77,6 @@ import com.spotifry.music.ui.home.PageViewModel
 import com.spotifry.music.ui.AddToPlaylistSheet
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.MenuAction
-import com.spotifry.music.ui.QueueSheet
 import com.spotifry.music.ui.SongMenuSheet
 import com.spotifry.music.ui.SleepTimerSheet
 import com.spotifry.music.player.SleepState
@@ -257,8 +256,8 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     var addTo by remember { mutableStateOf<Song?>(null) }
     var newFor by remember { mutableStateOf<Song?>(null) }
     var showPlayer by remember { mutableStateOf(false) }
-    var showQueue by remember { mutableStateOf(false) }
-    var showLyrics by remember { mutableStateOf(false) }
+    var showOutput by remember { mutableStateOf(false) }
+    var npMode by remember { mutableStateOf(com.spotifry.music.ui.nowplaying.NowPlayingMode.Cover) }
     // "Pick artists for Home" on an empty Home: each tap counts up, so the screen opens fresh
     var pickArtists by remember { mutableStateOf(0) }
     var pickingOpen by remember { mutableStateOf(false) }
@@ -267,7 +266,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     var sharePlaylist by remember { mutableStateOf<ShareTarget?>(null) }
     var picture by remember { mutableStateOf<ShareTarget?>(null) }
     var incoming by remember { mutableStateOf<ShareText.Shared?>(null) }
-    LaunchedEffect(showPlayer) { if (!showPlayer) showLyrics = false }
+    LaunchedEffect(showPlayer) { if (!showPlayer) npMode = com.spotifry.music.ui.nowplaying.NowPlayingMode.Cover }
     val haze = remember { HazeState() }
     val snackbar = remember { SnackbarHostState() }
     // at most once a day: is a newer Spotifry out on GitHub?
@@ -458,16 +457,18 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
 
             SlideOverlay(showPlayer) {
                 // one handler for the whole player, added each time it opens so it is the newest and outranks the
-                // NavHost's own back handling on every tab: full lyrics close first, then Now playing
-                BackHandler(enabled = showPlayer) { if (showLyrics) showLyrics = false else showPlayer = false }
+                // NavHost's own back handling on every tab: lyrics or the queue go back to the cover first, then Now playing closes
+                BackHandler(enabled = showPlayer) {
+                    if (npMode != com.spotifry.music.ui.nowplaying.NowPlayingMode.Cover) npMode = com.spotifry.music.ui.nowplaying.NowPlayingMode.Cover else showPlayer = false
+                }
                 KeepScreenOn(keepScreenOn && player.wantsPlay)
                 NowPlayingContent(
                     player, save,
                     onClose = { showPlayer = false }, onToggle = c.player::toggle, onNext = c.player::next, onPrev = c.player::previous,
                     onSeek = c.player::seekTo, onShuffle = c.player::cycleShuffle, onRepeat = c.player::cycleRepeat,
-                    onSave = npVm::onSave, onQueue = { showQueue = true }, onMore = { player.current?.let { menu = MenuTarget(it, fromPlayer = true, queueIndex = player.currentIndex) } },
+                    onSave = npVm::onSave, onMore = { player.current?.let { menu = MenuTarget(it, fromPlayer = true, queueIndex = player.currentIndex) } },
                     saved = saved.map { it.id }.toSet(), onPick = c.player::skipTo,
-                    lyrics = lyrics, onRetryLyrics = npVm::retryLyrics, showLyrics = showLyrics, onShowLyrics = { showLyrics = it },
+                    lyrics = lyrics, onRetryLyrics = npVm::retryLyrics, mode = npMode, onMode = { npMode = it },
                     position = position,
                     sleep = sleep, sleepLeft = c.sleepTimer::remainingMs, onSleep = { showSleep = true },
                     speedLabel = speedLabel, onSpeed = { showSpeed = true }, speed = speed,
@@ -475,6 +476,17 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                     lyricsShift = player.current?.let { lyricsShifts[it.id] } ?: 0,
                     onLyricsShift = { ms -> player.current?.let { c.settings.setLyricsShift(it.id, ms) } },
                     note = note, onNote = { player.current?.let { editNote = it to note.orEmpty() } },
+                    onOutput = { showOutput = true }, onMove = c.player::move,
+                    onRemove = { i ->
+                        val s = player.queue[i]
+                        // with shuffle on, Undo also needs what was still to come, to put the song back in its place
+                        val upcoming = player.order?.drop(1)
+                        c.player.remove(i, s.id)
+                        snackbar.currentSnackbarData?.dismiss()
+                        scope.launch {
+                            if (snackbar.showSnackbar("Removed from queue", "Undo", duration = androidx.compose.material3.SnackbarDuration.Short) == androidx.compose.material3.SnackbarResult.ActionPerformed) c.player.insert(i, s, upcoming)
+                        }
+                    },
                 )
                 // the app's own snackbar sits under Now playing; this one shows the same message on top of it
                 Box(Modifier.fillMaxSize()) { SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) }
@@ -526,10 +538,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                         SleepState.EndOfSong -> " · after this song"
                         SleepState.Off -> ""
                     }
-                    if (canPickOutput) add(MenuAction("Change output", Icons.Output) {
-                        if (!showOutputPicker(context)) scope.launch { snackbar.showSnackbar("Can't open the output choice here") }
-                    })
-                    add(MenuAction("Keep screen on", Icons.ScreenOn, switch = keepScreenOn) { c.settings.setKeepScreenOn(!keepScreenOn) })
+                    add(MenuAction("Keep screen on", Icons.ScreenOn, lineAbove = true, switch = keepScreenOn) { c.settings.setKeepScreenOn(!keepScreenOn) })
                     add(MenuAction("Sleep timer$left", Icons.Clock) { showSleep = true })
                     add(MenuAction("Speed and pitch" + (speedLabel?.let { " · $it" } ?: ""), Icons.Speed) { showSpeed = true })
                     add(MenuAction(if (note == null) "Add a note" else "Edit note", Icons.Edit) { editNote = target.song to note.orEmpty() })
@@ -604,10 +613,17 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
         if (showSpeed) com.spotifry.music.ui.SpeedPitchSheet(speed, pitch, c.settings::setSpeed, c.settings::setPitch) { showSpeed = false }
         shareSong?.let { s -> ShareSongSheet(s, { picture = ShareTarget.of(s) }) { shareSong = null } }
         sharePlaylist?.let { t -> SharePlaylistSheet(t, { picture = t }) { sharePlaylist = null } }
-        if (showQueue) QueueSheet(
-            player, saved.map { it.id }.toSet(), c.player::skipTo, { showQueue = false }, suggestionMenu,
-            onMove = c.player::move, onRemove = c.player::remove, onUndo = c.player::insert,
-        )
+        if (showOutput) {
+            val readings by c.audioTap.readings.collectAsStateWithLifecycle()
+            com.spotifry.music.ui.nowplaying.OutputSheet(
+                com.spotifry.music.ui.nowplaying.rememberOutput(), canPickOutput, com.spotifry.music.ui.nowplaying.formatSummary(readings),
+                onOtherDevice = {
+                    showOutput = false
+                    if (!showOutputPicker(context)) scope.launch { snackbar.showSnackbar("Can't open the output choice here") }
+                },
+                onPipeline = { showOutput = false; showAudioPath = true },
+            ) { showOutput = false }
+        }
     }
 }
 

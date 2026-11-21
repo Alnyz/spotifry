@@ -25,7 +25,7 @@ class QueueListTest {
     @Test fun lastSongInALongQueueIsReachable() {
         val queue = (0 until 50).map { Song("id$it", "Song $it", "Artist", 100, null) }
         compose.setContent { MusicTheme { QueueList(PlayerUiState(current = queue[0], queue = queue), onPick = {}) } }
-        compose.onNodeWithTag("queue_list").performScrollToIndex(49)
+        compose.onNodeWithTag("queue_list").performScrollToIndex(48)
         compose.onNodeWithText("Song 49").assertIsDisplayed()
     }
 
@@ -33,7 +33,9 @@ class QueueListTest {
         val queue = (0 until 4).map { Song("id$it", "Song $it", "Artist", 100, null) }
         val state = PlayerUiState(current = queue[2], queue = queue, currentIndex = 2, shuffle = true, order = listOf(2, 0, 3))
         compose.setContent { MusicTheme { QueueList(state, setOf("id0")) {} } }
-        compose.onNodeWithText("Song 2").assertIsDisplayed()
+        // the playing song isn't listed: Now playing shows it above the queue
+        compose.onNodeWithText("Song 2").assertDoesNotExist()
+        compose.onNodeWithText("Song 0").assertIsDisplayed()
         compose.onAllNodesWithTag("saved_mark", useUnmergedTree = true).assertCountEquals(1)
         org.junit.Assert.assertEquals(listOf(2, 0, 3), state.upNextIndices())
     }

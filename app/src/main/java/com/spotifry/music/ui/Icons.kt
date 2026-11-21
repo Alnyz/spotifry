@@ -120,4 +120,13 @@ val Headphones = icon("headphones", "M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 
     val History = icon("history", "M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z")
     val Info = icon("info", "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z")
     val Chevron =icon("chevron", "M9.4 6 8 7.4l4.6 4.6L8 16.6 9.4 18l6-6z")
+    /** The round ⋯ on Now playing: the same three dots as [More], lying down. */
+    val Dots = icon("dots", "M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z")
+    /** Now playing's lyrics button: a speech bubble with two marks cut out ([Lyrics] stays the list for Settings). */
+    val LyricsBubble = ImageVector.Builder("lyrics_bubble", 24.dp, 24.dp, 24f, 24f).addPath(
+        addPathNodes("M6 3h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-7l-5 4v-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zM8.5 8v4h2V8zm5 0v4h2V8z"),
+        fill = SolidColor(Color.Black), pathFillType = androidx.compose.ui.graphics.PathFillType.EvenOdd,
+    ).build()
+    // what the sound plays through, on Now playing's output button: the phone's speaker is [Output], over-ear is [Headphones]
+    val Earbuds = icon("earbuds", "M7.5 3a4.5 4.5 0 0 0-1 8.89V19a2 2 0 0 0 4 0v-8.15A4.5 4.5 0 0 0 7.5 3zm9 0a4.5 4.5 0 0 1 1 8.89V19a2 2 0 0 1-4 0v-8.15A4.5 4.5 0 0 1 16.5 3z")
 }
