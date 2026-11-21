@@ -307,6 +307,8 @@ class MpvPlayer(
     override fun playList(songs: List<Song>, startIndex: Int, from: String?) = synchronized(lock) {
         if (songs.isEmpty()) return
         queue = songs; this.from = from
+        // the old list's shuffle order points at its own songs; the new list gets its own
+        order = null
         // shuffle stays on for a new list, but starts plain, as on the phone
         smart = false
         wants = true; startAtMs = 0

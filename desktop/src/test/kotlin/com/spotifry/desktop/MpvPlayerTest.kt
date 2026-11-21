@@ -119,6 +119,16 @@ class MpvPlayerTest {
         p.cycleShuffle(); assertEquals(null, p.state.value.order)
     }
 
+    @Test fun aNewListWithShuffleOnGetsItsOwnOrder() {
+        val p = player!!
+        p.playList(songs, 2)
+        p.cycleShuffle()
+        // one song picked from the search box while a longer list plays shuffled: the old order pointed past its end
+        p.playList(songs.take(1), 0)
+        assertEquals(listOf(0), p.state.value.order)
+        assertEquals(1, p.state.value.queue.size)
+    }
+
     @Test fun aSongWithNoAudioIsSkipped() {
         val p = player!!
         val list = listOf(songs[0], Song("bad", "Bad", "A", 1, null), songs[2])
