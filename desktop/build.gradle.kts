@@ -66,3 +66,8 @@ compose.desktop {
         }
     }
 }
+
+// the copy into the app drops the "may run" mark from mpv, ffmpeg and ffprobe, which macOS then refuses to start
+tasks.matching { it.name == "prepareAppResources" }.configureEach {
+    (this as Sync).eachFile { if (name in setOf("mpv", "ffmpeg", "ffprobe")) permissions { unix("rwxr-xr-x") } }
+}
