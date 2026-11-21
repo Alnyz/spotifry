@@ -67,7 +67,10 @@ compose.desktop {
     }
 }
 
-// the copy into the app drops the "may run" mark from mpv, ffmpeg and ffprobe, which macOS then refuses to start
-tasks.matching { it.name == "prepareAppResources" }.configureEach {
-    (this as Sync).eachFile { if (name in setOf("mpv", "ffmpeg", "ffprobe")) permissions { unix("rwxr-xr-x") } }
+// the copy into the app drops the "may run" mark from mpv, ffmpeg and ffprobe, which macOS then refuses to start; the disk
+// image is made from this app folder, so putting the mark back here covers both
+tasks.matching { it.name == "createDistributable" }.configureEach {
+    doLast {
+        outputs.files.asFileTree.matching { include("**/resources/mpv", "**/resources/ffmpeg", "**/resources/ffprobe") }.forEach { it.setExecutable(true, false) }
+    }
 }
