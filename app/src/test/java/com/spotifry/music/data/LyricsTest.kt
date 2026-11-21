@@ -137,6 +137,13 @@ class LyricsTest {
         assertEquals(5162L, lines[0].words[1].startMs)
     }
 
+    @Test fun qqLyricsGoOnPastAQuoteMark() {
+        val raw = "<Lyric_1 LyricContent=\"[33860,2820]Beggin' (33860,690)please (34550,880)\"stay (35430,440)with (35870,300)me\"(36170,510)\n" +
+            "[38670,4680]But (38670,310)honestly(38980,1060)\n\"/>"
+        val lines = LyricsSource.parseQrc(raw)
+        assertEquals(listOf("Beggin' please \"stay with me\"", "But honestly"), lines.map { it.text })
+    }
+
     @Test fun readsSimpMusicWordsAndDropsTags() {
         val raw = "[00:27.39] <00:27.39>I <00:27.54>been <00:27.74>tryna <00:28.07>call\n[00:30.18] {agent:v2} <00:30.18>I've <00:30.39>been {bg}<00:30.64>on\n[00:31.00]\nnot a line"
         val lines = LyricsSource.parseRichSync(raw)

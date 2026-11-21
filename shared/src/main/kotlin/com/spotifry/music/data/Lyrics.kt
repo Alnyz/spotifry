@@ -240,7 +240,8 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
          * entry has plain "[mm:ss.xx]" lines instead, those are used, timed by line.
          */
         fun parseQrc(raw: String): List<LyricLine> {
-            val body = Regex("""LyricContent="([^"]*)"""").find(raw)?.groupValues?.get(1)?.let(::unescapeXml) ?: raw
+            // the lyrics may hold bare quote marks ("stay with me"), so the text runs to the tag's end, not the first quote
+            val body = Regex("""LyricContent="(.*?)"\s*/>""", RegexOption.DOT_MATCHES_ALL).find(raw)?.groupValues?.get(1)?.let(::unescapeXml) ?: raw
             val lines = body.lines().mapNotNull { src ->
                 val m = Regex("""^\[(\d+),(\d+)](.*)$""").find(src.trim()) ?: return@mapNotNull null
                 val words = Regex("""([^()]*)\((\d+),(\d+)\)""").findAll(m.groupValues[3]).map { w ->
