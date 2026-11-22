@@ -23,7 +23,7 @@ import java.io.InputStream
 const val DESKTOP_KEY_PREFIX = "desktop_"
 
 /** Keys in the `app` prefs that describe this phone or this install, not the listener's choices. */
-private fun aboutThisPhone(key: String) = key.startsWith(DESKTOP_KEY_PREFIX) || key == FIRST_LAUNCH_SEEN || key == UPDATE_LAST_CHECK || key == UPDATE_LATER || key.startsWith(PlaylistOrders.KEY_PREFIX) || key == Settings.FOR_YOU
+private fun aboutThisPhone(key: String) = key.startsWith(DESKTOP_KEY_PREFIX) || key == FIRST_LAUNCH_SEEN || key == UPDATE_LAST_CHECK || key == UPDATE_LATER || key.startsWith(PlaylistOrders.KEY_PREFIX) || key == Settings.FOR_YOU || key == Settings.FANART_KEY
 
 /**
  * What the app reads each setting as. Reading a pref as another type throws, and Settings reads them all as the app starts,
@@ -40,7 +40,7 @@ private fun plainSettingTypes(): Map<String, String> =
         listOf(Settings.PITCH, Settings.FADE, Settings.TRANSITION, Settings.SILENCE_DB, Settings.SILENCE_CUT, Settings.ACCENT_COLOR, Settings.SPATIAL_HZ, Settings.SPATIAL_DB, Settings.SPATIAL_AMOUNT,
             Settings.TUNE_BALANCE, Settings.TUNE_WIDTH, Settings.TUNE_GAIN, Settings.TUNE_HIGH_PASS, Settings.TUNE_LOW_PASS, Settings.TUNE_NIGHT).associateWith { "int" } +
         (Settings.SPEED to "float") +
-        listOf(Settings.ARTISTS, Settings.NAME, Settings.THEME, Settings.EQ_PRESET, Settings.EQ_LEVELS, Settings.EQ_BANDS_KEY, Settings.EQ_BEFORE, Settings.EQ_SHAPE, Settings.EQ_BASE, Settings.SOUND_SET, Settings.ACCENT, "recent_searches").associateWith { "string" } +
+        listOf(Settings.ARTISTS, Settings.NAME, Settings.THEME, Settings.EQ_PRESET, Settings.EQ_LEVELS, Settings.EQ_BANDS_KEY, Settings.EQ_BEFORE, Settings.EQ_SHAPE, Settings.EQ_BASE, Settings.SOUND_SET, Settings.ACCENT, Settings.ARTIST_NAMES, "recent_searches").associateWith { "string" } +
         ("not_suggested" to "set")
 
 /** Makes a [BackupFile] from this phone, and merges one into it. */

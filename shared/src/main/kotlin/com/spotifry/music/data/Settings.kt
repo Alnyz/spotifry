@@ -317,6 +317,20 @@ class Settings(private val prefs: Prefs) {
         line.split('\t').takeIf { it.size == 3 && it[0].isNotBlank() }?.let { PickedArtist(it[0], it[1], it[2].ifEmpty { null }) }
     }
 
+    private val _artistNames = MutableStateFlow(decodeArtistNames(prefs.getString(ARTIST_NAMES, null)))
+    /** The name look of each favourite artist, by [PickedArtist.key]. Kept when an artist is unpicked, so picking it again brings the look back. */
+    val artistNames: StateFlow<Map<String, NameLook>> = _artistNames
+    fun setArtistName(key: String, look: NameLook) {
+        val m = _artistNames.value + (key to look)
+        _artistNames.value = m
+        prefs.edit().putString(ARTIST_NAMES, encodeArtistNames(m)).apply()
+    }
+
+    private val _fanartKey = MutableStateFlow(prefs.getString(FANART_KEY, "").orEmpty())
+    /** The listener's own fanart.tv key for official artist logos; empty turns them off. */
+    val fanartKey: StateFlow<String> = _fanartKey
+    fun setFanartKey(k: String) { val v = k.trim(); _fanartKey.value = v; prefs.edit().putString(FANART_KEY, v).apply() }
+
     companion object {
         const val CACHE_MB = "cache_mb"
         const val JIOSAAVN = "jiosaavn"
@@ -329,6 +343,9 @@ class Settings(private val prefs: Prefs) {
         const val ARTISTS = "picked_artists"
         /** The For you list last built on this device; not in backups. */
         const val FOR_YOU = "for_you"
+        const val ARTIST_NAMES = "artist_names"
+        /** The listener's fanart.tv account key: never in backups. */
+        const val FANART_KEY = "fanart_key"
         const val NAME = "user_name"
         const val DATA_SAVER = "data_saver"
         const val SAVE_LOW = "save_low"

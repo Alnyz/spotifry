@@ -56,6 +56,13 @@ class BackupRoundTripTest {
         assertEquals(null, db2.songs().get("a")!!.filePath)
     }
 
+    @Test fun fanartKeyNeverInABackup() = runBlocking {
+        val (_, app, backups) = device()
+        app.edit().putString(Settings.FANART_KEY, "secret").putString(Settings.ARTIST_NAMES, "x\ttext\tpixel\t\t1").apply()
+        val s = backups.build().settings
+        assertFalse(Settings.FANART_KEY in s); assertTrue(Settings.ARTIST_NAMES in s)
+    }
+
     @Test fun settingsThisDeviceDoesNotUseSurviveItsOwnBackup() = runBlocking {
         val (_, app, backups) = device()
         app.edit().putBoolean("keep_screen_on", true).putString("some_future_key", "x").apply()
