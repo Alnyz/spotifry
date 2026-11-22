@@ -17,8 +17,10 @@ reorderable = "3.1.0"
 junit = "4.13.2"
 robolectric = "4.17"
 work = "2.12.0"
+androidsvg = "1.4"
 
 [libraries]
+androidsvg = { module = "com.caverock:androidsvg-aar", version.ref = "androidsvg" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
