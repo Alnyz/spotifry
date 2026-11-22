@@ -309,7 +309,7 @@ fun PlaylistDetailContent(
             Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(toned, scheme.background))).padding(top = 6.dp, bottom = 22.dp), Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
                 val ink = scheme.onBackground
                 RoundButton({ onShuffle(all) }, ready, 52.dp, glass, ink) { Icon(Icons.Shuffle, "Shuffle", Modifier.size(23.dp)) }
-                RoundButton({ onPlay(all, 0) }, ready, 88.dp, scheme.primary, scheme.onPrimary) { Icon(Icons.Play, "Play", Modifier.size(38.dp)) }
+                RoundButton({ onPlay(all, 0) }, ready, 88.dp, ink, scheme.background) { Icon(Icons.Play, "Play", Modifier.size(38.dp)) }
                 RoundButton(onEdit, true, 52.dp, glass, ink) { Icon(Icons.Edit, "Rename or change cover", Modifier.size(23.dp)) }
             }
             if (songs.size > 1 || searching) Row(Modifier.padding(start = 20.dp, end = 20.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
