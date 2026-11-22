@@ -59,6 +59,10 @@ fun AlwaysDark(background: Color, systemBars: Boolean = true, content: @Composab
         }
     }
     CompositionLocalProvider(LocalDark provides true) {
-        MaterialTheme(colorScheme = darkColors(LocalAccent.current).copy(background = background, surface = background), typography = MusicTypography, content = content)
+        val colors = darkColors(LocalAccent.current).copy(background = background, surface = background)
+        // the text colour comes from around it, and in light mode that is dark: plain text here would be dark on dark
+        MaterialTheme(colorScheme = colors, typography = MusicTypography) {
+            CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides colors.onBackground, content = content)
+        }
     }
 }
