@@ -59,7 +59,7 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         val key = song.id + skip.sorted()
         if (key in known) return known[key]
         val found = withContext(Dispatchers.IO) {
-            fromSources(song, skip) ?: if (Lyrics.LRCLIB in skip) null else lrclib(song)
+            (fromSources(song, skip) ?: if (Lyrics.LRCLIB in skip) null else lrclib(song))?.cleaned()
         }
         known[key] = found
         return found
@@ -255,7 +255,7 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
             return lines.ifEmpty { parseLrc(body) }
         }
 
-        private fun unescapeXml(s: String) = s.replace("&quot;", "\"").replace("&apos;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+        private fun unescapeXml(s: String) = decodeEntities(s)
 
         /** The timed lines of a Unison entry, or null when it is empty or plain text. */
         fun unisonLines(text: String, format: String, syncType: String): List<LyricLine>? {
@@ -439,8 +439,7 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
             t.split(':').fold(0.0) { acc, part -> acc * 60 + part.toDouble() }.times(1000).toLong()
         }.getOrNull()
 
-        private fun unescape(s: String) = s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
-            .replace("&apos;", "'").replace("&#39;", "'").replace("&amp;", "&")
+        private fun unescape(s: String) = decodeEntities(s)
 
         /** "[01:23.45] words" lines; lines with no words are dropped. */
         fun parseLrc(text: String): List<LyricLine> = text.lines().mapNotNull { line ->
@@ -452,4 +451,23 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
 }
 
 /** The line being sung at [positionMs]: the last one that has started. -1 before the first. */
+private val ENTITY = Regex("&(#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|amp|lt|gt|quot|apos|nbsp);")
+
+/** Web codes some lyrics sites send ("&#x27;", "&amp;") turned back into their characters, in one pass; unknown ones stay. */
+fun decodeEntities(s: String): String = if ('&' !in s) s else ENTITY.replace(s) { m ->
+    when (val e = m.groupValues[1]) {
+        "amp" -> "&"; "lt" -> "<"; "gt" -> ">"; "quot" -> "\""; "apos" -> "'"; "nbsp" -> " "
+        else -> {
+            val code = if (e[1] == 'x' || e[1] == 'X') e.drop(2).toIntOrNull(16) else e.drop(1).toIntOrNull()
+            code?.takeIf { Character.isValidCodePoint(it) && it != 0 }?.let { String(Character.toChars(it)) } ?: m.value
+        }
+    }
+}
+
+/** The same lyrics with web codes decoded, whichever site they came from. */
+fun Lyrics.cleaned(): Lyrics = when (this) {
+    is Lyrics.Plain -> copy(lines = lines.map(::decodeEntities))
+    is Lyrics.Timed -> copy(lines = lines.map { l -> l.copy(text = decodeEntities(l.text), words = l.words.map { it.copy(text = decodeEntities(it.text)) }) })
+}
+
 fun List<LyricLine>.indexAt(positionMs: Long): Int = indexOfLast { it.atMs <= positionMs }
