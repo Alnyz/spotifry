@@ -258,6 +258,7 @@ private fun PlaylistHero(name: String, subtitle: String?, coverSongs: List<SongE
     val statusH = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
     val toned = fadeColor(tint, scheme.background, scheme.surfaceContainerHigh)
     val ink = if (scheme.background.luminance() < .5f) Color.White else scheme.onBackground
+    com.spotifry.music.ui.theme.WhiteStatusIcons()
     Box(Modifier.fillMaxWidth().height(heroH)) {
         CoverMosaic(coverSongs, Modifier.matchParentSize(), custom = coverPath)
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(colorStops = arrayOf(0f to Color.Black.copy(alpha = .45f), .2f to Color.Transparent, .4f to Color.Transparent, .55f to toned.copy(alpha = .22f), .7f to toned.copy(alpha = .55f), .85f to toned.copy(alpha = .86f), 1f to toned))))

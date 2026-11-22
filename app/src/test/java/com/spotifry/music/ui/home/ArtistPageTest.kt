@@ -1,6 +1,7 @@
 package com.spotifry.music.ui.home
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import com.spotifry.music.data.PickedArtist
 import com.spotifry.music.data.source.PageLink
 import com.spotifry.music.data.source.SearchType
@@ -27,11 +28,16 @@ class ArtistPageTest {
         assertEquals(null, heroArt(null))
     }
 
-    @Test fun theTintIsThePhotosColourTakenDarker() {
+    @Test fun theTintIsThePhotosColourTakenDarkerOnADarkPage() {
         val photo = Color(0xFF8A3D1F)
-        val t = pageTint(photo)
+        val t = pageTint(photo, Color(0xFF0C0D10), Color(0xFF1C1F26))
         assertTrue(t.red < photo.red && t.green < photo.green)
-        assertEquals(Color(0xFF1C1F26), pageTint(null))
+        assertEquals(Color(0xFF1C1F26), pageTint(null, Color(0xFF0C0D10), Color(0xFF1C1F26)))
+    }
+
+    @Test fun onALightPageTheTintStaysLight() {
+        val t = pageTint(Color(0xFF8A3D1F), Color(0xFFF8F9FA), Color(0xFFE6E8EC))
+        assertTrue("tint $t", t.luminance() > .5f)
     }
 
     @Test fun theStarAddsAndRemoves() {

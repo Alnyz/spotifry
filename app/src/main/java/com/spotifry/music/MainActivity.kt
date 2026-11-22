@@ -369,7 +369,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                         com.spotifry.music.ui.components.LocalInPlaylist provides inLists,
                         com.spotifry.music.ui.components.LocalPlaylistCovers provides playlistCovers,
                     ) {
-                    NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().imePadding().fadeTop().hazeSource(haze)) {
+                    NavHost(nav, startDestination = Routes.LISTEN, modifier = Modifier.fillMaxSize().imePadding().then(if (photoOnTop(route)) Modifier else Modifier.fadeTop()).hazeSource(haze)) {
                         composable(Routes.LISTEN) {
                             LaunchedEffect(Unit) { artistsVm.refresh() }
                             val artistsHome by artistsVm.state.collectAsStateWithLifecycle()
@@ -637,6 +637,9 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
         }
     }
 }
+
+/** Pages that start with a photo under the status bar: fading their top would show the window colour (white in light mode) as a pale strip over it. */
+private fun photoOnTop(route: String?) = route == Routes.PAGE || route == Routes.PLAYLIST
 
 /** A soft wash of the accent in the top right corner, behind the status bar and the screen title. */
 /** Fades the page out over its top 16 dp, so content scrolled up softens away under the status bar instead of being cut flat. */

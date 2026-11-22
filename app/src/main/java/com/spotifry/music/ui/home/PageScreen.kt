@@ -113,9 +113,7 @@ fun PageScreen(
     val p = state?.getOrNull()
     if (link.type == SearchType.ARTISTS) {
         val counts by vm.counts.collectAsStateWithLifecycle()
-        com.spotifry.music.ui.theme.AlwaysDark(Color(0xFF0C0D10)) {
-            ArtistPage(link, p, state != null && p == null, counts, starred, onStar, onBack, onPlay, onShuffle, onMore, actions, bottomInset, vm::load, artistNameUi(artistNames, p?.name ?: link.name))
-        }
+        ArtistPage(link, p, state != null && p == null, counts, starred, onStar, onBack, onPlay, onShuffle, onMore, actions, bottomInset, vm::load, artistNameUi(artistNames, p?.name ?: link.name))
         return
     }
     val album = link.type == SearchType.ALBUMS

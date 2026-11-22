@@ -42,6 +42,19 @@ fun MusicTheme(mode: ThemeMode = ThemeMode.PHONE, accent: Accent = AccentChoice.
  * are light while it shows (set after every recomposition, so they win over [MusicTheme]'s), and go back to what they
  * were when it leaves.
  */
+/** White status bar icons while this is shown, for a page whose top is a photo; the icons go back as they were when it leaves. */
+@Composable
+fun WhiteStatusIcons() {
+    val view = LocalView.current
+    val bars = remember(view) { (view.context as? Activity)?.window?.takeIf { !view.isInEditMode }?.let { WindowCompat.getInsetsController(it, view) } } ?: return
+    val before = remember(bars) { arrayOfNulls<Boolean>(1) }
+    SideEffect {
+        if (before[0] == null) before[0] = bars.isAppearanceLightStatusBars
+        bars.isAppearanceLightStatusBars = false
+    }
+    DisposableEffect(bars) { onDispose { before[0]?.let { bars.isAppearanceLightStatusBars = it } } }
+}
+
 @Composable
 fun AlwaysDark(background: Color, systemBars: Boolean = true, content: @Composable () -> Unit) {
     val view = LocalView.current

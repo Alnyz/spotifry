@@ -45,6 +45,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -106,7 +107,7 @@ internal fun topSongsOrder(songs: List<Song>, counts: Map<String, Int>): List<So
 internal fun heroArt(url: String?): String? = url?.replaceFirst(Regex("=(w\\d+-h\\d+|s\\d+)"), "=w1080-h1080")
 
 /** The page colour under the photo: the photo's colour taken a little darker, or a quiet grey before the photo has loaded. */
-internal fun pageTint(fromPhoto: Color?): Color = fromPhoto?.let { lerp(it, Bg, .3f) } ?: Color(0xFF1C1F26)
+internal fun pageTint(fromPhoto: Color?, page: Color, quiet: Color): Color = com.spotifry.music.ui.playlists.fadeColor(fromPhoto, page, quiet)
 
 /** The star: adds the artist to Your artists, or takes it out when it is already there. */
 internal fun toggleArtist(list: List<PickedArtist>, link: PageLink): List<PickedArtist> {
@@ -150,7 +151,12 @@ internal fun ArtistPage(
     val photo by produceState<ImageBitmap?>(null, photoUrl, client) {
         value = withContext(Dispatchers.IO) { fetchHero(client, photoUrl) } ?: coverBitmap(client, photoUrl, null, files)?.asImageBitmap()
     }
-    val tint = remember(photo) { pageTint(photo?.let { tintOf(it.asAndroidBitmap()) }) }
+    // the page follows the app's light or dark mode, as playlist pages do: the photo fades into the page colour
+    val page = scheme.background
+    val darkPage = page.luminance() < .5f
+    val ink = if (darkPage) Color.White else scheme.onBackground
+    val glass = scheme.onBackground.copy(alpha = .1f)
+    val tint = remember(photo, page) { pageTint(photo?.let { tintOf(it.asAndroidBitmap()) }, page, scheme.surfaceContainerHigh) }
     val songs = p?.songs.orEmpty()
     val ordered = remember(songs, counts) { topSongsOrder(songs, counts) }
     var allSongs by remember { mutableStateOf(false) }
@@ -167,19 +173,21 @@ internal fun ArtistPage(
     val statusH = with(density) { statusPx.toDp() }
 
     // the screen hands this page the whole height, status bar included, so the photo starts at the very top
-    Box(Modifier.fillMaxSize().background(Bg)) {
+    Box(Modifier.fillMaxSize().background(page)) {
         LazyColumn(
             Modifier.fillMaxSize(),
             state = list, contentPadding = PaddingValues(bottom = bottomInset + 16.dp),
         ) {
             item {
+                // while the photo is on screen: once it scrolls away, the page's own icons come back
+                com.spotifry.music.ui.theme.WhiteStatusIcons()
                 Box(Modifier.fillMaxWidth().height(heroH)) {
                     val img = photo
                     if (img != null) Image(img, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop) else Box(Modifier.matchParentSize().background(tint))
-                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(colorStops = arrayOf(0f to Bg.copy(alpha = .4f), .2f to Color.Transparent, .4f to Color.Transparent, .55f to tint.copy(alpha = .22f), .7f to tint.copy(alpha = .55f), .85f to tint.copy(alpha = .86f), 1f to tint))))
+                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(colorStops = arrayOf(0f to Color.Black.copy(alpha = .45f), .2f to Color.Transparent, .4f to Color.Transparent, .55f to tint.copy(alpha = .22f), .7f to tint.copy(alpha = .55f), .85f to tint.copy(alpha = .86f), 1f to tint))))
                     // Back and the menu belong to the photo: they scroll away with it
                     Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = statusH + 4.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                        val pill = Bg.copy(alpha = .55f)
+                        val pill = Color.Black.copy(alpha = .45f)
                         RoundButton(onBack, true, 48.dp, pill) { Icon(Icons.Back, "Back", Modifier.size(22.dp)) }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // only favourite artists keep a look of their own
@@ -191,18 +199,18 @@ internal fun ArtistPage(
                         }
                     }
                     com.spotifry.music.ui.names.StyledName(
-                        name, shown, shownLogo, Color.White, tint, 50.sp,
+                        name, shown, shownLogo, ink, tint, 50.sp,
                         Modifier.align(Alignment.BottomCenter).padding(start = 20.dp, end = 20.dp, bottom = 22.dp), fallback = look?.style ?: com.spotifry.music.data.NameStyle.CLASSIC,
                     )
                 }
             }
             item {
                 val ready = songs.isNotEmpty()
-                Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(tint, Bg))).padding(top = 6.dp, bottom = 22.dp), Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
-                    RoundButton({ onShuffle(songs, name) }, ready, 52.dp, Glass) { Icon(Icons.Shuffle, "Shuffle", Modifier.size(23.dp)) }
+                Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(tint, page))).padding(top = 6.dp, bottom = 22.dp), Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
+                    RoundButton({ onShuffle(songs, name) }, ready, 52.dp, glass, ink) { Icon(Icons.Shuffle, "Shuffle", Modifier.size(23.dp)) }
                     // white, not the accent: the page takes the photo's colour, and an accent picked for the app can clash with it
-                    RoundButton({ onPlay(ordered, 0, name) }, ready, 88.dp, Color.White, Color.Black) { Icon(Icons.Play, "Play", Modifier.size(38.dp)) }
-                    RoundButton(onStar, true, 52.dp, Glass) {
+                    RoundButton({ onPlay(ordered, 0, name) }, ready, 88.dp, ink, page) { Icon(Icons.Play, "Play", Modifier.size(38.dp)) }
+                    RoundButton(onStar, true, 52.dp, glass, ink) {
                         Icon(if (starred) Icons.Star else Icons.StarOutline, if (starred) "Remove from your artists" else "Add to your artists", Modifier.size(23.dp))
                     }
                 }
@@ -290,7 +298,7 @@ private fun Heading(text: String) =
 private fun AlbumCard(a: PageLink, actions: PageActions) {
     val shape = RoundedCornerShape(26.dp)
     Row(
-        Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(shape).background(Color.White.copy(alpha = .07f)).border(1.dp, Color.White.copy(alpha = .06f), shape)
+        Modifier.padding(horizontal = 20.dp).fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.onBackground.copy(alpha = .06f)).border(1.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = .06f), shape)
             .clickable(onClickLabel = "Open album") { actions.open(a) }.padding(12.dp),
         Arrangement.spacedBy(14.dp), Alignment.CenterVertically,
     ) {
@@ -299,7 +307,7 @@ private fun AlbumCard(a: PageLink, actions: PageActions) {
             Text(a.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(albumLine(a), Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        RoundButton({ actions.save(a, null) }, true, 44.dp, Glass) { Icon(Icons.Plus, "Save as playlist", Modifier.size(22.dp)) }
+        RoundButton({ actions.save(a, null) }, true, 44.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = .1f), MaterialTheme.colorScheme.onBackground) { Icon(Icons.Plus, "Save as playlist", Modifier.size(22.dp)) }
     }
 }
 
