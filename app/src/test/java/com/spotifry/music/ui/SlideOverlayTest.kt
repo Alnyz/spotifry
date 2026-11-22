@@ -52,4 +52,17 @@ class SlideOverlayTest {
         compose.mainClock.advanceTimeBy(1_000)
         assertTrue("gone once it has slid out", compose.onAllNodesWithText("overlay").fetchSemanticsNodes().isEmpty())
     }
+
+    @Test fun openItKeepsTapsOnPlainPartsFromReachingThePageBelow() {
+        var behind = 0
+        compose.setContent {
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().clickable { behind++ }) { Text("behind") }
+                // a song title: plain text, nothing on it takes taps
+                SlideOverlay(true) { Box(Modifier.fillMaxSize()) { Text("title") } }
+            }
+        }
+        compose.onNodeWithText("title").performClick()
+        assertEquals("a tap on Now playing never plays a song from the page under it", 0, behind)
+    }
 }

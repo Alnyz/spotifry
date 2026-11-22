@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 
 const val SLIDE_OUT_MS = 200
@@ -33,6 +34,10 @@ fun SlideOverlay(visible: Boolean, modifier: Modifier = Modifier, content: @Comp
                     // children outside their parent's bounds are not hit, but they are still drawn
                     layout(0, 0) { p.place(0, 0) }
                 }
+            }.let { m ->
+                // open, it is the hit target for every touch on it, even where nothing takes taps (a song title), so a
+                // tap never falls through to the page below; it only watches, so its own buttons still get their taps
+                if (visible) m.pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } } else m
             },
         ) { content() }
     }
