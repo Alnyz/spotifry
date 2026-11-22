@@ -68,8 +68,12 @@ class Library(
 
     /** Songs marked "Not this song": Smart shuffle never suggests them again. The phone's key, so a backup carries it. */
     fun notSuggested(): Set<String> = prefs.getStringSet("not_suggested", null).orEmpty()
-    fun setNotSuggested(id: String, no: Boolean) =
+    fun setNotSuggested(id: String, no: Boolean) {
         prefs.edit().putStringSet("not_suggested", if (no) notSuggested() + id else notSuggested() - id).apply()
+        if (no) forYou?.dontSuggest(id)
+    }
+    /** The For you row on Home; set at start, once the music source exists. Null in tests. */
+    var forYou: com.spotifry.music.data.ForYouShelf? = null
 
     /** The file of a song saved on this computer, if it is still there. */
     suspend fun localFile(song: com.spotifry.music.data.source.Song): String? =

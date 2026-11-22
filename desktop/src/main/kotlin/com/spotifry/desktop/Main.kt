@@ -154,6 +154,7 @@ fun productionServices(): Services {
     services = Services(scope, source, library, player, player::setVolume, lyrics = library.lyrics::get, close = { services.mpris?.close(); player.close(); replay.close(); library.db.close() }, sleep = SleepTimer(scope, player), replay = replay, listening = player::listening,
         lookUpYears = { lookUpSongYears(library, scope, brainz) }, notice = player.notice, output = output, sound = player.sound, betterComing = better.coming)
     services.lookUpYears()
+    library.forYou = com.spotifry.music.data.ForYouShelf(library.db, source, library.prefs, settings, library::notSuggested, scope).also { it.start() }
     scope.launch { library.musicFolder.refresh() }
     library.updates.checkDaily()
     // media keys and the desktop's player widget go through D-Bus, which only Linux has

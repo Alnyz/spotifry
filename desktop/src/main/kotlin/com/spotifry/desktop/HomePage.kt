@@ -52,6 +52,9 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.foundation.onClick
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -135,6 +138,8 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
                 }
             }
         }
+        val forYou = lib.forYou
+        if (forYou != null) item { ForYouRow(services, forYou) }
         if (hero != null || lists.isNotEmpty()) {
             item { HomeSection("Your playlists", { go(Route.Playlists) }) }
             item {
@@ -503,5 +508,32 @@ internal fun Chevron(left: Boolean) {
         val w = size.width; val x0 = if (left) w * .68f else w * .32f; val x1 = if (left) w * .3f else w * .7f
         drawLine(ink, Offset(x0, 0f), Offset(x1, w / 2), 2.dp.toPx(), StrokeCap.Round)
         drawLine(ink, Offset(x1, w / 2), Offset(x0, w), 2.dp.toPx(), StrokeCap.Round)
+    }
+}
+
+/**
+ * For you: suggestions from your listening. Hovering or clicking the row holds a new list back until Home is left, so
+ * it never changes under the pointer. Right-click a tile for the song's menu, with "Not this song".
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun ForYouRow(services: Services, shelf: com.spotifry.music.data.ForYouShelf) {
+    val list by shelf.shown.collectAsState()
+    DisposableEffect(shelf) { shelf.homeVisible(true); onDispose { shelf.homeVisible(false) } }
+    val songs = list ?: return
+    if (songs.isEmpty()) return
+    Column(Modifier.onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Enter) { shelf.rowTouched() }) {
+        HomeSection("For you", null)
+        SlideRow(arrowTop = COVER_ARROW) {
+            itemsIndexed(songs, key = { _, s -> "fy-" + s.id }) { i, s ->
+                var menu by remember { mutableStateOf(false) }
+                Box(Modifier.onClick(matcher = androidx.compose.foundation.PointerMatcher.mouse(androidx.compose.ui.input.pointer.PointerButton.Secondary)) { menu = true }) {
+                    CoverTile(s.thumbnailUrl ?: s.localThumbPath, s.title, s.artist) { shelf.rowTouched(); services.player.playList(songs, i, "Recommendation") }
+                    if (menu) SongMenu(services, s, { menu = false }) { close ->
+                        androidx.compose.material3.DropdownMenuItem({ Text("Not this song") }, onClick = { services.library.setNotSuggested(s.id, true); close() })
+                    }
+                }
+            }
+        }
     }
 }
