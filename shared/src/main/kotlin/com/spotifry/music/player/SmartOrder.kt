@@ -65,7 +65,7 @@ fun <T> spreadShuffle(items: List<T>, artistOf: (T) -> String, isRecent: (T) -> 
 }
 
 /** "Juno Reyes - Topic" and "juno reyes" are the same artist. */
-private fun artistKey(artist: String) = artist.lowercase().removeSuffix(" - topic").trim()
+internal fun artistKey(artist: String) = artist.lowercase().removeSuffix(" - topic").trim()
 
 /**
  * The whole shuffle [order] with [upcoming] (queue positions, as Queue shows them) playing right after [current].
