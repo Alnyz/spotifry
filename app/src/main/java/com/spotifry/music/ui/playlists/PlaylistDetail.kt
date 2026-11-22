@@ -261,7 +261,7 @@ private fun PlaylistHero(name: String, subtitle: String?, coverSongs: List<SongE
     com.spotifry.music.ui.theme.WhiteStatusIcons()
     Box(Modifier.fillMaxWidth().height(heroH)) {
         CoverMosaic(coverSongs, Modifier.matchParentSize(), custom = coverPath)
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(colorStops = arrayOf(0f to Color.Black.copy(alpha = .45f), .2f to Color.Transparent, .4f to Color.Transparent, .55f to toned.copy(alpha = .22f), .7f to toned.copy(alpha = .55f), .85f to toned.copy(alpha = .86f), 1f to toned))))
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(colorStops = arrayOf(0f to Color.Black.copy(alpha = .45f), .2f to Color.Transparent, .55f to Color.Transparent, .68f to toned.copy(alpha = .25f), .8f to toned.copy(alpha = .6f), .92f to toned.copy(alpha = .88f), 1f to toned))))
         Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = statusH + 4.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             val pill = Color.Black.copy(alpha = .45f)
             RoundButton(onBack, true, 48.dp, pill) { Icon(Icons.Back, "Back", Modifier.size(22.dp)) }

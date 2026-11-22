@@ -184,7 +184,7 @@ internal fun ArtistPage(
                 Box(Modifier.fillMaxWidth().height(heroH)) {
                     val img = photo
                     if (img != null) Image(img, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop) else Box(Modifier.matchParentSize().background(tint))
-                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(colorStops = arrayOf(0f to Color.Black.copy(alpha = .45f), .2f to Color.Transparent, .4f to Color.Transparent, .55f to tint.copy(alpha = .22f), .7f to tint.copy(alpha = .55f), .85f to tint.copy(alpha = .86f), 1f to tint))))
+                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(colorStops = arrayOf(0f to Color.Black.copy(alpha = .45f), .2f to Color.Transparent, .55f to Color.Transparent, .68f to tint.copy(alpha = .25f), .8f to tint.copy(alpha = .6f), .92f to tint.copy(alpha = .88f), 1f to tint))))
                     // Back and the menu belong to the photo: they scroll away with it
                     Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = statusH + 4.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                         val pill = Color.Black.copy(alpha = .45f)
