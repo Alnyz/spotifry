@@ -35,6 +35,7 @@ class ArtistLogos(
     private val fanartBase: String = "https://webservice.fanart.tv",
     private val clock: () -> Long = System::currentTimeMillis,
     private val pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
+    private val wikidataBase: String = "https://www.wikidata.org",
 ) {
     private sealed interface Answer {
         data class Logo(val url: String) : Answer
@@ -68,14 +69,40 @@ class ArtistLogos(
     /** After a new key, artists marked "none found" are asked for again. */
     fun forgetNoneFound() { dir.listFiles { f -> f.name.endsWith(".none") }?.forEach { it.delete() } }
 
-    /** MusicBrainz often turns requests away for a moment (503): wait and ask again, a few times, before giving up for this visit. */
+    /**
+     * MusicBrainz often turns requests away for a moment (503): wait and ask again, a few times. Some networks can't reach it
+     * at all; then, and when it stays busy, Wikidata gives the same id for most artists.
+     */
     private suspend fun musicBrainzIdPatiently(artist: String, want: String): String? {
-        for (wait in BUSY_WAITS_MS) {
-            val id = musicBrainzId(artist, want)
+        for (wait in BUSY_WAITS_MS + 0L) {
+            val id = try { musicBrainzId(artist, want) } catch (e: IOException) { break } catch (e: JSONException) { break }
             if (id != "") return id
-            pause(wait)
+            if (wait > 0) pause(wait)
         }
-        return musicBrainzId(artist, want)
+        return wikidataId(artist, want)
+    }
+
+    /** The MusicBrainz id Wikidata keeps (P434) on the first found item whose English name is exactly the artist's. Null for no match, "" for try later. */
+    private suspend fun wikidataId(artist: String, want: String): String? {
+        val api = wikidataBase.toHttpUrl().newBuilder().addPathSegments("w/api.php")
+        val search = api.build().newBuilder().addQueryParameter("action", "wbsearchentities").addQueryParameter("search", artist.trim().removeSuffix(" - Topic"))
+            .addQueryParameter("language", "en").addQueryParameter("type", "item").addQueryParameter("limit", "7").addQueryParameter("format", "json").build()
+        val ids = client.newCall(Request.Builder().url(search).header("User-Agent", userAgent).build()).read { r ->
+            if (!r.isSuccessful) return@read null
+            val a = JSONObject(r.body!!.string()).optJSONArray("search") ?: return@read emptyList()
+            (0 until a.length()).map { a.getJSONObject(it) }.filter { plain(it.optString("label")) == want }.map { it.optString("id") }.filter { it.isNotEmpty() }
+        } ?: return ""
+        if (ids.isEmpty()) return null
+        val get = api.build().newBuilder().addQueryParameter("action", "wbgetentities").addQueryParameter("ids", ids.joinToString("|"))
+            .addQueryParameter("props", "claims").addQueryParameter("format", "json").build()
+        return client.newCall(Request.Builder().url(get).header("User-Agent", userAgent).build()).read { r ->
+            if (!r.isSuccessful) return@read ""
+            val entities = JSONObject(r.body!!.string()).optJSONObject("entities") ?: return@read null
+            ids.firstNotNullOfOrNull { id ->
+                entities.optJSONObject(id)?.optJSONObject("claims")?.optJSONArray("P434")?.optJSONObject(0)
+                    ?.optJSONObject("mainsnak")?.optJSONObject("datavalue")?.optString("value")?.ifEmpty { null }
+            }
+        }
     }
 
     /** The id; null for no match; "" for try later. */

@@ -26,6 +26,11 @@ class ArtistLogosTest {
     private var mbCode = 200
     /** Busy answers (503) before MusicBrainz answers. */
     private var mbBusy = 0
+    /** MusicBrainz can't be reached at all (some networks drop the connection). */
+    private var mbDown = false
+    private var wdDown = false
+    private val wdSearch = """{"search":[{"id":"Q2","label":"Radiohead"},{"id":"Q1","label":"Radiohead"}]}"""
+    private val wdEntities = """{"entities":{"Q2":{"labels":{"en":{"value":"Radiohead"}},"claims":{}},"Q1":{"labels":{"en":{"value":"Radiohead"}},"claims":{"P434":[{"mainsnak":{"datavalue":{"value":"mb1"}}}]}}}}"""
     private var artists = """{"artists":[{"id":"mb1","name":"Radiohead","score":100}]}"""
     private var fanart: MockResponse = MockResponse().setBody("""{"hdmusiclogo":[{"url":"URL/hd3","likes":"3"},{"url":"URL/hd9","likes":"9"}],"musiclogo":[{"url":"URL/m","likes":"50"}]}""")
 
@@ -36,6 +41,9 @@ class ArtistLogosTest {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val p = request.path!!
                 return when {
+                    p.startsWith("/w/api.php") && wdDown -> MockResponse().setResponseCode(503)
+                    p.startsWith("/w/api.php") && "wbsearchentities" in p -> MockResponse().setBody(wdSearch)
+                    p.startsWith("/w/api.php") && "wbgetentities" in p -> MockResponse().setBody(wdEntities)
                     p.startsWith("/ws/2/artist") -> if (mbBusy-- > 0) MockResponse().setResponseCode(503) else MockResponse().setResponseCode(mbCode).setBody(artists)
                     p.startsWith("/v3/music/mb1") -> fanart.clone().setBody(fanart.getBody()?.clone()?.readUtf8().orEmpty().replace("URL", server.url("/img").toString().trimEnd('/')))
                     p == "/img/hd9" -> MockResponse().setBody(Buffer().write(png(9)))
@@ -51,7 +59,9 @@ class ArtistLogosTest {
 
     private fun logos(): ArtistLogos {
         val base = server.url("/").toString().trimEnd('/')
-        return ArtistLogos(OkHttpClient(), dir, "Spotifry/1 (test)", { key }, base, base, { t }, pause = {})
+        // a closed port: the connection fails, as on networks that can't reach MusicBrainz
+        val mb = if (mbDown) "http://127.0.0.1:1" else base
+        return ArtistLogos(OkHttpClient(), dir, "Spotifry/1 (test)", { key }, mb, base, { t }, pause = {}, wikidataBase = base)
     }
 
     @Test fun picksHdLogoWithMostLikes() = runBlocking {
@@ -109,7 +119,7 @@ class ArtistLogosTest {
     }
 
     @Test fun musicBrainzRefusalStoresNoMarker() = runBlocking {
-        mbCode = 403
+        mbCode = 403; wdDown = true
         assertNull(logos().logo("Radiohead"))
         assertFalse(dir.listFiles().orEmpty().any { it.name.endsWith(".none") })
     }
@@ -120,9 +130,19 @@ class ArtistLogosTest {
     }
 
     @Test fun alwaysBusyGivesUpWithoutAMarker() = runBlocking {
-        mbBusy = 100
+        mbBusy = 100; wdDown = true
         assertNull(logos().logo("Radiohead"))
         assertFalse(dir.listFiles().orEmpty().any { it.name.endsWith(".none") })
+    }
+
+    @Test fun unreachableMusicBrainzUsesWikidata() = runBlocking {
+        mbDown = true
+        assertArrayEquals(png(9), logos().logo("Radiohead")!!.readBytes())
+    }
+
+    @Test fun alwaysBusyMusicBrainzUsesWikidata() = runBlocking {
+        mbBusy = 100
+        assertArrayEquals(png(9), logos().logo("Radiohead")!!.readBytes())
     }
 
     @Test fun cachedLogoMakesNoRequest() = runBlocking {
