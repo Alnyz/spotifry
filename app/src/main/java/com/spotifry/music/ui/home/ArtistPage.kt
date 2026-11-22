@@ -252,7 +252,7 @@ internal fun ArtistPage(
     }
     if (nameSheet && names != null) com.spotifry.music.ui.names.NameStyleSheet(
         name, "Artist", look ?: com.spotifry.music.data.NameLook(), shown, shownLogo, names.ownLogo,
-        if (names.hasKey) com.spotifry.music.ui.names.OfficialChoice(names.official) else null, tint,
+        if (names.hasKey) com.spotifry.music.ui.names.OfficialChoice(names.official, names.looking) else null, tint,
         backdrop = {
             photo?.let { Image(it, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop) } ?: Box(Modifier.matchParentSize().background(tint))
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .7f)))))
@@ -267,6 +267,8 @@ class ArtistNameUi(
     val look: com.spotifry.music.data.NameLook?, val ownLogo: java.io.File?, val official: java.io.File?, val hasKey: Boolean,
     val onStyle: (com.spotifry.music.data.NameStyle) -> Unit, val onPickLogo: () -> Unit, val onUseOwn: () -> Unit, val onUseOfficial: () -> Unit,
     val onRemoveLogo: () -> Unit, val onTint: (Boolean) -> Unit,
+    /** The official logo lookup hasn't answered yet. */
+    val looking: Boolean = false,
 )
 
 @Composable

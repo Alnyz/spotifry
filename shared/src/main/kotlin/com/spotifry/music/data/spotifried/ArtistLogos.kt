@@ -15,6 +15,9 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 
+/** How long to wait before asking a busy MusicBrainz again. */
+private val BUSY_WAITS_MS = listOf(1_500L, 3_000L, 5_000L)
+
 /** A "no logo for this artist" answer is trusted this long. */
 const val NO_LOGO_DAYS = 30
 
@@ -31,6 +34,7 @@ class ArtistLogos(
     private val mbBase: String = "https://musicbrainz.org",
     private val fanartBase: String = "https://webservice.fanart.tv",
     private val clock: () -> Long = System::currentTimeMillis,
+    private val pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
 ) {
     private sealed interface Answer {
         data class Logo(val url: String) : Answer
@@ -48,7 +52,7 @@ class ArtistLogos(
         if (file.isFile) return@withContext file
         if (none.isFile && clock() - (none.readText().toLongOrNull() ?: 0) < NO_LOGO_DAYS * 86_400_000L) return@withContext null
         try {
-            val answer = when (val mbid = musicBrainzId(artist, want)) {
+            val answer = when (val mbid = musicBrainzIdPatiently(artist, want)) {
                 null -> Answer.None
                 "" -> Answer.Later
                 else -> fanartLogo(mbid, k)
@@ -63,6 +67,16 @@ class ArtistLogos(
 
     /** After a new key, artists marked "none found" are asked for again. */
     fun forgetNoneFound() { dir.listFiles { f -> f.name.endsWith(".none") }?.forEach { it.delete() } }
+
+    /** MusicBrainz often turns requests away for a moment (503): wait and ask again, a few times, before giving up for this visit. */
+    private suspend fun musicBrainzIdPatiently(artist: String, want: String): String? {
+        for (wait in BUSY_WAITS_MS) {
+            val id = musicBrainzId(artist, want)
+            if (id != "") return id
+            pause(wait)
+        }
+        return musicBrainzId(artist, want)
+    }
 
     /** The id; null for no match; "" for try later. */
     private suspend fun musicBrainzId(artist: String, want: String): String? {

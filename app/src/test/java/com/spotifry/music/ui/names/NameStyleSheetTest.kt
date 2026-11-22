@@ -55,6 +55,13 @@ class NameStyleSheetTest {
         compose.onNodeWithText("Your own logo").assertExists()
     }
 
+    @Test fun stillLookingSaysSo() {
+        show(null, OfficialChoice(null, looking = true))
+        compose.onNodeWithText("Logo").performClick()
+        compose.onNodeWithText("Looking online…").assertExists()
+        compose.onNodeWithText("None found online").assertDoesNotExist()
+    }
+
     @Test fun tintSwitchReports() {
         show({}, null)
         compose.onNodeWithText("Logo").performClick()

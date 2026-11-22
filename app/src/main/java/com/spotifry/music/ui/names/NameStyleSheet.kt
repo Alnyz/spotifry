@@ -49,8 +49,8 @@ import com.spotifry.music.data.Shown
 import com.spotifry.music.ui.Icons
 import java.io.File
 
-/** An artist's official logo: offered only when a fanart.tv key is set; [file] is null when none was found. */
-data class OfficialChoice(val file: File?)
+/** An artist's official logo: offered only when a fanart.tv key is set; [file] is null while [looking] or when none was found. */
+data class OfficialChoice(val file: File?, val looking: Boolean = false)
 
 /**
  * Pick how a name looks: a live preview over [backdrop], Rename (playlists only: [onRename]), then Text (the 8 styles,
@@ -128,7 +128,7 @@ private fun LogoTab(look: NameLook, ownLogo: File?, official: OfficialChoice?, o
     val scheme = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (official != null && onUseOfficial != null) {
-            Choice(look.show == NameShow.OFFICIAL || (look.show == null && official.file != null), "Official logo", if (official.file != null) "Found online" else "None found online", official.file != null, onUseOfficial)
+            Choice(look.show == NameShow.OFFICIAL || (look.show == null && official.file != null), "Official logo", when { official.file != null -> "Found online"; official.looking -> "Looking online…"; else -> "None found online" }, official.file != null, onUseOfficial)
             Choice(look.show == NameShow.OWN, "Your own logo", "Choose a picture from your phone", true) { if (ownLogo != null) onUseOwn() else onPickLogo() }
         } else if (ownLogo != null) {
             Choice(look.show == NameShow.OWN, "Your logo", "Shown in place of the name", true, onUseOwn)

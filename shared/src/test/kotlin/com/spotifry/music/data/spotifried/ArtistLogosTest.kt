@@ -24,6 +24,8 @@ class ArtistLogosTest {
     private val day = 86_400_000L
 
     private var mbCode = 200
+    /** Busy answers (503) before MusicBrainz answers. */
+    private var mbBusy = 0
     private var artists = """{"artists":[{"id":"mb1","name":"Radiohead","score":100}]}"""
     private var fanart: MockResponse = MockResponse().setBody("""{"hdmusiclogo":[{"url":"URL/hd3","likes":"3"},{"url":"URL/hd9","likes":"9"}],"musiclogo":[{"url":"URL/m","likes":"50"}]}""")
 
@@ -34,7 +36,7 @@ class ArtistLogosTest {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val p = request.path!!
                 return when {
-                    p.startsWith("/ws/2/artist") -> MockResponse().setResponseCode(mbCode).setBody(artists)
+                    p.startsWith("/ws/2/artist") -> if (mbBusy-- > 0) MockResponse().setResponseCode(503) else MockResponse().setResponseCode(mbCode).setBody(artists)
                     p.startsWith("/v3/music/mb1") -> fanart.clone().setBody(fanart.getBody()?.clone()?.readUtf8().orEmpty().replace("URL", server.url("/img").toString().trimEnd('/')))
                     p == "/img/hd9" -> MockResponse().setBody(Buffer().write(png(9)))
                     p == "/img/hd3" -> MockResponse().setBody(Buffer().write(png(3)))
@@ -49,7 +51,7 @@ class ArtistLogosTest {
 
     private fun logos(): ArtistLogos {
         val base = server.url("/").toString().trimEnd('/')
-        return ArtistLogos(OkHttpClient(), dir, "Spotifry/1 (test)", { key }, base, base, { t })
+        return ArtistLogos(OkHttpClient(), dir, "Spotifry/1 (test)", { key }, base, base, { t }, pause = {})
     }
 
     @Test fun picksHdLogoWithMostLikes() = runBlocking {
@@ -108,6 +110,17 @@ class ArtistLogosTest {
 
     @Test fun musicBrainzRefusalStoresNoMarker() = runBlocking {
         mbCode = 403
+        assertNull(logos().logo("Radiohead"))
+        assertFalse(dir.listFiles().orEmpty().any { it.name.endsWith(".none") })
+    }
+
+    @Test fun busyMusicBrainzIsAskedAgain() = runBlocking {
+        mbBusy = 2
+        assertArrayEquals(png(9), logos().logo("Radiohead")!!.readBytes())
+    }
+
+    @Test fun alwaysBusyGivesUpWithoutAMarker() = runBlocking {
+        mbBusy = 100
         assertNull(logos().logo("Radiohead"))
         assertFalse(dir.listFiles().orEmpty().any { it.name.endsWith(".none") })
     }

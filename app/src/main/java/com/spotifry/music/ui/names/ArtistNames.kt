@@ -16,6 +16,7 @@ import java.io.File
 class ArtistNames(private val settings: Settings, private val own: NameLogos, private val officialLogos: ArtistLogos) {
     val looks get() = settings.artistNames
     val hasKey get() = settings.fanartKey.value.isNotEmpty()
+    val fanartKey get() = settings.fanartKey
 
     fun ownFile(look: NameLook?): File? = own.file(look?.logoFile)
     suspend fun official(name: String): File? = officialLogos.logo(name)

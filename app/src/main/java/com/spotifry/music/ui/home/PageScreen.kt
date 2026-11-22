@@ -186,15 +186,21 @@ private fun artistNameUi(names: com.spotifry.music.ui.names.ArtistNames?, name: 
     val key = name.trim().lowercase()
     val looks by names.looks.collectAsStateWithLifecycle()
     val look = looks[key]
-    val official by androidx.compose.runtime.produceState<java.io.File?>(null, name) { value = names.official(name) }
+    // Pair(logo, still looking); asked again when the key is added or changed
+    val fanartKey by names.fanartKey.collectAsStateWithLifecycle()
+    val official by androidx.compose.runtime.produceState<Pair<java.io.File?, Boolean>>(null to names.hasKey, name, fanartKey) {
+        value = null to names.hasKey
+        value = names.official(name) to false
+    }
     val files = androidx.compose.ui.platform.LocalContext.current.contentResolver
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch { names.setOwnLogo(key, files, uri) }
     }
     return ArtistNameUi(
-        look, names.ownFile(look), official, names.hasKey,
+        look, names.ownFile(look), official.first, names.hasKey,
         onStyle = { names.setStyle(key, it) }, onPickLogo = { picker.launch(arrayOf("image/png", "image/webp", "image/svg+xml", "image/jpeg")) },
         onUseOwn = { names.useOwn(key) }, onUseOfficial = { names.useOfficial(key) }, onRemoveLogo = { names.removeOwnLogo(key) }, onTint = { names.setTint(key, it) },
+        looking = official.second,
     )
 }
