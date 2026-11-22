@@ -44,5 +44,5 @@ fun RestoreQueue(
 ) = RestoreQueue(prefs.asPrefs(), songs, save, metered, scope)
 fun Backups(
     dao: BackupDao, app: SharedPreferences, trims: SharedPreferences, waiting: RestoreQueue, appVersion: String,
-    now: () -> Long = System::currentTimeMillis, covers: java.io.File? = null,
-) = Backups(dao, app.asPrefs(), trims.asPrefs(), waiting, appVersion, now, covers)
+    now: () -> Long = System::currentTimeMillis, covers: java.io.File? = null, playlistLogos: java.io.File? = null, artistLogos: java.io.File? = null,
+) = Backups(dao, app.asPrefs(), trims.asPrefs(), waiting, appVersion, now, covers, playlistLogos, artistLogos)
