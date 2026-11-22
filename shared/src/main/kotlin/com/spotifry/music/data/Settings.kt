@@ -327,6 +327,8 @@ class Settings(private val prefs: Prefs) {
         const val LYRICS_SHIFT = "lyrics_shift_"
         const val LYRICS_SHIFT_MAX = 5_000
         const val ARTISTS = "picked_artists"
+        /** The For you list last built on this device; not in backups. */
+        const val FOR_YOU = "for_you"
         const val NAME = "user_name"
         const val DATA_SAVER = "data_saver"
         const val SAVE_LOW = "save_low"

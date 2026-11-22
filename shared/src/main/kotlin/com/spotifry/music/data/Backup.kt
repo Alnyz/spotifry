@@ -23,7 +23,7 @@ import java.io.InputStream
 const val DESKTOP_KEY_PREFIX = "desktop_"
 
 /** Keys in the `app` prefs that describe this phone or this install, not the listener's choices. */
-private fun aboutThisPhone(key: String) = key.startsWith(DESKTOP_KEY_PREFIX) || key == FIRST_LAUNCH_SEEN || key == UPDATE_LAST_CHECK || key == UPDATE_LATER || key.startsWith(PlaylistOrders.KEY_PREFIX)
+private fun aboutThisPhone(key: String) = key.startsWith(DESKTOP_KEY_PREFIX) || key == FIRST_LAUNCH_SEEN || key == UPDATE_LAST_CHECK || key == UPDATE_LATER || key.startsWith(PlaylistOrders.KEY_PREFIX) || key == Settings.FOR_YOU
 
 /**
  * What the app reads each setting as. Reading a pref as another type throws, and Settings reads them all as the app starts,
