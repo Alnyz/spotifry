@@ -30,9 +30,10 @@ class ArtistNames(private val settings: Settings, private val own: NameLogos, pr
 
     /** Keeps the picture as the artist's own logo and shows it; false when it can't be read. */
     suspend fun setOwnLogo(key: String, files: ContentResolver, uri: Uri): Boolean {
-        val name = own.import(files, uri) ?: return false
+        val new = own.import(files, uri) ?: return false
         val old = settings.artistNames.value[key]?.logoFile
-        edit(key) { it.copy(show = NameShow.OWN, logoFile = name) }
+        // a picture with no transparent parts would turn into a plain box in the page colour
+        edit(key) { it.copy(show = NameShow.OWN, logoFile = new.name, tint = new.seeThrough) }
         withContext(Dispatchers.IO) { own.delete(old) }
         return true
     }

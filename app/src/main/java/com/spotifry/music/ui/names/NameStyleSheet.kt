@@ -136,11 +136,11 @@ private fun LogoTab(look: NameLook, ownLogo: File?, official: OfficialChoice?, o
             OutlinedButton(onPickLogo, Modifier.fillMaxWidth()) { Icon(Icons.Picture, null, Modifier.size(18.dp)); Text("Choose a picture", Modifier.padding(start = 6.dp)) }
         }
         if (ownLogo != null) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onPickLogo) { Icon(Icons.Picture, null, Modifier.size(18.dp)); Text("Choose another picture", Modifier.padding(start = 6.dp)) }
-            OutlinedButton(onRemoveLogo) { Icon(Icons.Trash, null, Modifier.size(18.dp)); Text("Remove", Modifier.padding(start = 6.dp)) }
+            OutlinedButton(onPickLogo, Modifier.weight(1f)) { Icon(Icons.Picture, null, Modifier.size(18.dp)); Text("Change picture", Modifier.padding(start = 6.dp), maxLines = 1) }
+            OutlinedButton(onRemoveLogo, Modifier.weight(1f)) { Icon(Icons.Trash, null, Modifier.size(18.dp)); Text("Remove", Modifier.padding(start = 6.dp), maxLines = 1) }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).padding(end = 16.dp)) {
                 Text("Match the page colour", style = MaterialTheme.typography.titleMedium)
                 Text("White in dark mode, dark in light mode. Turn off to keep the logo's own colours.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
@@ -148,7 +148,7 @@ private fun LogoTab(look: NameLook, ownLogo: File?, official: OfficialChoice?, o
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Info, null, Modifier.size(18.dp), tint = scheme.onSurfaceVariant)
-            Text("A PNG or SVG with a see-through background looks best. A picture with a solid background shows as a box.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            Text("A transparent PNG or SVG works best. Wide fits best, about 5:2 (like 1200 × 480). Bigger pictures are shrunk to at most 1200 × 600.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
         }
     }
 }

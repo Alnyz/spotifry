@@ -30,7 +30,7 @@ class NameLogosTest {
     @Test fun svgImportGivesAPng() = runBlocking {
         val svg = tmp.newFile("logo.svg").apply { writeText("""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80"><rect width="200" height="80"/></svg>""") }
         val l = logos()
-        val name = l.import(files, Uri.fromFile(svg))!!
+        val name = l.import(files, Uri.fromFile(svg))!!.name
         val f = l.file(name)!!
         assertEquals(pngStart, f.readBytes().take(4))
         assertEquals(1200, BitmapFactory.decodeFile(f.path).width)
@@ -40,7 +40,7 @@ class NameLogosTest {
         val png = tmp.newFile("wide.png")
         png.outputStream().use { Bitmap.createBitmap(2000, 400, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it) }
         val l = logos()
-        val f = l.file(l.import(files, Uri.fromFile(png)))!!
+        val f = l.file(l.import(files, Uri.fromFile(png))!!.name)!!
         assertEquals(pngStart, f.readBytes().take(4))
         assertEquals(1200, BitmapFactory.decodeFile(f.path).width)
     }
@@ -48,8 +48,18 @@ class NameLogosTest {
     @Test fun tallSvgIsCapped() = runBlocking {
         val svg = tmp.newFile("tall.svg").apply { writeText("""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 400"><rect width="100" height="400"/></svg>""") }
         val l = logos()
-        val bmp = BitmapFactory.decodeFile(l.file(l.import(files, Uri.fromFile(svg)))!!.path)
+        val bmp = BitmapFactory.decodeFile(l.file(l.import(files, Uri.fromFile(svg))!!.name)!!.path)
         assertTrue(bmp.height <= NameLogos.MAX_HEIGHT)
+    }
+
+    @Test fun photoWithoutSeeThroughPartsIsMarked() = runBlocking {
+        val photo = tmp.newFile("photo.png")
+        photo.outputStream().use { Bitmap.createBitmap(300, 200, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.RED) }.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val cutout = tmp.newFile("cutout.png")
+        cutout.outputStream().use { Bitmap.createBitmap(300, 200, Bitmap.Config.ARGB_8888).apply { setPixel(5, 5, android.graphics.Color.RED) }.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val l = logos()
+        assertEquals(false, l.import(files, Uri.fromFile(photo))!!.seeThrough)
+        assertEquals(true, l.import(files, Uri.fromFile(cutout))!!.seeThrough)
     }
 
     @Test fun unreadableFileGivesNull() = runBlocking {

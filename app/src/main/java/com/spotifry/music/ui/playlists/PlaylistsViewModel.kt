@@ -96,7 +96,9 @@ class PlaylistsViewModel(
     suspend fun setNameLogo(id: Long, files: android.content.ContentResolver, uri: android.net.Uri): Boolean {
         val new = nameLogos?.import(files, uri) ?: return false
         val old = dao.nameLogoOf(id)
-        dao.setNameLogo(id, new)
+        dao.setNameLogo(id, new.name)
+        // a picture with no transparent parts would turn into a plain box in the page colour
+        dao.setLogoTint(id, new.seeThrough)
         withContext(Dispatchers.IO) { nameLogos.delete(old) }
         return true
     }

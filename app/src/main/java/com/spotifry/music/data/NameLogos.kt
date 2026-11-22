@@ -14,8 +14,11 @@ import kotlin.random.Random
 class NameLogos(private val dir: File) {
     fun file(name: String?): File? = name?.takeIf(::isPlainFileName)?.let { File(dir, it) }?.takeIf { it.isFile }
 
-    /** Saves the picture at [uri] as a PNG and returns its name; null when it can't be read. An SVG is drawn once, here. */
-    suspend fun import(files: ContentResolver, uri: Uri): String? = withContext(Dispatchers.IO) {
+    /** A saved logo; [seeThrough]: it has transparent parts, so painting it in the page colour keeps its shape. */
+    class Imported(val name: String, val seeThrough: Boolean)
+
+    /** Saves the picture at [uri] as a PNG; null when it can't be read. An SVG is drawn once, here. */
+    suspend fun import(files: ContentResolver, uri: Uri): Imported? = withContext(Dispatchers.IO) {
         val bmp = (if (isSvg(files, uri)) svgBitmap(files, uri) else decodePicked(files, uri, maxSide = 2400) ?: plainBitmap(files, uri)) ?: return@withContext null
         // a logo is a wide strip: a tall picture is shrunk to fit [MAX_HEIGHT] too, which also keeps it small enough for backups
         val scale = minOf(1f, MAX_WIDTH.toFloat() / bmp.width, MAX_HEIGHT.toFloat() / bmp.height)
@@ -24,11 +27,19 @@ class NameLogos(private val dir: File) {
         runCatching {
             dir.mkdirs()
             File(dir, name).outputStream().use { fitted.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            name
+            Imported(name, hasSeeThrough(fitted))
         }.getOrElse { File(dir, name).delete(); null }
     }
 
     fun delete(name: String?) { file(name)?.delete() }
+
+    /** Any pixel at least half transparent, checked on a small copy. */
+    private fun hasSeeThrough(b: Bitmap): Boolean {
+        if (!b.hasAlpha()) return false
+        val small = Bitmap.createScaledBitmap(b, minOf(b.width, 120), minOf(b.height, 60), true)
+        val px = IntArray(small.width * small.height).also { small.getPixels(it, 0, small.width, 0, 0, small.width, small.height) }
+        return px.any { (it ushr 24) < 128 }
+    }
 
     private fun isSvg(files: ContentResolver, uri: Uri) =
         files.getType(uri) == "image/svg+xml" || uri.lastPathSegment.orEmpty().endsWith(".svg", ignoreCase = true)
