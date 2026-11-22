@@ -73,7 +73,7 @@ class DesktopUpgradeTest {
             val p = playlists().byId(id)!!
             assertEquals(null, p.nameStyle); assertEquals(true, p.logoTint); assertEquals(null, p.nameShow)
             playlists().setNameStyle(id, "gothic")
-            assertEquals(com.spotifry.music.data.NameLook(com.spotifry.music.data.NameShow.TEXT, com.spotifry.music.data.NameStyle.GOTHIC), playlists().byId(id)!!.look())
+            assertEquals(com.spotifry.music.data.NameLook(com.spotifry.music.data.NameShow.TEXT, com.spotifry.music.data.NameStyle.GOTHIC, tint = true), playlists().byId(id)!!.look())
             playlists().setNameLogo(id, "l.png")
             val l = playlists().byId(id)!!.look()
             assertEquals(com.spotifry.music.data.NameShow.OWN, l.show); assertEquals(com.spotifry.music.data.NameStyle.GOTHIC, l.style)
