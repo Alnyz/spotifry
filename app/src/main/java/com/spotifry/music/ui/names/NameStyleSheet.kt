@@ -144,7 +144,8 @@ private fun LogoTab(look: NameLook, ownLogo: File?, official: OfficialChoice?, o
                 Text("Match the page colour", style = MaterialTheme.typography.titleMedium)
                 Text("White in dark mode, dark in light mode. Turn off to keep the logo's own colours.", style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
             }
-            Switch(look.tint, onTint)
+            // what the page does now: an unset switch means on for your own logo, off for an official one
+            Switch(look.tint ?: (look.show != NameShow.OFFICIAL && !(look.show == null && official?.file != null)), onTint)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Info, null, Modifier.size(18.dp), tint = scheme.onSurfaceVariant)

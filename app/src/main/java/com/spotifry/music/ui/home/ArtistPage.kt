@@ -200,7 +200,8 @@ internal fun ArtistPage(
                 val ready = songs.isNotEmpty()
                 Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(tint, Bg))).padding(top = 6.dp, bottom = 22.dp), Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
                     RoundButton({ onShuffle(songs, name) }, ready, 52.dp, Glass) { Icon(Icons.Shuffle, "Shuffle", Modifier.size(23.dp)) }
-                    RoundButton({ onPlay(ordered, 0, name) }, ready, 88.dp, scheme.primary, scheme.onPrimary) { Icon(Icons.Play, "Play", Modifier.size(38.dp)) }
+                    // white, not the accent: the page takes the photo's colour, and an accent picked for the app can clash with it
+                    RoundButton({ onPlay(ordered, 0, name) }, ready, 88.dp, Color.White, Color.Black) { Icon(Icons.Play, "Play", Modifier.size(38.dp)) }
                     RoundButton(onStar, true, 52.dp, Glass) {
                         Icon(if (starred) Icons.Star else Icons.StarOutline, if (starred) "Remove from your artists" else "Add to your artists", Modifier.size(23.dp))
                     }

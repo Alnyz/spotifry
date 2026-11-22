@@ -24,9 +24,17 @@ class NameLooksTest {
     }
 
     @Test fun artistDefaultIsOfficialWhenFound() {
-        assertEquals(Shown.Official(true), shownForArtist(null, true, officialFound = true))
+        assertEquals(Shown.Official(false), shownForArtist(null, true, officialFound = true))
         assertEquals(Shown.Text(NameStyle.CLASSIC), shownForArtist(null, true, officialFound = false))
     }
+
+    @Test fun officialLogoKeepsItsOwnColoursUnlessTheSwitchWasSet() {
+        assertEquals(Shown.Official(false), shownForArtist(NameLook(NameShow.OFFICIAL), true, officialFound = true))
+        assertEquals(Shown.Official(true), shownForArtist(NameLook(NameShow.OFFICIAL, tint = true), true, officialFound = true))
+        assertEquals(Shown.Own("a.png", true), shownForArtist(NameLook(NameShow.OWN, logoFile = "a.png"), true, officialFound = true))
+    }
+
+    @Test fun unsetSwitchRoundTrips() = assertEquals(mapOf("x" to NameLook(tint = null)), decodeArtistNames(encodeArtistNames(mapOf("x" to NameLook(tint = null)))))
 
     @Test fun userPickBeatsTheOfficialLogo() =
         assertEquals(Shown.Text(NameStyle.GOTHIC), shownForArtist(NameLook(NameShow.TEXT, NameStyle.GOTHIC), true, officialFound = true))
@@ -35,7 +43,7 @@ class NameLooksTest {
         assertEquals(Shown.Text(NameStyle.BLOCK), shownForArtist(NameLook(NameShow.OFFICIAL, NameStyle.BLOCK), true, officialFound = false))
 
     @Test fun nonFavouriteAlwaysGetsTheDefault() =
-        assertEquals(Shown.Official(true), shownForArtist(NameLook(NameShow.OWN, logoFile = "a.png"), favourite = false, officialFound = true))
+        assertEquals(Shown.Official(false), shownForArtist(NameLook(NameShow.OWN, logoFile = "a.png"), favourite = false, officialFound = true))
 
     @Test fun settingsKeepArtistNamesAndTheKey() {
         val p = MemoryPrefs()

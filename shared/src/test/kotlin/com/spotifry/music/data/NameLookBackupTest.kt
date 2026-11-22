@@ -53,7 +53,7 @@ class NameLookBackupTest {
         b.backups.restore(readBackup(ByteArrayInputStream(zip(a))))
         val p = b.db.backup().playlists().single()
         val look = p.look()
-        assertEquals(NameShow.OWN, look.show); assertEquals(NameStyle.PIXEL, look.style); assertFalse(look.tint)
+        assertEquals(NameShow.OWN, look.show); assertEquals(NameStyle.PIXEL, look.style); assertEquals(false, look.tint)
         assertArrayEquals(png, File(b.playlistLogos, look.logoFile!!).readBytes())
         assertArrayEquals(png, File(b.artistLogos, "a1.png").readBytes())
         assertEquals("a1.png", Settings(b.app).artistNames.value["radiohead"]!!.logoFile)

@@ -6,6 +6,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.sp
 import com.spotifry.music.data.NameStyle
@@ -35,6 +37,25 @@ class StyledNameTest {
 
     @Test fun missingLogoFileShowsTheTextStyle() {
         compose.setContent { StyledName("Radiohead", Shown.Own("gone.png", true), null, Color.White, Color.Red, 50.sp, fallback = NameStyle.GOTHIC) }
+        compose.onNodeWithText("Radiohead").assertExists()
+    }
+
+    @Test @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun smallLogoIsNotStretched() {
+        val f = java.io.File.createTempFile("logo", ".png")
+        f.outputStream().use { android.graphics.Bitmap.createBitmap(200, 80, android.graphics.Bitmap.Config.ARGB_8888).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        compose.setContent { androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(1f)) { StyledName("Radiohead", Shown.Own(f.name, false), f, Color.White, Color.Red, 50.sp) } }
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Radiohead").fetchSemanticsNodes().isNotEmpty() }
+        val w = compose.onNodeWithContentDescription("Radiohead").fetchSemanticsNode().size.width
+        assertTrue("drawn $w px wide", w <= 200)
+    }
+
+    @Test @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun logoShowsTheNameUnderIt() {
+        val f = java.io.File.createTempFile("logo", ".png")
+        f.outputStream().use { android.graphics.Bitmap.createBitmap(200, 80, android.graphics.Bitmap.Config.ARGB_8888).compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        compose.setContent { StyledName("Radiohead", Shown.Own(f.name, false), f, Color.White, Color.Red, 50.sp) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Radiohead").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Radiohead").assertExists()
     }
 

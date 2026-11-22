@@ -21,8 +21,12 @@ enum class NameShow(val key: String) {
     }
 }
 
-/** Everything chosen for one name. The choices not showing stay stored, so switching back is one tap. */
-data class NameLook(val show: NameShow? = null, val style: NameStyle = NameStyle.CLASSIC, val logoFile: String? = null, val tint: Boolean = true)
+/**
+ * Everything chosen for one name. The choices not showing stay stored, so switching back is one tap. [tint] is the
+ * "Match the page colour" switch; null until set: on for your own logo, off for an official one (made for dark pages,
+ * often with coloured or shaded parts that painting in one colour would flatten).
+ */
+data class NameLook(val show: NameShow? = null, val style: NameStyle = NameStyle.CLASSIC, val logoFile: String? = null, val tint: Boolean? = null)
 
 /** What the header draws. [tint]: the logo is painted in the page's text colour. */
 sealed interface Shown {
@@ -32,15 +36,15 @@ sealed interface Shown {
 }
 
 fun shownForPlaylist(look: NameLook): Shown =
-    if (look.show == NameShow.OWN && look.logoFile != null) Shown.Own(look.logoFile, look.tint) else Shown.Text(look.style)
+    if (look.show == NameShow.OWN && look.logoFile != null) Shown.Own(look.logoFile, look.tint ?: true) else Shown.Text(look.style)
 
 /** Only favourite artists keep a look of their own; the rest, and a favourite with nothing picked, get the official logo when there is one. */
 fun shownForArtist(look: NameLook?, favourite: Boolean, officialFound: Boolean): Shown {
     val l = look?.takeIf { favourite } ?: NameLook()
     return when (l.show) {
         NameShow.TEXT -> Shown.Text(l.style)
-        NameShow.OWN -> if (l.logoFile != null) Shown.Own(l.logoFile, l.tint) else Shown.Text(l.style)
-        NameShow.OFFICIAL, null -> if (officialFound) Shown.Official(l.tint) else Shown.Text(l.style)
+        NameShow.OWN -> if (l.logoFile != null) Shown.Own(l.logoFile, l.tint ?: true) else Shown.Text(l.style)
+        NameShow.OFFICIAL, null -> if (officialFound) Shown.Official(l.tint ?: false) else Shown.Text(l.style)
     }
 }
 
@@ -48,11 +52,11 @@ private fun field(s: String) = s.replace(Regex("[\\t\\n]"), " ")
 
 /** One line per artist key: key, show, style, logo file, tint (1 or 0), tab-separated. */
 fun encodeArtistNames(m: Map<String, NameLook>): String = m.entries.joinToString("\n") { (k, l) ->
-    listOf(field(k), l.show?.key.orEmpty(), l.style.key, field(l.logoFile.orEmpty()), if (l.tint) "1" else "0").joinToString("\t")
+    listOf(field(k), l.show?.key.orEmpty(), l.style.key, field(l.logoFile.orEmpty()), when (l.tint) { true -> "1"; false -> "0"; null -> "" }).joinToString("\t")
 }
 
 fun decodeArtistNames(s: String?): Map<String, NameLook> = s.orEmpty().lines().mapNotNull { line ->
     val p = line.split('\t')
     if (p.size != 5 || p[0].isBlank()) return@mapNotNull null
-    p[0] to NameLook(NameShow.of(p[1]), NameStyle.of(p[2]), p[3].ifEmpty { null }, p[4] != "0")
+    p[0] to NameLook(NameShow.of(p[1]), NameStyle.of(p[2]), p[3].ifEmpty { null }, when (p[4]) { "1" -> true; "0" -> false; else -> null })
 }.toMap()

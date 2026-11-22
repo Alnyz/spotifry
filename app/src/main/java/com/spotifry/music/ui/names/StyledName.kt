@@ -3,6 +3,8 @@ package com.spotifry.music.ui.names
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,8 +68,14 @@ fun StyledName(name: String, shown: Shown, logo: File?, ink: Color, glow: Color,
     }
     val pic = picture
     if (pic != null) {
-        Box(modifier.size(300.dp, 118.dp), Alignment.Center) {
-            Image(pic, name, Modifier.size(300.dp, 118.dp), contentScale = ContentScale.Fit, colorFilter = if (tint) ColorFilter.tint(ink, BlendMode.SrcIn) else null)
+        // never drawn bigger than the picture itself: stretching makes it soft
+        val (w, h) = with(LocalDensity.current) { minOf(300.dp, pic.width.toDp()) to minOf(118.dp, pic.height.toDp()) }
+        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(300.dp, 118.dp), Alignment.Center) {
+                Image(pic, name, Modifier.size(w, h), contentScale = ContentScale.Fit, colorFilter = if (tint) ColorFilter.tint(ink, BlendMode.SrcIn) else null)
+            }
+            // some logos are hard to read: the plain name goes under it
+            Text(name, Modifier.padding(top = 6.dp), color = ink.copy(alpha = .9f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         }
     } else {
         val style = (shown as? Shown.Text)?.style ?: fallback
