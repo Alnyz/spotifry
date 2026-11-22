@@ -221,7 +221,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
         }
     } }))
     val playlistCovers = remember { com.spotifry.music.data.PlaylistCovers(java.io.File(c.filesDir, "playlist_covers")) }
-    val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs), playlistCovers) } })
+    val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs), playlistCovers, com.spotifry.music.data.NameLogos(java.io.File(c.filesDir, "playlist_logos"))) } })
     val listeningRow: com.spotifry.music.ui.listening.ListeningRowViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.listening.ListeningRowViewModel(c.db.listens()) } })
     val settingsVm: SettingsViewModel = viewModel(factory = viewModelFactory { initializer {
         SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.listens(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache, c.resolver::clear, appContext.getDatabasePath("music.db").parentFile)

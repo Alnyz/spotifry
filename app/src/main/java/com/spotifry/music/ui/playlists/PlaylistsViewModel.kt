@@ -28,6 +28,7 @@ class PlaylistsViewModel(
     private val dao: PlaylistDao, private val songs: SongDao, private val player: SongPlayer,
     private val orders: PlaylistOrders = PlaylistOrders(),
     private val coverFiles: com.spotifry.music.data.PlaylistCovers? = null,
+    private val nameLogos: com.spotifry.music.data.NameLogos? = null,
 ) : ViewModel() {
     /** False until the list has been read, so an empty [playlists] says nothing yet. */
     val playlistsRead = MutableStateFlow(false)
@@ -80,7 +81,31 @@ class PlaylistsViewModel(
         }
     }
     fun rename(id: Long, name: String) { if (name.isNotBlank()) viewModelScope.launch { dao.rename(id, name.trim()) } }
-    fun delete(id: Long) { viewModelScope.launch { val cover = dao.coverOf(id); dao.delete(id); withContext(Dispatchers.IO) { coverFiles?.delete(cover) } } }
+    fun delete(id: Long) {
+        viewModelScope.launch {
+            val cover = dao.coverOf(id); val logo = dao.nameLogoOf(id)
+            dao.delete(id)
+            withContext(Dispatchers.IO) { coverFiles?.delete(cover); nameLogos?.delete(logo) }
+        }
+    }
+
+    /** The file of a stored name logo; null when there is none or it is gone. */
+    fun nameLogoFile(name: String?): java.io.File? = nameLogos?.file(name)
+    fun setNameStyle(id: Long, style: com.spotifry.music.data.NameStyle) { viewModelScope.launch { dao.setNameStyle(id, style.key) } }
+    /** Keeps the picture at [uri] as the name logo and shows it; false when it can't be read. The old logo file goes. */
+    suspend fun setNameLogo(id: Long, files: android.content.ContentResolver, uri: android.net.Uri): Boolean {
+        val new = nameLogos?.import(files, uri) ?: return false
+        val old = dao.nameLogoOf(id)
+        dao.setNameLogo(id, new)
+        withContext(Dispatchers.IO) { nameLogos.delete(old) }
+        return true
+    }
+    /** Shows the stored logo again after a text style was picked. */
+    fun useNameLogo(id: Long) { viewModelScope.launch { dao.nameLogoOf(id)?.let { dao.setNameLogo(id, it) } } }
+    fun removeNameLogo(id: Long) {
+        viewModelScope.launch { val old = dao.nameLogoOf(id); dao.setNameLogo(id, null); withContext(Dispatchers.IO) { nameLogos?.delete(old) } }
+    }
+    fun setLogoTint(id: Long, on: Boolean) { viewModelScope.launch { dao.setLogoTint(id, on) } }
 
     /** The picture file of a chosen cover, null for the default cover. */
     fun coverPath(name: String?): String? = coverFiles?.file(name)?.path

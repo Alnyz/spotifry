@@ -65,9 +65,10 @@ import kotlin.math.min
 
 /** The pencil: Rename, or Change cover. */
 @Composable
-fun EditPlaylistSheet(onRename: () -> Unit, onChangeCover: () -> Unit, onClose: () -> Unit) = SheetFrame(onClose) {
+fun EditPlaylistSheet(onRename: () -> Unit, onChangeCover: () -> Unit, onNameStyle: () -> Unit, onClose: () -> Unit) = SheetFrame(onClose) {
     SheetRow(Icons.Edit, "Rename", null, onRename)
     SheetRow(Icons.Picture, "Change cover", null, onChangeCover)
+    SheetRow(Icons.Palette, "Name style", null, onNameStyle)
 }
 
 /** Where the new cover comes from. [hasCustom] adds the way back to the default cover. */

@@ -84,6 +84,7 @@ import com.spotifry.music.data.cropBox
 import com.spotifry.music.data.cropped
 import com.spotifry.music.data.decodePicked
 import com.spotifry.music.ui.components.CoverMosaic
+import com.spotifry.music.data.db.look
 import com.spotifry.music.ui.components.LocalImageClient
 import com.spotifry.music.ui.components.coverBitmap
 import com.spotifry.music.ui.components.playlistCoverPath
@@ -114,6 +115,9 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
     var picking by remember { mutableStateOf(false) }
     var cropping by remember { mutableStateOf<Bitmap?>(null) }
     var renaming by remember { mutableStateOf(false) }
+    var nameSheet by remember { mutableStateOf(false) }
+    val look = playlist?.look() ?: com.spotifry.music.data.NameLook()
+    val logoFile = vm.nameLogoFile(look.logoFile)
     var deleting by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -130,6 +134,10 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
         } finally {
             withContext(NonCancellable) { if (undone) vm.undoCover(id, change) else vm.keepCover(change) }
         }
+    }
+    // a document picker, not the photo picker: that one doesn't list SVG files
+    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch { if (!vm.setNameLogo(id, files, uri)) snackbar.showSnackbar("Couldn't use that picture") }
     }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
@@ -158,6 +166,7 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
             onPlay = { l, i -> vm.play(l, i, name) }, onShuffle = { vm.shuffle(it, name) }, onMore = { onMore(it, id) }, onMenu = { menu = true }, onBack = onBack,
             bottomInset = bottomInset, subtitle = playlist?.let(::countsLabel), loading = list == null,
             coverSongs = covers[id] ?: list.orEmpty().take(4), coverPath = coverPath, onEdit = { pencil = true },
+            look = look, logo = logoFile,
         ) {
             DropdownMenu(menu, { menu = false }) {
                 DropdownMenuItem(text = { Text("Share") }, enabled = !list.isNullOrEmpty(), onClick = { menu = false; onShare(name, list.orEmpty().map { it.toSong() }) })
@@ -176,7 +185,27 @@ fun PlaylistDetailScreen(vm: PlaylistsViewModel, id: Long, onBack: () -> Unit, o
         }, { picking = false }, bottomInset)
         cropping?.let { pic -> CropScreen(pic, { square -> cropping = null; scope.launch { changeCover(square) } }, { cropping = null }, bottomInset) }
     }
-    if (pencil) EditPlaylistSheet({ pencil = false; renaming = true }, { pencil = false; coverSheet = true }, { pencil = false })
+    if (pencil) EditPlaylistSheet({ pencil = false; renaming = true }, { pencil = false; coverSheet = true }, { pencil = false; nameSheet = true }, { pencil = false })
+    if (nameSheet) {
+        val coverSongs = covers[id] ?: songs.orEmpty().take(4)
+        val tint = rememberCoverTint(coverSongs, coverPath)
+        val shown = com.spotifry.music.data.shownForPlaylist(look)
+        com.spotifry.music.ui.names.NameStyleSheet(
+            name, playlist?.let(::countsLabel).orEmpty(), look, shown, logoFile, logoFile, null, tint ?: Color.White,
+            backdrop = {
+                CoverMosaic(coverSongs, Modifier.matchParentSize(), custom = coverPath)
+                Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .7f)))))
+            },
+            onRename = { renaming = true },
+            onStyle = { vm.setNameStyle(id, it) },
+            onPickLogo = { logoPicker.launch(arrayOf("image/png", "image/webp", "image/svg+xml", "image/jpeg")) },
+            onUseOwn = { vm.useNameLogo(id) },
+            onUseOfficial = null,
+            onRemoveLogo = { vm.removeNameLogo(id) },
+            onTint = { vm.setLogoTint(id, it) },
+            onClose = { nameSheet = false },
+        )
+    }
     if (coverSheet) ChangeCoverSheet(
         hasCustom = playlist?.cover != null, canPickSong = !songs.isNullOrEmpty(),
         onGallery = { coverSheet = false; gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -222,7 +251,7 @@ internal fun averageTint(covers: List<Bitmap>): Color? {
 
 /** The cover over the top of the screen with the name on it, its colour fading down into the page. */
 @Composable
-private fun PlaylistHero(name: String, subtitle: String?, coverSongs: List<SongEntity>, coverPath: String?, tint: Color?, onBack: () -> Unit, onMenu: () -> Unit, menuHost: @Composable () -> Unit) {
+private fun PlaylistHero(name: String, subtitle: String?, coverSongs: List<SongEntity>, coverPath: String?, tint: Color?, onBack: () -> Unit, onMenu: () -> Unit, menuHost: @Composable () -> Unit, look: com.spotifry.music.data.NameLook, logo: java.io.File?) {
     val scheme = MaterialTheme.colorScheme
     val density = LocalDensity.current
     val heroH = LocalConfiguration.current.screenHeightDp.dp * .55f
@@ -241,11 +270,8 @@ private fun PlaylistHero(name: String, subtitle: String?, coverSongs: List<SongE
             }
         }
         Column(Modifier.align(Alignment.BottomCenter).padding(start = 20.dp, end = 20.dp, bottom = 22.dp), Arrangement.spacedBy(4.dp), Alignment.CenterHorizontally) {
-            Text(
-                name, color = ink, fontFamily = Bodoni, fontWeight = FontWeight.SemiBold, fontSize = 50.sp, lineHeight = 52.sp, letterSpacing = (-1.25).sp,
-                textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            )
-            if (subtitle != null) Text(subtitle, color = ink.copy(alpha = .75f), style = MaterialTheme.typography.bodyMedium)
+            com.spotifry.music.ui.names.StyledName(name, com.spotifry.music.data.shownForPlaylist(look), logo, ink, tint ?: ink, 50.sp, fallback = look.style)
+            if (subtitle != null) com.spotifry.music.ui.names.NameMeta(subtitle, ink)
         }
     }
 }
@@ -265,6 +291,7 @@ fun PlaylistDetailContent(
     onPlay: (List<Song>, Int) -> Unit, onMore: (Song) -> Unit, onMenu: () -> Unit, onBack: () -> Unit,
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp, subtitle: String? = null, loading: Boolean = false,
     onShuffle: (List<Song>) -> Unit = {}, coverSongs: List<SongEntity> = songs.take(4), coverPath: String? = null, onEdit: () -> Unit = {},
+    look: com.spotifry.music.data.NameLook = com.spotifry.music.data.NameLook(), logo: java.io.File? = null,
     menuHost: @Composable () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -275,7 +302,7 @@ fun PlaylistDetailContent(
     val toned = fadeColor(tint, scheme.background, scheme.surfaceContainerHigh)
     val ready = songs.isNotEmpty()
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomInset + 16.dp)) {
-        item { PlaylistHero(name, subtitle, coverSongs, coverPath, tint, onBack, onMenu, menuHost) }
+        item { PlaylistHero(name, subtitle, coverSongs, coverPath, tint, onBack, onMenu, menuHost, look, logo) }
         item {
             val glass = scheme.onBackground.copy(alpha = .1f)
             Row(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(toned, scheme.background))).padding(top = 6.dp, bottom = 22.dp), Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
