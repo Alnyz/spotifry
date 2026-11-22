@@ -53,6 +53,9 @@ class Backups(
     private val now: () -> Long = System::currentTimeMillis,
     /** Where the playlist cover pictures are kept; null where there are none (desktop): covers are then neither saved nor restored. */
     private val covers: File? = null,
+    /** Where playlist and favourite-artist name logos are kept; null (desktop): logos are neither saved nor restored. */
+    private val playlistLogos: File? = null,
+    private val artistLogos: File? = null,
 ) {
     suspend fun build(): BackupFile {
         fun here(id: String) = !id.startsWith(LOCAL_PREFIX)
@@ -64,12 +67,15 @@ class Backups(
                 BackupPlaylist(
                     p.name, p.createdAt, app.getString(PlaylistOrders.key(p.id), null), rows[p.id].orEmpty().filter { here(it.songId) }.map { BackupPlaylistSong(it.songId, it.addedAt) },
                     coverFile(p.cover)?.let { f -> runCatching { f.readBytes().toByteString() }.getOrNull()?.takeIf(::isJpeg) },
+                    p.nameStyle, p.nameShow, p.logoTint, pngIn(playlistLogos, p.nameLogo),
                 )
             },
             dao.history().filter { here(it.songId) }, dao.plays().filter { here(it.songId) }, dao.listens(),
             app.all.filterKeys { !aboutThisPhone(it) }.mapNotNull { (k, v) -> v?.let { k to it } }.toMap(),
             trims.all.filterKeys(::here).mapNotNull { (k, v) -> (v as? String)?.let { k to it } }.toMap(),
             dao.notes().filter { here(it.songId) },
+            decodeArtistNames(app.getString(Settings.ARTIST_NAMES, null)).values.mapNotNull { it.logoFile }.distinct()
+                .mapNotNull { n -> pngIn(artistLogos, n)?.let { n to it } }.toMap(),
         )
     }
 
@@ -111,6 +117,28 @@ class Backups(
             putBoolean(FIRST_LAUNCH_SEEN, true) // a phone with a restored library has no use for the first-launch screens
         }.commit()) { "settings not written" }
         b.playlists.zip(ids).forEach { (p, id) -> p.cover?.let { restoreCover(id.first, it) } }
+        b.playlists.zip(ids).forEach { (p, id) -> p.nameLogo?.let { restoreNameLogo(id.first, it) } }
+        artistLogos?.let { dir -> b.artistLogos.forEach { (n, png) -> if (isPlainFileName(n)) writeIfMissing(File(dir, n), png) } }
+    }
+
+    private fun pngIn(dir: File?, name: String?): okio.ByteString? =
+        dir?.let { d -> name?.takeIf(::isPlainFileName)?.let { File(d, it) } }?.takeIf { it.isFile }?.let { f -> runCatching { f.readBytes().toByteString() }.getOrNull() }?.takeIf(::isPng)
+
+    /** Artist logo names carry a time and a random part, so a file already here under that name is the same logo. */
+    private fun writeIfMissing(f: File, png: okio.ByteString) {
+        if (f.exists()) return
+        try { f.parentFile.mkdirs(); f.writeBytes(png.toByteArray()) } catch (e: java.io.IOException) { f.delete() }
+    }
+
+    /** A playlist that already has a name logo here keeps it. */
+    private suspend fun restoreNameLogo(id: Long, png: okio.ByteString) {
+        val dir = playlistLogos ?: return
+        val f = File(dir, "$id-${now()}.png")
+        try {
+            dir.mkdirs()
+            f.writeBytes(png.toByteArray())
+            if (dao.setNameLogoIfNone(id, f.name) == 0) f.delete()
+        } catch (e: java.io.IOException) { f.delete() }
     }
 
     private fun coverFile(name: String?): File? = covers?.let { dir -> name?.let { File(dir, it) } }?.takeIf { it.isFile }

@@ -126,7 +126,7 @@ class AppContainer(private val context: Context) {
     val downloads = DownloadRepository(context.filesDir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })
     private val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
     val restoreQueue = com.spotifry.music.data.RestoreQueue(context.getSharedPreferences("restore_pending", Context.MODE_PRIVATE), db.songs(), downloads::save, { connectivity.isActiveNetworkMetered })
-    val backups = com.spotifry.music.data.Backups(db.backup(), prefs, context.getSharedPreferences("trims", Context.MODE_PRIVATE), restoreQueue, BuildConfig.VERSION_NAME, covers = java.io.File(context.filesDir, "playlist_covers"))
+    val backups = com.spotifry.music.data.Backups(db.backup(), prefs, context.getSharedPreferences("trims", Context.MODE_PRIVATE), restoreQueue, BuildConfig.VERSION_NAME, covers = java.io.File(context.filesDir, "playlist_covers"), playlistLogos = java.io.File(context.filesDir, "playlist_logos"), artistLogos = java.io.File(context.filesDir, "artist_logos"))
 
     /** Data saver is on and the phone is on mobile data (or any connection that counts data). */
     fun streamLow(): Boolean = settings.dataSaver.value && connectivity.isActiveNetworkMetered

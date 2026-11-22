@@ -23,6 +23,8 @@ const val MAX_JSON_BYTES = 32 * 1024 * 1024
 /** A cover is an 800 px JPEG of tens of KB; anything this big is not one. */
 const val MAX_COVER_BYTES = 4 * 1024 * 1024
 private const val COVERS = "covers/"
+private const val NAME_LOGOS = "name_logos/"
+private const val ARTIST_LOGOS = "artist_logos/"
 /** Ids of songs that are files on this device, left out of a backup. */
 const val LOCAL_PREFIX = "local:"
 
@@ -38,7 +40,10 @@ data class BackupPlaylistSong(val songId: String, val addedAt: Long)
  * [cover] is the picture chosen as its cover (a JPEG), null for the default. It travels as its own file in the zip, which an
  * older app skips.
  */
-data class BackupPlaylist(val name: String, val createdAt: Long, val order: String?, val songs: List<BackupPlaylistSong>, val cover: ByteString? = null)
+data class BackupPlaylist(val name: String, val createdAt: Long, val order: String?, val songs: List<BackupPlaylistSong>, val cover: ByteString? = null,
+    /** The name look; [nameLogo] is the logo picture (a PNG), a file of its own in the zip like [cover]. */
+    val nameStyle: String? = null, val nameShow: String? = null, val logoTint: Boolean = true, val nameLogo: ByteString? = null,
+)
 
 /**
  * Everything a backup holds. [songs] never carry a file path; a song's savedAt says it was saved on the old phone.
@@ -53,6 +58,8 @@ data class BackupFile(
     val settings: Map<String, Any>, val trims: Map<String, String>,
     /** Absent in backups made before notes: they restore with none. */
     val notes: List<SongNoteEntity> = emptyList(),
+    /** Favourite artists' own logos (PNGs) by file name, as named in the artist_names setting. */
+    val artistLogos: Map<String, ByteString> = emptyMap(),
 )
 
 /** "12 playlists, 340 songs, 5 trims" */
@@ -75,6 +82,8 @@ fun BackupFile.encode(): String = JSONObject()
     .put("playlists", JSONArray(playlists.mapIndexed { i, p ->
         JSONObject().put("name", p.name).put("createdAt", p.createdAt).put("order", p.order ?: JSONObject.NULL)
             .apply { if (p.cover != null) put("cover", coverEntry(i)) }
+            .put("nameStyle", p.nameStyle ?: JSONObject.NULL).put("nameShow", p.nameShow ?: JSONObject.NULL).put("logoTint", p.logoTint)
+            .apply { if (p.nameLogo != null) put("nameLogo", nameLogoEntry(i)) }
             .put("songs", JSONArray(p.songs.map { JSONObject().put("songId", it.songId).put("addedAt", it.addedAt) }))
     }))
     .put("history", JSONArray(history.map { JSONObject().put("songId", it.songId).put("playedAt", it.playedAt) }))
@@ -85,6 +94,7 @@ fun BackupFile.encode(): String = JSONObject()
     .put("settings", JSONObject().apply { settings.forEach { (k, v) -> put(k, encodeValue(v)) } })
     .put("trims", JSONObject(trims as Map<*, *>))
     .put("notes", JSONArray(notes.map { JSONObject().put("songId", it.songId).put("text", it.text).put("editedAt", it.editedAt) }))
+    .put("artistLogos", JSONArray(artistLogos.keys.toList()))
     .toString()
 
 // the type is written out: a JSON number doesn't say whether a pref was an Int, a Long or a Float, and reading a pref as the wrong one throws
@@ -109,6 +119,13 @@ private fun <T> JSONObject.list(k: String, item: (JSONObject) -> T): List<T> =
     optJSONArray(k)?.let { a -> (0 until a.length()).map { item(a.getJSONObject(it)) } }.orEmpty()
 
 private fun coverEntry(playlist: Int) = "${COVERS}$playlist.jpg"
+private fun nameLogoEntry(playlist: Int) = "${NAME_LOGOS}$playlist.png"
+
+/** Only what starts like a PNG: logos are always kept as PNGs. */
+fun isPng(b: ByteString) = b.size > 8 && b[0] == 0x89.toByte() && b[1] == 0x50.toByte() && b[2] == 0x4E.toByte() && b[3] == 0x47.toByte()
+
+/** A plain file name, so a crafted backup can't write outside the logos folder. */
+fun isPlainFileName(n: String) = n.isNotBlank() && '/' !in n && '\\' !in n && n != "." && n != ".."
 
 /** Only what starts like a JPEG: anything else would show as a blank cover, so the playlist keeps the default instead. */
 fun isJpeg(b: ByteString) = b.size > 3 && b[0] == 0xFF.toByte() && b[1] == 0xD8.toByte() && b[2] == 0xFF.toByte()
@@ -135,6 +152,8 @@ fun decodeBackup(text: String, files: Map<String, ByteString> = emptyMap()): Bac
             BackupPlaylist(
                 p.getString("name"), p.optLong("createdAt"), p.optStringOrNull("order"), p.list("songs") { BackupPlaylistSong(it.getString("songId"), it.optLong("addedAt")) },
                 p.optStringOrNull("cover")?.let(files::get)?.takeIf(::isJpeg),
+                p.optStringOrNull("nameStyle"), p.optStringOrNull("nameShow"), p.optBoolean("logoTint", true),
+                p.optStringOrNull("nameLogo")?.let(files::get)?.takeIf(::isPng),
             )
         },
         o.list("history") { HistoryEntity(it.getString("songId"), it.getLong("playedAt")) },
@@ -144,6 +163,8 @@ fun decodeBackup(text: String, files: Map<String, ByteString> = emptyMap()): Bac
         trims?.keys()?.asSequence()?.associateWith { trims.getString(it) }.orEmpty(),
         // cleaned again: the file may have been edited by hand
         o.list("notes") { SongNoteEntity(it.getString("songId"), cleanNote(it.optString("text")), it.optLong("editedAt")) }.filter { it.text.isNotEmpty() },
+        o.optJSONArray("artistLogos")?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty()
+            .filter(::isPlainFileName).mapNotNull { n -> files[ARTIST_LOGOS + n]?.takeIf(::isPng)?.let { n to it } }.toMap(),
     )
 }
 
@@ -155,7 +176,9 @@ fun writeBackup(backup: BackupFile, out: OutputStream) = ZipOutputStream(out).us
     zip.closeEntry()
     backup.playlists.forEachIndexed { i, p ->
         p.cover?.let { zip.putNextEntry(ZipEntry(coverEntry(i))); zip.write(it.toByteArray()); zip.closeEntry() }
+        p.nameLogo?.let { zip.putNextEntry(ZipEntry(nameLogoEntry(i))); zip.write(it.toByteArray()); zip.closeEntry() }
     }
+    backup.artistLogos.forEach { (n, b) -> zip.putNextEntry(ZipEntry(ARTIST_LOGOS + n)); zip.write(b.toByteArray()); zip.closeEntry() }
 }
 
 /** The backup in a zip file; [BackupError] with a message to show for anything else. Changes nothing. */
@@ -167,7 +190,7 @@ fun readBackup(input: InputStream): BackupFile = try {
         for (e in generateSequence { zip.nextEntry }) when {
             e.name == ENTRY && text == null -> text = zip.readUpTo(MAX_JSON_BYTES + 1)
             // ponytail: one cover per playlist and a cap on the total, so a crafted zip can't fill the memory
-            e.name.startsWith(COVERS) && coverBytes < MAX_JSON_BYTES -> zip.readUpTo(MAX_COVER_BYTES + 1)
+            (e.name.startsWith(COVERS) || e.name.startsWith(NAME_LOGOS) || e.name.startsWith(ARTIST_LOGOS)) && coverBytes < MAX_JSON_BYTES -> zip.readUpTo(MAX_COVER_BYTES + 1)
                 .takeIf { it.size <= MAX_COVER_BYTES }?.let { covers[e.name] = it.toByteString(); coverBytes += it.size }
         }
         if (text == null || text.size > MAX_JSON_BYTES) throw BackupError(NOT_A_BACKUP)
