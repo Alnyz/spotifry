@@ -56,6 +56,34 @@ class DesktopDbTest {
 
 /** An older desktop file is upgraded by the steps, the way the phone's older files are. */
 class DesktopUpgradeTest {
+    /** The playlist name columns came with version 9. */
+    private fun dropNameColumns(c: androidx.sqlite.SQLiteConnection) =
+        listOf("nameStyle", "nameLogo", "logoTint", "nameShow").forEach { col -> c.prepare("ALTER TABLE playlists DROP COLUMN $col").use { it.step() } }
+
+    @Test fun aFileAtVersionEightGetsTheNameColumns() = runBlocking {
+        val file = java.io.File.createTempFile("music", ".db").also { it.deleteOnExit() }
+        fun open() = Room.databaseBuilder<AppDatabase>(file.path, factory = { AppDatabase_Impl() })
+            .setDriver(BundledSQLiteDriver()).addMigrations(*AppDatabase.driverMigrations()).setQueryCoroutineContext(Dispatchers.IO).build()
+        val id = open().run { playlists().create("Road trip").also { close() } }
+        BundledSQLiteDriver().open(file.path).use { c ->
+            dropNameColumns(c)
+            c.prepare("PRAGMA user_version = 8").use { it.step() }
+        }
+        open().apply {
+            val p = playlists().byId(id)!!
+            assertEquals(null, p.nameStyle); assertEquals(true, p.logoTint); assertEquals(null, p.nameShow)
+            playlists().setNameStyle(id, "gothic")
+            assertEquals(com.spotifry.music.data.NameLook(com.spotifry.music.data.NameShow.TEXT, com.spotifry.music.data.NameStyle.GOTHIC), playlists().byId(id)!!.look())
+            playlists().setNameLogo(id, "l.png")
+            val l = playlists().byId(id)!!.look()
+            assertEquals(com.spotifry.music.data.NameShow.OWN, l.show); assertEquals(com.spotifry.music.data.NameStyle.GOTHIC, l.style)
+            playlists().setLogoTint(id, false)
+            assertEquals(false, playlists().observePlaylists().first().single().look().tint)
+            close()
+        }
+        Unit
+    }
+
     @Test fun aFileAtVersionSevenGetsTheRelatedTable() = runBlocking {
         val file = java.io.File.createTempFile("music", ".db").also { it.deleteOnExit() }
         fun open() = Room.databaseBuilder<AppDatabase>(file.path, factory = { AppDatabase_Impl() })
@@ -63,6 +91,7 @@ class DesktopUpgradeTest {
         open().apply { songs().upsert(Song("s", "T", "A", 100, null).toEntity()); close() }
         BundledSQLiteDriver().open(file.path).use { c ->
             c.prepare("DROP TABLE related").use { it.step() }
+            dropNameColumns(c)
             c.prepare("PRAGMA user_version = 7").use { it.step() }
         }
         open().apply {
@@ -83,6 +112,7 @@ class DesktopUpgradeTest {
         BundledSQLiteDriver().open(file.path).use { c ->
             c.prepare("DROP TABLE song_notes").use { it.step() }
             c.prepare("ALTER TABLE playlists DROP COLUMN cover").use { it.step() }
+            dropNameColumns(c)
             c.prepare("PRAGMA user_version = 5").use { it.step() }
         }
         open().apply {

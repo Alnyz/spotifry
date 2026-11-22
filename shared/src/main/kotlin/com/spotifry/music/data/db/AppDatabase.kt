@@ -8,7 +8,7 @@ import androidx.sqlite.execSQL
 
 @Database(
     entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongEntity::class, HistoryEntity::class, PlayCountEntity::class, ListenEntity::class, SongYearEntity::class, SongNoteEntity::class, RelatedEntity::class],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,7 +48,9 @@ abstract class AppDatabase : RoomDatabase() {
         val ADD_RELATED = Step(7, 8, listOf("CREATE TABLE IF NOT EXISTS `related` (`seedId` TEXT NOT NULL, `songId` TEXT NOT NULL, `position` INTEGER NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`seedId`, `songId`))"))
 
         /** Every upgrade, oldest first. */
-        val STEPS = listOf(ADD_PLAYS, ADD_ADDED_AT, ADD_LISTENS, ADD_SONG_YEARS, ADD_SONG_NOTES, ADD_PLAYLIST_COVER, ADD_RELATED)
+        val ADD_NAME_LOOK = Step(8, 9, listOf("nameStyle TEXT", "nameLogo TEXT", "logoTint INTEGER NOT NULL DEFAULT 1", "nameShow TEXT").map { "ALTER TABLE `playlists` ADD COLUMN $it" })
+
+        val STEPS = listOf(ADD_PLAYS, ADD_ADDED_AT, ADD_LISTENS, ADD_SONG_YEARS, ADD_SONG_NOTES, ADD_PLAYLIST_COVER, ADD_RELATED, ADD_NAME_LOOK)
 
         /** The upgrades for a Room that opens the file through a SQLite driver, which is how the desktop app does it. */
         fun driverMigrations(): Array<Migration> = STEPS.map { step ->

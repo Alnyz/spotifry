@@ -39,6 +39,13 @@ abstract class PlaylistDao {
     @Query("UPDATE playlists SET name = :name WHERE id = :id") abstract suspend fun rename(id: Long, name: String)
     @Query("UPDATE playlists SET cover = :cover WHERE id = :id") abstract suspend fun setCover(id: Long, cover: String?)
     @Query("SELECT cover FROM playlists WHERE id = :id") abstract suspend fun coverOf(id: Long): String?
+    @Query("SELECT * FROM playlists WHERE id = :id") abstract suspend fun byId(id: Long): PlaylistEntity?
+    /** Picking a style makes the text show; a stored logo stays for switching back. */
+    @Query("UPDATE playlists SET nameStyle = :style, nameShow = 'text' WHERE id = :id") abstract suspend fun setNameStyle(id: Long, style: String)
+    /** A logo shows once picked; none (removed) goes back to the text. */
+    @Query("UPDATE playlists SET nameLogo = :file, nameShow = CASE WHEN :file IS NULL THEN 'text' ELSE 'own' END WHERE id = :id") abstract suspend fun setNameLogo(id: Long, file: String?)
+    @Query("UPDATE playlists SET logoTint = :tint WHERE id = :id") abstract suspend fun setLogoTint(id: Long, tint: Boolean)
+    @Query("SELECT nameLogo FROM playlists WHERE id = :id") abstract suspend fun nameLogoOf(id: Long): String?
     @Query("DELETE FROM playlists WHERE id = :id") abstract suspend fun delete(id: Long)
 
     @Query(
@@ -83,7 +90,7 @@ abstract class PlaylistDao {
         "SELECT p.id AS id, p.name AS name, " +
             "(SELECT COUNT(*) FROM playlist_songs ps WHERE ps.playlistId = p.id) AS songCount, " +
             "(SELECT COUNT(*) FROM playlist_songs ps JOIN songs s ON s.id = ps.songId WHERE ps.playlistId = p.id AND s.filePath IS NOT NULL) AS savedCount, " +
-            "p.id AS number, p.cover AS cover " +
+            "p.id AS number, p.cover AS cover, p.nameStyle AS nameStyle, p.nameLogo AS nameLogo, p.logoTint AS logoTint, p.nameShow AS nameShow " +
             "FROM playlists p ORDER BY p.id"
     )
     abstract fun observePlaylists(): Flow<List<PlaylistWithCounts>>

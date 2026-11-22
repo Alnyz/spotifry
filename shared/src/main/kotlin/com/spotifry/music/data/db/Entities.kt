@@ -30,7 +30,14 @@ data class PlaylistEntity(
     val createdAt: Long,
     /** The file name of a picture the user chose as the cover (in the playlist covers folder); null is the default: the songs' own covers. */
     val cover: String? = null,
+    /** The name's look ([com.spotifry.music.data.NameLook]): style key, logo file name (in the playlist logos folder), logo tint, and which shows. */
+    val nameStyle: String? = null,
+    val nameLogo: String? = null,
+    @androidx.room.ColumnInfo(defaultValue = "1") val logoTint: Boolean = true,
+    val nameShow: String? = null,
 )
+
+fun PlaylistEntity.look() = com.spotifry.music.data.NameLook(com.spotifry.music.data.NameShow.of(nameShow), com.spotifry.music.data.NameStyle.of(nameStyle), nameLogo, logoTint)
 
 @Entity(
     tableName = "playlist_songs",
@@ -75,6 +82,10 @@ data class ListenRow(
 
 data class PlayCountRow(val songId: String, val n: Int)
 
-data class PlaylistWithCounts(val id: Long, val name: String, val songCount: Int, val savedCount: Int, val number: Int, val cover: String? = null)
+data class PlaylistWithCounts(val id: Long, val name: String, val songCount: Int, val savedCount: Int, val number: Int, val cover: String? = null,
+    val nameStyle: String? = null, val nameLogo: String? = null, val logoTint: Boolean = true, val nameShow: String? = null,
+)
+
+fun PlaylistWithCounts.look() = com.spotifry.music.data.NameLook(com.spotifry.music.data.NameShow.of(nameShow), com.spotifry.music.data.NameStyle.of(nameStyle), nameLogo, logoTint)
 
 data class PlaylistCoverRow(val playlistId: Long, @Embedded val song: SongEntity)
