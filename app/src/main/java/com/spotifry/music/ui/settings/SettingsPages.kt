@@ -115,6 +115,8 @@ fun LookSettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp) {
     val userName by s.name.collectAsStateWithLifecycle()
     var pickAccent by remember { mutableStateOf(false) }
     var editName by remember { mutableStateOf<String?>(null) }
+    val fanartKey by s.fanartKey.collectAsStateWithLifecycle()
+    var editKey by remember { mutableStateOf<String?>(null) }
     Page("Look", onBack, bottomInset) {
         Group("") { Item("Name", userName.ifEmpty { "Not set" }, onClick = { editName = userName }) { Chevron() } }
         Group("Colours") {
@@ -128,8 +130,30 @@ fun LookSettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp) {
                 )
             }
         }
+        Group("Artist pages") {
+            Item("Artist logos", if (fanartKey.isNotEmpty()) "On" else "Add a free fanart.tv key to show official artist logos", onClick = { editKey = fanartKey }) { Chevron() }
+        }
     }
     if (pickAccent) AccentPicker(accent, accentColor, { c, color -> s.setAccent(c, color); pickAccent = false }, { pickAccent = false })
+    editKey?.let { text ->
+        val links = androidx.compose.ui.platform.LocalUriHandler.current
+        AlertDialog(
+            onDismissRequest = { editKey = null },
+            title = { Text("Artist logos") },
+            text = {
+                androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                    Text("With your own fanart.tv key, artist pages show the artist's official logo when there is one. Leave it empty to turn this off.")
+                    androidx.compose.material3.OutlinedTextField(
+                        text, { editKey = it.trim() }, singleLine = true, label = { Text("fanart.tv key") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrectEnabled = false),
+                    )
+                    TextButton({ links.openUri("https://fanart.tv/get-an-api-key/") }) { Text("Get a free key") }
+                }
+            },
+            confirmButton = { TextButton({ vm.setFanartKey(text); editKey = null }) { Text("Save") } },
+            dismissButton = { TextButton({ editKey = null }) { Text("Cancel") } },
+        )
+    }
     editName?.let { text ->
         AlertDialog(
             onDismissRequest = { editName = null },

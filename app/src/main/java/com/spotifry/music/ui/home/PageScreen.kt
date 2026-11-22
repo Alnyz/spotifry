@@ -105,6 +105,8 @@ fun PageScreen(
     onMore: (Song) -> Unit, actions: PageActions, bottomInset: Dp,
     /** Artists only: whether the artist is in Your artists, and the star that adds or removes it. */
     starred: Boolean = false, onStar: () -> Unit = {},
+    /** Artists only: name looks and logos; null shows the plain name. */
+    artistNames: com.spotifry.music.ui.names.ArtistNames? = null,
 ) {
     val state by vm.page.collectAsStateWithLifecycle()
     val link = vm.link
@@ -112,7 +114,7 @@ fun PageScreen(
     if (link.type == SearchType.ARTISTS) {
         val counts by vm.counts.collectAsStateWithLifecycle()
         com.spotifry.music.ui.theme.AlwaysDark(Color(0xFF0C0D10)) {
-            ArtistPage(link, p, state != null && p == null, counts, starred, onStar, onBack, onPlay, onShuffle, onMore, actions, bottomInset, vm::load)
+            ArtistPage(link, p, state != null && p == null, counts, starred, onStar, onBack, onPlay, onShuffle, onMore, actions, bottomInset, vm::load, artistNameUi(artistNames, p?.name ?: link.name))
         }
         return
     }
@@ -175,4 +177,24 @@ fun PageMenu(open: Boolean, onDismiss: () -> Unit, link: PageLink, actions: Page
         )
         DropdownMenuItem(text = { Text("Share") }, leadingIcon = { Icon(Icons.Share, null) }, onClick = { onDismiss(); actions.share(link) })
     }
+}
+
+/** The artist page's name controls: the stored look, the own logo file, and the official logo once looked up (only this page's artist). */
+@Composable
+private fun artistNameUi(names: com.spotifry.music.ui.names.ArtistNames?, name: String): ArtistNameUi? {
+    names ?: return null
+    val key = name.trim().lowercase()
+    val looks by names.looks.collectAsStateWithLifecycle()
+    val look = looks[key]
+    val official by androidx.compose.runtime.produceState<java.io.File?>(null, name) { value = names.official(name) }
+    val files = androidx.compose.ui.platform.LocalContext.current.contentResolver
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch { names.setOwnLogo(key, files, uri) }
+    }
+    return ArtistNameUi(
+        look, names.ownFile(look), official, names.hasKey,
+        onStyle = { names.setStyle(key, it) }, onPickLogo = { picker.launch(arrayOf("image/png", "image/webp", "image/svg+xml", "image/jpeg")) },
+        onUseOwn = { names.useOwn(key) }, onUseOfficial = { names.useOfficial(key) }, onRemoveLogo = { names.removeOwnLogo(key) }, onTint = { names.setTint(key, it) },
+    )
 }

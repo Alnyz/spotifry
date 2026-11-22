@@ -220,11 +220,12 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
             Runtime.getRuntime().exit(0)
         }
     } }))
+    val artistNames = remember { com.spotifry.music.ui.names.ArtistNames(c.settings, com.spotifry.music.data.NameLogos(java.io.File(c.filesDir, "artist_logos")), c.artistLogos) }
     val playlistCovers = remember { com.spotifry.music.data.PlaylistCovers(java.io.File(c.filesDir, "playlist_covers")) }
     val plVm: PlaylistsViewModel = viewModel(factory = viewModelFactory { initializer { PlaylistsViewModel(c.db.playlists(), c.db.songs(), c.player, com.spotifry.music.data.PlaylistOrders(c.prefs), playlistCovers, com.spotifry.music.data.NameLogos(java.io.File(c.filesDir, "playlist_logos"))) } })
     val listeningRow: com.spotifry.music.ui.listening.ListeningRowViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.listening.ListeningRowViewModel(c.db.listens()) } })
     val settingsVm: SettingsViewModel = viewModel(factory = viewModelFactory { initializer {
-        SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.listens(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache, c.resolver::clear, appContext.getDatabasePath("music.db").parentFile)
+        SettingsViewModel(c.settings, c.recentSearches, c.db.history(), c.db.plays(), c.db.listens(), c.db.songs(), java.io.File(c.filesDir, "songs"), c.imageClient.cache, c.songCache, c.resolver::clear, appContext.getDatabasePath("music.db").parentFile, c::setFanartKey)
     } })
     val importVm: ImportViewModel = viewModel(factory = viewModelFactory { initializer { ImportViewModel({ SpotifyImport.fetch(c.client, it) }, c.source, c.db.playlists(), c.db.songs()) } })
     val artistsVm: com.spotifry.music.ui.home.ArtistsHomeViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.home.ArtistsHomeViewModel(c.settings, com.spotifry.music.data.ArtistSongs(c.source)) } })
@@ -432,6 +433,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                                 vm, savedIds, { nav.popBackStack() }, plVm::play, plVm::shuffle, openMenu, pageActions, inset,
                                 starred = artists.any { it.key == link.name.trim().lowercase() },
                                 onStar = { c.settings.setArtists(com.spotifry.music.ui.home.toggleArtist(c.settings.artists.value, link)) },
+                                artistNames = artistNames,
                             )
                         }
                         composable(Routes.SAVED) {

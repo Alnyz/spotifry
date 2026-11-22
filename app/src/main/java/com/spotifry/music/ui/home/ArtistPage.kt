@@ -139,6 +139,7 @@ internal fun ArtistPage(
     link: PageLink, p: PageContent?, failed: Boolean, counts: Map<String, Int>, starred: Boolean, onStar: () -> Unit,
     onBack: () -> Unit, onPlay: (List<Song>, Int, String) -> Unit, onShuffle: (List<Song>, String) -> Unit, onMore: (Song) -> Unit,
     actions: PageActions, bottomInset: Dp, onRetry: () -> Unit,
+    names: ArtistNameUi? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val density = LocalDensity.current
@@ -154,6 +155,10 @@ internal fun ArtistPage(
     val ordered = remember(songs, counts) { topSongsOrder(songs, counts) }
     var allSongs by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    var nameSheet by remember { mutableStateOf(false) }
+    val look = names?.look
+    val shown = com.spotifry.music.data.shownForArtist(look, starred, names?.official != null)
+    val shownLogo = when (shown) { is com.spotifry.music.data.Shown.Own -> names?.ownLogo; is com.spotifry.music.data.Shown.Official -> names?.official; else -> null }
 
     val list = rememberLazyListState()
     val heroH = LocalConfiguration.current.screenHeightDp.dp * .55f
@@ -176,15 +181,18 @@ internal fun ArtistPage(
                     Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = statusH + 4.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                         val pill = Bg.copy(alpha = .55f)
                         RoundButton(onBack, true, 48.dp, pill) { Icon(Icons.Back, "Back", Modifier.size(22.dp)) }
-                        Box {
-                            RoundButton({ menu = true }, true, 48.dp, pill) { Icon(Icons.More, "More options", Modifier.size(22.dp)) }
-                            PageMenu(menu, { menu = false }, link, actions, null)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // only favourite artists keep a look of their own
+                            if (starred && names != null) RoundButton({ nameSheet = true }, true, 48.dp, pill) { Icon(Icons.Edit, "Change name style", Modifier.size(22.dp)) }
+                            Box {
+                                RoundButton({ menu = true }, true, 48.dp, pill) { Icon(Icons.More, "More options", Modifier.size(22.dp)) }
+                                PageMenu(menu, { menu = false }, link, actions, null)
+                            }
                         }
                     }
-                    Text(
-                        name, Modifier.align(Alignment.BottomCenter).padding(start = 20.dp, end = 20.dp, bottom = 22.dp), color = Color.White,
-                        fontFamily = Bodoni, fontWeight = FontWeight.SemiBold, fontSize = 50.sp, lineHeight = 52.sp, letterSpacing = (-1.25).sp,
-                        textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    com.spotifry.music.ui.names.StyledName(
+                        name, shown, shownLogo, Color.White, tint, 50.sp,
+                        Modifier.align(Alignment.BottomCenter).padding(start = 20.dp, end = 20.dp, bottom = 22.dp), fallback = look?.style ?: com.spotifry.music.data.NameStyle.CLASSIC,
                     )
                 }
             }
@@ -242,7 +250,24 @@ internal fun ArtistPage(
 
         // the slim row has no strip behind it: rows fade out as they reach it (above), so nothing dark is drawn on the page
     }
+    if (nameSheet && names != null) com.spotifry.music.ui.names.NameStyleSheet(
+        name, "Artist", look ?: com.spotifry.music.data.NameLook(), shown, shownLogo, names.ownLogo,
+        if (names.hasKey) com.spotifry.music.ui.names.OfficialChoice(names.official) else null, tint,
+        backdrop = {
+            photo?.let { Image(it, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop) } ?: Box(Modifier.matchParentSize().background(tint))
+            Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .7f)))))
+        },
+        onRename = null, onStyle = names.onStyle, onPickLogo = names.onPickLogo, onUseOwn = names.onUseOwn,
+        onUseOfficial = names.onUseOfficial, onRemoveLogo = names.onRemoveLogo, onTint = names.onTint, onClose = { nameSheet = false }, titleNote = name,
+    )
 }
+
+/** A favourite artist's name look and what changes it; [official] is the found official logo, null while looking or when there is none. */
+class ArtistNameUi(
+    val look: com.spotifry.music.data.NameLook?, val ownLogo: java.io.File?, val official: java.io.File?, val hasKey: Boolean,
+    val onStyle: (com.spotifry.music.data.NameStyle) -> Unit, val onPickLogo: () -> Unit, val onUseOwn: () -> Unit, val onUseOfficial: () -> Unit,
+    val onRemoveLogo: () -> Unit, val onTint: (Boolean) -> Unit,
+)
 
 @Composable
 internal fun RoundButton(onClick: () -> Unit, enabled: Boolean, size: Dp, fill: Color, ink: Color = Color.White, icon: @Composable () -> Unit) {

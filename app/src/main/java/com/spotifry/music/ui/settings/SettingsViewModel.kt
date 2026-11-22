@@ -29,6 +29,8 @@ class SettingsViewModel(
     private val songCache: androidx.media3.datasource.cache.Cache? = null,
     private val forgetLinks: () -> Unit = {},
     private val dbDir: File? = null,
+    /** Saves the fanart.tv key; a new key also forgets the "no logo found" answers of the old one. */
+    val setFanartKey: (String) -> Unit = settings::setFanartKey,
 ) : ViewModel() {
     private val _storage = MutableStateFlow<Storage?>(null)
     /** Null while counting. Counted each time the page opens and after clearing covers. */
