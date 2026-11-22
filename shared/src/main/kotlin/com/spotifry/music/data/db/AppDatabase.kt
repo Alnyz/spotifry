@@ -7,8 +7,8 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 
 @Database(
-    entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongEntity::class, HistoryEntity::class, PlayCountEntity::class, ListenEntity::class, SongYearEntity::class, SongNoteEntity::class],
-    version = 7,
+    entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongEntity::class, HistoryEntity::class, PlayCountEntity::class, ListenEntity::class, SongYearEntity::class, SongNoteEntity::class, RelatedEntity::class],
+    version = 8,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,6 +20,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun backup(): BackupDao
     abstract fun songYears(): SongYearDao
     abstract fun notes(): SongNoteDao
+    abstract fun related(): RelatedDao
 
     /** One upgrade as plain SQL. The phone and the desktop each wrap it in the kind of migration their Room needs. */
     class Step(val from: Int, val to: Int, val sql: List<String>)
@@ -43,8 +44,11 @@ abstract class AppDatabase : RoomDatabase() {
         /** A playlist starts on the default cover (null); a chosen picture is kept as a file named here. */
         val ADD_PLAYLIST_COVER = Step(6, 7, listOf("ALTER TABLE `playlists` ADD COLUMN `cover` TEXT"))
 
+        /** Each song's similar songs, kept for For you; starts empty. */
+        val ADD_RELATED = Step(7, 8, listOf("CREATE TABLE IF NOT EXISTS `related` (`seedId` TEXT NOT NULL, `songId` TEXT NOT NULL, `position` INTEGER NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`seedId`, `songId`))"))
+
         /** Every upgrade, oldest first. */
-        val STEPS = listOf(ADD_PLAYS, ADD_ADDED_AT, ADD_LISTENS, ADD_SONG_YEARS, ADD_SONG_NOTES, ADD_PLAYLIST_COVER)
+        val STEPS = listOf(ADD_PLAYS, ADD_ADDED_AT, ADD_LISTENS, ADD_SONG_YEARS, ADD_SONG_NOTES, ADD_PLAYLIST_COVER, ADD_RELATED)
 
         /** The upgrades for a Room that opens the file through a SQLite driver, which is how the desktop app does it. */
         fun driverMigrations(): Array<Migration> = STEPS.map { step ->

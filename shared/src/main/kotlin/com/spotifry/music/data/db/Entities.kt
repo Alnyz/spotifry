@@ -63,6 +63,10 @@ data class ListenEntity(
     @androidx.room.ColumnInfo(defaultValue = "0") val skipped: Boolean = false,
 )
 
+/** One of a song's similar songs, as YouTube listed them at [fetchedAt]; [position] is its place in that list. Only a cache for For you. */
+@Entity(tableName = "related", primaryKeys = ["seedId", "songId"])
+data class RelatedEntity(val seedId: String, val songId: String, val position: Int, val fetchedAt: Long)
+
 /** A log line with its song; null if the song's row was never written. Its seconds still count in the totals. */
 data class ListenRow(
     val startedAt: Long, val songId: String, val secondsHeard: Int, val skipped: Boolean,

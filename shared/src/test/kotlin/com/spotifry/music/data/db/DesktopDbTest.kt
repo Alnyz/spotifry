@@ -46,10 +46,34 @@ class DesktopDbTest {
         assertEquals(1, db.backup().playlistSongs().size)
         assertEquals(1, db.backup().songs().size)
     }
+
+    @Test fun relatedReplaceKeepsOnlyTheNewList() = runBlocking {
+        db.related().replace("s", listOf(RelatedEntity("s", "a", 0, 1), RelatedEntity("s", "b", 1, 1), RelatedEntity("s", "c", 2, 1)))
+        db.related().replace("s", listOf(RelatedEntity("s", "y", 1, 2), RelatedEntity("s", "x", 0, 2)))
+        assertEquals(listOf("x", "y"), db.related().forSeed("s").map { it.songId })
+    }
 }
 
 /** An older desktop file is upgraded by the steps, the way the phone's older files are. */
 class DesktopUpgradeTest {
+    @Test fun aFileAtVersionSevenGetsTheRelatedTable() = runBlocking {
+        val file = java.io.File.createTempFile("music", ".db").also { it.deleteOnExit() }
+        fun open() = Room.databaseBuilder<AppDatabase>(file.path, factory = { AppDatabase_Impl() })
+            .setDriver(BundledSQLiteDriver()).addMigrations(*AppDatabase.driverMigrations()).setQueryCoroutineContext(Dispatchers.IO).build()
+        open().apply { songs().upsert(Song("s", "T", "A", 100, null).toEntity()); close() }
+        BundledSQLiteDriver().open(file.path).use { c ->
+            c.prepare("DROP TABLE related").use { it.step() }
+            c.prepare("PRAGMA user_version = 7").use { it.step() }
+        }
+        open().apply {
+            related().replace("s", listOf(RelatedEntity("s", "x", 0, 1)))
+            assertEquals(listOf("x"), related().forSeed("s").map { it.songId })
+            assertEquals("T", songs().get("s")!!.title)
+            close()
+        }
+        Unit
+    }
+
     @Test fun aFileAtVersionFiveGetsTheNotesTable() = runBlocking {
         val file = java.io.File.createTempFile("music", ".db").also { it.deleteOnExit() }
         fun open() = Room.databaseBuilder<AppDatabase>(file.path, factory = { AppDatabase_Impl() })

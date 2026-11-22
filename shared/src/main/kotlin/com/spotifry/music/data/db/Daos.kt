@@ -23,6 +23,9 @@ abstract class SongDao {
     @Query("SELECT * FROM songs WHERE filePath IS NOT NULL ORDER BY savedAt DESC") abstract fun observeSaved(): Flow<List<SongEntity>>
     @Query("SELECT * FROM songs WHERE id = :id") abstract suspend fun get(id: String): SongEntity?
     @Query("SELECT COUNT(*) FROM songs WHERE filePath IS NOT NULL") abstract suspend fun savedCount(): Int
+    @Query("SELECT * FROM songs WHERE filePath IS NOT NULL") abstract suspend fun savedSongs(): List<SongEntity>
+    /** In no particular order; ids with no row are left out. */
+    @Query("SELECT * FROM songs WHERE id IN (:ids)") abstract suspend fun byIds(ids: List<String>): List<SongEntity>
     @Query("UPDATE songs SET filePath = :filePath, thumbPath = :thumbPath, savedAt = :savedAt WHERE id = :id")
     abstract suspend fun markSaved(id: String, filePath: String, thumbPath: String?, savedAt: Long)
     @Query("UPDATE songs SET filePath = NULL, thumbPath = NULL, savedAt = NULL WHERE id = :id") abstract suspend fun clearSaved(id: String)
@@ -69,6 +72,8 @@ abstract class PlaylistDao {
     /** Every song that is in at least one playlist, for the mark on song rows. */
     @Query("SELECT DISTINCT songId FROM playlist_songs")
     abstract fun observeSongIdsInPlaylists(): Flow<List<String>>
+    @Query("SELECT DISTINCT songId FROM playlist_songs")
+    abstract suspend fun songIdsInPlaylists(): List<String>
 
     /** Ids of the playlists that hold [songId]. */
     @Query("SELECT playlistId FROM playlist_songs WHERE songId = :songId")
@@ -199,4 +204,16 @@ abstract class ListenDao {
     abstract fun observeAll(): Flow<List<ListenRow>>
     @Query("SELECT * FROM listens WHERE startedAt >= :since") abstract fun observeSince(since: Long): Flow<List<ListenEntity>>
     @Query("SELECT EXISTS(SELECT 1 FROM listens)") abstract fun observeAny(): Flow<Boolean>
+    @Query("SELECT l.startedAt, l.songId, l.secondsHeard, l.skipped, s.* FROM listens l LEFT JOIN songs s ON s.id = l.songId WHERE l.startedAt >= :since ORDER BY l.startedAt")
+    abstract suspend fun since(since: Long): List<ListenRow>
+    /** Emits again whenever the log changes, so it also works as a "something was played" signal. */
+    @Query("SELECT COUNT(*) FROM listens") abstract fun observeCount(): Flow<Int>
+}
+
+@Dao
+abstract class RelatedDao {
+    @Query("SELECT * FROM related WHERE seedId = :seedId ORDER BY position") abstract suspend fun forSeed(seedId: String): List<RelatedEntity>
+    @Query("DELETE FROM related WHERE seedId = :seedId") protected abstract suspend fun clear(seedId: String)
+    @Insert(onConflict = OnConflictStrategy.REPLACE) protected abstract suspend fun insert(rows: List<RelatedEntity>)
+    @Transaction open suspend fun replace(seedId: String, rows: List<RelatedEntity>) { clear(seedId); insert(rows) }
 }
