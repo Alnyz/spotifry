@@ -21,6 +21,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation("androidx.sqlite:sqlite-bundled:2.5.2")
     testImplementation("org.json:json:20240303")
 }

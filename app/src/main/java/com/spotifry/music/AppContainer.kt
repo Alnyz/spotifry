@@ -50,7 +50,8 @@ class AppContainer(private val context: Context) {
         com.spotifry.music.data.source.MonochromeSource(client, log = { android.util.Log.i("lossless", it) })::find, { settings.monochrome.value },
     )
     val source: MusicSource = choosing
-    val musicBrainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = "Spotifry/${BuildConfig.VERSION_NAME} (https://github.com/Alnyz/spotifry)")
+    private val apiUserAgent = "Spotifry/${BuildConfig.VERSION_NAME} (https://github.com/Alnyz/spotifry)"
+    val musicBrainz = com.spotifry.music.data.spotifried.MusicBrainz(client, userAgent = apiUserAgent)
     val resolver = StreamResolver(source)
     /** Swaps a song's stored copy for a better one found after it started, between plays and not on mobile data. */
     @get:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -99,6 +100,9 @@ class AppContainer(private val context: Context) {
     val autoEq = com.spotifry.music.data.AutoEqSource(client, java.io.File(filesDir, "autoeq"))
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
+    val artistLogos by lazy { com.spotifry.music.data.spotifried.ArtistLogos(client, java.io.File(context.cacheDir, "artist_logos_official"), apiUserAgent, { settings.fanartKey.value }) }
+    /** A different key may find logos the old one couldn't, so "none found" answers are dropped. */
+    fun setFanartKey(k: String) { if (k.trim() != settings.fanartKey.value) { settings.setFanartKey(k); artistLogos.forgetNoneFound() } }
         .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
     // headphones in or out, connected or gone: with Separate sound for headphones on, the sound follows. Android calls this
     // once at once with what is there, which also catches up on a change made while the app was closed.
