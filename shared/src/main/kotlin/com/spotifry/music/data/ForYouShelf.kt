@@ -42,13 +42,13 @@ class ShelfView {
     private var visible = false
     private var wasTouched = false
 
-    fun offer(list: List<Song>) { if (visible && wasTouched) pending = list else { _shown.value = list; pending = null } }
-    fun homeVisible(v: Boolean) {
+    @Synchronized fun offer(list: List<Song>) { if (visible && wasTouched) pending = list else { _shown.value = list; pending = null } }
+    @Synchronized fun homeVisible(v: Boolean) {
         visible = v
         if (!v) { wasTouched = false; pending?.let { _shown.value = it }; pending = null }
     }
-    fun touched() { wasTouched = true }
-    fun remove(id: String) {
+    @Synchronized fun touched() { wasTouched = true }
+    @Synchronized fun remove(id: String) {
         _shown.value = _shown.value?.filterNot { it.id == id }
         pending = pending?.filterNot { it.id == id }
     }
@@ -87,14 +87,17 @@ class ForYouShelf(
     fun start() {
         scope.launch {
             loadStored()
-            db.listens().observeCount().collect { onListensChanged(it) }
+            db.listens().observeCount().collect {
+                // a failed build must never take the app down; the next change tries again
+                try { onListensChanged(it) } catch (e: CancellationException) { throw e } catch (_: Exception) {}
+            }
         }
     }
 
-    /** The stored list, in its order; songs no longer in the database are dropped. */
+    /** The stored list, in its order; songs no longer in the database are dropped. Nothing stored: the row stays loading until the first build. */
     suspend fun loadStored() {
-        val ids = readStored()?.ids.orEmpty()
-        val byId = db.songs().byIds(ids).associateBy { it.id }
+        val ids = readStored()?.ids ?: return
+        val byId = songsByIds(ids).associateBy { it.id }
         view.offer(ids.mapNotNull { byId[it]?.toSong() })
     }
 
@@ -127,14 +130,26 @@ class ForYouShelf(
             if (since.count { it.skipped } < REBUILD_SKIPS && since.count { it.secondsHeard * 1000L >= LISTEN_MS } < REBUILD_PLAYS) return false
         }
         lastAttempt = now
-        val list = build(now)
+        val built = try { build(now) } catch (e: CancellationException) { throw e } catch (_: Exception) {
+            if (view.shown.value == null) view.offer(emptyList())
+            return false
+        }
+        // "Not this song" may have been chosen while the build ran
+        val no = try { notSuggested() } catch (e: CancellationException) { throw e } catch (_: Exception) { emptySet() }
+        val songs = built.list.songs.filterNot { it.id in no }
+        val list = if (songs.size < MIN_LIST) ForYouList(emptyList(), 0) else ForYouList(songs, songs.count { it.id !in built.known })
         if (list.newCount < KEEP_IF_NEW_BELOW && stored != null && stored.newCount > list.newCount) return true
         write(Stored(now, list.newCount, list.songs.map { it.id }))
         view.offer(list.songs)
         true
     }
 
-    private suspend fun build(now: Long): ForYouList {
+    private class Built(val list: ForYouList, val known: Set<String>)
+
+    /** Room puts one SQL variable per id, and older Android allows 999 in a query. */
+    private suspend fun songsByIds(ids: Collection<String>): List<SongEntity> = ids.chunked(500).flatMap { db.songs().byIds(it) }
+
+    private suspend fun build(now: Long): Built {
         val listens = db.listens().since(now - WINDOW_DAYS * DAY_MS)
         val saved = db.songs().savedSongs()
         val savedIds = saved.map { it.id }.toSet()
@@ -145,19 +160,20 @@ class ForYouShelf(
         val entities = LinkedHashMap<String, SongEntity>()
         listens.forEach { l -> l.song?.let { entities[it.id] = it } }
         saved.forEach { entities[it.id] = it }
-        db.songs().byIds((listIds - entities.keys).toList()).forEach { entities[it.id] = it }
+        songsByIds(listIds - entities.keys).forEach { entities[it.id] = it }
 
         val scored = scores.mapNotNull { (id, v) -> entities[id]?.toSong()?.let { Weighted(it, v) } }.filterNot { blocked.blocks(it.song) }
         val seeds = if (scored.size >= MIN_SCORED) pickSeeds(scored, random) else pickSeeds(fallbackPool(scored, saved, listIds, entities, blocked), random)
-        if (seeds.size < MIN_SEEDS) return ForYouList(emptyList(), 0)
+        val knownIds = savedIds + listIds + scores.keys
+        if (seeds.size < MIN_SEEDS) return Built(ForYouList(emptyList(), 0), knownIds)
 
         val related = seeds.associate { it.id to similar(it, now) }
         val heard = db.listens().playCounts().map { it.songId }.toSet()
         val taste = artistTaste(scores) { entities[it]?.artist }
-        val fresh = newCandidates(related, heard, savedIds + listIds + scores.keys, blocked, taste)
+        val fresh = newCandidates(related, heard, knownIds, blocked, taste)
         val playedLately = listens.filter { it.startedAt >= now - RECENT_MS }.map { it.songId }.toSet()
         val known = knownSongs(scores, entities.values.toList(), savedIds, listIds, playedLately, blocked)
-        return buildList(fresh, known, random)
+        return Built(buildList(fresh, known, random), knownIds)
     }
 
     /** Thin history: every scored, saved and playlist song and the top song of each picked artist, all equal, shuffled. */
@@ -181,7 +197,7 @@ class ForYouShelf(
     }
 
     private suspend fun songsOf(rows: List<RelatedEntity>): List<Song> {
-        val byId = db.songs().byIds(rows.map { it.songId }).associateBy { it.id }
+        val byId = songsByIds(rows.map { it.songId }).associateBy { it.id }
         return rows.mapNotNull { byId[it.songId]?.toSong() }
     }
 }

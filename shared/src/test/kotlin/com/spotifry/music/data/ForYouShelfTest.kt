@@ -48,7 +48,8 @@ class ForYouShelfTest {
         }
     }
 
-    private fun shelf() = ForYouShelf(db, source, prefs, settings, { notSuggested.toSet() }, CoroutineScope(Job()), { t }, ZoneOffset.UTC, Random(5))
+    private var notSuggestedFn: () -> Set<String> = { notSuggested.toSet() }
+    private fun shelf() = ForYouShelf(db, source, prefs, settings, { notSuggestedFn() }, CoroutineScope(Job()), { t }, ZoneOffset.UTC, Random(5))
 
     @Before fun open() {
         db = Room.inMemoryDatabaseBuilder<AppDatabase>(factory = { AppDatabase_Impl() })
@@ -200,6 +201,34 @@ class ForYouShelfTest {
         val s = shelf()
         s.rebuildIfDue()
         assertEquals(24, s.shown.value!!.size)
+    }
+
+    @Test fun aFailingBuildDoesNotThrow() = runBlocking {
+        history()
+        notSuggestedFn = { throw IllegalStateException("broken") }
+        assertFalse(shelf().rebuildIfDue())
+    }
+
+    @Test fun nothingStoredStaysLoadingUntilTheFirstBuild() = runBlocking {
+        history()
+        val s = shelf()
+        s.loadStored()
+        assertNull(s.shown.value)
+        s.rebuildIfDue()
+        assertEquals(24, s.shown.value!!.size)
+    }
+
+    @Test fun songsMarkedDuringABuildStayOut() = runBlocking {
+        history()
+        // while the build runs, the similar songs of h0..h5 are marked "Not this song": the list it ends with has none of them
+        val marked = (0 until 6).flatMap { i -> (0 until 10).map { "n$i-$it" } }.toSet()
+        var reads = 0
+        notSuggestedFn = { if (reads++ == 0) emptySet() else marked }
+        val s = shelf()
+        s.rebuildIfDue()
+        assertTrue(s.shown.value!!.isNotEmpty())
+        assertFalse(s.shown.value!!.any { it.id in marked })
+        assertFalse(stored()!!.split('\n').last().split(',').any { it in marked })
     }
 
     // ---- what is shown while Home is open
