@@ -5,6 +5,7 @@ import com.spotifry.music.data.source.read
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.ByteString.Companion.toByteString
@@ -69,7 +70,8 @@ class ArtistLogos(
             .addQueryParameter("query", "artist:\"${artist.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
             .addQueryParameter("fmt", "json").addQueryParameter("limit", "5").build()
         return client.newCall(Request.Builder().url(url).header("User-Agent", userAgent).build()).read { r ->
-            if (!r.isSuccessful) return@read if (r.code == 429 || r.code >= 500) "" else null
+            // a refusal (403: this app blocked, 401) passes like a limit; only a plain empty answer means no match
+            if (!r.isSuccessful) return@read if (r.code == 400 || r.code == 404) null else ""
             val a = JSONObject(r.body!!.string()).optJSONArray("artists") ?: return@read null
             (0 until a.length()).map { a.getJSONObject(it) }
                 .firstOrNull { it.optInt("score") >= 90 && plain(it.optString("name")) == want }?.optString("id")?.ifEmpty { null }
@@ -92,10 +94,13 @@ class ArtistLogos(
         }
     }
 
-    private suspend fun download(url: String): ByteArray? =
-        client.newCall(Request.Builder().url(url).header("User-Agent", userAgent).build()).read { r ->
+    /** The address comes from fanart.tv: one that isn't a web address gives no logo. */
+    private suspend fun download(url: String): ByteArray? {
+        val u = url.toHttpUrlOrNull() ?: return null
+        return client.newCall(Request.Builder().url(u).header("User-Agent", userAgent).build()).read { r ->
             if (r.isSuccessful) r.body!!.bytes().takeIf { isPng(it.toByteString()) } else null
         }
+    }
 
     private fun plain(name: String) = name.trim().lowercase().removeSuffix(" - topic").trim()
     private fun sha1(s: String) = MessageDigest.getInstance("SHA-1").digest(s.toByteArray()).joinToString("") { "%02x".format(it) }

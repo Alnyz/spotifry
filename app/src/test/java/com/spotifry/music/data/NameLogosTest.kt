@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -42,6 +43,13 @@ class NameLogosTest {
         val f = l.file(l.import(files, Uri.fromFile(png)))!!
         assertEquals(pngStart, f.readBytes().take(4))
         assertEquals(1200, BitmapFactory.decodeFile(f.path).width)
+    }
+
+    @Test fun tallSvgIsCapped() = runBlocking {
+        val svg = tmp.newFile("tall.svg").apply { writeText("""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 400"><rect width="100" height="400"/></svg>""") }
+        val l = logos()
+        val bmp = BitmapFactory.decodeFile(l.file(l.import(files, Uri.fromFile(svg)))!!.path)
+        assertTrue(bmp.height <= NameLogos.MAX_HEIGHT)
     }
 
     @Test fun unreadableFileGivesNull() = runBlocking {

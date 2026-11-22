@@ -17,7 +17,9 @@ class NameLogos(private val dir: File) {
     /** Saves the picture at [uri] as a PNG and returns its name; null when it can't be read. An SVG is drawn once, here. */
     suspend fun import(files: ContentResolver, uri: Uri): String? = withContext(Dispatchers.IO) {
         val bmp = (if (isSvg(files, uri)) svgBitmap(files, uri) else decodePicked(files, uri, maxSide = 2400) ?: plainBitmap(files, uri)) ?: return@withContext null
-        val fitted = if (bmp.width > MAX_WIDTH) Bitmap.createScaledBitmap(bmp, MAX_WIDTH, (bmp.height * MAX_WIDTH / bmp.width).coerceAtLeast(1), true) else bmp
+        // a logo is a wide strip: a tall picture is shrunk to fit [MAX_HEIGHT] too, which also keeps it small enough for backups
+        val scale = minOf(1f, MAX_WIDTH.toFloat() / bmp.width, MAX_HEIGHT.toFloat() / bmp.height)
+        val fitted = if (scale < 1f) Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt().coerceAtLeast(1), (bmp.height * scale).toInt().coerceAtLeast(1), true) else bmp
         val name = "${System.currentTimeMillis()}-${Random.nextInt(0x1000000).toString(16).padStart(6, '0')}.png"
         runCatching {
             dir.mkdirs()
@@ -43,5 +45,5 @@ class NameLogos(private val dir: File) {
         Bitmap.createBitmap(MAX_WIDTH, outH, Bitmap.Config.ARGB_8888).also { svg.renderToCanvas(Canvas(it)) }
     }.getOrNull()
 
-    companion object { const val MAX_WIDTH = 1200 }
+    companion object { const val MAX_WIDTH = 1200; const val MAX_HEIGHT = 600 }
 }

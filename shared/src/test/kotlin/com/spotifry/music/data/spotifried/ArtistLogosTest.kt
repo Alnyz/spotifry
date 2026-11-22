@@ -23,6 +23,7 @@ class ArtistLogosTest {
     private var t = 1_800_000_000_000L
     private val day = 86_400_000L
 
+    private var mbCode = 200
     private var artists = """{"artists":[{"id":"mb1","name":"Radiohead","score":100}]}"""
     private var fanart: MockResponse = MockResponse().setBody("""{"hdmusiclogo":[{"url":"URL/hd3","likes":"3"},{"url":"URL/hd9","likes":"9"}],"musiclogo":[{"url":"URL/m","likes":"50"}]}""")
 
@@ -33,7 +34,7 @@ class ArtistLogosTest {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val p = request.path!!
                 return when {
-                    p.startsWith("/ws/2/artist") -> MockResponse().setBody(artists)
+                    p.startsWith("/ws/2/artist") -> MockResponse().setResponseCode(mbCode).setBody(artists)
                     p.startsWith("/v3/music/mb1") -> fanart.clone().setBody(fanart.getBody()?.clone()?.readUtf8().orEmpty().replace("URL", server.url("/img").toString().trimEnd('/')))
                     p == "/img/hd9" -> MockResponse().setBody(Buffer().write(png(9)))
                     p == "/img/hd3" -> MockResponse().setBody(Buffer().write(png(3)))
@@ -98,6 +99,17 @@ class ArtistLogosTest {
         val n = server.requestCount
         l.logo("Nobody")
         assertTrue(server.requestCount > n)
+    }
+
+    @Test fun brokenLogoAddressGivesNoLogo() = runBlocking {
+        fanart = MockResponse().setBody("""{"hdmusiclogo":[{"url":"not a web address","likes":"1"}]}""")
+        assertNull(logos().logo("Radiohead"))
+    }
+
+    @Test fun musicBrainzRefusalStoresNoMarker() = runBlocking {
+        mbCode = 403
+        assertNull(logos().logo("Radiohead"))
+        assertFalse(dir.listFiles().orEmpty().any { it.name.endsWith(".none") })
     }
 
     @Test fun cachedLogoMakesNoRequest() = runBlocking {
