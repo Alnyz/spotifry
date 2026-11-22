@@ -32,6 +32,11 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -100,8 +105,14 @@ fun HomeScreen(
     playlists: List<PlaylistWithCounts> = emptyList(), libraryRead: Boolean = true, covers: Map<Long, List<SongEntity>> = emptyMap(),
     onOpenPlaylist: (Long) -> Unit = {}, onPlayPlaylist: (PlaylistWithCounts) -> Unit = {},
     onSearch: () -> Unit = {}, onImport: () -> Unit = {}, onMood: (Mood) -> Unit = {},
+    onForYouMore: (Song) -> Unit = onMore,
 ) {
     val recent by vm.recentOrNull.collectAsStateWithLifecycle()
+    val forYou by vm.forYou.collectAsStateWithLifecycle()
+    // Home is on screen: For you may rebuild, and holds a new list back once its row has been touched
+    DisposableEffect(vm) { vm.homeVisible(true); onDispose { vm.homeVisible(false) } }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.homeVisible(true) }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { vm.homeVisible(false) }
     val saved by vm.savedIds.collectAsStateWithLifecycle()
     val savedRead by vm.savedRead.collectAsStateWithLifecycle()
     val most by vm.mostPlayed.collectAsStateWithLifecycle()
@@ -113,6 +124,7 @@ fun HomeScreen(
         artists = artists, onOpenArtist = onOpenArtist, onPickArtists = onPickArtists,
         player = player, onToggle = onToggle, onPause = onPause, onOpenPlayer = onOpenPlayer, playlists = playlists, covers = covers,
         onOpenPlaylist = onOpenPlaylist, onPlayPlaylist = onPlayPlaylist, onSearch = onSearch, onImport = onImport, onMood = onMood,
+        forYou = forYou, onForYouMore = onForYouMore, onForYouTouched = vm::forYouTouched,
     )
 }
 
@@ -137,6 +149,8 @@ fun HomeContent(
     onSearch: () -> Unit = {}, onImport: () -> Unit = {}, onMood: (Mood) -> Unit = {},
     /** Mixes of the songs most played at a time of day, already picked for the hour. */
     timeMixes: List<TimeMix> = emptyList(),
+    /** For you: null while it's read for the first time, empty when there is none. */
+    forYou: List<Song>? = emptyList(), onForYouMore: (Song) -> Unit = onMore, onForYouTouched: () -> Unit = {},
 ) {
     val songs = recent.map { it.toSong() }
     // a song that has run to its end is back to being the last one played
@@ -204,6 +218,7 @@ fun HomeContent(
         if (loading) {
             item { ShortcutShape() }
             item { CardRowShape(140.dp, 9.dp, title = "Recently played", splashKey = "card") }
+            if (forYou == null) item { CardRowShape(140.dp, 9.dp, title = "For you") }
             item { CardRowShape(132.dp, 8.dp, title = "Your playlists") }
             artistItems(artists, onOpenArtist, { list, i -> onPlay(list, i, "From your artists") }, onPickArtists)
             mostPlayedShape()
@@ -226,6 +241,19 @@ fun HomeContent(
                 LazyRow(Modifier.fadeIn(fade), contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     itemsIndexed(otherSongs, key = { _, it -> it.value.id }) { at, (i, s) ->
                         RecentCard(s, { onPlay(songs, i, "Recently played") }, { onMore(songs[i]) }, if (at < 3) "card$at" else null)
+                    }
+                }
+            }
+        }
+        if (forYou == null) item { CardRowShape(140.dp, 9.dp, title = "For you") }
+        else if (forYou.isNotEmpty()) {
+            item { SectionTitle("For you") }
+            item {
+                val row = rememberLazyListState()
+                LaunchedEffect(row) { snapshotFlow { row.isScrollInProgress }.collect { if (it) onForYouTouched() } }
+                LazyRow(Modifier.fadeIn(fade), state = row, contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    itemsIndexed(forYou, key = { _, s -> "fy-" + s.id }) { i, s ->
+                        RecentCard(s.toEntity(), { onForYouTouched(); onPlay(forYou, i, "Recommendation") }, { onForYouTouched(); onForYouMore(s) })
                     }
                 }
             }

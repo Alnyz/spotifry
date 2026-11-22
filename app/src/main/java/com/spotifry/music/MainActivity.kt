@@ -200,7 +200,7 @@ class MainActivity : ComponentActivity() {
 }
 
 /** [queueIndex]: where the song sits in the queue, for a suggestion's "Not this song". */
-private data class MenuTarget(val song: Song, val playlistId: Long? = null, val fromPlayer: Boolean = false, val queueIndex: Int? = null)
+private data class MenuTarget(val song: Song, val playlistId: Long? = null, val fromPlayer: Boolean = false, val queueIndex: Int? = null, val forYou: Boolean = false)
 
 @Composable
 fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.music.ui.SplashStart? = null, onSharedRead: () -> Unit = {}) {
@@ -210,7 +210,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     // an artist's photo and a playlist's cover run up under the status bar, so those pages get no top padding and no orange glow
     val artistPage = route == Routes.PLAYLIST || (route == Routes.PAGE && backEntry?.arguments?.getString("type") == SearchType.ARTISTS.name)
 
-    val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs, c::warm, c.db.listens().observeAll()) } })
+    val home: HomeViewModel = viewModel(factory = viewModelFactory { initializer { HomeViewModel(c.source, c.db.history(), c.db.songs(), c.player, c.recentSearches, c.db.plays().observeMostPlayed(5), c.localMusic.songs, c::warm, c.db.listens().observeAll(), c.forYou) } })
     val savedVm: SavedViewModel = viewModel(factory = viewModelFactory { initializer { SavedViewModel(c.db.songs(), c.downloads, c.player, c.localMusic, c.db.history(), c.restoreQueue) } })
     val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val backupActions = com.spotifry.music.ui.settings.rememberBackupActions(viewModel(factory = viewModelFactory { initializer {
@@ -375,7 +375,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                             val homePlaylists by plVm.playlists.collectAsStateWithLifecycle()
                             val homePlaylistsRead by plVm.playlistsRead.collectAsStateWithLifecycle()
                             val homeListensRead by listeningRow.anyRead.collectAsStateWithLifecycle()
-                            HomeScreen(home, openMenu, inset, player = player, onToggle = c.player::toggle, onPause = c.player::pause, onOpenPlayer = { showPlayer = true }, playlists = homePlaylists, libraryRead = homePlaylistsRead && homeListensRead, covers = plCovers, onOpenPlaylist = { nav.navigate(Routes.playlist(it)) }, onPlayPlaylist = plVm::playAll, onSearch = { home.onQueryChanged(""); goTo(Routes.SEARCH) }, onImport = {
+                            HomeScreen(home, openMenu, inset, onForYouMore = { menu = MenuTarget(it, forYou = true) }, player = player, onToggle = c.player::toggle, onPause = c.player::pause, onOpenPlayer = { showPlayer = true }, playlists = homePlaylists, libraryRead = homePlaylistsRead && homeListensRead, covers = plCovers, onOpenPlaylist = { nav.navigate(Routes.playlist(it)) }, onPlayPlaylist = plVm::playAll, onSearch = { home.onQueryChanged(""); goTo(Routes.SEARCH) }, onImport = {
                                 // not restored: a playlist left open on that tab would hide the sheet, which lives on the tab's first page
                                 importVm.open()
                                 nav.navigate(Routes.PLAYLISTS) { popUpTo(Routes.LISTEN) { saveState = true }; launchSingleTop = true }
@@ -570,6 +570,15 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                             c.setNotSuggested(s.id, false)
                             c.player.insert(at, s, upcoming)
                         }
+                    }
+                })
+                if (target.forYou) add(MenuAction("Not this song", Icons.None, lineAbove = true) {
+                    // out of For you now, and out of every later list and suggestion
+                    val s = target.song
+                    c.setNotSuggested(s.id, true)
+                    scope.launch {
+                        if (snackbar.showSnackbar("Won't suggest this song again", "Undo", duration = androidx.compose.material3.SnackbarDuration.Short) == androidx.compose.material3.SnackbarResult.ActionPerformed)
+                            c.setNotSuggested(s.id, false)
                     }
                 })
             }

@@ -55,7 +55,12 @@ class HomeViewModel(
     /** Fetches the links of songs likely to be tapped next. */
     private val warm: (List<Song>) -> Unit = {},
     listens: Flow<List<ListenRow>> = flowOf(emptyList()),
+    private val forYouShelf: com.spotifry.music.data.ForYouShelf? = null,
 ) : ViewModel() {
+    /** The For you row: null until read, empty hides it. */
+    val forYou: StateFlow<List<Song>?> = forYouShelf?.shown ?: MutableStateFlow(emptyList())
+    fun homeVisible(visible: Boolean) { forYouShelf?.homeVisible(visible) }
+    fun forYouTouched() { forYouShelf?.rowTouched() }
     /** The parts of the day with enough history for a mix; Home picks which to show by the hour. */
     val timeMixes: StateFlow<List<TimeMix>> = listens.map { timeMixes(it) }.flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

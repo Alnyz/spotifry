@@ -1,5 +1,7 @@
 package com.spotifry.music
 
+import com.spotifry.music.data.asPrefs
+
 import android.content.Context
 import com.spotifry.music.data.DownloadRepository
 import com.spotifry.music.data.HistoryRecorder
@@ -132,8 +134,15 @@ class AppContainer(private val context: Context) {
     fun warm(songs: List<Song>) { if (!streamLow()) resolver.warm(songs) }
     /** Songs marked "Not this song": Smart shuffle never suggests them again. */
     fun notSuggested(): Set<String> = prefs.getStringSet("not_suggested", null).orEmpty()
-    fun setNotSuggested(id: String, no: Boolean) =
+    fun setNotSuggested(id: String, no: Boolean) {
         prefs.edit().putStringSet("not_suggested", if (no) notSuggested() + id else notSuggested() - id).apply()
+        if (no) forYou.dontSuggest(id)
+    }
+    /** The For you row on Home. */
+    val forYou: com.spotifry.music.data.ForYouShelf by lazy {
+        com.spotifry.music.data.ForYouShelf(db, source, prefs.asPrefs(), settings, ::notSuggested,
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)).also { it.start() }
+    }
     val recentSearches = RecentSearches(prefs.getString("recent_searches", "").orEmpty().split('\n').filter { it.isNotEmpty() }) {
         prefs.edit().putString("recent_searches", it.joinToString("\n")).apply()
     }
