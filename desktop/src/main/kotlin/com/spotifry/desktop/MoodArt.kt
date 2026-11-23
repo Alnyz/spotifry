@@ -53,6 +53,9 @@ internal fun DrawScope.waves() = listOf(26f, 46f, 66f).forEach { y ->
     )
 }
 
+/** A head and shoulders: "Made for you". */
+internal fun DrawScope.you() { dot(62f, 34f, 17f); block(30f, 58f, 64f, 44f, 22f) }
+
 internal fun DrawScope.target() { ring(60f, 42f, 38f, 6f); ring(60f, 42f, 23f, 6f); dot(60f, 42f, 9f) }
 
 internal fun DrawScope.dumbbell() = rotate(-25f, Offset(58f, 42f)) {

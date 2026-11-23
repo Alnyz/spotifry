@@ -34,6 +34,7 @@ class MpvPlayerTest {
         override suspend fun search(query: String) = emptyList<Song>()
         override suspend fun related(song: Song) = emptyList<Song>()
         override suspend fun resolve(song: Song, low: Boolean): ResolvedStream {
+            if (song.id.startsWith("radio:")) throw AssertionError("a station is never looked up")
             if (song.id.startsWith("bad")) throw java.io.FileNotFoundException("no audio")
             if (song.id == "slow") kotlinx.coroutines.delay(1_500) // a link that takes a while, like YouTube's
             return ResolvedStream(File(dir, "${song.id}.wav").path, "audio/wav", 0, Long.MAX_VALUE)
@@ -70,6 +71,22 @@ class MpvPlayerTest {
         assertFalse(p.state.value.isPlaying)
         assertEquals("Test", p.state.value.from)
         watcher.interrupt()
+    }
+
+    @Test fun aStationPlaysFromItsOwnStreamWithNoLength() {
+        val p = player!!
+        File(dir, "live.wav").writeBytes(silence(seconds = 5))
+        p.playList(listOf(Song("radio:abc", "Some FM", "Indonesia · pop", 0, null, streamUrl = File(dir, "live.wav").path)), 0, "Radio")
+        wait("the station to play") { p.state.first { it.isPlaying } }
+        p.seekTo(3_000)
+        assertEquals(0L, p.state.value.durationMs)
+        assertTrue(p.state.value.current!!.id == "radio:abc")
+    }
+
+    @Test fun stationInitialsAreTheFirstLettersOfTwoWords() {
+        assertEquals("RP", stationInitials("Radio Prambors FM"))
+        assertEquals("1", stationInitials("1"))
+        assertEquals("", stationInitials("..."))
     }
 
     @Test fun pauseHoldsThePlaceAndPlayGoesOn() {

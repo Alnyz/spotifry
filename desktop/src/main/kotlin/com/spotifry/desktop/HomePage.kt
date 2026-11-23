@@ -95,6 +95,7 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
             Text("What you play shows up here.", color = Palette.ink2, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp))
             Row(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Pill("Import a playlist", Icons.Download, accent = true) { services.importer.open() }
+                Pill("Radio", Icons.Radio, glass = true) { go(Route.Radio) }
             }
         }
         if (hero != null) item {
@@ -119,12 +120,19 @@ fun HomePage(services: Services, go: (Route) -> Unit, list: LazyListState = reme
             }
             // the song on the picture with your rotation beside it; on a narrow window the rotation goes under the song
             BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 30.dp)) {
+                // your rotation, and Radio under it
+                val cards: @Composable (Modifier) -> Unit = { m ->
+                    Column(m, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        RotationCard(services, Modifier.fillMaxWidth(), glass = true, onSpotifried = { go(Route.Spotifried) }) { go(Route.Rotation) }
+                        RadioCard(services, Modifier.fillMaxWidth(), glass = true) { go(Route.Radio) }
+                    }
+                }
                 if (maxWidth > 980.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(40.dp), verticalAlignment = Alignment.Top) {
                     Box(Modifier.weight(1f).padding(top = 12.dp)) { song() }
-                    RotationCard(services, Modifier.width(470.dp), glass = true, onSpotifried = { go(Route.Spotifried) }) { go(Route.Rotation) }
+                    cards(Modifier.width(470.dp))
                 } else Column {
                     song()
-                    RotationCard(services, Modifier.padding(top = 28.dp).fillMaxWidth(), glass = true, onSpotifried = { go(Route.Spotifried) }) { go(Route.Rotation) }
+                    cards(Modifier.padding(top = 28.dp).fillMaxWidth())
                 }
             }
         }
@@ -274,14 +282,14 @@ private fun BrushTitle(title: String, modifier: Modifier = Modifier) {
 
 /** A section's name with an accent mark before it, and See all at the far end. */
 @Composable
-private fun HomeSection(title: String, onAll: (() -> Unit)?, allLabel: String = "See all →") = Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+internal fun HomeSection(title: String, onAll: (() -> Unit)?, allLabel: String = "See all →") = Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
     Box(Modifier.width(4.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(Palette.accent))
     Text(title, fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(start = 12.dp).weight(1f))
     if (onAll != null) Text(allLabel, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.ink2, modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onAll).padding(horizontal = 6.dp, vertical = 4.dp))
 }
 
 /** Song covers on Home are 180 square; the side arrows sit on their middle. */
-private val COVER = 180.dp
+internal val COVER = 180.dp
 private val COVER_ARROW = COVER / 2 - 22.dp
 
 /** A song's cover with its name and artist on it, over a dark fade on the lower 30% so they read on any picture. */
@@ -471,7 +479,7 @@ fun buildGreeting(hour: Int) = when { hour < 12 -> "Good morning."; hour < 18 ->
  * when there is more that way, so nobody has to know that.
  */
 @Composable
-private fun SlideRow(arrowTop: androidx.compose.ui.unit.Dp, content: LazyListScope.() -> Unit) {
+internal fun SlideRow(arrowTop: androidx.compose.ui.unit.Dp, content: LazyListScope.() -> Unit) {
     val list = rememberLazyListState()
     val scope = rememberCoroutineScope()
     BoxWithConstraints {

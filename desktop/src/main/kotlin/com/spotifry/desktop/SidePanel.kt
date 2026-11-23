@@ -1,6 +1,8 @@
 package com.spotifry.desktop
 
 import com.spotifry.music.data.source.isLocal
+import com.spotifry.music.data.source.isRadio
+import com.spotifry.music.data.source.toStation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,13 +47,18 @@ fun SidePanel(services: Services, state: PlayerUiState, width: Dp, height: Dp, m
         // the cover gives way when the window is short, so the controls and what is up next always fit
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val side = (height - 340.dp).coerceIn(150.dp, maxWidth)
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Cover(song.thumbnailUrl ?: song.localThumbPath, side, RoundedCornerShape(12.dp), large = true) }
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { SongCover(song, side, RoundedCornerShape(12.dp), large = true) }
         }
         Text(song.title, fontFamily = Display, fontSize = 26.sp, lineHeight = 28.sp, maxLines = 1, color = Palette.ink, modifier = Modifier.padding(top = 20.dp))
         Text(song.artist, color = Palette.accent, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
         state.quality?.let { QualityPill(it, Modifier.padding(top = 12.dp)) }
-        MiniLyrics(services, song, Modifier.padding(top = 12.dp).fillMaxWidth().weight(1f))
-        UpNext(services, state, Modifier.padding(bottom = 16.dp))
+        if (song.isRadio) {
+            OnAirLine(state.onAir, Modifier.padding(top = 12.dp), 16.sp)
+            Spacer(Modifier.weight(1f))
+        } else {
+            MiniLyrics(services, song, Modifier.padding(top = 12.dp).fillMaxWidth().weight(1f))
+            UpNext(services, state, Modifier.padding(bottom = 16.dp))
+        }
     }
 }
 
@@ -119,37 +126,40 @@ fun PlayerBar(services: Services, state: PlayerUiState, haze: dev.chrisbanes.haz
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Cover(song.thumbnailUrl ?: song.localThumbPath, 56.dp, RoundedCornerShape(8.dp))
+            SongCover(song, 56.dp, RoundedCornerShape(8.dp))
             Column {
                 Text(song.title, fontFamily = Display, fontSize = 17.sp, maxLines = 1, color = Palette.ink)
-                Text(if (rememberSlow(state.loading)) SLOW_TEXT else song.artist, fontSize = 13.sp, maxLines = 1, color = Palette.ink2)
+                Text(if (rememberSlow(state.loading)) SLOW_TEXT else if (song.isRadio) state.onAir ?: song.artist else song.artist, fontSize = 13.sp, maxLines = 1, color = Palette.ink2)
             }
         }
         Column(Modifier.weight(1.6f), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 // steps through off, Shuffle, Smart shuffle, as on the phone
-                BarIcon(if (state.smart) Icons.SmartShuffle else Icons.Shuffle, when { state.smart -> "Smart shuffle on"; state.shuffle -> "Shuffle on"; else -> "Shuffle off" }, if (state.shuffle) Palette.accent else Palette.ink2) { player.cycleShuffle() }
-                BarIcon(Icons.Prev, "Previous", Palette.ink, 4.dp) { player.previous() }
+                if (!song.isRadio) BarIcon(if (state.smart) Icons.SmartShuffle else Icons.Shuffle, when { state.smart -> "Smart shuffle on"; state.shuffle -> "Shuffle on"; else -> "Shuffle off" }, if (state.shuffle) Palette.accent else Palette.ink2) { player.cycleShuffle() }
+                if (!song.isRadio) BarIcon(Icons.Prev, "Previous", Palette.ink, 4.dp) { player.previous() }
                 Tip(if (state.wantsPlay) "Pause" else "Play") {
                     Box(Modifier.size(42.dp).clip(CircleShape).background(Palette.ink).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
                         PlayGlyph(state, 26.dp, Palette.bg)
                     }
                 }
-                BarIcon(Icons.Next, "Next", Palette.ink, 4.dp) { player.next() }
-                BarIcon(if (state.repeatMode == RepeatMode.ONE) Icons.RepeatOne else Icons.Repeat, when (state.repeatMode) { RepeatMode.ALL -> "Repeat all"; RepeatMode.ONE -> "Repeat this song"; else -> "Repeat off" }, if (state.repeatMode != RepeatMode.OFF) Palette.accent else Palette.ink2) { player.cycleRepeat() }
+                if (!song.isRadio) BarIcon(Icons.Next, "Next", Palette.ink, 4.dp) { player.next() }
+                if (!song.isRadio) BarIcon(if (state.repeatMode == RepeatMode.ONE) Icons.RepeatOne else Icons.Repeat, when (state.repeatMode) { RepeatMode.ALL -> "Repeat all"; RepeatMode.ONE -> "Repeat this song"; else -> "Repeat off" }, if (state.repeatMode != RepeatMode.OFF) Palette.accent else Palette.ink2) { player.cycleRepeat() }
             }
-            BarSeek(player, state)
+            if (song.isRadio) Box(Modifier.fillMaxWidth().height(20.dp), Alignment.Center) { Text("LIVE", color = Palette.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) } else BarSeek(player, state)
         }
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
             val lib = services.library
             val scope = rememberCoroutineScope()
             val savedSongs by lib.db.songs().observeSaved().collectAsState(emptyList())
             val saved = savedSongs.any { it.id == song.id }
-            if (!song.isLocal) BarIcon(if (saved) Icons.Check else Icons.Download, if (saved) "Saved on this computer" else "Save on this computer", if (saved) Palette.accent else Palette.ink2, 7.dp) {
+            if (song.isRadio) {
+                val stars by lib.radioFavourites.stations.collectAsState()
+                StarButton(stars.any { "radio:${it.uuid}" == song.id }, song.title) { lib.radioFavourites.toggle(song.toStation()) }
+            } else if (!song.isLocal) BarIcon(if (saved) Icons.Check else Icons.Download, if (saved) "Saved on this computer" else "Save on this computer", if (saved) Palette.accent else Palette.ink2, 7.dp) {
                 scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
             }
             var menu by remember { mutableStateOf(false) }
-            Box {
+            if (!song.isRadio) Box {
                 BarIcon(Icons.More, "More", Palette.ink2) { menu = true }
                 if (menu) SongMenu(services, song, { menu = false }) {}
             }

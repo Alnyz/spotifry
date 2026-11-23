@@ -63,6 +63,8 @@ sealed interface Route {
     data object Settings : Route { override val page = Page.Settings }
     data object Equalizer : Route { override val page = Page.Settings }
     data object Rotation : Route { override val page = Page.Home }
+    /** Live stations and nonstop mixes, opened from Home. */
+    data object Radio : Route { override val page = Page.Home }
     data object Spotifried : Route { override val page = Page.Home }
     /** Pick the artists Home is made from. */
     data object Artists : Route { override val page = Page.Home }
@@ -192,6 +194,7 @@ fun App(services: Services, startOn: Route = Route.Home, initialQuery: String = 
                                 is Route.Playlist -> PlaylistPage(services, r.id, { route = it }, pad)
                                 Route.Settings -> SettingsPage(services, flow, { route = Route.Equalizer }, pad)
                                 Route.Equalizer -> EqualizerPage(services, { route = Route.Settings }, pad)
+                                Route.Radio -> RadioPage(services, { route = Route.Home }, pad)
                                 Route.Rotation -> RotationPage(services, { route = Route.Home }, { route = Route.Spotifried }, { route = Route.Found(it, Route.Rotation) }, pad)
                                 Route.Artists -> ArtistPicker(services, false, { route = Route.Home }, pad)
                                 Route.Spotifried -> SpotifriedPage(services, { route = Route.Rotation }, pad)

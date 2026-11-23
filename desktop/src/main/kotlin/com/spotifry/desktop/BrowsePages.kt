@@ -60,6 +60,10 @@ val MOODS = listOf(
     Mood("Dance", "House, techno and other club music.", "electronic dance hits", Color(0xFF005A68), { levelBars() }),
 )
 
+/** Nonstop cards on the Radio page that Search's moods don't have; the phone has the same two. */
+val ALL_DAY = Mood("All day", "Bright songs for any hour.", "top hits all day playlist", Color(0xFF7A4200), { sun() })
+val NIGHT_DRIVE = Mood("Night drive", "Smooth songs for the road at night.", "night drive playlist", Color(0xFF1F2A52), { moon() })
+
 /** Each tile's playlists, found once per run of the app. */
 private val moodCache = HashMap<String, List<PageLink>>()
 /** List checks running at once across every tile, so opening several quickly doesn't flood YouTube from one address. */

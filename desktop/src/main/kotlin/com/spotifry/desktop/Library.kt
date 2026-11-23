@@ -33,6 +33,9 @@ class Library(
     /** Where saved songs are kept: a folder named songs inside the app's data folder. */
     val saveFolder = File(dir, "songs")
     val orders = PlaylistOrders(prefs)
+    /** Live radio: the open station list, and the stations starred (kept in the settings, so a backup carries them). */
+    val radio = com.spotifry.music.data.source.RadioBrowser(client)
+    val radioFavourites = com.spotifry.music.data.RadioFavourites(prefs)
     val trims = Trims(trimPrefs)
     val smartTrims = com.spotifry.music.player.SmartTrims(FilePrefs(File(dir, "smart_trims.json")), client)
     val downloads = DownloadRepository(dir, client, resolver, db.songs(), lowQuality = { settings.saveLow.value })

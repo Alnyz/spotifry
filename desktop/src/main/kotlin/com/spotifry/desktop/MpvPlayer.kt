@@ -2,6 +2,8 @@ package com.spotifry.desktop
 
 import com.spotifry.music.data.StreamResolver
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.data.source.isRadio
+import com.spotifry.music.data.source.isRadioId
 import com.spotifry.music.data.HistoryRecorder
 import com.spotifry.music.data.ListenLog
 import com.spotifry.music.player.FILTER_HIGHPASS
@@ -147,6 +149,8 @@ class MpvPlayer(
     private var codec: String? = null
     private var bitrate: Double? = null
     private var rate: Int? = null
+    /** A live station's own "now playing" text, from the stream's metadata. */
+    private var onAir: String? = null
     private var decoded: AudioFormat? = null
     private var sent: AudioFormat? = null
     private var ao: String? = null
@@ -193,7 +197,7 @@ class MpvPlayer(
 
     /** What the screens show of a song; observing sends the value at once, so a song already playing in a voice is caught up. */
     private fun observeAll(m: Mpv) {
-        m.observe(2, "duration"); m.observe(3, "paused-for-cache"); m.observe(9, "current-ao"); m.observe(10, "demuxer-cache-duration")
+        m.observe(2, "duration"); m.observe(3, "paused-for-cache"); m.observe(9, "current-ao"); m.observe(10, "demuxer-cache-duration"); m.observe(11, "metadata")
         observeFormat(m)
     }
 
@@ -210,7 +214,8 @@ class MpvPlayer(
     init {
         lastQueueFile?.let { f -> runCatching { f.readText() }.getOrNull()?.let(LastQueue::decode) }?.let { last ->
             queue = last.songs; index = last.index; from = last.from; shuffle = last.shuffle; repeat = last.repeatMode
-            startAtMs = last.positionMs; _position.value = last.positionMs
+            val live = queue[index].isRadio
+            startAtMs = if (live) 0 else last.positionMs; _position.value = startAtMs
             wholeMs = queue[index].durationSec * 1000; trim = trimOf(queue[index].id)
             order = newOrder()
             publish()
@@ -231,7 +236,8 @@ class MpvPlayer(
                     if (slowStream != null && !fellBack && wants && (!loaded || buffering) && stalls.tooLong(System.currentTimeMillis())) queue.getOrNull(index)?.let(::fallBack)
                     queue.getOrNull(index) to state.value.isPlaying
                 }
-                val id = song?.id
+                // a live station is no song: never a play, a listen or a stat
+                val id = song?.id?.takeUnless(::isRadioId)
                 if (plays.tick(id, playing, 1_000) && song != null) {
                     recorder?.let { r -> launch { r.countPlay(song.id) } }
                     launch { onHeard(song, origins[song.id]) }
@@ -324,7 +330,8 @@ class MpvPlayer(
         when {
             ended || failed -> { wants = true; startAtMs = 0; load(index) }
             !loaded && loading == null -> { wants = true; load(index) }
-            else -> { wants = !wants; pauseAll(!wants); publish() }
+            // a live stream that was paused has gone stale: it is joined again as it is now
+            else -> { wants = !wants; if (wants && queue[index].isRadio) load(index, keepWants = true) else { pauseAll(!wants); publish() } }
         }
     }
 
@@ -342,6 +349,7 @@ class MpvPlayer(
     }
 
     override fun seekTo(ms: Long): Unit = synchronized(lock) {
+        if (queue.getOrNull(index)?.isRadio == true) return
         letGo("jump")
         _position.value = ms
         if (loaded) mpv.command("seek", (ms + startMs) / 1000.0, "absolute")
@@ -375,7 +383,7 @@ class MpvPlayer(
      * turned on and at each song, so the mix keeps going through a long list. Offline or nothing found: plain Shuffle.
      */
     private fun fillSuggestions() {
-        if (!smart || filling || !shuffle || queue.isEmpty()) return
+        if (!smart || filling || !shuffle || queue.isEmpty() || queue[index].isRadio) return
         val ahead = (order ?: return).drop(1)
         val lastTip = ahead.indexOfLast { queue[it].suggested }
         if (lastTip >= 8 || ahead.size - lastTip - 1 < 3) return
@@ -414,6 +422,7 @@ class MpvPlayer(
         val o = order
         val ahead = if (o != null) o.size - 1 else queue.size - 1 - index
         val last = queue[o?.last() ?: queue.lastIndex]
+        if (last.isRadio) return
         val repeats = repeat == RepeatMode.ONE || (repeat == RepeatMode.ALL && queue.size > 1)
         if (repeats || ahead > 1 || appendedFor == last.id) return
         appendedFor = last.id
@@ -543,9 +552,12 @@ class MpvPlayer(
         loaded = voice != null; buffering = voice == null; failed = false; ended = false
         codec = null; bitrate = voice?.bitrate; rate = null; decoded = null; sent = null
         slowStream = null; fellBack = false
+        val live = queue[i].isRadio
+        if (live) startAtMs = 0
+        onAir = null
         wholeMs = queue[i].durationSec * 1000
-        trim = if (voice != null) voice.trim else trimOf(queue[i].id)
-        ranOn = voice == null && !byListener && fadeSeconds() > 0
+        trim = if (voice != null) voice.trim else if (live) null else trimOf(queue[i].id)
+        ranOn = voice == null && !byListener && fadeSeconds() > 0 && !queue[i].isRadio
         if (voice != null) { mpv = voice.mpv; observeAll(mpv); posNow = voice.posMs; posAt = voice.posAt; playingUrl = voice.url }
         // through a join the overlap sets the new song's volume, from silent
         songGain = if (ranOn || voice != null) 0f else 1f; applyVolume()
@@ -556,14 +568,25 @@ class MpvPlayer(
         val song = queue[i]
         val after = queue.getOrNull(order?.getOrNull(1) ?: (i + 1))?.id
         scope.launch { onSongChange(setOfNotNull(song.id, after)) }
-        plays.restart(song.id)
-        recorder?.let { r -> r.listenLog.write(listens.moved(song.id, byListener)); scope.launch { r.history.onPlayed(song) } }
-        lookUpSmartTrim(song)
+        plays.restart(song.id.takeUnless { live })
+        recorder?.let { r -> r.listenLog.write(listens.moved(song.id.takeUnless { live }, byListener)); if (!live) scope.launch { r.history.onPlayed(song) } }
+        if (!live) lookUpSmartTrim(song)
         fillSuggestions()
         appendSimilarIfNeeded()
         if (voice != null) { failures.onSuccess(); return }
         loading = scope.launch(Dispatchers.IO) {
             try {
+                if (live) {
+                    // the station's own stream, straight to mpv: no link lookup, no copy kept
+                    synchronized(lock) {
+                        if (queue.getOrNull(index)?.id != song.id) return@launch
+                        val url = song.streamUrl ?: throw java.io.IOException("no stream")
+                        playingUrl = url; bitrate = null
+                        mpv.set("pause", !wants)
+                        mpv.command("loadfile", url, "replace")
+                    }
+                    return@launch
+                }
                 val local = localFile(song)
                 // a kept copy plays at once, the best one there is; else the first source to answer starts the song, and a
                 // better copy answering later is fetched in the background for the next play ([BetterCopies])
@@ -647,11 +670,11 @@ class MpvPlayer(
                     posNow = ms; posAt = System.nanoTime()
                     // a join sets the volume itself: the plain fade-out stays off near the join, and the new song comes in with the overlap
                     val held = stage is Fading || (stage is Waiting && durationMs - ms < fadeSeconds() * 1000L)
-                    val g = if (held) songGain else fadeGain(ms, durationMs, fadeSeconds() * 1000L, ranOn)
+                    val g = if (held || queue.getOrNull(index)?.isRadio == true) songGain else fadeGain(ms, durationMs, fadeSeconds() * 1000L, ranOn)
                     if (kotlin.math.abs(g - songGain) > .01f || (g == 1f) != (songGain == 1f)) { songGain = g; applyVolume() }
                     if (now - lastTick >= 400) { lastTick = now; _position.value = ms }
                 }
-                "duration" -> if (!e.isNull("data")) { wholeMs = (e.getDouble("data") * 1000).toLong(); publish() }
+                "duration" -> if (!e.isNull("data") && queue.getOrNull(index)?.isRadio != true) { wholeMs = (e.getDouble("data") * 1000).toLong(); publish() }
                 "paused-for-cache" -> {
                     buffering = loaded && e.optBoolean("data"); publish()
                     // a slow server stalling twice within 30 s: it goes on from YouTube
@@ -664,6 +687,11 @@ class MpvPlayer(
                 "audio-params" -> { decoded = AudioFormat.of(e.optJSONObject("data")); publishSound() }
                 "audio-out-params" -> { sent = AudioFormat.of(e.optJSONObject("data")); publishSound() }
                 "current-ao" -> { ao = if (e.isNull("data")) null else e.optString("data"); publishSound() }
+                "metadata" -> if (queue.getOrNull(index)?.isRadio == true) {
+                    val m = e.optJSONObject("data")
+                    val title = m?.keys()?.asSequence()?.firstOrNull { it.equals("icy-title", true) }?.let { m.optString(it) }?.trim()?.takeIf { it.isNotEmpty() }
+                    if (title != onAir) { onAir = title; publish() }
+                }
             }
             "playback-restart" -> {
                 if (!loaded) {
@@ -672,7 +700,7 @@ class MpvPlayer(
                     failures.onSuccess(); _notice.value = null
                     seekOnStart?.let { mpv.command("seek", (it + startMs) / 1000.0, "absolute"); seekOnStart = null }
                     publish()
-                    nextIndex(automatic = true)?.let { n -> scope.launch { resolver.prefetch(queue[n]) }; lookUpSmartTrim(queue[n]) }
+                    nextIndex(automatic = true)?.takeIf { !queue[it].isRadio }?.let { n -> scope.launch { resolver.prefetch(queue[n]) }; lookUpSmartTrim(queue[n]) }
                 }
             }
             "end-file" -> when (e.optString("reason")) {
@@ -731,7 +759,7 @@ class MpvPlayer(
     private fun pairKey(): String? {
         if (repeat == RepeatMode.ONE || pauseAtEnd != null || !loaded || ended) return null
         val n = nextIndex(automatic = true) ?: return null
-        return if (queue[n].id == queue[index].id) null else "$index ${queue[index].id} $n ${queue[n].id}"
+        return if (queue[n].id == queue[index].id || queue[n].isRadio || queue[index].isRadio) null else "$index ${queue[index].id} $n ${queue[n].id}"
     }
 
     /** Runs 20 times a second while a join is near or under way, else twice; says which. */
@@ -919,6 +947,7 @@ class MpvPlayer(
             durationMs = durationMs, wholeMs = wholeMs, trim = trim,
             queue = queue, currentIndex = index, shuffle = shuffle, smart = smart && shuffle, repeatMode = repeat, order = order, from = from,
             quality = if (loaded) qualityLabel(codec, bitrate, rate, decoded?.format) else null,
+            onAir = onAir.takeIf { cur?.isRadio == true },
         )
     }
 

@@ -26,6 +26,8 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.basicMarquee
 import com.spotifry.music.data.source.isLocal
+import com.spotifry.music.data.source.isRadio
+import com.spotifry.music.data.source.toStation
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -77,9 +79,9 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
         val cover = (maxHeight - 380.dp).coerceIn(170.dp, 300.dp)
         Column(Modifier.fillMaxSize().padding(top = 24.dp, bottom = LocalBottomInset.current + 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Cover(
-                    song.thumbnailUrl ?: song.localThumbPath, cover, RoundedCornerShape(14.dp), large = true,
-                    Modifier.shadow(28.dp, RoundedCornerShape(14.dp)).border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp)),
+                SongCover(
+                    song, cover, RoundedCornerShape(14.dp), large = true,
+                    modifier = Modifier.shadow(28.dp, RoundedCornerShape(14.dp)).border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp)),
                 )
                 Column(Modifier.padding(start = 40.dp).weight(1f)) {
                     Row(
@@ -100,12 +102,16 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
                         modifier = Modifier.padding(top = 4.dp).basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 2500, repeatDelayMillis = 2500, velocity = 40.dp),
                     )
                     Text(song.artist, color = Palette.ink.copy(alpha = 0.85f), fontSize = 22.sp, maxLines = 1)
-                    SongNote(services, song.id)
+                    if (!song.isRadio) SongNote(services, song.id)
                     Row(Modifier.padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (!song.isLocal) Pill(if (saved) "Saved" else "Save", if (saved) Icons.Check else Icons.Download, glass = true) {
+                        if (song.isRadio) {
+                            val stars by lib.radioFavourites.stations.collectAsState()
+                            val starred = stars.any { "radio:${it.uuid}" == song.id }
+                            Pill(if (starred) "In Your stations" else "Add to Your stations", if (starred) Icons.Star else Icons.StarOutline, glass = true) { lib.radioFavourites.toggle(song.toStation()) }
+                        } else if (!song.isLocal) Pill(if (saved) "Saved" else "Save", if (saved) Icons.Check else Icons.Download, glass = true) {
                             scope.launch { if (saved) lib.downloads.remove(song.id) else lib.downloads.save(song) }
                         }
-                        Box {
+                        if (!song.isRadio) Box {
                             var menu by remember { mutableStateOf(false) }
                             Pill("More", Icons.More, glass = true) { menu = true }
                             if (menu) SongMenu(services, song, { menu = false }) {}
@@ -113,6 +119,17 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
                     }
                 }
             }
+            if (song.isRadio) {
+                // a station has no lyrics: LIVE and what it says is on now
+                val card = RoundedCornerShape(18.dp)
+                Box(Modifier.padding(top = 30.dp).fillMaxWidth().weight(1f).heightIn(min = 120.dp).clip(card).frosted(0.4f).border(1.dp, Palette.ink.copy(alpha = 0.1f), card)) {
+                    Waves(Modifier.align(Alignment.BottomEnd).fillMaxWidth().fillMaxHeight(0.45f).heightIn(max = 150.dp))
+                    Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("LIVE", color = Palette.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Text(state.onAir?.let { "Now: $it" } ?: "Live radio", fontFamily = Display, fontSize = 24.sp, color = Palette.ink, maxLines = 3)
+                    }
+                }
+            } else {
             Row(Modifier.padding(top = 30.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.width(4.dp).height(22.dp).clip(RoundedCornerShape(2.dp)).background(Palette.accent))
                 Text("Lyrics", fontFamily = Heading, fontSize = 22.sp, color = Palette.ink, modifier = Modifier.padding(start = 12.dp))
@@ -128,6 +145,7 @@ fun NowPlayingPage(services: Services, state: com.spotifry.music.player.PlayerUi
                     Text("View full lyrics", fontSize = 13.sp, color = Palette.ink2)
                     Chevron(left = false)
                 }
+            }
             }
         }
     }
@@ -215,7 +233,8 @@ private fun FullLyrics(services: Services, song: Song, shiftMs: Int, onBack: () 
 internal fun lyricsFor(services: Services, song: Song): LyricsState {
     val l by produceState<LyricsState>(LyricsState.Loading, song.id) {
         value = LyricsState.Loading
-        value = try { services.lyrics(song)?.let { LyricsState.Found(it) } ?: LyricsState.None } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { LyricsState.Failed }
+        // a station has no lyrics to look up
+        value = if (song.isRadio) LyricsState.None else try { services.lyrics(song)?.let { LyricsState.Found(it) } ?: LyricsState.None } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { LyricsState.Failed }
     }
     return l
 }

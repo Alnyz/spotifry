@@ -69,7 +69,7 @@ fun JumpBar(
     val items = remember(q, saved, recent, lists, files, recentSearches) {
         val has = { s: String -> q.isEmpty() || s.contains(q, ignoreCase = true) }
         buildList {
-            listOf(Triple("Home", Route.Home, Icons.Home), Triple("Saved", Route.Saved, Icons.Saved), Triple("Playlists", Route.Playlists, Icons.Playlists), Triple("Settings", Route.Settings, Icons.Settings))
+            listOf(Triple("Home", Route.Home, Icons.Home), Triple("Saved", Route.Saved, Icons.Saved), Triple("Playlists", Route.Playlists, Icons.Playlists), Triple("Radio", Route.Radio, Icons.Radio), Triple("Settings", Route.Settings, Icons.Settings))
                 .filter { has(it.first) }.forEach { (name, r, icon) -> add(JumpItem("Go to", name, icon = icon) { done { goPage(r) }() }) }
             if (has("Now playing")) add(JumpItem("Go to", "Now playing", icon = Icons.Wave) { done { goNowPlaying() }() })
             if (has("Moods and genres")) add(JumpItem("Go to", "Moods and genres", icon = Icons.Search) { done { onBrowse() }() })
