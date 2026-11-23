@@ -7,7 +7,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,8 +51,8 @@ private val cache = object : LruCache<String, ImageBitmap>(48 * 1024 * 1024) {
 fun clearCoverMemory() = cache.evictAll()
 
 @Composable
-fun Cover(seed: String, thumbnailUrl: String?, localPath: String?, size: Dp, modifier: Modifier = Modifier, radius: Dp = 4.dp, shape: Shape? = null, shelf: Boolean = false) =
-    CoverArt(seed, thumbnailUrl, localPath, modifier.size(size), shape ?: RoundedCornerShape(radius), large = size > 96.dp, shelf = shelf)
+fun Cover(seed: String, thumbnailUrl: String?, localPath: String?, size: Dp, modifier: Modifier = Modifier, radius: Dp = 4.dp, shape: Shape? = null, shelf: Boolean = false, label: String? = null) =
+    CoverArt(seed, thumbnailUrl, localPath, modifier.size(size), shape ?: RoundedCornerShape(radius), large = size > 96.dp, shelf = shelf, label = label)
 
 /**
  * Same as [Cover], but takes whatever size [modifier] gives it (banners, grid tiles). [shelf]: one of Home's tiles. Until its
@@ -58,7 +60,7 @@ fun Cover(seed: String, thumbnailUrl: String?, localPath: String?, size: Dp, mod
  * that can't be fetched settles on the usual placeholder.
  */
 @Composable
-fun CoverArt(seed: String, thumbnailUrl: String?, localPath: String?, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(0.dp), large: Boolean = true, shelf: Boolean = false) {
+fun CoverArt(seed: String, thumbnailUrl: String?, localPath: String?, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(0.dp), large: Boolean = true, shelf: Boolean = false, label: String? = null) {
     val client = LocalImageClient.current
     val files = androidx.compose.ui.platform.LocalContext.current.contentResolver
     var failed by remember(thumbnailUrl, localPath, large) { mutableStateOf(false) }
@@ -76,6 +78,8 @@ fun CoverArt(seed: String, thumbnailUrl: String?, localPath: String?, modifier: 
         if (grey) LoadingBox(Modifier.matchParentSize().then(if (img == null) Modifier.testTag("cover_grey") else Modifier), RoundedCornerShape(0.dp))
         if (img != null) Image(img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().fadeIn(grey))
         else if (isFileArt(thumbnailUrl)) NoCover(Modifier.matchParentSize())
+        // a station with no logo (or one that won't load) says so, instead of looking like a cover still loading
+        else if (com.spotifry.music.data.source.isRadioId(seed) && (thumbnailUrl == null || failed)) NoLogo(label, Modifier.matchParentSize())
         else if (!grey) Box(Modifier.matchParentSize().background(stripes(seed)))
     }
 }
@@ -84,6 +88,26 @@ fun CoverArt(seed: String, thumbnailUrl: String?, localPath: String?, modifier: 
 @Composable
 private fun NoCover(modifier: Modifier) = Box(modifier.background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = androidx.compose.ui.Alignment.Center) {
     androidx.compose.material3.Icon(com.spotifry.music.ui.Icons.Note, null, Modifier.fillMaxSize(.42f), tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** The first letters of the first two words of a station's name, in capitals; empty when the name has no letters. */
+internal fun initials(name: String?): String = name.orEmpty().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }.take(2)
+    .joinToString("") { it.substring(0, it.offsetByCodePoints(0, 1)).uppercase() }
+
+/** A station with no logo: its first letters on a flat surface, and a small radio icon in the corner when the tile is big enough. */
+@Composable
+private fun NoLogo(label: String?, modifier: Modifier) {
+    val scheme = androidx.compose.material3.MaterialTheme.colorScheme
+    val letters = initials(label)
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.background(scheme.surfaceContainerHigh), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        if (letters.isEmpty()) androidx.compose.material3.Icon(com.spotifry.music.ui.Icons.Radio, null, Modifier.fillMaxSize(.46f), tint = scheme.onSurfaceVariant)
+        else {
+            androidx.compose.material3.Text(letters, color = scheme.onSurface, maxLines = 1, style = androidx.compose.material3.MaterialTheme.typography.titleMedium.copy(fontSize = (maxWidth.value * .34f).sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold))
+            if (maxWidth >= 96.dp) androidx.compose.material3.Icon(
+                com.spotifry.music.ui.Icons.Radio, null, Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(maxWidth * .06f).size(maxWidth * .22f), tint = scheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 /** Album art Android pulls out of a music file on the phone. */

@@ -13,7 +13,7 @@ data class LastQueue(
         .put("index", index).put("positionMs", positionMs).put("shuffle", shuffle).put("repeatMode", repeatMode).put("from", from ?: JSONObject.NULL)
         .put("songs", JSONArray(songs.map {
             JSONObject().put("id", it.id).put("title", it.title).put("artist", it.artist).put("durationSec", it.durationSec)
-                .put("thumbnailUrl", it.thumbnailUrl ?: JSONObject.NULL).put("localThumbPath", it.localThumbPath ?: JSONObject.NULL)
+                .put("thumbnailUrl", it.thumbnailUrl ?: JSONObject.NULL).put("localThumbPath", it.localThumbPath ?: JSONObject.NULL).put("streamUrl", it.streamUrl ?: JSONObject.NULL)
         }))
         .toString()
 
@@ -24,7 +24,7 @@ data class LastQueue(
             val a = o.getJSONArray("songs")
             val songs = (0 until a.length()).map { a.getJSONObject(it) }.map {
                 Song(it.getString("id"), it.getString("title"), it.getString("artist"), it.getLong("durationSec"),
-                    it.optStringOrNull("thumbnailUrl"), it.optStringOrNull("localThumbPath"))
+                    it.optStringOrNull("thumbnailUrl"), it.optStringOrNull("localThumbPath"), streamUrl = it.optStringOrNull("streamUrl"))
             }
             if (songs.isEmpty()) return null
             LastQueue(songs, o.getInt("index").coerceIn(songs.indices), o.getLong("positionMs").coerceAtLeast(0),

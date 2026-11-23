@@ -66,7 +66,6 @@ class HomeScreenTest {
         var played: List<Song>? = null
         compose.setContent { MusicTheme { HomeContent(recent, emptySet(), { l, _, _ -> played = l }, {}) } }
         compose.onNodeWithText("Last played").assertIsDisplayed()
-        compose.onAllNodesWithText("Shuffle").assertCountEquals(0) // nothing saved, so no shuffle shortcut
         val list = compose.onAllNodes(hasScrollToNodeAction()).onFirst()
         list.performScrollToNode(hasText("Second"))
         compose.onNodeWithText("Second").assertIsDisplayed()
@@ -154,7 +153,6 @@ class HomeScreenTest {
         assertEquals(2L, play?.id)
         compose.onNodeWithText("Road trip").performClick()
         assertEquals(2L, open)
-        compose.onNodeWithText("Saved").assertIsDisplayed() // there is a playlist now, so the shortcuts return
         compose.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(hasText("Your playlists"))
         compose.onAllNodesWithText("Road trip").assertCountEquals(1)
         compose.onAllNodesWithText("Older").assertCountEquals(1)

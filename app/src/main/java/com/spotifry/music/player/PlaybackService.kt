@@ -30,6 +30,8 @@ import com.spotifry.music.MainActivity
 import com.spotifry.music.MusicApp
 import com.spotifry.music.data.db.toEntity
 import com.spotifry.music.data.source.OkHttpDownloader
+import com.spotifry.music.data.source.isRadio
+import com.spotifry.music.data.source.isRadioId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
@@ -189,15 +191,17 @@ class PlaybackService : MediaSessionService() {
                 // only when one song runs into the next (or repeats); Next and picking a song stay instant
                 fadeIn = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
                 // also fires when repeat-one starts the song again, which is a new play
-                plays.restart(mediaItem?.mediaId)
+                // a live station is never a listen: no play count, no history, no stats, no level memory
+                val songId = mediaItem?.mediaId?.takeUnless(::isRadioId)
+                plays.restart(songId)
                 // through a join the old song is still what's heard, on the tail voice, and the tick follows it; a new trim is the same listen
-                if (join?.handingOver != true && !replacingSong) c.listenLog.write(listens.moved(mediaItem?.mediaId, movedByListener(reason, movedByFailure)))
+                if (join?.handingOver != true && !replacingSong) c.listenLog.write(listens.moved(songId, movedByListener(reason, movedByFailure)))
                 movedByFailure = false
                 // keep the level measured for the song that just ended, start the new one at its remembered level
                 levelFor?.let { id -> loudness.lastMeasuredDb?.let { levels.put(id, it) } }
-                levelFor = mediaItem?.mediaId
+                levelFor = songId
                 loudness.startSong(levelFor?.let(levels::get))
-                mediaItem?.toSong()?.let { song -> scope.launch(Dispatchers.Default) { c.historyRecorder.onPlayed(song) } }
+                mediaItem?.toSong()?.takeUnless { it.isRadio }?.let { song -> scope.launch(Dispatchers.Default) { c.historyRecorder.onPlayed(song) } }
                 // a better copy of an earlier song is swapped in now, unless it is the song heard or the one coming next
                 c.upgrader.upgradeWhenFree(setOfNotNull(mediaItem?.mediaId, player.takeIf { it.hasNextMediaItem() }?.getMediaItemAt(player.nextMediaItemIndex)?.mediaId))
                 // warm the stream URLs of the next few songs, so skipping (even twice) is instant: a lossless lookup takes seconds
@@ -206,10 +210,10 @@ class PlaybackService : MediaSessionService() {
                     ahead = player.currentTimeline.getNextWindowIndex(ahead, player.repeatMode, player.shuffleModeEnabled)
                     if (ahead == C.INDEX_UNSET) break
                     val song = player.getMediaItemAt(ahead).toSong()
-                    scope.launch(Dispatchers.Default) { c.resolver.prefetch(song, c.streamLow()) }
+                    if (!song.isRadio) scope.launch(Dispatchers.Default) { c.resolver.prefetch(song, c.streamLow()) }
                 }
                 if (player.hasNextMediaItem()) smartTrim(player, player.getMediaItemAt(player.nextMediaItemIndex).toSong().id)
-                mediaItem?.mediaId?.let { smartTrim(player, it) }
+                songId?.let { smartTrim(player, it) }
                 appendSimilarIfNeeded(player)
                 fillSuggestions(player)
             }
@@ -332,7 +336,7 @@ class PlaybackService : MediaSessionService() {
             var last = android.os.SystemClock.elapsedRealtime()
             while (true) {
                 delay(1_000)
-                val id = player.currentMediaItem?.mediaId
+                val id = player.currentMediaItem?.mediaId?.takeUnless(::isRadioId)
                 if (plays.tick(id, player.isPlaying, 1_000) && id != null) {
                     launch(Dispatchers.IO) { c.db.plays().count(id, System.currentTimeMillis()) }
                     player.currentMediaItem?.toSong()?.let { song -> launch(Dispatchers.IO) { c.upgrader.onHeard(song) } }
@@ -408,6 +412,7 @@ class PlaybackService : MediaSessionService() {
         val size = player.mediaItemCount
         if (size == 0) return
         val lastId = player.getMediaItemAt(size - 1).mediaId
+        if (isRadioId(lastId)) return
         if (!shouldAppend(player.currentMediaItemIndex, size, player.repeatMode, appendedFor, lastId)) return
         appendedFor = lastId
         val c = (application as MusicApp).container
@@ -451,6 +456,7 @@ class PlaybackService : MediaSessionService() {
      * started, it goes on from the same moment, or from the new start if that moment is in the skipped talking.
      */
     private fun smartTrim(player: ExoPlayer, id: String) {
+        if (isRadioId(id)) return
         val c = (application as MusicApp).container
         val song = (0 until player.mediaItemCount).map(player::getMediaItemAt).firstOrNull { it.mediaId == id }?.toSong() ?: return
         scope.launch {
@@ -509,7 +515,7 @@ class PlaybackService : MediaSessionService() {
      * Offline or nothing found: it just plays on like plain Shuffle.
      */
     private fun fillSuggestions(player: ExoPlayer) {
-        if (!smart || filling || !player.shuffleModeEnabled || player.mediaItemCount == 0) return
+        if (!smart || filling || !player.shuffleModeEnabled || player.mediaItemCount == 0 || isRadioId(player.currentMediaItem?.mediaId)) return
         val ahead = player.order(player.currentMediaItemIndex).drop(1)
         val lastTip = ahead.indexOfLast { player.getMediaItemAt(it).isSuggested }
         if (lastTip >= 8 || ahead.size - lastTip - 1 < 3) return

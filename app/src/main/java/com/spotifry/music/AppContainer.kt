@@ -101,6 +101,8 @@ class AppContainer(private val context: Context) {
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
         .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
+    val radioBrowser = com.spotifry.music.data.source.RadioBrowser(client)
+    val radioFavourites = com.spotifry.music.data.RadioFavourites(prefs.asPrefs())
     val artistLogos by lazy { com.spotifry.music.data.spotifried.ArtistLogos(client, java.io.File(context.cacheDir, "artist_logos_official"), apiUserAgent, { settings.fanartKey.value }) }
     /** A different key may find logos the old one couldn't, so "none found" answers are dropped. */
     fun setFanartKey(k: String) { if (k.trim() != settings.fanartKey.value) { settings.setFanartKey(k); artistLogos.forgetNoneFound() } }

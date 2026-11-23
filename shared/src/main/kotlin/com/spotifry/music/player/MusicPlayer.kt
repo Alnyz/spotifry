@@ -38,6 +38,8 @@ data class PlayerUiState(
     val wholeMs: Long = 0,
     /** The playing song's real sound, e.g. "Opus 160 kbps" or "FLAC 24-bit · 96 kHz". Null until the player knows. */
     val quality: String? = null,
+    /** A live station's own "now playing" text (song and artist), when it sends one. */
+    val onAir: String? = null,
 ) {
     /** The play button shows a ring: the song is wanted and sound hasn't arrived yet. */
     val loading get() = wantsPlay && buffering && !failed

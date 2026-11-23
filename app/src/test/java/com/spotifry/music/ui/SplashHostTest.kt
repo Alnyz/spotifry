@@ -76,7 +76,7 @@ class SplashHostTest {
         }
         compose.mainClock.advanceTimeBy(100)
         val known = SplashTargets.rects.keys
-        assertTrue(known.toString(), known.containsAll(listOf("greeting", "hero", "shortcut0", "shortcut2", "card0")))
+        assertTrue(known.toString(), known.containsAll(listOf("greeting", "hero", "card0")))
         // the splash adds nothing for screen readers: the page's own loading shapes are all there is
         compose.mainClock.advanceTimeBy(SplashTime.CAP_MS)
         compose.onAllNodesWithContentDescription("Loading").onFirst().assertIsDisplayed()
@@ -116,16 +116,16 @@ class SplashHostTest {
         assertTrue(SplashTargets.rects.keys.toString(), SplashTargets.rects.keys.containsAll(listOf("welcome", "fresh", "record")))
     }
 
-    @Test fun theShortcutShapeIsWhereTheRealRowComes() {
+    @Test fun theCardShapeIsWhereTheRealCardComes() {
         var loading by androidx.compose.runtime.mutableStateOf(true)
         compose.setContent { MusicTheme { SplashHost(SplashStart(), { null }) { HomeContent(many(4), setOf("id1"), { _, _, _ -> }, {}, loading = loading) } } }
         compose.mainClock.autoAdvance = false
         compose.mainClock.advanceTimeByFrame()
-        val shape = SplashTargets.rects.getValue("shortcut0")
+        val shape = SplashTargets.rects.getValue("card0")
         loading = false
         compose.mainClock.advanceTimeByFrame()
         compose.mainClock.advanceTimeByFrame()
-        val real = SplashTargets.rects.getValue("shortcut0")
+        val real = SplashTargets.rects.getValue("card0")
         assertEquals(shape.top, real.top, 1f)
         assertEquals(shape.height, real.height, 1f)
         assertEquals(shape.width, real.width, 1f)

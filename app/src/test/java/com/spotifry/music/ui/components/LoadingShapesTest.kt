@@ -101,14 +101,6 @@ class LoadingShapesTest {
     }
 
 
-    @Test fun theShortcutsWaitForTheRead() {
-        var loading by androidx.compose.runtime.mutableStateOf(true)
-        compose.setContent { MusicTheme { HomeContent(emptyList(), setOf("a saved song"), { _, _, _ -> }, {}, loading = loading) } }
-        compose.onNodeWithText("Playlists").assertDoesNotExist()
-        loading = false
-        compose.onNodeWithText("Playlists").assertIsDisplayed()
-    }
-
     @Test fun onAnArtistPageTheFirstSongLandsWhereTheFirstShapeWas() {
         val vm = page(SearchType.ARTISTS)
         show(vm)

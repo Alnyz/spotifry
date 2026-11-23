@@ -83,6 +83,7 @@ import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.LocalImageClient
 import com.spotifry.music.ui.components.coverTint
 import com.spotifry.music.data.source.isLocal
+import com.spotifry.music.data.source.isRadio
 
 sealed interface SaveUi {
     data object Unsaved : SaveUi
@@ -135,8 +136,11 @@ fun NowPlayingContent(
     onOutput: () -> Unit = {},
     /** A drag in the queue, in places after the playing song (1 = next), and a song swiped away by its queue position. */
     onMove: (Int, Int) -> Unit = { _, _ -> }, onRemove: (Int) -> Unit = {},
+    /** A live radio station is playing: whether it is in Your stations, and the star that adds or removes it. */
+    starred: Boolean = false, onStar: () -> Unit = {},
 ) {
     val song = state.current ?: return
+    val live = song.isRadio
     // a new song closes the lyrics of the old one
     LaunchedEffect(song.id) { if (mode == NowPlayingMode.Lyrics) onMode(NowPlayingMode.Cover) }
     val client = LocalImageClient.current
@@ -190,11 +194,16 @@ fun NowPlayingContent(
                     Modifier.fillMaxWidth().offset(y = minOf(maxHeight - body, shown + 16.dp)).onSizeChanged { body = with(density) { it.height.toDp() } }
                         .windowInsetsPadding(WindowInsets.navigationBars).padding(start = 12.dp, end = 12.dp, bottom = 20.dp),
                 ) {
-                    TitleRow(song, save, note, onSave, onMore, onNote, Modifier.padding(horizontal = 12.dp))
-                    LyricsPeek(lyrics, sung, { onMode(NowPlayingMode.Lyrics) }, onRetryLyrics, Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp))
-                    ProgressBar(state, position, Modifier.padding(horizontal = 12.dp).padding(top = 8.dp), onSeek, onTrim, onQuality)
-                    Controls(state, onToggle, onNext, onPrev, onShuffle, onRepeat, Modifier.padding(top = 16.dp))
-                    Tools(m, output, onMode, onOutput, Modifier.padding(top = 16.dp))
+                    TitleRow(song, save, note, onSave, onMore, onNote, Modifier.padding(horizontal = 12.dp), starred, onStar)
+                    if (live) {
+                        LiveBar(state.onAir, Modifier.padding(horizontal = 12.dp).padding(top = 18.dp))
+                        LiveControls(state, onToggle, Modifier.padding(top = 16.dp))
+                    } else {
+                        LyricsPeek(lyrics, sung, { onMode(NowPlayingMode.Lyrics) }, onRetryLyrics, Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp))
+                        ProgressBar(state, position, Modifier.padding(horizontal = 12.dp).padding(top = 8.dp), onSeek, onTrim, onQuality)
+                        Controls(state, onToggle, onNext, onPrev, onShuffle, onRepeat, Modifier.padding(top = 16.dp))
+                    }
+                    Tools(m, output, onMode, onOutput, Modifier.padding(top = 16.dp), live)
                 }
             } else ModeView(
                 m, state, lyrics, onRetryLyrics, position, speed, lyricsShift, onLyricsShift, onSeek, onTrim, onQuality,
@@ -233,7 +242,7 @@ private fun BigCover(
         // no box around it: the cover itself turns clear by [shown], over the page's one background, so there is no edge to see
         Cover(
             song.id, song.thumbnailUrl, song.localThumbPath, side,
-            Modifier.align(Alignment.TopCenter).wrapContentSize(Alignment.TopCenter, unbounded = true).fadeOut(if (side > 0.dp) shown / side else 1f), radius = 0.dp,
+            Modifier.align(Alignment.TopCenter).wrapContentSize(Alignment.TopCenter, unbounded = true).fadeOut(if (side > 0.dp) shown / side else 1f), radius = 0.dp, label = song.title,
         )
         Box(
             Modifier.fillMaxWidth().height(200.dp).background(
@@ -294,7 +303,7 @@ private fun Modifier.fadeEdges() = graphicsLayer { compositingStrategy = android
 
 /** Title and artist the same size, the note under them, then save and the round ⋯ for the song menu. */
 @Composable
-private fun TitleRow(song: com.spotifry.music.data.source.Song, save: SaveUi, note: String?, onSave: () -> Unit, onMore: () -> Unit, onNote: () -> Unit, modifier: Modifier) {
+private fun TitleRow(song: com.spotifry.music.data.source.Song, save: SaveUi, note: String?, onSave: () -> Unit, onMore: () -> Unit, onNote: () -> Unit, modifier: Modifier, starred: Boolean = false, onStar: () -> Unit = {}) {
     val big = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = (-0.3).sp)
     Row(modifier.fillMaxWidth(), Arrangement.spacedBy(4.dp), Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
@@ -306,9 +315,14 @@ private fun TitleRow(song: com.spotifry.music.data.source.Song, save: SaveUi, no
                 color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
-        // a file on the phone is already there: nothing to save
-        if (!song.isLocal) SaveButton(save, onSave)
-        RoundMore(onMore)
+        if (song.isRadio) {
+            // a station can't be saved or added to a list; the star keeps it in Your stations
+            IconButton(onStar, Modifier.size(48.dp)) { Icon(if (starred) Icons.Star else Icons.StarOutline, if (starred) "Remove from Your stations" else "Add to Your stations", Modifier.size(26.dp)) }
+        } else {
+            // a file on the phone is already there: nothing to save
+            if (!song.isLocal) SaveButton(save, onSave)
+            RoundMore(onMore)
+        }
     }
 }
 
@@ -322,8 +336,10 @@ private fun RoundMore(onMore: () -> Unit) {
 
 /** Lyrics, output, queue. The mode buttons show a rounded square while their mode is open; a second tap goes back to the cover. */
 @Composable
-private fun Tools(mode: NowPlayingMode, output: OutputInfo, onMode: (NowPlayingMode) -> Unit, onOutput: () -> Unit, modifier: Modifier) {
+private fun Tools(mode: NowPlayingMode, output: OutputInfo, onMode: (NowPlayingMode) -> Unit, onOutput: () -> Unit, modifier: Modifier, live: Boolean = false) {
     Row(modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+        // a live station has no lyrics and no queue
+        if (live) Spacer(Modifier.size(48.dp)) else
         ModeButton(Icons.LyricsBubble, "Lyrics", mode == NowPlayingMode.Lyrics) { onMode(if (mode == NowPlayingMode.Lyrics) NowPlayingMode.Cover else NowPlayingMode.Lyrics) }
         Row(
             Modifier.weight(1f, fill = false).height(48.dp).clip(RoundedCornerShape(24.dp))
@@ -334,7 +350,31 @@ private fun Tools(mode: NowPlayingMode, output: OutputInfo, onMode: (NowPlayingM
             Icon(outputIcon(output.look), null, Modifier.size(20.dp), tint = Faint)
             Text(output.name, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        if (live) Spacer(Modifier.size(48.dp)) else
         ModeButton(Icons.Queue, "Queue", mode == NowPlayingMode.Queue) { onMode(if (mode == NowPlayingMode.Queue) NowPlayingMode.Cover else NowPlayingMode.Queue) }
+    }
+}
+
+/** Where the progress bar would be for a song: a live station has no length, so only the word and its dot. */
+@Composable
+private fun LiveBar(onAir: String?, modifier: Modifier) {
+    Column(modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp), Alignment.CenterHorizontally) {
+        Row(Modifier.height(32.dp).semantics(mergeDescendants = true) { contentDescription = "Live radio" }, Arrangement.Center, Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+            Text("LIVE", Modifier.padding(start = 8.dp), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp), color = Faint)
+        }
+        // only when the station names its song
+        if (onAir != null) Text("Now: $onAir", Modifier.basicMarquee(), style = MaterialTheme.typography.bodyMedium, color = Faint, maxLines = 1)
+    }
+}
+
+/** Pause and play only: nothing to skip to, shuffle or repeat. */
+@Composable
+private fun LiveControls(state: PlayerUiState, onToggle: () -> Unit, modifier: Modifier) {
+    Box(modifier.fillMaxWidth(), Alignment.Center) {
+        Box(Modifier.size(72.dp).clip(CircleShape).clickable(onClick = onToggle), Alignment.Center) {
+            com.spotifry.music.ui.components.PlayGlyph(state, 52.dp, LocalContentColor.current)
+        }
     }
 }
 

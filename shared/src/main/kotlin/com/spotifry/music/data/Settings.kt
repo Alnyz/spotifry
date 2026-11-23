@@ -343,6 +343,8 @@ class Settings(private val prefs: Prefs) {
         const val ARTISTS = "picked_artists"
         /** The For you list last built on this device; not in backups. */
         const val FOR_YOU = "for_you"
+        /** The radio stations the listener starred (a JSON list). */
+        const val RADIO_FAVOURITES = "radio_favourites"
         const val ARTIST_NAMES = "artist_names"
         /** The listener's fanart.tv account key: never in backups. */
         const val FANART_KEY = "fanart_key"

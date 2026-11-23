@@ -7,6 +7,7 @@ import androidx.media3.datasource.ResolvingDataSource
 import com.spotifry.music.data.StreamResolver
 import com.spotifry.music.data.db.SongDao
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.data.source.isRadioId
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.IOException
@@ -18,6 +19,8 @@ import java.io.IOException
 @UnstableApi
 class SavedFileResolver(private val songs: SongDao) : ResolvingDataSource.Resolver {
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
+        // a live station has no end, so there is nothing to keep: the cache is told to skip anything of unknown length
+        if (isRadioId(dataSpec.key)) return dataSpec.buildUpon().setFlags(dataSpec.flags or DataSpec.FLAG_DONT_CACHE_IF_LENGTH_UNKNOWN).build()
         dataSpec.key?.let(com.spotifry.music.data.LocalMusic::uriOf)?.let { return dataSpec.withUri(it) }
         val path = dataSpec.key?.let { id -> runBlocking { songs.get(id)?.filePath } } ?: return dataSpec
         return dataSpec.withUri(Uri.fromFile(File(path)))
@@ -41,6 +44,8 @@ class SongDataSourceResolver(
     private val forgetBetter: (String) -> Unit = {},
 ) : ResolvingDataSource.Resolver {
     override fun resolveDataSpec(dataSpec: DataSpec): DataSpec {
+        // a radio stream already is a real address (songs carry a music:// placeholder)
+        if (dataSpec.uri.scheme == "http" || dataSpec.uri.scheme == "https") return dataSpec
         val key = dataSpec.key ?: throw IOException("missing song id")
         // a song that fell back from a slow lossless copy: YouTube's bytes under their own key
         val opus = key.endsWith(OPUS_SUFFIX)

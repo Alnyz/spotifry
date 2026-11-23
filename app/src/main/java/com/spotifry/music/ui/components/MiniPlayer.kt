@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.spotifry.music.data.source.isRadio
 import com.spotifry.music.player.PlayerUiState
 import com.spotifry.music.ui.Icons
 import com.spotifry.music.ui.theme.glass
@@ -34,13 +35,14 @@ fun MiniPlayer(state: PlayerUiState, position: () -> Long, haze: HazeState, onTo
     val shape = RoundedCornerShape(28.dp)
     Box(modifier.fillMaxWidth().height(com.spotifry.music.ui.FadeBarSpec.MINI).glass(haze, shape).clickable(onClickLabel = "Open player", onClick = onOpen)) {
         Row(Modifier.padding(start = 7.dp, end = 4.dp).height(com.spotifry.music.ui.FadeBarSpec.MINI), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
-            Cover(song.id, song.thumbnailUrl, song.localThumbPath, 42.dp, radius = 21.dp)
+            Cover(song.id, song.thumbnailUrl, song.localThumbPath, 42.dp, radius = 21.dp, label = song.title)
             Column(Modifier.weight(1f)) {
                 Text(song.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(if (rememberSlow(state.loading)) SLOW_TEXT else song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             IconButton(onToggle, Modifier.size(48.dp)) { PlayGlyph(state, 24.dp, MaterialTheme.colorScheme.onSurface) }
-            IconButton(onNext, Modifier.size(48.dp)) { Icon(Icons.Next, "Next song") }
+            // a live station has nothing to skip to
+            if (!song.isRadio) IconButton(onNext, Modifier.size(48.dp)) { Icon(Icons.Next, "Next song") }
         }
         val color = MaterialTheme.colorScheme.primary
         // position is read while drawing, so each tick only repaints this line

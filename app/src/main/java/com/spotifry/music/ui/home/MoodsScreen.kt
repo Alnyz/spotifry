@@ -78,6 +78,10 @@ val MOODS = listOf(
     Mood("Dance", "House, techno and other club music.", "electronic dance hits", Color(0xFF005A68), { levelBars() }),
 )
 
+/** Nonstop cards on the Radio page that Search's moods don't have. */
+val ALL_DAY = Mood("All day", "Bright songs for any hour.", "top hits all day playlist", Color(0xFF7A4200), { sun() })
+val NIGHT_DRIVE = Mood("Night drive", "Smooth songs for the road at night.", "night drive playlist", Color(0xFF1F2A52), { moon() })
+
 /** A list with fewer songs than this isn't worth a row. */
 private const val MIN_SONGS = 5
 
@@ -160,7 +164,7 @@ internal fun LazyListScope.moodTiles(moods: List<Mood>, onOpen: (Mood) -> Unit) 
 }
 
 @Composable
-private fun MoodTile(mood: Mood, onOpen: (Mood) -> Unit, modifier: Modifier = Modifier) {
+internal fun MoodTile(mood: Mood, onOpen: (Mood) -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier.fillMaxHeight().heightIn(min = 96.dp).clip(RoundedCornerShape(16.dp)).background(mood.color).drawBehind { moodArt(mood.art) }
             .clickable(role = Role.Button) { onOpen(mood) }.padding(12.dp),

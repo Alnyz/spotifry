@@ -132,12 +132,6 @@ class HomeViewModel(
 
     /** The keyboard's search key: keeps the words and searches again. */
     fun submit() { recentSearches.add(query.value); retry() }
-
-    /** Every saved song, shuffled. */
-    fun shuffleSaved() {
-        val list = saved.value.map { it.toSong() }
-        if (list.isNotEmpty()) player.shuffleList(list, "Saved")
-    }
 }
 
 /** How many of the top search results get their links fetched ahead, and how long the results must stay first. */

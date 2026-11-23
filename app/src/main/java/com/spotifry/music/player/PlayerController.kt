@@ -10,6 +10,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.data.source.isRadioId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -91,6 +92,10 @@ class PlayerController(
         val wholeMs = if (trim?.endMs == null && c.duration > 0) c.duration + (trim?.startMs ?: 0) else whole
         _state.value = PlayerUiState(
             current = c.currentMediaItem?.toSong(),
+            // a station that names its song puts it in the stream's metadata, which then replaces the title the player reports
+            onAir = c.currentMediaItem?.takeIf { isRadioId(it.mediaId) }?.let { item ->
+                c.mediaMetadata.title?.toString()?.trim()?.takeIf { it.isNotEmpty() && it != item.mediaMetadata.title?.toString() }
+            },
             isPlaying = c.isPlaying,
             wantsPlay = c.playWhenReady && c.playbackState != Player.STATE_ENDED && c.playbackState != Player.STATE_IDLE,
             // before the first play after a restore the player doesn't know the length yet; the song does

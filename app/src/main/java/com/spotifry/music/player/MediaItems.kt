@@ -7,11 +7,13 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.spotifry.music.data.source.Song
+import com.spotifry.music.data.source.isRadio
 
 private const val KEY_DURATION = "durationSec"
 private const val KEY_REMOTE_ART = "remoteArt"
 private const val KEY_LOCAL_ART = "localArt"
 private const val KEY_SUGGESTED = "suggested"
+private const val KEY_STREAM = "streamUrl"
 
 /** Each song's own start and end, looked up by id; the app points this at its [Trims] when it starts. */
 var trimOf: (String) -> Trim? = { null }
@@ -20,7 +22,18 @@ var trimOf: (String) -> Trim? = { null }
  * The URI is a placeholder: SongDataSourceResolver swaps it for a file or stream URL at load time. With a [trim] the
  * player only sees the part in between, so the bar, the fade and the move to the next song all follow it.
  */
-fun Song.toMediaItem(trim: Trim? = trimOf(id), opus: Boolean = false): MediaItem = MediaItem.Builder()
+fun Song.toMediaItem(trim: Trim? = trimOf(id), opus: Boolean = false): MediaItem = if (isRadio && streamUrl != null) radioItem(streamUrl!!) else songItem(trim, opus)
+
+/** A live station plays from its own address, with no cut, no length and nothing to look up. */
+private fun Song.radioItem(url: String): MediaItem = MediaItem.Builder()
+    .setMediaId(id).setUri(url).setCustomCacheKey(id)
+    .setMediaMetadata(
+        MediaMetadata.Builder().setTitle(title).setArtist(artist).setArtworkUri(thumbnailUrl?.toUri())
+            .setExtras(Bundle().apply { putString(KEY_REMOTE_ART, thumbnailUrl); putString(KEY_STREAM, url) }).build(),
+    )
+    .build()
+
+private fun Song.songItem(trim: Trim?, opus: Boolean): MediaItem = MediaItem.Builder()
     .setMediaId(id)
     .apply {
         if (trim != null && !trim.isWhole) setClippingConfiguration(
@@ -52,6 +65,7 @@ fun MediaItem.toSong(): Song = Song(
     thumbnailUrl = mediaMetadata.extras?.getString(KEY_REMOTE_ART) ?: mediaMetadata.artworkUri?.takeIf { it.scheme != "file" }?.toString(),
     localThumbPath = mediaMetadata.extras?.getString(KEY_LOCAL_ART),
     suggested = isSuggested,
+    streamUrl = mediaMetadata.extras?.getString(KEY_STREAM),
 )
 
 val MediaItem.isSuggested get() = mediaMetadata.extras?.getBoolean(KEY_SUGGESTED) == true

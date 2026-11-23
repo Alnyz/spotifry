@@ -98,7 +98,7 @@ import java.time.LocalTime
 @Composable
 fun HomeScreen(
     vm: HomeViewModel, onMore: (Song) -> Unit, bottomInset: Dp,
-    onOpenSaved: () -> Unit, onOpenPlaylists: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {},
+    modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {},
     listening: @Composable () -> Unit = {}, top: @Composable () -> Unit = {},
     artists: ArtistsHome = ArtistsHome(), onOpenArtist: (com.spotifry.music.data.PickedArtist) -> Unit = {}, onPickArtists: () -> Unit = {},
     player: PlayerUiState = PlayerUiState(), onToggle: () -> Unit = {}, onPause: () -> Unit = {}, onOpenPlayer: () -> Unit = {},
@@ -120,7 +120,7 @@ fun HomeScreen(
     HomeContent(
         recent = recent.orEmpty(), loading = recent == null || !savedRead || !libraryRead, savedIds = saved, mostPlayed = most.orEmpty(), mostRead = most != null, timeMixes = pickTimeMixes(mixes, LocalTime.now().hour),
         onPlay = vm::play, onMore = onMore, modifier = modifier, bottomInset = bottomInset,
-        onOpenSaved = onOpenSaved, onOpenPlaylists = onOpenPlaylists, onShuffleSaved = vm::shuffleSaved, onOpenSettings = onOpenSettings, listening = listening, top = top,
+        onOpenSettings = onOpenSettings, listening = listening, top = top,
         artists = artists, onOpenArtist = onOpenArtist, onPickArtists = onPickArtists,
         player = player, onToggle = onToggle, onPause = onPause, onOpenPlayer = onOpenPlayer, playlists = playlists, covers = covers,
         onOpenPlaylist = onOpenPlaylist, onPlayPlaylist = onPlayPlaylist, onSearch = onSearch, onImport = onImport, onMood = onMood,
@@ -133,13 +133,12 @@ fun HomeContent(
     recent: List<SongEntity>, savedIds: Set<String>,
     onPlay: (List<Song>, Int, String) -> Unit, onMore: (Song) -> Unit,
     modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,
-    onOpenSaved: () -> Unit = {}, onOpenPlaylists: () -> Unit = {}, onShuffleSaved: () -> Unit = {},
     mostPlayed: List<SongEntity> = emptyList(), mostRead: Boolean = true, onOpenSettings: () -> Unit = {},
     /** The history, saved songs or playlists aren't read yet, so nothing can be said about this person. */
     loading: Boolean = false,
     /** Shown under the greeting: the update card when there is one. */
     top: @Composable () -> Unit = {},
-    /** Shown under the shortcuts: the way into Taste. */
+    /** Shown under the hero: the ways into Your rotation and Radio. */
     listening: @Composable () -> Unit = {},
     /** The artists picked on first launch, and their songs. */
     artists: ArtistsHome = ArtistsHome(), onOpenArtist: (com.spotifry.music.data.PickedArtist) -> Unit = {}, onPickArtists: () -> Unit = {},
@@ -216,7 +215,6 @@ fun HomeContent(
         }
         // reads not finished: each shelf is a shape of its real size in its real place, and goes if its read comes back empty
         if (loading) {
-            item { ShortcutShape() }
             item { CardRowShape(140.dp, 9.dp, title = "Recently played", splashKey = "card") }
             if (forYou == null) item { CardRowShape(140.dp, 9.dp, title = "For you") }
             item { CardRowShape(132.dp, 8.dp, title = "Your playlists") }
@@ -225,14 +223,6 @@ fun HomeContent(
             item { LoadingShapes { SectionTitle("Keep listening"); LoadingBox(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(86.dp), RoundedCornerShape(20.dp)) } }
             // the moods depend on how much was played, so they wait for the read
             return@LazyColumn
-        }
-        // both are in the bottom bar too, and with nothing in them they'd open empty pages
-        if (savedIds.isNotEmpty() || playlists.isNotEmpty()) item {
-            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), Arrangement.spacedBy(10.dp)) {
-                Shortcut(Icons.Download, "Saved", 0, onOpenSaved)
-                Shortcut(Icons.List, "Playlists", 1, onOpenPlaylists)
-                if (savedIds.isNotEmpty()) Shortcut(Icons.Shuffle, "Shuffle", 2, onShuffleSaved)
-            }
         }
         item { listening() }
         if (otherSongs.isNotEmpty()) {
@@ -399,16 +389,6 @@ private fun HeroShape() {
     LoadingShapes { LoadingBox(Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp).fillMaxWidth().height(212.dp).splashTarget("hero"), RoundedCornerShape(22.dp)) }
 }
 
-/** The shortcut row while the reads run, so the shelves under it don't step down when it arrives. */
-@Composable
-private fun ShortcutShape() {
-    LoadingShapes {
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), Arrangement.spacedBy(10.dp)) {
-            repeat(3) { LoadingBox(Modifier.weight(1f).height(56.dp).splashTarget("shortcut$it"), CircleShape) }
-        }
-    }
-}
-
 /** Nothing played, no artists, no playlists: says so, and what to do. */
 @Composable
 private fun StartCard(onSearch: () -> Unit, onImport: () -> Unit, onPickArtists: () -> Unit) {
@@ -454,17 +434,6 @@ private fun MoodsTitle(onSeeAll: () -> Unit) {
             "See all", Modifier.clip(CircleShape).clickable(onClick = onSeeAll, role = Role.Button).padding(horizontal = 12.dp, vertical = 12.dp),
             style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
         )
-    }
-}
-
-@Composable
-private fun RowScope.Shortcut(icon: ImageVector, label: String, at: Int, onClick: () -> Unit) {
-    Row(
-        Modifier.weight(1f).height(56.dp).splashTarget("shortcut$at").clip(CircleShape).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick),
-        Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), Alignment.CenterVertically,
-    ) {
-        Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
     }
 }
 

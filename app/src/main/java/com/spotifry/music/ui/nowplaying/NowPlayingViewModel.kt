@@ -21,6 +21,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import com.spotifry.music.data.Lyrics
+import com.spotifry.music.data.source.isRadio
 import com.spotifry.music.data.LyricsSource
 
 fun saveUi(songId: String, savedIds: Set<String>, download: DownloadState): SaveUi = when {
@@ -63,7 +64,7 @@ class NowPlayingViewModel(
         .flatMapLatest { song ->
             flow {
                 val src = lyricsSource
-                if (song == null || src == null) { emit(LyricsUi.None); return@flow }
+                if (song == null || src == null || song.isRadio) { emit(LyricsUi.None); return@flow }
                 emit(LyricsUi.Loading)
                 emit(try { src.get(song)?.let { LyricsUi.Ready(it) } ?: LyricsUi.None } catch (e: CancellationException) { throw e } catch (e: Exception) { android.util.Log.w("Lyrics", "couldn't load lyrics", e); LyricsUi.Failed })
             }

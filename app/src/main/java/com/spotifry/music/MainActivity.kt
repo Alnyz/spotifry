@@ -41,6 +41,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -114,6 +116,12 @@ import com.spotifry.music.ui.share.ShareTarget
 import kotlinx.coroutines.launch
 import com.spotifry.music.ui.saved.SavedScreen
 import com.spotifry.music.data.source.isLocal
+import com.spotifry.music.data.source.isRadio
+import com.spotifry.music.data.source.toStation
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import com.spotifry.music.ui.saved.SavedViewModel
 import com.spotifry.music.ui.theme.MusicTheme
 import dev.chrisbanes.haze.HazeState
@@ -141,6 +149,7 @@ object Routes {
     const val MOOD = "mood?name={name}"
     const val LISTENING = "listening"
     const val SPOTIFRIED = "spotifried"
+    const val RADIO = "radio"
     fun mood(m: Mood) = "mood?name=${Uri.encode(m.name)}"
 }
 
@@ -380,8 +389,16 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                                 // not restored: a playlist left open on that tab would hide the sheet, which lives on the tab's first page
                                 importVm.open()
                                 nav.navigate(Routes.PLAYLISTS) { popUpTo(Routes.LISTEN) { saveState = true }; launchSingleTop = true }
-                            }, onMood = { nav.navigate(Routes.mood(it)) { launchSingleTop = true } }, artists = artistsHome, onOpenArtist = { nav.navigate(Routes.page(it.link)) }, onPickArtists = { pickArtists++ }, onOpenSaved = { goTo(Routes.SAVED) }, onOpenPlaylists = { goTo(Routes.PLAYLISTS) }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, listening = {
-                                com.spotifry.music.ui.listening.ListeningRow(listeningRow, player.isPlaying && !showPlayer, { nav.navigate(Routes.LISTENING) { launchSingleTop = true } }, Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp))
+                            }, onMood = { nav.navigate(Routes.mood(it)) { launchSingleTop = true } }, artists = artistsHome, onOpenArtist = { nav.navigate(Routes.page(it.link)) }, onPickArtists = { pickArtists++ }, onOpenSettings = { nav.navigate(Routes.SETTINGS) }, listening = {
+                                // both entrances in one card split by a wave; with nothing heard yet Your rotation isn't there and Radio is alone
+                                val heard by listeningRow.any.collectAsStateWithLifecycle()
+                                val stationOn = player.current?.takeIf { it.isRadio && player.isPlaying }?.title
+                                com.spotifry.music.ui.components.WaveCard(
+                                    heard, stationOn != null,
+                                    { com.spotifry.music.ui.listening.ListeningRow(listeningRow, player.isPlaying && !showPlayer, { nav.navigate(Routes.LISTENING) { launchSingleTop = true } }, Modifier.fillMaxSize()) },
+                                    { com.spotifry.music.ui.radio.RadioRow({ nav.navigate(Routes.RADIO) { launchSingleTop = true } }, live = stationOn) },
+                                    Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp),
+                                )
                             }, top = {
                                 val update by c.updates.state.collectAsStateWithLifecycle()
                                 val later by c.updates.laterFor.collectAsStateWithLifecycle()
@@ -399,6 +416,10 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                             val vm: com.spotifry.music.ui.listening.ListeningViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.listening.ListeningViewModel(c.db.listens()) } })
                             val savedIds by home.savedIds.collectAsStateWithLifecycle()
                             com.spotifry.music.ui.listening.ListeningScreen(vm, savedIds, player.isPlaying && !showPlayer, { nav.popBackStack() }, plVm::play, openMenu, { name -> home.onQueryChanged(name); goTo(Routes.SEARCH) }, { nav.navigate(Routes.SPOTIFRIED) { launchSingleTop = true } }, inset)
+                        }
+                        composable(Routes.RADIO) {
+                            val vm: com.spotifry.music.ui.radio.RadioViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.radio.RadioViewModel(c.radioBrowser, c.radioFavourites, c.player, c.source, c.forYou.shown) } })
+                            com.spotifry.music.ui.radio.RadioScreen(vm, player.current?.id, { nav.popBackStack() }, inset)
                         }
                         composable(Routes.SPOTIFRIED) {
                             val vm: com.spotifry.music.ui.spotifried.SpotifriedViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.spotifried.SpotifriedViewModel(c.db.listens().observeAll(), c.db.songYears().observeAll(), name = c.settings.name) } })
@@ -464,10 +485,13 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                     if (npMode != com.spotifry.music.ui.nowplaying.NowPlayingMode.Cover) npMode = com.spotifry.music.ui.nowplaying.NowPlayingMode.Cover else showPlayer = false
                 }
                 KeepScreenOn(keepScreenOn && player.wantsPlay)
+                val radioStars by c.radioFavourites.stations.collectAsStateWithLifecycle()
                 NowPlayingContent(
                     player, save,
                     onClose = { showPlayer = false }, onToggle = c.player::toggle, onNext = c.player::next, onPrev = c.player::previous,
                     onSeek = c.player::seekTo, onShuffle = c.player::cycleShuffle, onRepeat = c.player::cycleRepeat,
+                    starred = player.current?.let { s -> radioStars.any { "radio:" + it.uuid == s.id } } == true,
+                    onStar = { player.current?.takeIf { it.isRadio }?.let { s -> (radioStars.firstOrNull { "radio:" + it.uuid == s.id } ?: s.toStation()).let(c.radioFavourites::toggle) } },
                     onSave = npVm::onSave, onMore = { player.current?.let { menu = MenuTarget(it, fromPlayer = true, queueIndex = player.currentIndex) } },
                     saved = saved.map { it.id }.toSet(), onPick = c.player::skipTo,
                     lyrics = lyrics, onRetryLyrics = npVm::retryLyrics, mode = npMode, onMode = { npMode = it },

@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -435,14 +436,13 @@ fun ListeningRow(vm: ListeningRowViewModel, playing: Boolean, onOpen: () -> Unit
     val week by vm.week.collectAsStateWithLifecycle()
     val minutes = week.minutes
     Row(
-        modifier.fillMaxWidth().heightIn(min = 72.dp).clip(RoundedCornerShape(36.dp)).background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onOpen).padding(start = 6.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
-        Arrangement.spacedBy(10.dp), Alignment.CenterVertically,
+        modifier.clickable(onClickLabel = "Open Your rotation", onClick = onOpen).padding(start = 20.dp, end = 14.dp),
+        Arrangement.spacedBy(14.dp), Alignment.CenterVertically,
     ) {
-        Sun(week.hours, sunScale(minutes), playing, vm.motion, Modifier.size(64.dp), small = true)
+        Sun(week.hours, sunScale(minutes), playing, vm.motion, Modifier.size(48.dp), small = true)
         Column(Modifier.weight(1f)) {
-            Text("Your rotation", style = MaterialTheme.typography.labelLarge)
-            if (minutes > 0) Text("${count(minutes)} min this week", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Your rotation", style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+            if (minutes > 0) Text("${count(minutes)} min this week", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         Icon(Icons.Chevron, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
