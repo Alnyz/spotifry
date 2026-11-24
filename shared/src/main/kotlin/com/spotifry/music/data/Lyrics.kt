@@ -320,10 +320,13 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
             val timed = raw.lines().mapNotNull { src ->
                 val m = Regex("""^\[(\d+):(\d+(?:\.\d+)?)]\s*(.*)$""").find(src.trim()) ?: return@mapNotNull null
                 val line = m.groupValues[1].toLong() * 60_000 + (m.groupValues[2].toDouble() * 1000).toLong()
-                val words = Regex("""<(\d+):(\d+(?:\.\d+)?)>([^<]*)""").findAll(m.groupValues[3].replace(Regex("""\{[^}]*}"""), "")).mapNotNull { w ->
-                    val text = w.groupValues[3].ifBlank { return@mapNotNull null }
-                    (w.groupValues[1].toLong() * 60_000 + (w.groupValues[2].toDouble() * 1000).toLong()) to text
-                }.toList()
+                val words = ArrayList<Pair<Long, String>>()
+                Regex("""<(\d+):(\d+(?:\.\d+)?)>([^<]*)""").findAll(m.groupValues[3].replace(Regex("""\{[^}]*}"""), "")).forEach { w ->
+                    val text = w.groupValues[3]
+                    // some entries give a space as its own blank tag between two words: it belongs to the word before it
+                    if (text.isBlank()) { words.lastOrNull()?.let { (at, t) -> if (!t.endsWith(" ")) words[words.lastIndex] = at to "$t " } }
+                    else words += (w.groupValues[1].toLong() * 60_000 + (w.groupValues[2].toDouble() * 1000).toLong()) to text
+                }
                 if (words.isEmpty()) null else line to words
             }.sortedBy { it.first }
             return timed.mapIndexed { i, (line, words) ->

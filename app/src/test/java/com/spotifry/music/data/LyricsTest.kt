@@ -155,6 +155,14 @@ class LyricsTest {
         assertEquals(30_180L, lines[1].words.first().startMs)
     }
 
+    @Test fun simpMusicKeepsASpaceThatComesAsItsOwnBlankTag() {
+        val raw = "[00:50.38] <00:50.38>It's<00:50.42> <00:50.55>late<00:50.81> <00:50.88>at<00:51.00> <00:51.16>night"
+        val line = LyricsSource.parseRichSync(raw).single()
+        assertEquals("It's late at night", line.text)
+        assertEquals(listOf(50_380L, 50_550L, 50_880L, 51_160L), line.words.map { it.startMs })
+        assertEquals("It's ", line.words[0].text)
+    }
+
     @Test fun simpMusicPicksTheEntryNearestInLengthAndNeverBeyondThreeSeconds() {
         val a = JSONObject().put("durationSeconds", 240).put("richSyncLyrics", "[00:01.00] <00:01.00>wrong <00:01.50>cut")
         val b = JSONObject().put("durationSeconds", 201).put("richSyncLyrics", "[00:02.00] <00:02.00>right <00:02.50>cut")
