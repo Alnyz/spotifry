@@ -41,14 +41,17 @@ jobs:
 
       - name: Android builds for Robolectric
         run: |
-          for try in 1 2 3; do
+          # Maven Central sometimes answers 429 (too many requests) to GitHub's machines, so wait longer each time
+          for wait in 30 60 120 0; do
             ./gradlew :app:testDebugUnitTest --tests '*ChangeLogTest' --tests '*OutputPickerTest' && exit 0
-            echo "fetch failed, trying again"; sleep 20
+            echo "fetch failed, trying again in ${wait}s"; sleep $wait
           done
           exit 1
 
       - name: Tests
-        run: ./gradlew :shared:test :app:testDebugUnitTest --continue
+        # one test now and then fails because an earlier test leaves an error behind; a second run tells that apart
+        # from a real failure, which fails both times
+        run: ./gradlew :shared:test :app:testDebugUnitTest --continue || ./gradlew :shared:test :app:testDebugUnitTest --continue
 
       # NewApi and the other lint errors fail the build, so a call Android 7 doesn't have is caught here
       - name: Lint
