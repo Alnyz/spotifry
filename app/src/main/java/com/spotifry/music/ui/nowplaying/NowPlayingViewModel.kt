@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.flow
 import com.spotifry.music.data.Lyrics
 import com.spotifry.music.data.source.isRadio
@@ -46,6 +48,8 @@ class NowPlayingViewModel(
     private val lyricsSource: LyricsSource? = null,
     private val notes: com.spotifry.music.data.db.SongNoteDao? = null,
     private val now: () -> Long = System::currentTimeMillis,
+    /** The lyrics source picked per song id (Settings.lyricsPick). */
+    private val picks: StateFlow<Map<String, String>> = MutableStateFlow(emptyMap()),
 ) : ViewModel() {
     val state: StateFlow<PlayerUiState> = player.state
 
@@ -59,17 +63,47 @@ class NowPlayingViewModel(
 
     private val lyricsRetry = MutableStateFlow(0)
 
-    /** Lyrics for the song playing now; looked up again when the song changes or after Try again. */
-    val lyrics: StateFlow<LyricsUi> = combine(player.state.map { it.current }.distinctUntilChanged { a, b -> a?.id == b?.id }, lyricsRetry) { s, _ -> s }
-        .flatMapLatest { song ->
+    private val pickNow = combine(player.state.map { it.current?.id }.distinctUntilChanged(), picks) { id, all -> id?.let(all::get) }.distinctUntilChanged()
+    private var lyricsFor: String? = null
+
+    /** Lyrics for the song playing now; looked up again when the song changes, after Try again, or when its source pick changes. */
+    val lyrics: StateFlow<LyricsUi> = combine(player.state.map { it.current }.distinctUntilChanged { a, b -> a?.id == b?.id }, lyricsRetry, pickNow) { s, _, pick -> s to pick }
+        .flatMapLatest { (song, pick) ->
             flow {
                 val src = lyricsSource
-                if (song == null || src == null || song.isRadio) { emit(LyricsUi.None); return@flow }
-                emit(LyricsUi.Loading)
-                emit(try { src.get(song)?.let { LyricsUi.Ready(it) } ?: LyricsUi.None } catch (e: CancellationException) { throw e } catch (e: Exception) { android.util.Log.w("Lyrics", "couldn't load lyrics", e); LyricsUi.Failed })
+                if (song == null || src == null || song.isRadio) { lyricsFor = null; emit(LyricsUi.None); return@flow }
+                // switching source on the same song keeps the old lyrics up until the new ones are there
+                if (song.id != lyricsFor) emit(LyricsUi.Loading)
+                lyricsFor = song.id
+                emit(try { src.get(song, pick)?.let { LyricsUi.Ready(it) } ?: LyricsUi.None } catch (e: CancellationException) { throw e } catch (e: Exception) { android.util.Log.w("Lyrics", "couldn't load lyrics", e); LyricsUi.Failed })
             }
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, LyricsUi.None)
+
+    /** One lyrics source in the Lyrics source sheet: [lyrics] is what it has for the song, null when nothing; [checking] until it answers. */
+    data class SourceRow(val name: String, val lyrics: Lyrics?, val checking: Boolean)
+
+    private val _sources = MutableStateFlow<List<SourceRow>>(emptyList())
+    /** What each lyrics source has for the song playing now, filling in as they answer. Filled by [checkSources]. */
+    val sources: StateFlow<List<SourceRow>> = _sources
+    private var checking: Job? = null
+
+    /** Asks every source in use for the song playing now, all at once; the sheet fills in as each answers. */
+    fun checkSources() {
+        val song = player.state.value.current ?: return
+        val src = lyricsSource ?: return
+        checking?.cancel()
+        val names = src.enabledSources()
+        _sources.value = names.map { SourceRow(it, null, true) }
+        checking = viewModelScope.launch {
+            names.forEach { name ->
+                launch {
+                    val found = try { src.from(song, name) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+                    _sources.update { rows -> rows.map { if (it.name == name) SourceRow(name, found, false) else it } }
+                }
+            }
+        }
+    }
 
     fun retryLyrics() { lyricsRetry.value++ }
 

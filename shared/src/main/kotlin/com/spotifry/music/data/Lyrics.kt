@@ -43,6 +43,15 @@ sealed interface Lyrics {
     }
 }
 
+/** How a source's lyrics are timed, for grouping them in the Lyrics source sheet. */
+enum class LyricsKind { WORD, LINE, PLAIN }
+
+fun Lyrics.kind(): LyricsKind = when {
+    this is Lyrics.Timed && lines.any { it.words.isNotEmpty() } -> LyricsKind.WORD
+    this is Lyrics.Timed -> LyricsKind.LINE
+    else -> LyricsKind.PLAIN
+}
+
 /**
  * Lyrics timed word by word from BetterLyrics (lyrics-api.boidu.dev) or lrc.red, both Apple Music's timings, asked at
  * the same time; a word-timed answer beats a line-timed one, then the earlier in [Lyrics.SOURCES] wins. LRCLIB (lrclib.net, timed by line) is asked only if none has the song.
@@ -55,12 +64,36 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
     /** A word-timed source that hasn't answered in 4 seconds is a miss, so a dead site can't hold the lyrics up. */
     private val quick = client.newBuilder().callTimeout(4, java.util.concurrent.TimeUnit.SECONDS).build()
 
-    suspend fun get(song: Song): Lyrics? {
+    /** The sources the listener has not turned off, in priority order. */
+    fun enabledSources(): List<String> = off().let { skip -> Lyrics.SOURCES.filter { it !in skip } }
+
+    /** The name a lyrics site has filed the song under, not YouTube's upload title and channel name. */
+    private fun named(song: Song) = song.copy(title = titleForLyrics(song.title, song.artist), artist = artistForLyrics(song.artist))
+
+    private val bySource = HashMap<String, Lyrics?>()
+
+    /**
+     * What one source has for [song]: null when it has nothing or couldn't be asked. Kept for this run of the app. Feeds the
+     * Lyrics source sheet and a source the listener picked.
+     */
+    suspend fun from(song: Song, source: String): Lyrics? {
+        val key = song.id + "/" + source
+        if (key in bySource) return bySource[key]
+        val named = named(song)
+        val found = try {
+            withContext(Dispatchers.IO) { (if (source == Lyrics.LRCLIB) lrclib(named) else asking[source]?.invoke(named))?.cleaned() }
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { return null }
+        bySource[key] = found
+        return found
+    }
+
+    /** [pick] is the source the listener chose for this song: used when it has lyrics, else the best one is. */
+    suspend fun get(song: Song, pick: String? = null): Lyrics? {
         val skip = off()
+        if (pick != null && pick !in skip) from(song, pick)?.let { return it }
         val key = song.id + skip.sorted()
         if (key in known) return known[key]
-        // asked under the name a lyrics site would have filed the song, not YouTube's upload title and channel name
-        val named = song.copy(title = titleForLyrics(song.title, song.artist), artist = artistForLyrics(song.artist))
+        val named = named(song)
         val found = withContext(Dispatchers.IO) {
             (fromSources(named, skip) ?: if (Lyrics.LRCLIB in skip) null else lrclib(named))?.cleaned()
         }
@@ -68,11 +101,15 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         return found
     }
 
+    /** Every source but LRCLIB (which waits for the rest), in priority order. */
+    private val asking: Map<String, (Song) -> Lyrics?> = linkedMapOf(
+        Lyrics.KUGOU to ::kugou, Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed, Lyrics.PORTATO to ::portato,
+        Lyrics.SIMPMUSIC to ::simpMusic, Lyrics.NETEASE to ::netease, Lyrics.DEEZER to ::deezer, Lyrics.UNISON to ::unison,
+    )
+
     /** Word-timed beats line-timed whatever the source; within each, the better source (earlier in [Lyrics.SOURCES]) wins. */
     private suspend fun fromSources(song: Song, skip: Set<String>): Lyrics? = coroutineScope {
-        val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.KUGOU to ::kugou, Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed, Lyrics.PORTATO to ::portato,
-            Lyrics.SIMPMUSIC to ::simpMusic, Lyrics.NETEASE to ::netease, Lyrics.DEEZER to ::deezer, Lyrics.UNISON to ::unison)
-            .filter { it.first !in skip }.map { (_, ask) -> async { ask(song) } }
+        val asked = asking.filterKeys { it !in skip }.values.map { ask -> async { ask(song) } }
         val answers = asked.awaitAll().filterNotNull() // all run together, each capped at 4 seconds
         answers.firstOrNull { a -> a is Lyrics.Timed && a.lines.any { it.words.isNotEmpty() } } ?: answers.firstOrNull()
     }

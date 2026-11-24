@@ -342,13 +342,21 @@ internal fun LyricsLines(
 
 /** Over the progress bar in lyrics mode: where the lyrics come from, and moving them a tenth of a second a tap, kept for this song. */
 @Composable
-internal fun TimingRow(lyrics: Lyrics, shift: Int, onShift: (Int) -> Unit, modifier: Modifier = Modifier) {
+internal fun TimingRow(lyrics: Lyrics, shift: Int, onShift: (Int) -> Unit, modifier: Modifier = Modifier, onSource: () -> Unit = {}) {
     val timed = lyrics as? Lyrics.Timed
     Row(modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            if (timed == null) "Lyrics from LRCLIB · not timed" else "Lyrics from ${timed.from}", Modifier.weight(1f),
-            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        )
+        // the name opens the Lyrics source sheet
+        Row(
+            Modifier.weight(1f).defaultMinSize(minHeight = 48.dp).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onSource)
+                .semantics { contentDescription = "Choose lyrics source" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (timed == null) "Lyrics from LRCLIB · not timed" else "Lyrics from ${timed.from}", Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp), color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Icon(Icons.Down, null, Modifier.size(16.dp), tint = Faint)
+        }
         if (timed != null) {
             TimingButton("−", "Lyrics later") { onShift(nudgeShift(shift, -SHIFT_STEP_MS)) }
             Text(

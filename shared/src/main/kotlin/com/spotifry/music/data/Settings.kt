@@ -295,6 +295,17 @@ class Settings(private val prefs: Prefs) {
         prefs.edit().apply { if (v == 0) remove(LYRICS_SHIFT + songId) else putInt(LYRICS_SHIFT + songId, v) }.apply()
     }
 
+    private val _lyricsPick = MutableStateFlow(
+        prefs.all.mapNotNull { (k, v) -> if (k.startsWith(LYRICS_PICK) && v is String) k.removePrefix(LYRICS_PICK) to v else null }.toMap(),
+    )
+    /** By song id: the lyrics source the listener chose for it in the Lyrics source sheet. Songs left on Automatic aren't kept. */
+    val lyricsPick: StateFlow<Map<String, String>> = _lyricsPick
+    /** A null [source] puts the song back on Automatic. */
+    fun setLyricsPick(songId: String, source: String?) {
+        _lyricsPick.value = if (source == null) _lyricsPick.value - songId else _lyricsPick.value + (songId to source)
+        prefs.edit().apply { if (source == null) remove(LYRICS_PICK + songId) else putString(LYRICS_PICK + songId, source) }.apply()
+    }
+
     private val _firstLaunchSeen =MutableStateFlow(prefs.getBoolean(FIRST_LAUNCH_SEEN, false))
     /** The first-launch screens were finished, skipped, or never needed (the app was updated, not installed). */
     val firstLaunchSeen: StateFlow<Boolean> = _firstLaunchSeen
@@ -339,6 +350,7 @@ class Settings(private val prefs: Prefs) {
         const val LYRICS_OFF = "lyrics_off"
         /** Followed by a song id. */
         const val LYRICS_SHIFT = "lyrics_shift_"
+        const val LYRICS_PICK = "lyrics_pick_"
         const val LYRICS_SHIFT_MAX = 5_000
         const val ARTISTS = "picked_artists"
         /** The For you list last built on this device; not in backups. */

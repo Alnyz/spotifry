@@ -238,7 +238,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     } })
     val importVm: ImportViewModel = viewModel(factory = viewModelFactory { initializer { ImportViewModel({ SpotifyImport.fetch(c.client, it) }, c.source, c.db.playlists(), c.db.songs()) } })
     val artistsVm: com.spotifry.music.ui.home.ArtistsHomeViewModel = viewModel(factory = viewModelFactory { initializer { com.spotifry.music.ui.home.ArtistsHomeViewModel(c.settings, com.spotifry.music.data.ArtistSongs(c.source)) } })
-    val npVm: NowPlayingViewModel = viewModel(factory = viewModelFactory { initializer { NowPlayingViewModel(c.player, c.downloads, c.db.songs(), c.lyrics, c.db.notes()) } })
+    val npVm: NowPlayingViewModel = viewModel(factory = viewModelFactory { initializer { NowPlayingViewModel(c.player, c.downloads, c.db.songs(), c.lyrics, c.db.notes(), picks = c.settings.lyricsPick) } })
 
     val player by c.player.state.collectAsStateWithLifecycle()
     // not read here, only inside the progress bars and lyrics, so its ticks don't redraw the whole app
@@ -257,8 +257,10 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
     var showSpeed by remember { mutableStateOf(false) }
     var showTrim by remember { mutableStateOf(false) }
     var showAudioPath by remember { mutableStateOf(false) }
+    var showLyricsSource by remember { mutableStateOf(false) }
     val speed by c.settings.speed.collectAsStateWithLifecycle()
     val lyricsShifts by c.settings.lyricsShift.collectAsStateWithLifecycle()
+    val lyricsPicks by c.settings.lyricsPick.collectAsStateWithLifecycle()
     val pitch by c.settings.pitch.collectAsStateWithLifecycle()
     val speedLabel = com.spotifry.music.data.speedPitchLabel(speed, pitch)
 
@@ -501,6 +503,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                     onSuggestionMore = suggestionMenu, onTrim = { showTrim = true }, onQuality = { showAudioPath = true },
                     lyricsShift = player.current?.let { lyricsShifts[it.id] } ?: 0,
                     onLyricsShift = { ms -> player.current?.let { c.settings.setLyricsShift(it.id, ms) } },
+                    onLyricsSource = { showLyricsSource = true; npVm.checkSources() },
                     note = note, onNote = { player.current?.let { editNote = it to note.orEmpty() } },
                     onOutput = { showOutput = true }, onMove = c.player::move,
                     onRemove = { i ->
@@ -628,6 +631,11 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
             sleep, c.sleepTimer::remainingMs, onMinutes = c.sleepTimer::start, onEndOfSong = c.sleepTimer::startEndOfSong,
             onOff = c.sleepTimer::off, onDismiss = { showSleep = false },
         )
+        if (showLyricsSource) player.current?.let { s ->
+            val rows by npVm.sources.collectAsStateWithLifecycle()
+            val now = (lyrics as? com.spotifry.music.ui.nowplaying.LyricsUi.Ready)?.lyrics?.let { (it as? com.spotifry.music.data.Lyrics.Timed)?.from ?: com.spotifry.music.data.Lyrics.LRCLIB }
+            com.spotifry.music.ui.nowplaying.LyricsSourceSheet(rows, lyricsPicks[s.id], now, { c.settings.setLyricsPick(s.id, it) }) { showLyricsSource = false }
+        }
         if (showAudioPath) player.current?.let { s ->
             com.spotifry.music.ui.nowplaying.AudioPipelineHost(c, s.id, player.wholeMs, player.trim) { showAudioPath = false }
         }

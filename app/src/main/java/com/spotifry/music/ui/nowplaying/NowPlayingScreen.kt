@@ -129,7 +129,7 @@ fun NowPlayingContent(
     /** The quality label between the times: opens the Audio pipeline sheet. */
     onQuality: () -> Unit = {},
     /** Milliseconds this song's lyrics run earlier (negative: later), set in lyrics mode. */
-    lyricsShift: Int = 0, onLyricsShift: (Int) -> Unit = {},
+    lyricsShift: Int = 0, onLyricsShift: (Int) -> Unit = {}, onLyricsSource: () -> Unit = {},
     /** The listener's note on this song, one quiet line under the artist; tapping it edits it. */
     note: String? = null, onNote: () -> Unit = {},
     /** The output button in the bottom row: opens the Audio output sheet. */
@@ -206,7 +206,7 @@ fun NowPlayingContent(
                     Tools(m, output, onMode, onOutput, Modifier.padding(top = 16.dp), live)
                 }
             } else ModeView(
-                m, state, lyrics, onRetryLyrics, position, speed, lyricsShift, onLyricsShift, onSeek, onTrim, onQuality,
+                m, state, lyrics, onRetryLyrics, position, speed, lyricsShift, onLyricsShift, onLyricsSource, onSeek, onTrim, onQuality,
                 onToggle, onNext, onPrev, onShuffle, onRepeat, onMore, onMode, output, onOutput, saved, onPick, onSuggestionMore, onMove, onRemove, top,
             )
         }
@@ -404,7 +404,7 @@ private class Hider : NestedScrollConnection {
 @Composable
 private fun ModeView(
     mode: NowPlayingMode, state: PlayerUiState, lyrics: LyricsUi, onRetry: () -> Unit, position: () -> Long, speed: Float,
-    shift: Int, onShift: (Int) -> Unit, onSeek: (Long) -> Unit, onTrim: () -> Unit, onQuality: () -> Unit,
+    shift: Int, onShift: (Int) -> Unit, onSource: () -> Unit, onSeek: (Long) -> Unit, onTrim: () -> Unit, onQuality: () -> Unit,
     onToggle: () -> Unit, onNext: () -> Unit, onPrev: () -> Unit, onShuffle: () -> Unit, onRepeat: () -> Unit, onMore: () -> Unit,
     onMode: (NowPlayingMode) -> Unit, output: OutputInfo, onOutput: () -> Unit,
     saved: Set<String>, onPick: (Int) -> Unit, onSuggestionMore: (Int) -> Unit, onMove: (Int, Int) -> Unit, onRemove: (Int) -> Unit, rowColor: Color,
@@ -478,7 +478,7 @@ private fun ModeView(
         }
         androidx.compose.animation.AnimatedVisibility(!hider.hidden) {
             Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(start = 12.dp, end = 12.dp, bottom = if (mode == NowPlayingMode.Lyrics) 24.dp else 20.dp)) {
-                if (mode == NowPlayingMode.Lyrics && ready != null) TimingRow(ready, shift, onShift, Modifier.padding(start = 12.dp))
+                if (mode == NowPlayingMode.Lyrics && ready != null) TimingRow(ready, shift, onShift, Modifier.padding(start = 12.dp), onSource)
                 ProgressBar(state, position, Modifier.padding(horizontal = 12.dp), onSeek, onTrim, onQuality)
                 if (mode == NowPlayingMode.Queue) {
                     Controls(state, onToggle, onNext, onPrev, onShuffle, onRepeat, Modifier.padding(top = 6.dp))
