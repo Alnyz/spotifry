@@ -1,9 +1,9 @@
 name: android
 
 # Checks every pull request and every push to main on a Linux machine GitHub lends for a few minutes: runs the phone
-# and shared tests (the desktop app has its own runs on Windows and Mac), lint for calls older Android versions don't have, and builds a debug
-# APK. The APK and the reports are kept under "Artifacts" on the run's page, so a change can be tried on a phone
-# without building it.
+# and shared tests (the desktop app has its own runs on Windows and Mac), lint for calls older Android versions don't
+# have, and builds a debug APK. The APK and the reports are kept under "Artifacts" on the run's page, so a change can
+# be tried on a phone without building it.
 on:
   pull_request:
   push:
