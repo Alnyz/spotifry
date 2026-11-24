@@ -1,7 +1,7 @@
 name: android
 
-# Checks every pull request and every push to main on a Linux machine GitHub lends for a few minutes: runs all the
-# tests (phone, desktop and the shared code), lint for calls older Android versions don't have, and builds a debug
+# Checks every pull request and every push to main on a Linux machine GitHub lends for a few minutes: runs the phone
+# and shared tests (the desktop app has its own runs on Windows and Mac), lint for calls older Android versions don't have, and builds a debug
 # APK. The APK and the reports are kept under "Artifacts" on the run's page, so a change can be tried on a phone
 # without building it.
 on:
@@ -31,10 +31,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # the desktop tests play through mpv and read covers with ffmpeg, as the desktop app does
-      - name: mpv and ffmpeg
-        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends mpv ffmpeg
-
       # Robolectric fetches one Android build per SDK the tests ask for (33, 34 and 35). Kept between runs, and fetched
       # by a few tests first: when every test process fetched them at once, Maven dropped some downloads and whole test
       # classes failed with an IOException.
@@ -52,7 +48,7 @@ jobs:
           exit 1
 
       - name: Tests
-        run: ./gradlew :shared:test :app:testDebugUnitTest :desktop:test --continue
+        run: ./gradlew :shared:test :app:testDebugUnitTest --continue
 
       # NewApi and the other lint errors fail the build, so a call Android 7 doesn't have is caught here
       - name: Lint
@@ -74,5 +70,4 @@ jobs:
           path: |
             app/build/reports/
             shared/build/reports/
-            desktop/build/reports/
           retention-days: 14
