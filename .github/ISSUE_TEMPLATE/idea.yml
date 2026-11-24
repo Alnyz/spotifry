@@ -1,0 +1,13 @@
+name: Idea
+description: Suggest a feature or a change
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+    validations: {required: true}
+  - type: textarea
+    id: why
+    attributes:
+      label: Why? What do you do today instead?
