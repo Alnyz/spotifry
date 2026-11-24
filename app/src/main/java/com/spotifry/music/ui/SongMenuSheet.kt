@@ -48,7 +48,9 @@ import com.spotifry.music.player.clockText
 import com.spotifry.music.data.speedPitchLabel
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -201,7 +203,15 @@ fun QueueList(
                                 Modifier.draggableHandle(
                                     onDragStarted = { dragFrom = list.indexOf(i) + 1 },
                                     onDragStopped = { (list.indexOf(i) + 1).let { to -> if (dragFrom > 0 && to > 0 && to != dragFrom) onMove(dragFrom, to) } },
-                                ).size(48.dp),
+                                ).size(48.dp).semantics {
+                                    // TalkBack can't drag or swipe: the same moves are offered as actions on the handle
+                                    val at = list.indexOf(i) + 1
+                                    customActions = listOfNotNull(
+                                        if (at > 1) CustomAccessibilityAction("Move up") { list = list.moved(at - 1, at - 2); onMove(at, at - 1); true } else null,
+                                        if (at < list.size) CustomAccessibilityAction("Move down") { list = list.moved(at - 1, at); onMove(at, at + 1); true } else null,
+                                        if (onRemove != null) CustomAccessibilityAction("Remove from queue") { list = list - i; onRemove(i); true } else null,
+                                    )
+                                },
                             ) { Icon(Icons.DragHandle, "Drag to move ${s.title}") }
                             SongRow(s, s.id in saved, { onPick(i) }, if (s.suggested) { { onSuggestionMore(i) } } else null, Modifier.weight(1f).padding(start = 4.dp))
                         }

@@ -54,6 +54,7 @@ import com.spotifry.music.data.db.SongEntity
 import com.spotifry.music.data.matches
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.ui.Icons
+import com.spotifry.music.ui.moved
 import com.spotifry.music.ui.components.Cover
 import com.spotifry.music.ui.components.EmptyState
 import com.spotifry.music.ui.components.LoadingBox
@@ -80,6 +81,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import com.spotifry.music.data.cropBox
 import com.spotifry.music.data.cropped
 import com.spotifry.music.data.decodePicked
@@ -388,7 +392,7 @@ private fun OrderEditor(songs: List<SongEntity>, bottomInset: Dp, onDone: (List<
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         LazyColumn(Modifier.weight(1f), listState, contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomInset + 16.dp)) {
-            itemsIndexed(list, key = { _, s -> s.id }) { _, s ->
+            itemsIndexed(list, key = { _, s -> s.id }) { at, s ->
                 ReorderableItem(reorder, key = s.id) { dragging ->
                     val lift by animateDpAsState(if (dragging) 8.dp else 0.dp, label = "lift")
                     Surface(
@@ -401,7 +405,13 @@ private fun OrderEditor(songs: List<SongEntity>, bottomInset: Dp, onDone: (List<
                                 Text(s.title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(s.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            IconButton({}, Modifier.draggableHandle().size(48.dp)) { Icon(Icons.DragHandle, "Drag to move ${s.title}") }
+                            IconButton({}, Modifier.draggableHandle().size(48.dp).semantics {
+                                // TalkBack can't drag: moving one place up or down is offered as an action on the handle
+                                customActions = listOfNotNull(
+                                    if (at > 0) CustomAccessibilityAction("Move up") { list = list.moved(at, at - 1); true } else null,
+                                    if (at < list.lastIndex) CustomAccessibilityAction("Move down") { list = list.moved(at, at + 1); true } else null,
+                                )
+                            }) { Icon(Icons.DragHandle, "Drag to move ${s.title}") }
                         }
                     }
                 }
