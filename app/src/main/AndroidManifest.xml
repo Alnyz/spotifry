@@ -46,15 +46,24 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="text/plain"/>
             </intent-filter>
+            <!-- "Hey Google, play … on Spotifry", from the phone or Android Auto -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
         </activity>
         <service
             android:name=".player.PlaybackService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService"/>
+                <action android:name="androidx.media3.session.MediaLibraryService"/>
+                <!-- Android Auto and older media browsers look for this one -->
+                <action android:name="android.media.browse.MediaBrowserService"/>
             </intent-filter>
         </service>
+        <!-- shows Spotifry in Android Auto as a music app; only this file is read, no Google library is needed -->
+        <meta-data android:name="com.google.android.gms.car.application" android:resource="@xml/automotive_app_desc"/>
         <!-- the widget's buttons press media keys; this hands them to the player, starting it if the app was closed -->
         <receiver android:name="androidx.media3.session.MediaButtonReceiver" android:exported="true">
             <intent-filter>
