@@ -223,7 +223,7 @@ fun HistorySettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp) 
 }
 
 @Composable
-fun AboutSettings(updates: com.spotifry.music.data.Updates, onBack: () -> Unit, bottomInset: Dp) {
+fun AboutSettings(updates: com.spotifry.music.data.Updates, errorLog: com.spotifry.music.data.ErrorLog, onBack: () -> Unit, bottomInset: Dp) {
     val update by updates.state.collectAsStateWithLifecycle()
     val checking by updates.checking.collectAsStateWithLifecycle()
     val checked by updates.lastChecked.collectAsStateWithLifecycle()
@@ -255,6 +255,28 @@ fun AboutSettings(updates: com.spotifry.music.data.Updates, onBack: () -> Unit, 
             Item("Music from YouTube", "Through NewPipe Extractor ${BuildConfig.NEWPIPE_VERSION}.")
             Item("Lyrics", "Each source gets the song's title, artist and length.")
         }
+        ErrorLogGroup(errorLog)
+    }
+}
+
+/** Copies what went wrong lately, for a bug report. Nothing leaves the phone unless the person pastes it somewhere. */
+@Composable
+internal fun ErrorLogGroup(errorLog: com.spotifry.music.data.ErrorLog) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var empty by remember { mutableStateOf(errorLog.text().isEmpty()) }
+    Group("Problems") {
+        Item(
+            "Copy error log",
+            if (empty) "Nothing went wrong lately." else "What went wrong lately, with your app and Android version, to paste into a bug report. It stays on this phone.",
+            onClick = {
+                val system = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE}"
+                val clip = android.content.ClipData.newPlainText("Spotifry error log", errorLog.report(BuildConfig.VERSION_NAME, BuildConfig.NEWPIPE_VERSION, system))
+                context.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(clip)
+                // Android 13 and newer show their own note when something is copied
+                if (android.os.Build.VERSION.SDK_INT < 33) android.widget.Toast.makeText(context, "Copied", android.widget.Toast.LENGTH_SHORT).show()
+            },
+        )
+        if (!empty) Item("Clear error log", onClick = { errorLog.clear(); empty = true })
     }
 }
 

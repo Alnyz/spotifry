@@ -22,6 +22,8 @@ import okhttp3.OkHttpClient
 /** The one place the app's long-lived pieces are created. */
 class AppContainer(private val context: Context) {
     val filesDir: java.io.File get() = context.filesDir
+    /** Warnings and crashes kept on this phone for About > Copy error log; never sent anywhere. */
+    val errorLog = com.spotifry.music.data.ErrorLog(java.io.File(context.filesDir, "error_log.txt"))
     /**
      * Drops a connection after 10 s unused: the phone's network silently cuts idle ones (measured: well under a
      * minute), and reusing a dead one costs a 10 s timeout per try, so a song took 20 s to start after a pause.

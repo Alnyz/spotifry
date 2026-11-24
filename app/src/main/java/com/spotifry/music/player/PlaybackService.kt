@@ -229,6 +229,8 @@ class PlaybackService : MediaSessionService() {
 
             override fun onPlayerError(error: PlaybackException) {
                 val id = player.currentMediaItem?.mediaId.orEmpty()
+                // the cause chain says whether YouTube, the network or the file failed: what a bug report needs
+                com.spotifry.music.data.Log.w("player", "song=$id ${error.errorCodeName}: " + generateSequence<Throwable>(error) { it.cause }.joinToString(" <- ") { "${it.javaClass.simpleName}: ${it.message}" })
                 // the player stopped all the same, so carry on; the bytes are gone, so the next song loads clean
                 if (sourceChangedOnOtherSong(error, id)) {
                     player.prepare()

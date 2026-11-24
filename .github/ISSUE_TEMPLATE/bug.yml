@@ -28,3 +28,9 @@ body:
     id: extra
     attributes:
       label: Phone or computer, Android version, screenshots
+  - type: textarea
+    id: log
+    attributes:
+      label: Error log
+      description: On Android, Settings → About → Copy error log, then paste it here. It has your app and Android version and the last problems.
+      render: text
