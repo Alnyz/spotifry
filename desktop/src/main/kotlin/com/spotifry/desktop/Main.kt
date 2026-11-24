@@ -245,8 +245,20 @@ private fun ApplicationScope.MainWindow(services: Services, restarting: Boolean,
             services.quit = { services.close(); exitApplication() }
         }
         window.minimumSize = java.awt.Dimension(900, 600)
+        // on a Mac the app is drawn under the title bar, with only the three round buttons left on top of it, so the bar is
+        // as dark as the app and not the system's white; room is kept for the buttons, except in full screen
+        if (Platform.isMac) remember(window) {
+            window.rootPane.putClientProperty("apple.awt.fullWindowContent", true)
+            window.rootPane.putClientProperty("apple.awt.transparentTitleBar", true)
+            window.rootPane.putClientProperty("apple.awt.windowTitleVisible", false)
+        }
+        val mac = Platform.isMac && windowState.placement != androidx.compose.ui.window.WindowPlacement.Fullscreen
         if (!restarting) ApplyTheme(services)
-        SpotifryTheme { if (!restarting) App(services, restart = restart) }
+        SpotifryTheme {
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Palette.bg).padding(top = if (mac) 28.dp else 0.dp)) {
+                if (!restarting) App(services, restart = restart)
+            }
+        }
     }
 }
 
