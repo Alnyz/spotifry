@@ -75,8 +75,14 @@ class RendererFinder(
         // only from the device that answered: otherwise anything on the network could make the phone fetch any address
         val host = runCatching { URI(reply.location).host }.getOrNull() ?: return null
         if (runCatching { InetAddress.getByName(host) }.getOrNull() != from) return null
+        // no redirects (a device could send the phone to another address) and at most MAX_DESCRIPTION bytes read
+        val plain = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
         val xml = runCatching {
-            client.newCall(Request.Builder().url(reply.location).build()).execute().use { if (it.isSuccessful) it.body?.string() else null }
+            plain.newCall(Request.Builder().url(reply.location).build()).execute().use { response ->
+                val source = response.body?.source()
+                if (!response.isSuccessful || source == null) null
+                else { source.request(MAX_DESCRIPTION + 1); if (source.buffer.size > MAX_DESCRIPTION) null else source.buffer.readUtf8() }
+            }
         }.getOrNull() ?: return null
         return parseDescription(xml, reply.location)
     }
@@ -84,6 +90,8 @@ class RendererFinder(
     companion object {
         const val SSDP_HOST = "239.255.255.250"
         const val SSDP_PORT = 1900
+        /** A description is a few KB; a device sending more than this is not described. */
+        const val MAX_DESCRIPTION = 1_000_000L
         const val MEDIA_RENDERER = "urn:schemas-upnp-org:device:MediaRenderer:1"
         private const val AV_TRANSPORT = "urn:schemas-upnp-org:service:AVTransport:"
         private const val RENDERING_CONTROL = "urn:schemas-upnp-org:service:RenderingControl:"

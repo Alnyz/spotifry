@@ -99,9 +99,13 @@ class RendererFinderTest {
     }
 
     /** A pretend TV on this computer: answers the search and serves its description. */
-    private fun withFakeDevice(location: (MockWebServer) -> String, block: (InetSocketAddress, MockWebServer) -> Unit) {
+    private fun withFakeDevice(
+        location: (MockWebServer) -> String,
+        answer: () -> MockResponse = { MockResponse().setBody(description()) },
+        block: (InetSocketAddress, MockWebServer) -> Unit,
+    ) {
         val web = MockWebServer().apply { dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
-            override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest) = MockResponse().setBody(description())
+            override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest) = answer()
         } }
         web.start(InetAddress.getByName("127.0.0.1"), 0)
         val udp = DatagramSocket(0, InetAddress.getByName("127.0.0.1"))
@@ -130,5 +134,24 @@ class RendererFinderTest {
         val found = runBlocking { RendererFinder(OkHttpClient(), target, listenMs = 500).find() }
         assertTrue(found.isEmpty())
         assertEquals(0, web.requestCount)
+    }
+
+    @Test fun aRedirectToAnotherAddressIsNotFollowed() {
+        val elsewhere = MockWebServer().apply { start(InetAddress.getByName("127.0.0.1"), 0) }
+        try {
+            val redirect = { MockResponse().setResponseCode(302).setHeader("Location", elsewhere.url("/desc.xml").toString()) }
+            withFakeDevice({ it.url("/desc.xml").toString() }, redirect) { target, _ ->
+                val found = runBlocking { RendererFinder(OkHttpClient(), target, listenMs = 500).find() }
+                assertTrue(found.isEmpty())
+                assertEquals(0, elsewhere.requestCount)
+            }
+        } finally { elsewhere.shutdown() }
+    }
+
+    @Test fun aDescriptionOverTheSizeLimitIsNotRead() {
+        val huge = { MockResponse().setBody(description() + " ".repeat(RendererFinder.MAX_DESCRIPTION.toInt())) }
+        withFakeDevice({ it.url("/desc.xml").toString() }, huge) { target, _ ->
+            assertTrue(runBlocking { RendererFinder(OkHttpClient(), target, listenMs = 500).find() }.isEmpty())
+        }
     }
 }
