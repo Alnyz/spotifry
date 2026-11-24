@@ -1,0 +1,73 @@
+name: android
+
+# Checks every pull request and every push to main on a Linux machine GitHub lends for a few minutes: runs the phone
+# and shared tests (the desktop app has its own runs on Windows and Mac), lint for calls older Android versions don't
+# have, and builds a debug APK. The APK and the reports are kept under "Artifacts" on the run's page, so a change can
+# be tried on a phone without building it.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Robolectric fetches one Android build per SDK the tests ask for (33, 34 and 35). Kept between runs, and fetched
+      # by a few tests first: when every test process fetched them at once, Maven dropped some downloads and whole test
+      # classes failed with an IOException.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      - name: Android builds for Robolectric
+        run: |
+          for try in 1 2 3; do
+            ./gradlew :app:testDebugUnitTest --tests '*ChangeLogTest' --tests '*OutputPickerTest' && exit 0
+            echo "fetch failed, trying again"; sleep 20
+          done
+          exit 1
+
+      - name: Tests
+        run: ./gradlew :shared:test :app:testDebugUnitTest --continue
+
+      # NewApi and the other lint errors fail the build, so a call Android 7 doesn't have is caught here
+      - name: Lint
+        run: ./gradlew :app:lintRelease
+
+      - name: Debug APK
+        run: ./gradlew :app:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spotifry-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports
+          path: |
+            app/build/reports/
+            shared/build/reports/
+          retention-days: 14
