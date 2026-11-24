@@ -51,7 +51,7 @@ class LyricsTest {
         val body = if (path.endsWith("/get")) get?.toString() else search.toString()
         Response.Builder().request(c.request()).protocol(Protocol.HTTP_1_1).code(if (body == null) 404 else 200).message("x")
             .body((body ?: "").toResponseBody()).build()
-    }.build(), off = { setOf(Lyrics.BETTER_LYRICS, Lyrics.LRC_RED, Lyrics.PORTATO, Lyrics.SIMPMUSIC, Lyrics.NETEASE, Lyrics.DEEZER, Lyrics.UNISON) })
+    }.build(), off = { setOf(Lyrics.BETTER_LYRICS, Lyrics.LRC_RED, Lyrics.PORTATO, Lyrics.SIMPMUSIC, Lyrics.NETEASE, Lyrics.DEEZER, Lyrics.UNISON, Lyrics.KUGOU) })
 
     @Test fun instrumentalExactMatchIsFinalAndSkipsTheSearch() = runBlocking {
         val asked = mutableListOf<String>()

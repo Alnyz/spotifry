@@ -37,8 +37,9 @@ sealed interface Lyrics {
         const val SIMPMUSIC = "SimpMusic"
         const val NETEASE = "NetEase"
         const val DEEZER = "Deezer"
+        const val KUGOU = "KuGou"
         /** Every source, best first: asked together; word-timed beats line-timed, then the earlier wins. LRCLIB is asked only when the rest miss. */
-        val SOURCES = listOf(BETTER_LYRICS, LRC_RED, PORTATO, SIMPMUSIC, NETEASE, DEEZER, UNISON, LRCLIB)
+        val SOURCES = listOf(KUGOU, BETTER_LYRICS, LRC_RED, PORTATO, SIMPMUSIC, NETEASE, DEEZER, UNISON, LRCLIB)
     }
 }
 
@@ -58,8 +59,10 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         val skip = off()
         val key = song.id + skip.sorted()
         if (key in known) return known[key]
+        // asked under the name a lyrics site would have filed the song, not YouTube's upload title and channel name
+        val named = song.copy(title = titleForLyrics(song.title, song.artist), artist = artistForLyrics(song.artist))
         val found = withContext(Dispatchers.IO) {
-            (fromSources(song, skip) ?: if (Lyrics.LRCLIB in skip) null else lrclib(song))?.cleaned()
+            (fromSources(named, skip) ?: if (Lyrics.LRCLIB in skip) null else lrclib(named))?.cleaned()
         }
         known[key] = found
         return found
@@ -67,7 +70,7 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
 
     /** Word-timed beats line-timed whatever the source; within each, the better source (earlier in [Lyrics.SOURCES]) wins. */
     private suspend fun fromSources(song: Song, skip: Set<String>): Lyrics? = coroutineScope {
-        val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed, Lyrics.PORTATO to ::portato,
+        val asked = listOf<Pair<String, (Song) -> Lyrics?>>(Lyrics.KUGOU to ::kugou, Lyrics.BETTER_LYRICS to ::wordTimed, Lyrics.LRC_RED to ::lrcRed, Lyrics.PORTATO to ::portato,
             Lyrics.SIMPMUSIC to ::simpMusic, Lyrics.NETEASE to ::netease, Lyrics.DEEZER to ::deezer, Lyrics.UNISON to ::unison)
             .filter { it.first !in skip }.map { (_, ask) -> async { ask(song) } }
         val answers = asked.awaitAll().filterNotNull() // all run together, each capped at 4 seconds
@@ -167,6 +170,35 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         unisonLines(data.optString("lyrics"), data.optString("format"), data.optString("syncType"))?.let { Lyrics.Timed(it, Lyrics.UNISON) }
     }.getOrNull()
 
+    /**
+     * KuGou's karaoke lyrics (word by word, "KRC"), with its line-timed file as the fallback. KuGou's lyric search is
+     * by "Artist - Title"; when that finds nothing, its song search gives the file hashes of this song, and the lyric
+     * search is asked by hash. Only lyrics of the same title, an artist sharing a word and a length within 5 s count, and
+     * lyrics whose own title names another edition (live, remix…) are passed over. Unofficial. Follows Prism's way of asking.
+     */
+    private fun kugou(song: Song): Lyrics? = runCatching {
+        val end = System.currentTimeMillis() + 5_000
+        fun url(base: String, vararg q: Pair<String, String>) =
+            base.toHttpUrl().newBuilder().apply { q.forEach { (k, v) -> addQueryParameter(k, v) } }.build().toString()
+        fun search(keyword: String, hash: String = ""): JSONArray? =
+            fetch(url("https://lyrics.kugou.com/search", "ver" to "1", "man" to "yes", "client" to "pc", "keyword" to keyword,
+                "duration" to (song.durationSec * 1000).toString(), "hash" to hash), end)
+                ?.let { JSONObject(it).optJSONArray("candidates") }?.takeIf { it.length() > 0 }
+        fun hashes() = fetch(url("https://songsearch.kugou.com/song_search_v2", "keyword" to "${song.artist} ${song.title}", "page" to "1", "pagesize" to "10", "platform" to "WebFilter"), end)
+            ?.let { JSONObject(it).optJSONObject("data")?.optJSONArray("lists") }?.let { kugouHashes(it, song.title, song.artist, song.durationSec) }.orEmpty()
+        val candidates = search("${song.artist} - ${song.title}") ?: hashes().firstNotNullOfOrNull { search("", it) } ?: return null
+        for (hit in kugouPick(candidates, song.title, song.artist, song.durationSec)) {
+            fun download(fmt: String) = fetch(url("https://lyrics.kugou.com/download", "fmt" to fmt, "charset" to "utf8", "client" to "pc", "ver" to "1",
+                "id" to hit.getString("id"), "accesskey" to hit.getString("accesskey")), end)?.let { JSONObject(it).optString("content") }
+            val karaoke = download("krc")?.let(::decodeKrc)
+            val text = karaoke ?: download("lrc")?.let { String(java.util.Base64.getMimeDecoder().decode(it), Charsets.UTF_8) } ?: continue
+            if (otherEdition(text, song.title)) continue
+            val lines = (if (karaoke != null) parseKrc(text) else kugouLines(text)) ?: continue
+            return Lyrics.Timed(lines, Lyrics.KUGOU)
+        }
+        null
+    }.getOrNull()
+
     /** lrc.red's search is free text, so a hit counts only when [bestHit] is sure it is this recording. */
     private fun lrcRed(song: Song): Lyrics? = runCatching {
         val url = "https://lrc.red/search.json".toHttpUrl().newBuilder().addQueryParameter("q", "${song.title} ${song.artist}").build()
@@ -206,8 +238,18 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
     private suspend fun lrclib(song: Song): Lyrics? {
         val record = tries { exact(song) }
         if (record?.optBoolean("instrumental") == true) return null
-        return record?.let(::fromEntry) ?: tries { closest(song) }
+        return record?.let(::fromEntry) ?: tries { closest(song) } ?: titleOnly(song)
     }
+
+    /**
+     * The last try on LRCLIB, for a song the artist's spelling kept hidden (a channel called "Nella Kharisma Music"):
+     * a search by title alone, accepted only for the same title, within 3 s of the length, by an artist that shares a word with ours.
+     */
+    private fun titleOnly(song: Song): Lyrics? = runCatching {
+        if (song.durationSec <= 0) return null
+        val url = BASE.toHttpUrl().newBuilder().addPathSegments("api/search").addQueryParameter("track_name", song.title).build()
+        pickSameTitle(JSONArray(call(url.toString()) ?: return null), song.title, song.artist, song.durationSec)
+    }.getOrNull()
 
     private fun exact(song: Song): JSONObject? {
         val url = BASE.toHttpUrl().newBuilder().addPathSegments("api/get")
@@ -443,6 +485,82 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         }.getOrNull()
 
         private fun unescape(s: String) = decodeEntities(s)
+
+        private fun words(s: String) = s.lowercase().split(Regex("""[^\p{L}\p{N}]+""")).filter { it.length >= 3 }.toSet()
+
+        /** From a title-only search: the same title, a length within 3 s, and an artist sharing a word with [artist]. */
+        fun pickSameTitle(results: JSONArray, title: String, artist: String, durationSec: Long): Lyrics? {
+            val ours = words(artist)
+            return (0 until results.length()).map { results.getJSONObject(it) }
+                .filter { it.optString("trackName").trim().equals(title.trim(), true) && abs(it.optDouble("duration", 0.0) - durationSec) <= 3 &&
+                    words(it.optString("artistName")).any { w -> w in ours } }
+                .sortedByDescending { !it.isNull("syncedLyrics") }
+                .firstNotNullOfOrNull { fromEntry(it)?.takeUnless(::isJunk) }
+        }
+
+        private val BRACKETS = Regex("""[(（].*?[)）]""")
+
+        private fun same(a: String, b: String) = a.lowercase().filter { it.isLetterOrDigit() } == b.lowercase().filter { it.isLetterOrDigit() }
+
+        /** The file hashes of KuGou song-search hits that are this song (same title, an artist sharing a word, length within 8 s), the nearest first, up to 3. */
+        fun kugouHashes(lists: JSONArray, title: String, artist: String, durationSec: Long): List<String> {
+            val ours = words(artist)
+            fun length(o: JSONObject) = o.optString("Duration").toDoubleOrNull() ?: 0.0
+            return (0 until lists.length()).map { lists.getJSONObject(it) }.filter {
+                val name = it.optString("OriSongName").ifBlank { it.optString("SongName") }
+                same(name.replace(BRACKETS, ""), title.replace(BRACKETS, "")) && words(it.optString("SingerName")).any { w -> w in ours } &&
+                    (durationSec <= 0 || abs(length(it) - durationSec) <= 8)
+            }.sortedBy { abs(length(it) - durationSec) }.mapNotNull { it.optString("FileHash").takeIf { h -> h.isNotBlank() } }.take(3)
+        }
+
+        /** KuGou's lyric-search candidates that are this song (same title, an artist sharing a word, length within 5 s), the nearest in length first, up to 3. */
+        fun kugouPick(candidates: JSONArray, title: String, artist: String, durationSec: Long): List<JSONObject> {
+            val ours = words(artist)
+            return (0 until candidates.length()).map { candidates.getJSONObject(it) }.filter {
+                same(it.optString("song").replace(BRACKETS, ""), title.replace(BRACKETS, "")) && words(it.optString("singer")).any { w -> w in ours } &&
+                    (durationSec <= 0 || abs(it.optLong("duration") / 1000.0 - durationSec) <= 5)
+            }.sortedBy { abs(it.optLong("duration") / 1000.0 - durationSec) }.take(3)
+        }
+
+        /** KuGou's karaoke file: "krc1", then XOR with a fixed key, then zlib. */
+        fun decodeKrc(base64: String): String? = runCatching {
+            val raw = java.util.Base64.getMimeDecoder().decode(base64)
+            val key = intArrayOf(0x40, 0x47, 0x61, 0x77, 0x5e, 0x32, 0x74, 0x47, 0x51, 0x36, 0x31, 0x2d, 0xce, 0xd2, 0x6e, 0x69)
+            val plain = ByteArray(raw.size - 4) { (raw[it + 4].toInt() xor key[it % 16]).toByte() }
+            java.util.zip.InflaterInputStream(plain.inputStream()).readBytes().toString(Charsets.UTF_8).removePrefix("\uFEFF")
+        }.getOrNull()
+
+        /** "[lineStart,lineLength]<offset,length,0>word<…>" lines as timed words; the title card and credit lines it opens with are dropped. */
+        fun parseKrc(text: String): List<LyricLine>? {
+            val lines = text.lines().mapNotNull { src ->
+                val m = Regex("""^\[(\d+),(\d+)](.*)$""").find(src.trim()) ?: return@mapNotNull null
+                val words = Regex("""<(\d+),(\d+),\d+>([^<]*)""").findAll(m.groupValues[3]).map { w ->
+                    val at = m.groupValues[1].toLong() + w.groupValues[1].toLong()
+                    LyricWord(at, at + w.groupValues[2].toLong(), w.groupValues[3])
+                }.filter { it.text.isNotEmpty() }.toList()
+                val line = words.joinToString("") { it.text }.trim()
+                if (line.isEmpty()) null else LyricLine(m.groupValues[1].toLong(), line, words)
+            }.sortedBy { it.atMs }
+            return lines.dropWhile { " - " in it.text && it.atMs < 3_000 }.filter { "：" !in it.text }.takeIf { it.isNotEmpty() }
+        }
+
+        /** Lyrics whose own "[ti:…]" title names another edition ("(Live)", "(Remix)"…) than the song's. */
+        fun otherEdition(lrc: String, title: String): Boolean {
+            val ti = Regex("""\[ti:([^\]]*)]""").find(lrc)?.groupValues?.get(1) ?: return false
+            val edition = Regex("""\b(live|remix|acoustic|instrumental|sped up|slowed|radio edit|single version|karaoke|demo)\b""", RegexOption.IGNORE_CASE)
+            return edition.findAll(ti).any { e -> !title.contains(e.value, ignoreCase = true) }
+        }
+
+        /**
+         * KuGou's file as lyric lines: the "Title - Artist" and "Lyricist: …" lines it opens and closes with are dropped
+         * (they carry real times and would be sung), and a file that is only its "pure music" notice is no lyrics.
+         */
+        fun kugouLines(lrc: String): List<LyricLine>? {
+            fun credit(l: LyricLine) = Regex("""^.{1,20}[:：]\s*\S""").containsMatchIn(l.text)
+            val lines = parseLrc(lrc).dropWhile { credit(it) || (" - " in it.text && it.atMs < 1_000) }.dropLastWhile { credit(it) }
+            if (lines.isEmpty() || lines.all { Regex("纯音乐.*欣赏").containsMatchIn(it.text) }) return null
+            return lines
+        }
 
         /** "[01:23.45] words" lines; lines with no words are dropped. */
         fun parseLrc(text: String): List<LyricLine> = text.lines().mapNotNull { line ->

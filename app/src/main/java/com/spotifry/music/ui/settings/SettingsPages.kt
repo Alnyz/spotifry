@@ -195,6 +195,7 @@ fun LyricsSettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp) {
                         Lyrics.NETEASE -> "Word by word, from NetEase Cloud Music. Unofficial, may stop working."
                         Lyrics.DEEZER -> "Word by word, from Deezer. Unofficial, may stop working."
                         Lyrics.UNISON -> "Written by listeners."
+                        Lyrics.KUGOU -> "Word by word, from KuGou. Unofficial, may stop working."
                         else -> "Line by line, the last choice."
                     }, on,
                 ) { vm.settings.setLyricsSource(name, it) }
