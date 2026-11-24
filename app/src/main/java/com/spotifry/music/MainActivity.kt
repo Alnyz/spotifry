@@ -432,7 +432,7 @@ fun AppShell(c: AppContainer, sharedText: String? = null, splash: com.spotifry.m
                         composable(Routes.SETTINGS_PHONE) { com.spotifry.music.ui.settings.PhoneSettings(settingsVm, { nav.popBackStack() }, inset) }
                         composable(Routes.SETTINGS_LYRICS) { com.spotifry.music.ui.settings.LyricsSettings(settingsVm, { nav.popBackStack() }, inset) }
                         composable(Routes.SETTINGS_HISTORY) { com.spotifry.music.ui.settings.HistorySettings(settingsVm, { nav.popBackStack() }, inset) }
-                        composable(Routes.SETTINGS_ABOUT) { com.spotifry.music.ui.settings.AboutSettings(c.updates, { nav.popBackStack() }, inset) }
+                        composable(Routes.SETTINGS_ABOUT) { com.spotifry.music.ui.settings.AboutSettings(c.updates, c.errorLog, { nav.popBackStack() }, inset) }
                         composable(Routes.SETTINGS_CHANGELOG) { com.spotifry.music.ui.settings.ChangeLogSettings(c.updates, { nav.popBackStack() }, inset) }
                         composable(Routes.EQUALIZER) { com.spotifry.music.ui.settings.EqualizerScreen(c.settings, c.spectrum, c.autoEq, player.isPlaying, { nav.popBackStack() }, inset) }
                         composable(Routes.STORAGE) { com.spotifry.music.ui.settings.StorageScreen(settingsVm, { nav.popBackStack() }, inset, backup = backupActions) }

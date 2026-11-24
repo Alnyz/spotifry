@@ -44,6 +44,7 @@
 | Backup | Saves your playlists, saved songs list, history, listening, settings and trims into one `.zip`. Restore it on a new phone or after a reinstall. The audio files are not in it, so saved songs download again. |
 | Look | Light, dark or follow the phone, pure black, and any accent colour, including your wallpaper's. |
 | Updates | The app tells you when a new version is out and installs it. |
+| Error log | Settings → About → Copy error log copies the last problems, with your app and Android version, to paste into a bug report. It is kept only on your phone and never sent anywhere. |
 
 ---
 

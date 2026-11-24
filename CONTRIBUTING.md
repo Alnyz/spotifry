@@ -14,6 +14,7 @@ Open an [issue](../../issues/new/choose) with:
 - for a song that won't play or sounds wrong, the song's name, and whether it's a download, a saved song or a stream
 - for a radio station, the station's name and country
 - a screenshot or short screen recording if it's something you can see
+- on Android, the error log: Settings → About → Copy error log, then paste it in
 
 ## Before you start on a change
 
