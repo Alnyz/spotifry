@@ -11,6 +11,9 @@ import androidx.compose.ui.test.performScrollToIndex
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.player.PlayerUiState
 import com.spotifry.music.ui.theme.MusicTheme
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,5 +48,27 @@ class QueueListTest {
         compose.setContent { MusicTheme { QueueList(PlayerUiState(current = queue[0], queue = queue), onMove = { _, _ -> }, onRemove = {}, onPick = {}) } }
         compose.onNodeWithContentDescription("Drag to move Song 0").assertDoesNotExist()
         compose.onNodeWithContentDescription("Drag to move Song 2").assertIsDisplayed()
+    }
+
+    /** The labels of the TalkBack actions on a node, and runs the one called [run] if given. */
+    private fun actions(description: String, run: String? = null): List<String> {
+        val node = compose.onNodeWithContentDescription(description).fetchSemanticsNode()
+        val list = node.config.getOrNull(SemanticsActions.CustomActions).orEmpty()
+        if (run != null) compose.runOnIdle { list.first { it.label == run }.action() }
+        return list.map { it.label }
+    }
+
+    @Test fun talkBackCanMoveAndRemoveQueuedSongsWithoutDragging() {
+        val queue = (0 until 4).map { Song("id$it", "Song $it", "Artist", 100, null) }
+        val moves = mutableListOf<Pair<Int, Int>>()
+        val removed = mutableListOf<Int>()
+        compose.setContent { MusicTheme { QueueList(PlayerUiState(current = queue[0], queue = queue), onMove = { a, b -> moves += a to b }, onRemove = { removed += it }, onPick = {}) } }
+        // the first one up can only go down, the last only up
+        assertEquals(listOf("Move down", "Remove from queue"), actions("Drag to move Song 1"))
+        assertEquals(listOf("Move up", "Remove from queue"), actions("Drag to move Song 3"))
+        actions("Drag to move Song 1", run = "Move down")
+        assertEquals(listOf(1 to 2), moves)
+        actions("Drag to move Song 3", run = "Remove from queue")
+        assertEquals(listOf(3), removed)
     }
 }

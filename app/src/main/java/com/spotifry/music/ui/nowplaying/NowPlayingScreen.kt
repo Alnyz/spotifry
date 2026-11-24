@@ -372,7 +372,7 @@ private fun LiveBar(onAir: String?, modifier: Modifier) {
 @Composable
 private fun LiveControls(state: PlayerUiState, onToggle: () -> Unit, modifier: Modifier) {
     Box(modifier.fillMaxWidth(), Alignment.Center) {
-        Box(Modifier.size(72.dp).clip(CircleShape).clickable(onClick = onToggle), Alignment.Center) {
+        Box(Modifier.size(72.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onToggle), Alignment.Center) {
             com.spotifry.music.ui.components.PlayGlyph(state, 52.dp, LocalContentColor.current)
         }
     }
@@ -594,7 +594,7 @@ private fun Controls(
             onShuffle()
         }
         IconButton(onPrev, Modifier.size(64.dp)) { Icon(Icons.Prev, "Previous song", Modifier.size(40.dp)) }
-        Box(Modifier.size(72.dp).clip(CircleShape).clickable(onClick = onToggle), Alignment.Center) {
+        Box(Modifier.size(72.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onToggle), Alignment.Center) {
             com.spotifry.music.ui.components.PlayGlyph(state, 52.dp, LocalContentColor.current)
         }
         IconButton(onNext, Modifier.size(64.dp)) { Icon(Icons.Next, "Next song", Modifier.size(40.dp)) }
