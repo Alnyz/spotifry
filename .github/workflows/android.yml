@@ -35,6 +35,22 @@ jobs:
       - name: mpv and ffmpeg
         run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends mpv ffmpeg
 
+      # Robolectric fetches one Android build per SDK the tests ask for (33, 34 and 35). Kept between runs, and fetched
+      # by a few tests first: when every test process fetched them at once, Maven dropped some downloads and whole test
+      # classes failed with an IOException.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric
+          key: robolectric-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      - name: Android builds for Robolectric
+        run: |
+          for try in 1 2 3; do
+            ./gradlew :app:testDebugUnitTest --tests '*ChangeLogTest' --tests '*OutputPickerTest' && exit 0
+            echo "fetch failed, trying again"; sleep 20
+          done
+          exit 1
+
       - name: Tests
         run: ./gradlew :shared:test :app:testDebugUnitTest :desktop:test --continue
 
