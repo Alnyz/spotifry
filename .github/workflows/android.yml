@@ -1,0 +1,62 @@
+name: android
+
+# Checks every pull request and every push to main on a Linux machine GitHub lends for a few minutes: runs all the
+# tests (phone, desktop and the shared code), lint for calls older Android versions don't have, and builds a debug
+# APK. The APK and the reports are kept under "Artifacts" on the run's page, so a change can be tried on a phone
+# without building it.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # the desktop tests play through mpv and read covers with ffmpeg, as the desktop app does
+      - name: mpv and ffmpeg
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends mpv ffmpeg
+
+      - name: Tests
+        run: ./gradlew :shared:test :app:testDebugUnitTest :desktop:test --continue
+
+      # NewApi and the other lint errors fail the build, so a call Android 7 doesn't have is caught here
+      - name: Lint
+        run: ./gradlew :app:lintRelease
+
+      - name: Debug APK
+        run: ./gradlew :app:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spotifry-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports
+          path: |
+            app/build/reports/
+            shared/build/reports/
+            desktop/build/reports/
+          retention-days: 14

@@ -1,0 +1,1182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.5.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.5.0)" variant="all" version="9.5.0">
+
+    <issue
+        id="ObsoleteLintCustomCheck"
+        message="Library lint checks reference invalid APIs; these checks **will be skipped**!&#xA;&#xA;Lint found an issue registry (`androidx.lifecycle.lint.LifecycleRuntimeIssueRegistry`)&#xA;which contains some references to invalid API:&#xA;org.jetbrains.kotlin.asJava.elements.KtLightModifierList#getKotlinOrigin(): org.jetbrains.kotlin.psi.KtModifierList&#xA;(Referenced from androidx/lifecycle/lint/LifecycleWhenChecksKt.class)&#xA;&#xA;Therefore, this lint check library is **not** included&#xA;in analysis. This affects the following lint checks:&#xA;`UnsafeLifecycleWhenUsage`,`RepeatOnLifecycleWrongUsage`&#xA;&#xA;To use this lint check, upgrade to a more recent version&#xA;of the library.">
+        <location
+            file="$GRADLE_USER_HOME/caches/9.8.2/transforms/1cfc62ddf1f654283d4887ea808df594/transformed/lifecycle-runtime-release/jars/lint.jar"/>
+    </issue>
+
+    <issue
+        id="CommitPrefEdits"
+        message="`SharedPreferences.edit()` without a corresponding `commit()` or `apply()` call"
+        errorLine1="        private val e = sp.edit()"
+        errorLine2="                        ~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/AndroidPrefs.kt"
+            line="22"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 31 (current min is 24): `android.media.AudioDeviceInfo#TYPE_BLE_HEADSET`"
+        errorLine1="    devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET || it.type == AudioDeviceInfo.TYPE_BLE_SPEAKER }?.let { return info(it, OutputKind.Bluetooth, &quot;Bluetooth&quot;) }"
+        errorLine2="                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/AudioOutput.kt"
+            line="28"
+            column="88"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 31 (current min is 24): `android.media.AudioDeviceInfo#TYPE_BLE_SPEAKER`"
+        errorLine1="    devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET || it.type == AudioDeviceInfo.TYPE_BLE_SPEAKER }?.let { return info(it, OutputKind.Bluetooth, &quot;Bluetooth&quot;) }"
+        errorLine2="                                                                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/AudioOutput.kt"
+            line="28"
+            column="135"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 26 (current min is 24): `android.media.AudioDeviceInfo#TYPE_USB_HEADSET`"
+        errorLine1="    devices.firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }?.let { return info(it, OutputKind.Usb, &quot;USB&quot;) }"
+        errorLine2="                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/AudioOutput.kt"
+            line="29"
+            column="84"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 24): `android.provider.Settings.Panel#ACTION_VOLUME`"
+        errorLine1="private fun volumePanel() = Intent(Settings.Panel.ACTION_VOLUME)"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/OutputPicker.kt"
+            line="9"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="OldTargetApi"
+        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
+        errorLine1="        targetSdk = 36"
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="22"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SuspiciousIndentation"
+        message="Suspicious indentation: This is conditionally executed; expected it to be indented"
+        errorLine1="        ModeButton(Icons.LyricsBubble, &quot;Lyrics&quot;, mode == NowPlayingMode.Lyrics) { onMode(if (mode == NowPlayingMode.Lyrics) NowPlayingMode.Cover else NowPlayingMode.Lyrics) }"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/nowplaying/NowPlayingScreen.kt"
+            line="343"
+            column="9"/>
+        <location
+            file="src/main/java/com/spotifry/music/ui/nowplaying/NowPlayingScreen.kt"
+            line="342"
+            column="9"
+            message="Previous statement here"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `enableOnBackInvokedCallback` is only used in API level 33 and higher (current min is 24)"
+        errorLine1="        android:enableOnBackInvokedCallback=&quot;true&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="27"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellHeight` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:targetCellWidth=&quot;4&quot; android:targetCellHeight=&quot;2&quot;"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_info.xml"
+            line="3"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `targetCellWidth` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:targetCellWidth=&quot;4&quot; android:targetCellHeight=&quot;2&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_info.xml"
+            line="3"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `previewLayout` is only used in API level 31 and higher (current min is 24)"
+        errorLine1="    android:updatePeriodMillis=&quot;0&quot; android:initialLayout=&quot;@layout/widget_big&quot; android:previewLayout=&quot;@layout/widget_big&quot;"
+        errorLine2="                                                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/widget_info.xml"
+            line="7"
+            column="79"/>
+    </issue>
+
+    <issue
+        id="WrongConstant"
+        message="Must be one of: LineBreaker.BREAK_STRATEGY_SIMPLE, LineBreaker.BREAK_STRATEGY_HIGH_QUALITY, LineBreaker.BREAK_STRATEGY_BALANCED"
+        errorLine1="            .setBreakStrategy(Layout.BREAK_STRATEGY_BALANCED).build()"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/share/ShareCard.kt"
+            line="77"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="VectorRaster"
+        message="Limit vector icons sizes to 200×200 to keep icon drawing fast; see https://developer.android.com/studio/write/vector-asset-studio#when for more"
+        errorLine1="    android:width=&quot;288dp&quot; android:height=&quot;288dp&quot; android:viewportWidth=&quot;129.6&quot; android:viewportHeight=&quot;129.6&quot;>"
+        errorLine2="                   ~~~~~">
+        <location
+            file="src/main/res/drawable/splash_logo.xml"
+            line="6"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of Gradle than 9.8.2 is available: 9.9.2"
+        errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.8.2-bin.zip"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/wrapper/gradle-wrapper.properties"
+            line="3"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 9.5.0 is available: 9.5.2"
+        errorLine1="agp = &quot;9.5.0&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of `compileSdk` than 36 is available: 37"
+        errorLine1="    compileSdk = 36"
+        errorLine2="    ~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="18"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2025.10.01 is available: 2026.11.01"
+        errorLine1="composeBom = &quot;2025.10.01&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="5"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.11.0 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.11.0&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="6"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.9.5 is available: 2.10.2"
+        errorLine1="navigation = &quot;2.9.5&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="7"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.4 is available: 2.11.1"
+        errorLine1="lifecycle = &quot;2.9.4&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="8"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.9.4 is available: 2.11.1"
+        errorLine1="lifecycle = &quot;2.9.4&quot;"
+        errorLine2="            ~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="8"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.17.0 is available: 1.19.1"
+        errorLine1="coreKtx = &quot;1.17.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="9"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.compose than 2.2.10 is available: 2.4.21"
+        errorLine1="kotlin = &quot;2.2.10&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="3"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:mockwebserver than 4.12.0 is available: 5.5.1"
+        errorLine1="okhttp = &quot;4.12.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="12"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.1"
+        errorLine1="okhttp = &quot;4.12.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="12"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of dev.chrisbanes.haze:haze than 1.7.1 is available: 2.1.0"
+        errorLine1="haze = &quot;1.7.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="15"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.robolectric:robolectric than 4.17 is available: 4.18.1"
+        errorLine1="robolectric = &quot;4.17&quot;"
+        errorLine2="              ~~~~~~">
+        <location
+            file="$HOME/projects/spotifry/gradle/libs.versions.toml"
+            line="18"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="RestrictedApi"
+        message="NavController.getCurrentBackStack can only be called from within the same library group (referenced groupId=`androidx.navigation` from groupId=`music`)"
+        errorLine1="    val aboveHome = currentBackStack.value.dropWhile { it.destination.route != Routes.LISTEN }.getOrNull(1)?.destination?.route"
+        errorLine2="                    ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/TabNavigation.kt"
+            line="14"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        androidx.media3.datasource.cache.SimpleCache("
+        errorLine2="                                         ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="35"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="                if (mb == 0) androidx.media3.datasource.cache.NoOpCacheEvictor() else androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(mb * 1024L * 1024)"
+        errorLine2="                                                              ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="38"
+            column="63"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="                if (mb == 0) androidx.media3.datasource.cache.NoOpCacheEvictor() else androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor(mb * 1024L * 1024)"
+        errorLine2="                                                                                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="38"
+            column="120"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="            androidx.media3.database.StandaloneDatabaseProvider(context),"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="40"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        com.spotifry.music.player.QualityUpgrader("
+        errorLine2="                                  ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="59"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="    init { choosing.onBetter = { song, stream -> upgrader.offer(song, stream) } }"
+        errorLine2="                                                          ~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="66"
+            column="59"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="                if (was != null) { resolver.clear(); if (now > was) upgrader.forgetBelow(now) }"
+        errorLine2="                                                                             ~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="125"
+            column="78"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="    .setMediaId(id).setUri(url).setCustomCacheKey(id)"
+        errorLine2="                                ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/MediaItems.kt"
+            line="29"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="    .setCustomCacheKey(if (opus) id + OPUS_SUFFIX else id)"
+        errorLine2="     ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/MediaItems.kt"
+            line="46"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))"
+        errorLine2="                                                                 ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/PlayerController.kt"
+            line="45"
+            column="66"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="            !smart -> { smart = true; it.sendCustomCommand(SessionCommand(PlaybackService.SMART_SHUFFLE, Bundle.EMPTY), Bundle.EMPTY); publish(it) }"
+        errorLine2="                                                                          ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/PlayerController.kt"
+            line="171"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="            !smart -> { smart = true; it.sendCustomCommand(SessionCommand(PlaybackService.SMART_SHUFFLE, Bundle.EMPTY), Bundle.EMPTY); publish(it) }"
+        errorLine2="                                                                                          ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/PlayerController.kt"
+            line="171"
+            column="91"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        c.sendCustomCommand(SessionCommand(PlaybackService.SET_UPCOMING, Bundle.EMPTY), Bundle().apply { putIntArray(PlaybackService.UPCOMING, upcoming.toIntArray()) })"
+        errorLine2="                                           ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/PlayerController.kt"
+            line="209"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        c.sendCustomCommand(SessionCommand(PlaybackService.SET_UPCOMING, Bundle.EMPTY), Bundle().apply { putIntArray(PlaybackService.UPCOMING, upcoming.toIntArray()) })"
+        errorLine2="                                                           ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/PlayerController.kt"
+            line="209"
+            column="60"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        c.sendCustomCommand(SessionCommand(PlaybackService.SET_UPCOMING, Bundle.EMPTY), Bundle().apply { putIntArray(PlaybackService.UPCOMING, upcoming.toIntArray()) })"
+        errorLine2="                                                                                                                     ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/PlayerController.kt"
+            line="209"
+            column="118"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        c.sendCustomCommand(SessionCommand(PlaybackService.SET_UPCOMING, Bundle.EMPTY), Bundle().apply { putIntArray(PlaybackService.UPCOMING, upcoming.toIntArray()) })"
+        errorLine2="                                                                                                                                     ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/PlayerController.kt"
+            line="209"
+            column="134"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="    val kbps = (f.averageBitrate.takeIf { it > 0 } ?: f.bitrate.takeIf { it > 0 })?.let { (it + 500) / 1000 } ?: knownKbps?.takeIf { it > 0 }"
+        errorLine2="                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/Quality.kt"
+            line="37"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="    val kbps = (f.averageBitrate.takeIf { it > 0 } ?: f.bitrate.takeIf { it > 0 })?.let { (it + 500) / 1000 } ?: knownKbps?.takeIf { it > 0 }"
+        errorLine2="                                                        ~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/Quality.kt"
+            line="37"
+            column="57"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="    private val songCache: androidx.media3.datasource.cache.Cache? = null,"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/settings/SettingsViewModel.kt"
+            line="29"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        _storage.value = Storage(songs.savedCount(), bytes, runCatching { covers?.size() }.getOrNull() ?: 0, runCatching { songCache?.cacheSpace }.getOrNull() ?: 0, db, phone)"
+        errorLine2="                                                                                                                                      ~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/settings/SettingsViewModel.kt"
+            line="46"
+            column="135"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        songCache?.let { c -> runCatching { c.keys.toList().forEach(c::removeResource) } }"
+        errorLine2="                         ~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/settings/SettingsViewModel.kt"
+            line="57"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        songCache?.let { c -> runCatching { c.keys.toList().forEach(c::removeResource) } }"
+        errorLine2="                                              ~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/settings/SettingsViewModel.kt"
+            line="57"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        songCache?.let { c -> runCatching { c.keys.toList().forEach(c::removeResource) } }"
+        errorLine2="                                                                    ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/settings/SettingsViewModel.kt"
+            line="57"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        player?.run { volume = songGain; pauseAtEndOfMediaItems = false }"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/SleepTimer.kt"
+            line="51"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="        p.pauseAtEndOfMediaItems = s == SleepState.EndOfSong"
+        errorLine2="          ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/SleepTimer.kt"
+            line="60"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="UnsafeOptInUsageError"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`"
+        errorLine1="    generateSequence(error) { it.cause }.any { it is java.io.EOFException || it is androidx.media3.common.ParserException }"
+        errorLine2="                                                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/SongDataSource.kt"
+            line="115"
+            column="84"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="    val heroH = LocalConfiguration.current.screenHeightDp.dp * .55f"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/home/ArtistPage.kt"
+            line="170"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="    val heroH = LocalConfiguration.current.screenHeightDp.dp * .55f"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/playlists/PlaylistDetail.kt"
+            line="257"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="fun EmptyState(title: String, body: String, buttonLabel: String? = null, onClick: () -> Unit = {}, modifier: Modifier = Modifier) {"
+        errorLine2="                                                                                                   ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/components/EmptyState.kt"
+            line="20"
+            column="100"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="internal fun LyricsPeek(lyrics: LyricsUi, sung: () -> Long, onShowAll: () -> Unit, onRetry: () -> Unit = {}, modifier: Modifier = Modifier) {"
+        errorLine2="                                                                                                             ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/nowplaying/LyricsPeek.kt"
+            line="48"
+            column="110"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    onRemove: (String) -> Unit = {}, onClearHistory: () -> Unit = {}, modifier: Modifier = Modifier, bottomInset: Dp = 0.dp,"
+        errorLine2="                                                                      ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/home/SearchScreen.kt"
+            line="82"
+            column="71"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    onMove: ((Int, Int) -> Unit)? = null, onRemove: ((Int) -> Unit)? = null, modifier: Modifier = Modifier,"
+        errorLine2="                                                                             ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/SongMenuSheet.kt"
+            line="167"
+            column="78"/>
+    </issue>
+
+    <issue
+        id="RememberReturnType"
+        message="`remember` calls must not return `Unit`"
+        errorLine1="    remember { SplashTargets.start() }"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/Splash.kt"
+            line="205"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ExportedService"
+        message="Exported service does not require permission"
+        errorLine1="        &lt;service"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="50"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="InsecureBaseConfiguration"
+        message="Insecure Base Configuration"
+        errorLine1="    &lt;base-config cleartextTrafficPermitted=&quot;true&quot;>"
+        errorLine2="                                            ~~~~">
+        <location
+            file="src/main/res/xml/network_security_config.xml"
+            line="5"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var pickArtists by remember { mutableStateOf(0) }"
+        errorLine2="                                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/MainActivity.kt"
+            line="272"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var pulled by remember { mutableStateOf(0f) }"
+        errorLine2="                             ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/nowplaying/NowPlayingScreen.kt"
+            line="234"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        var pulled by remember { mutableStateOf(0f) }"
+        errorLine2="                                 ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/nowplaying/NowPlayingScreen.kt"
+            line="417"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var hintTick by remember { mutableStateOf(0) }"
+        errorLine2="                               ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/nowplaying/NowPlayingScreen.kt"
+            line="575"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var dragFrom by remember { mutableStateOf(-1) }"
+        errorLine2="                               ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/SongMenuSheet.kt"
+            line="172"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="NestedWeights"
+        message="Nested weights are bad for performance"
+        errorLine1="        &lt;FrameLayout android:layout_width=&quot;match_parent&quot; android:layout_height=&quot;0dp&quot; android:layout_weight=&quot;1&quot; />"
+        errorLine2="                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_big.xml"
+            line="19"
+            column="86"/>
+    </issue>
+
+    <issue
+        id="UseOfNonLambdaOffsetOverload"
+        message="State backed values should use the lambda overload of Modifier.offset"
+        errorLine1="                    Modifier.fillMaxWidth().offset(y = minOf(maxHeight - body, shown + 16.dp)).onSizeChanged { body = with(density) { it.height.toDp() } }"
+        errorLine2="                                            ~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/nowplaying/NowPlayingScreen.kt"
+            line="194"
+            column="45"/>
+    </issue>
+
+    <issue
+        id="UselessLeaf"
+        message="This `FrameLayout` view is unnecessary (no children, no `background`, no `id`, no `style`)"
+        errorLine1="        &lt;FrameLayout android:layout_width=&quot;match_parent&quot; android:layout_height=&quot;0dp&quot; android:layout_weight=&quot;1&quot; />"
+        errorLine2="         ~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_big.xml"
+            line="19"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="UselessLeaf"
+        message="This `FrameLayout` view is unnecessary (no children, no `background`, no `id`, no `style`)"
+        errorLine1="            &lt;FrameLayout android:layout_width=&quot;0dp&quot; android:layout_height=&quot;1dp&quot; android:layout_weight=&quot;1&quot; />"
+        errorLine2="             ~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_big.xml"
+            line="24"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="UselessLeaf"
+        message="This `FrameLayout` view is unnecessary (no children, no `background`, no `id`, no `style`)"
+        errorLine1="            &lt;FrameLayout android:layout_width=&quot;0dp&quot; android:layout_height=&quot;1dp&quot; android:layout_weight=&quot;1&quot; />"
+        errorLine2="             ~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_big.xml"
+            line="27"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putStringSet(&quot;not_suggested&quot;, if (no) notSuggested() + id else notSuggested() - id).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="144"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        prefs.edit().putString(&quot;recent_searches&quot;, it.joinToString(&quot;\n&quot;)).apply()"
+        errorLine2="        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/AppContainer.kt"
+            line="153"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="    val one = android.graphics.Bitmap.createScaledBitmap(cover, 1, 1, true)"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/components/Cover.kt"
+            line="205"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.get` instead?"
+        errorLine1="    val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(one.getPixel(0, 0), it) }"
+        errorLine2="                                                                     ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/components/Cover.kt"
+            line="206"
+            column="70"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="    val small = android.graphics.Bitmap.createScaledBitmap(cover, side, side, true)"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/components/Cover.kt"
+            line="229"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun put(id: String, db: Float) = prefs.edit().putFloat(id, db).apply()"
+        errorLine2="                                     ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/Loudness.kt"
+            line="159"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        val fitted = if (scale &lt; 1f) Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt().coerceAtLeast(1), (bmp.height * scale).toInt().coerceAtLeast(1), true) else bmp"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/NameLogos.kt"
+            line="25"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        val small = Bitmap.createScaledBitmap(b, minOf(b.width, 120), minOf(b.height, 60), true)"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/NameLogos.kt"
+            line="39"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        Bitmap.createBitmap(MAX_WIDTH, outH, Bitmap.Config.ARGB_8888).also { svg.renderToCanvas(Canvas(it)) }"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/NameLogos.kt"
+            line="56"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            if (spec.uri.scheme == &quot;https&quot;) spec.withUri(android.net.Uri.parse(com.spotifry.music.data.source.artAt(spec.uri.toString(), large = true))) else spec"
+        errorLine2="                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/PlaybackService.kt"
+            line="271"
+            column="58"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="    return if (box.size > maxSide) Bitmap.createScaledBitmap(square, maxSide, maxSide, true) else square"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/PlaylistCovers.kt"
+            line="26"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.get` instead?"
+        errorLine1="    val px = covers.map { Bitmap.createScaledBitmap(it, 1, 1, true).getPixel(0, 0) }"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/playlists/PlaylistDetail.kt"
+            line="246"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="    val px = covers.map { Bitmap.createScaledBitmap(it, 1, 1, true).getPixel(0, 0) }"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/playlists/PlaylistDetail.kt"
+            line="246"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="    val one = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/playlists/PlaylistDetail.kt"
+            line="247"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.set` instead?"
+        errorLine1="    one.setPixel(0, 0, android.graphics.Color.rgb(px.sumOf { android.graphics.Color.red(it) } / px.size, px.sumOf { android.graphics.Color.green(it) } / px.size, px.sumOf { android.graphics.Color.blue(it) } / px.size))"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/playlists/PlaylistDetail.kt"
+            line="248"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun forgetBetter(id: String) { better.edit().remove(id).apply(); tried.remove(id) }"
+        errorLine2="                                   ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/QualityUpgrader.kt"
+            line="179"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            this.better.edit().putString(id, origin).apply()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/QualityUpgrader.kt"
+            line="193"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="    val out = Bitmap.createBitmap(w.toInt(), h.toInt(), Bitmap.Config.ARGB_8888)"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/share/ShareCard.kt"
+            line="64"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withTranslation` instead?"
+        errorLine1="    fun StaticLayout.drawAt(x: Float, y: Float) { c.save(); c.translate(x, y); draw(c); c.restore() }"
+        errorLine2="                                                  ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/share/ShareCard.kt"
+            line="79"
+            column="51"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withClip` instead?"
+        errorLine1="    c.save()"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/ui/share/ShareCard.kt"
+            line="152"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="                    dataSpec.withUri(Uri.parse(if (stream.origin == &quot;youtube&quot; &amp;&amp; dataSpec.position == 0L) openRange(stream.url) else stream.url))"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/SongDataSource.kt"
+            line="67"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            result.getOrNull()?.takeIf { it.isNotEmpty() }?.let { _log.value = it; prefs.edit().putString(LOG, it.toJson()).apply() }"
+        errorLine2="                                                                                   ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/Updates.kt"
+            line="133"
+            column="84"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="            _lastChecked.value = now(); prefs.edit().putLong(LAST_CHECK, _lastChecked.value).apply()"
+        errorLine2="                                        ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/Updates.kt"
+            line="156"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="    fun later(release: Release) { _later.value = release.version; prefs.edit().putString(LATER, release.version).apply() }"
+        errorLine2="                                                                  ~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/Updates.kt"
+            line="168"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toUri` instead?"
+        errorLine1="            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse(&quot;package:${context.packageName}&quot;))"
+        errorLine2="                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/data/Updates.kt"
+            line="222"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?"
+        errorLine1="        p.edit().putString(&quot;id&quot;, id).putString(&quot;title&quot;, title).putString(&quot;artist&quot;, artist).putBoolean(&quot;playing&quot;, playing).apply()"
+        errorLine2="        ~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/Widget.kt"
+            line="49"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Bitmap.scale` instead?"
+        errorLine1="        cover?.let { b -> runCatching { coverFile(c).outputStream().use { Bitmap.createScaledBitmap(b, 300, 300 * b.height / b.width, true).compress(Bitmap.CompressFormat.PNG, 100, it) } } }"
+        errorLine2="                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/spotifry/music/player/Widget.kt"
+            line="51"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    coreLibraryDesugaring(&quot;com.android.tools:desugar_jdk_libs:2.1.5&quot;)"
+        errorLine2="                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="87"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Previous&quot;, should use `@string` resource"
+        errorLine1="                android:background=&quot;@drawable/widget_button&quot; android:src=&quot;@drawable/widget_prev&quot; android:contentDescription=&quot;Previous&quot; />"
+        errorLine2="                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_big.xml"
+            line="23"
+            column="98"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Play&quot;, should use `@string` resource"
+        errorLine1="                android:background=&quot;@drawable/widget_button&quot; android:src=&quot;@drawable/widget_play&quot; android:contentDescription=&quot;Play&quot; />"
+        errorLine2="                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_big.xml"
+            line="26"
+            column="98"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Next&quot;, should use `@string` resource"
+        errorLine1="                android:background=&quot;@drawable/widget_button&quot; android:src=&quot;@drawable/widget_next&quot; android:contentDescription=&quot;Next&quot; />"
+        errorLine2="                                                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_big.xml"
+            line="29"
+            column="98"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Play&quot;, should use `@string` resource"
+        errorLine1="        android:layout_marginStart=&quot;8dp&quot; android:background=&quot;@drawable/widget_button&quot; android:src=&quot;@drawable/widget_play&quot; android:contentDescription=&quot;Play&quot; />"
+        errorLine2="                                                                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_small.xml"
+            line="18"
+            column="123"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Next&quot;, should use `@string` resource"
+        errorLine1="        android:layout_marginStart=&quot;8dp&quot; android:background=&quot;@drawable/widget_button&quot; android:src=&quot;@drawable/widget_next&quot; android:contentDescription=&quot;Next&quot; />"
+        errorLine2="                                                                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/widget_small.xml"
+            line="20"
+            column="123"/>
+    </issue>
+
+</issues>

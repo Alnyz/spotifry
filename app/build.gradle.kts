@@ -48,7 +48,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    testOptions { unitTests { isReturnDefaultValues = true; isIncludeAndroidResources = true; all { it.systemProperty("live", project.findProperty("live")?.toString() ?: "") } } }
+    testOptions { unitTests { isReturnDefaultValues = true; isIncludeAndroidResources = true; all {
+        it.systemProperty("live", project.findProperty("live")?.toString() ?: "")
+        // the tests expect English numbers and dates ("1,536 kbps"); without this they fail on a computer set to another language
+        it.systemProperty("user.language", "en"); it.systemProperty("user.country", "US")
+    } } }
+    // lint errors that were already there when CI started checking are listed in lint-baseline.xml; only new ones fail
+    lint { baseline = file("lint-baseline.xml") }
 }
 
 androidComponents {
