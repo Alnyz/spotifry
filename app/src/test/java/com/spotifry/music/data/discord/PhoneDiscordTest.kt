@@ -29,9 +29,14 @@ class PhoneDiscordTest {
     }
 
     @Test fun thePhonesCardCarriesTheButton() {
-        val card = DiscordActivity.of("Song", "Band", "https://x/y.jpg", 1_000, 60_000, 100_000).gatewayJson("mp:a", "mp:b")
+        val card = DiscordActivity.of("dQw4w9WgXcQ", "Song", "Band", "https://x/y.jpg", 1_000, 60_000, 100_000).gatewayJson("mp:a", "mp:b")
         assertEquals(2, card.getInt("type"))
-        assertEquals("Get Spotifry", card.getJSONArray("buttons").getString(0))
+        assertEquals("Listen to this song", card.getJSONArray("buttons").getString(0))
+        assertEquals("https://youtu.be/dQw4w9WgXcQ", card.getJSONObject("metadata").getJSONArray("button_urls").getString(0))
+        assertEquals("Get Spotifry", card.getJSONArray("buttons").getString(1))
+        assertEquals(1, card.getInt("status_display_type"))
+        // a file of the user's own has nothing to link to
+        assertEquals(1, DiscordActivity.of("local:12", "Song", "Band", null, 0, 0, 0).gatewayJson(null, null).getJSONArray("buttons").length())
         assertEquals("mp:b", card.getJSONObject("assets").getString("small_image"))
     }
 }

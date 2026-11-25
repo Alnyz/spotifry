@@ -15,7 +15,7 @@ private const val SITE = "https://alnyz.github.io/spotifry/"
 private const val BUTTON = "Get Spotifry"
 
 /** What the profile shows. [startMs] is the clock time the song would have started at, which Discord counts from. */
-data class DiscordActivity(val title: String, val artist: String, val cover: String?, val startMs: Long, val endMs: Long?) {
+data class DiscordActivity(val title: String, val artist: String, val cover: String?, val startMs: Long, val endMs: Long?, val link: String? = null) {
     /** The same card: a few hundred ms of drift in the start is not a change, a seek is. */
     fun sameAs(other: DiscordActivity?) = other != null && copy(startMs = 0, endMs = null) == other.copy(startMs = 0, endMs = null) &&
         abs(startMs - other.startMs) < 3_000 && (endMs == null) == (other.endMs == null)
@@ -26,9 +26,13 @@ data class DiscordActivity(val title: String, val artist: String, val cover: Str
     private fun card(): JSONObject {
         val o = JSONObject().put("type", 2).put("details", fit(title))
             .put("timestamps", JSONObject().put("start", startMs).apply { endMs?.let { put("end", it) } })
-        if (artist.isNotBlank()) o.put("state", fit(artist))
+        // 1: the member list says "Listening to <artist>" rather than "Listening to Spotifry"
+        if (artist.isNotBlank()) o.put("state", fit(artist)).put("status_display_type", 1)
         return o
     }
+
+    /** Discord allows two. A song from the user's own files and a radio station have no link to listen to. */
+    private fun buttons() = listOfNotNull(link?.let { "Listen to this song" to it }, BUTTON to SITE)
 
     /** For the Discord app on the same computer, which takes pictures as plain addresses. */
     fun json(): JSONObject {
@@ -37,7 +41,7 @@ data class DiscordActivity(val title: String, val artist: String, val cover: Str
         val assets = JSONObject().put("large_image", cover ?: DISCORD_LOGO)
         if (cover != null) assets.put("small_image", DISCORD_LOGO).put("small_text", "Spotifry")
         // Discord shows buttons to other people only, never on your own card
-        return card().put("assets", assets).put("buttons", JSONArray().put(JSONObject().put("label", BUTTON).put("url", SITE)))
+        return card().put("assets", assets).put("buttons", JSONArray(buttons().map { (label, url) -> JSONObject().put("label", label).put("url", url) }))
     }
 
     /** For a phone's own connection to Discord: [large] and [small] are Discord's names for the pictures, not addresses. */
@@ -46,21 +50,25 @@ data class DiscordActivity(val title: String, val artist: String, val cover: Str
         if (large != null) assets.put("large_image", large)
         if (small != null) assets.put("small_image", small).put("small_text", "Spotifry")
         return card().put("name", "Spotifry").put("application_id", DISCORD_APP_ID).put("assets", assets)
-            .put("buttons", JSONArray().put(BUTTON)).put("metadata", JSONObject().put("button_urls", JSONArray().put(SITE)))
+            .put("buttons", JSONArray(buttons().map { it.first })).put("metadata", JSONObject().put("button_urls", JSONArray(buttons().map { it.second })))
     }
 
     companion object {
+        private val YOUTUBE_ID = Regex("[A-Za-z0-9_-]{11}")
+
         /** Covers kept on this device can't be shown: Discord fetches the picture itself. */
-        fun of(title: String, artist: String, cover: String?, positionMs: Long, durationMs: Long, now: Long): DiscordActivity {
+        fun of(id: String, title: String, artist: String, cover: String?, positionMs: Long, durationMs: Long, now: Long): DiscordActivity {
             val start = now - positionMs
-            return DiscordActivity(title, artist, cover?.takeIf { it.startsWith("https://") }, start, if (durationMs > 0) start + durationMs else null)
+            return DiscordActivity(title, artist, cover?.takeIf { it.startsWith("https://") }, start, if (durationMs > 0) start + durationMs else null,
+                // only a YouTube id makes a link: local files and radio stations have a "local:" or "radio:" one
+                id.takeIf(YOUTUBE_ID::matches)?.let { "https://youtu.be/$it" })
         }
 
         /** Null when nothing should show: nothing playing, paused or finished. */
         fun of(s: PlayerUiState, positionMs: Long, now: Long): DiscordActivity? {
             val song = s.current ?: return null
             if (!s.wantsPlay || s.ended || s.failed) return null
-            return of(song.title, song.artist, song.thumbnailUrl, positionMs, s.durationMs, now)
+            return of(song.id, song.title, song.artist, song.thumbnailUrl, positionMs, s.durationMs, now)
         }
     }
 }

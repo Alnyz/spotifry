@@ -318,7 +318,7 @@ class PlaybackService : MediaSessionService() {
                 val item = player.currentMediaItem
                 if (item == null || !player.playWhenReady || player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) null
                 else item.toSong().let { s ->
-                    com.spotifry.music.data.discord.DiscordActivity.of(s.title, s.artist, s.thumbnailUrl, player.currentPosition, player.duration.coerceAtLeast(0), System.currentTimeMillis())
+                    com.spotifry.music.data.discord.DiscordActivity.of(s.id, s.title, s.artist, s.thumbnailUrl, player.currentPosition, player.duration.coerceAtLeast(0), System.currentTimeMillis())
                 }
             }
         }

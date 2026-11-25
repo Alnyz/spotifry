@@ -98,7 +98,7 @@ private fun DiscordGroup() {
     val connected by discord.connected.collectAsStateWithLifecycle()
     var asking by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     Group("") {
-        NavRow(com.spotifry.music.ui.Icons.Note, if (connected) "Disconnect Discord" else "Connect Discord", if (connected) "Your profile shows what you're playing" else "Show what you're playing on your profile") {
+        NavRow(com.spotifry.music.ui.Icons.Discord, if (connected) "Disconnect Discord" else "Connect Discord", if (connected) "Your profile shows what you're playing" else "Show what you're playing on your profile") {
             if (connected) discord.disconnect() else asking = true
         }
     }
