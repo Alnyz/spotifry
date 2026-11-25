@@ -151,6 +151,13 @@ class PlayerController(
         c.prepare()
         c.play()
     }
+    /** Plays what a voice request asked for ("play Adele on Spotifry"); the service finds the songs. */
+    fun playFromSearch(query: String) = run { c ->
+        from = null
+        c.setMediaItem(androidx.media3.common.MediaItem.Builder().setRequestMetadata(androidx.media3.common.MediaItem.RequestMetadata.Builder().setSearchQuery(query).build()).build())
+        c.prepare()
+        c.play()
+    }
     override fun toggle() = run {
         if (it.isPlaying) it.pause()
         else { if (needsPrepare(it.playbackState)) it.prepare(); it.play() }

@@ -166,9 +166,16 @@ class MainActivity : ComponentActivity() {
 
     private fun sharedText(intent: Intent?) = intent?.takeIf { it.action == Intent.ACTION_SEND }?.getStringExtra(Intent.EXTRA_TEXT)
 
+    /** "Hey Google, play … on Spotifry" on the phone: plays at once, the window just opens on it. */
+    private fun playFromSearch(intent: Intent?) {
+        if (intent?.action != android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) return
+        (application as MusicApp).container.player.playFromSearch(intent.getStringExtra(android.app.SearchManager.QUERY).orEmpty())
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         sharedText(intent)?.let { shared.value = it }
+        playFromSearch(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -176,7 +183,7 @@ class MainActivity : ComponentActivity() {
         setTheme(android.R.style.Theme_DeviceDefault_NoActionBar)
         super.onCreate(savedInstanceState)
         // only on a fresh start: after turning the phone the same message would be read again
-        if (savedInstanceState == null) shared.value = sharedText(intent)
+        if (savedInstanceState == null) { shared.value = sharedText(intent); playFromSearch(intent) }
         val splash = if (com.spotifry.music.ui.shouldPlaySplash(savedInstanceState == null, splashPlayed, com.spotifry.music.ui.components.animationsOff(this))) com.spotifry.music.ui.SplashStart() else null
         splashPlayed = true
         if (splash != null && Build.VERSION.SDK_INT >= 31) splashScreen.setOnExitAnimationListener { view ->

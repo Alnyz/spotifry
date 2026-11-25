@@ -20,8 +20,13 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import android.content.Context
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaSessionService
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService
+import androidx.media3.session.MediaLibraryService.LibraryParams
+import androidx.media3.session.MediaLibraryService.MediaLibrarySession
+import androidx.media3.session.SessionError
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
 import androidx.media3.exoplayer.source.ShuffleOrder
 import android.os.Bundle
@@ -34,6 +39,7 @@ import com.spotifry.music.data.source.isRadio
 import com.spotifry.music.data.source.isRadioId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -44,8 +50,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.pow
 
 @UnstableApi
-class PlaybackService : MediaSessionService() {
-    private var session: MediaSession? = null
+class PlaybackService : MediaLibraryService() {
+    private var session: MediaLibrarySession? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var appendedFor: String? = null
     private var levelFor: String? = null
@@ -275,11 +281,70 @@ class PlaybackService : MediaSessionService() {
         val covers = androidx.media3.session.CacheBitmapLoader(
             androidx.media3.datasource.DataSourceBitmapLoader.Builder(this).setDataSourceFactory(coverSource).setMaximumOutputDimension(720).build(),
         )
-        session = MediaSession.Builder(this, player).setSessionActivity(open).setBitmapLoader(covers)
-            .setCallback(object : MediaSession.Callback {
+        val db = c.db
+        val library = CarLibrary(
+            recent = { db.history().observeRecent().first().map { it.toSong() } },
+            saved = { db.songs().observeSaved().first().map { it.toSong() } },
+            mostPlayed = { db.plays().observeMostPlayed(50).first().map { it.toSong() } },
+            playlists = { db.playlists().observePlaylists().first().map { it.id to it.name } },
+            playlist = { db.playlists().observeSongs(it).first().map { s -> s.toSong() } },
+            song = { db.songs().get(it)?.toSong() },
+            search = { c.source.search(it) },
+        )
+        // the playback service is open to every app; what was played, saved and listed is not (the car, the system and the app itself only)
+        fun mayBrowse(s: MediaSession, controller: MediaSession.ControllerInfo) = controller.uid == android.os.Process.myUid() ||
+            controller.isTrusted || s.isAutoCompanionController(controller) || s.isAutomotiveController(controller)
+        session = MediaLibrarySession.Builder(this, player, object : MediaLibrarySession.Callback {
+                // Android Auto and other browsers: the songs and playlists already on the phone (see CarLibrary)
+                override fun onGetLibraryRoot(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?) =
+                    com.google.common.util.concurrent.Futures.immediateFuture(LibraryResult.ofItem(library.root(), params))
+
+                override fun onGetChildren(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, parentId: String, page: Int, pageSize: Int, params: LibraryParams?) =
+                    later {
+                        val all = library.children(parentId) ?: return@later LibraryResult.ofError<com.google.common.collect.ImmutableList<MediaItem>>(SessionError.ERROR_BAD_VALUE)
+                        val shown = if (pageSize > 0) all.drop(page * pageSize).take(pageSize) else all
+                        LibraryResult.ofItemList(shown, params)
+                    }
+
+                override fun onGetItem(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, mediaId: String) =
+                    later { library.item(mediaId)?.let { LibraryResult.ofItem(it, null) } ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE) }
+
+                // the search box in the car: answer at once, then say how many came back so it asks for them
+                override fun onSearch(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String, params: LibraryParams?) =
+                    later {
+                        val found = library.searchResults(query)
+                        s.notifySearchResultChanged(browser, query, found.size, params)
+                        LibraryResult.ofVoid()
+                    }
+
+                override fun onGetSearchResult(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String, page: Int, pageSize: Int, params: LibraryParams?) =
+                    later {
+                        val all = library.children(CarLibrary.SEARCH).orEmpty()
+                        LibraryResult.ofItemList(if (pageSize > 0) all.drop(page * pageSize).take(pageSize) else all, params)
+                    }
+
+                // the app's own queue arrives ready to play; a song picked in the car arrives as an id and is looked up
+                override fun onAddMediaItems(s: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>) =
+                    later { mediaItems.mapNotNull { library.resolve(it) }.toMutableList() }
+
+                // a song picked in a list in the car plays that whole list from the song
+                override fun onSetMediaItems(s: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>, startIndex: Int, startPositionMs: Long) =
+                    later {
+                        // any other app only gets back what it asked for itself, never a list from the phone
+                        if (!mayBrowse(s, controller)) return@later MediaSession.MediaItemsWithStartPosition(mediaItems.mapNotNull { library.resolve(it) }, startIndex, startPositionMs)
+                        // "Hey Google, play … on Spotifry", in the car or on the phone
+                        mediaItems.singleOrNull()?.requestMetadata?.searchQuery?.let { q ->
+                            val found = library.forQuery(q)
+                            if (found.isEmpty()) throw UnsupportedOperationException("nothing found for $q")
+                            return@later MediaSession.MediaItemsWithStartPosition(found, 0, C.TIME_UNSET)
+                        }
+                        library.wholeList(mediaItems)?.let { (items, at) -> MediaSession.MediaItemsWithStartPosition(items, at, C.TIME_UNSET) }
+                            ?: MediaSession.MediaItemsWithStartPosition(mediaItems.mapNotNull { library.resolve(it) }, startIndex, startPositionMs)
+                    }
+
                 override fun onConnect(s: MediaSession, controller: MediaSession.ControllerInfo) =
                     MediaSession.ConnectionResult.AcceptedResultBuilder(s).setAvailableSessionCommands(
-                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(SessionCommand(SMART_SHUFFLE, Bundle.EMPTY)).add(SessionCommand(SET_UPCOMING, Bundle.EMPTY)).build(),
+                        sessionCommands(mayBrowse(s, controller)),
                     ).build()
 
                 override fun onCustomCommand(s: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {
@@ -310,8 +375,17 @@ class PlaybackService : MediaSessionService() {
                             MediaSession.MediaItemsWithStartPosition(last.songs.map { it.toMediaItem() }, last.index, last.positionMs),
                         )
                     } ?: com.google.common.util.concurrent.Futures.immediateFailedFuture(UnsupportedOperationException("nothing played yet"))
-            })
+            }).setSessionActivity(open).setBitmapLoader(covers)
             .build()
+        // the car keeps a list it has shown: tell it when one changes, or a song just played never shows in Recently played
+        listOf(
+            CarLibrary.RECENT to db.history().observeRecent(),
+            CarLibrary.SAVED to db.songs().observeSaved(),
+            CarLibrary.MOST to db.plays().observeMostPlayed(50),
+            CarLibrary.PLAYLISTS to db.playlists().observePlaylists(),
+        ).forEach { (parent, rows) ->
+            scope.launch { rows.collect { session?.notifyChildrenChanged(parent, it.size, null) } }
+        }
         // the home screen widget follows the song, play/pause and the chosen colours
         var coverFor: String? = null
         player.addListener(object : Player.Listener {
@@ -556,7 +630,21 @@ class PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = session
 
+    /** Runs [block] on the service's scope and hands its result (or its failure) to the session. */
+    private fun <T> later(block: suspend () -> T): ListenableFuture<T> = com.google.common.util.concurrent.SettableFuture.create<T>().also { f ->
+        scope.launch { runCatching { block() }.fold({ f.set(it) }, { f.setException(it) }) }
+    }
+
     companion object {
+        /**
+         * What a controller may ask: the usual playback ones, the browsing ones Android Auto needs (without them its
+         * request for the library root is refused and it keeps reconnecting), and the app's own two. The browsing ones
+         * only when [browse] is true.
+         */
+        fun sessionCommands(browse: Boolean): SessionCommands =
+            (if (browse) MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS else MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS).buildUpon()
+                .add(SessionCommand(SMART_SHUFFLE, Bundle.EMPTY)).add(SessionCommand(SET_UPCOMING, Bundle.EMPTY)).build()
+
         private const val PREFETCH_AHEAD = 3
         /** Sent by the Now playing button to turn on Smart shuffle. */
         const val SMART_SHUFFLE = "com.spotifry.music.SMART_SHUFFLE"
