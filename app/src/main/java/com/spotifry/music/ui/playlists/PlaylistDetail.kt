@@ -373,7 +373,7 @@ private fun OrderButton(order: PlaylistOrder, onOrder: (PlaylistOrder) -> Unit, 
 
 /** Hold a song (or its handle) and drag it; the list scrolls by itself near the edges. Done or back saves. */
 @Composable
-private fun OrderEditor(songs: List<SongEntity>, bottomInset: Dp, onDone: (List<String>) -> Unit) {
+internal fun OrderEditor(songs: List<SongEntity>, bottomInset: Dp, onDone: (List<String>) -> Unit) {
     var list by remember(songs) { mutableStateOf(songs) }
     val listState = rememberLazyListState()
     val reorder = rememberReorderableLazyListState(listState) { from, to ->
@@ -388,7 +388,7 @@ private fun OrderEditor(songs: List<SongEntity>, bottomInset: Dp, onDone: (List<
             Button({ onDone(list.map { it.id }) }) { Text("Done") }
         }
         Text(
-            "Hold a song and drag it up or down.", Modifier.padding(start = 20.dp, top = 4.dp, bottom = 8.dp),
+            "Hold a song and drag it up or down. With TalkBack, use Move up and Move down on its handle.", Modifier.padding(start = 20.dp, top = 4.dp, bottom = 8.dp),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         LazyColumn(Modifier.weight(1f), listState, contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottomInset + 16.dp)) {
@@ -411,7 +411,7 @@ private fun OrderEditor(songs: List<SongEntity>, bottomInset: Dp, onDone: (List<
                                     if (at > 0) CustomAccessibilityAction("Move up") { list = list.moved(at, at - 1); true } else null,
                                     if (at < list.lastIndex) CustomAccessibilityAction("Move down") { list = list.moved(at, at + 1); true } else null,
                                 )
-                            }) { Icon(Icons.DragHandle, "Drag to move ${s.title}") }
+                            }) { Icon(Icons.DragHandle, "Move ${s.title}") }
                         }
                     }
                 }
