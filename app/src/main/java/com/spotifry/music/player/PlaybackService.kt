@@ -370,6 +370,15 @@ class PlaybackService : MediaLibraryService() {
                     } ?: com.google.common.util.concurrent.Futures.immediateFailedFuture(UnsupportedOperationException("nothing played yet"))
             }).setSessionActivity(open).setBitmapLoader(covers)
             .build()
+        // the car keeps a list it has shown: tell it when one changes, or a song just played never shows in Recently played
+        listOf(
+            CarLibrary.RECENT to db.history().observeRecent(),
+            CarLibrary.SAVED to db.songs().observeSaved(),
+            CarLibrary.MOST to db.plays().observeMostPlayed(50),
+            CarLibrary.PLAYLISTS to db.playlists().observePlaylists(),
+        ).forEach { (parent, rows) ->
+            scope.launch { rows.collect { session?.notifyChildrenChanged(parent, it.size, null) } }
+        }
         // the home screen widget follows the song, play/pause and the chosen colours
         var coverFor: String? = null
         player.addListener(object : Player.Listener {
