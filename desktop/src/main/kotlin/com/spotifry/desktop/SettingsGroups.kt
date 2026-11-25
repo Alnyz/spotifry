@@ -133,6 +133,7 @@ internal fun SoundGroup(services: Services, onEqualizer: () -> Unit) {
     val eqOn by s.eqOn.collectAsState()
     val eqPreset by s.eqPreset.collectAsState()
     val keep by lib.keepInTray.collectAsState()
+    val discord by lib.discord.collectAsState()
     Section("Quality") {
         Item("Save quality", "Songs you save to this computer") { Segments(listOf("High", "Low"), if (saveLow) 1 else 0) { s.setSaveLow(it == 1) } }
         Toggle("Lossless (Monochrome)", "FLAC, 5–10× the data. Unofficial, can stop working any day.", monochrome, s::setMonochrome)
@@ -157,6 +158,9 @@ internal fun SoundGroup(services: Services, onEqualizer: () -> Unit) {
         Item("Equalizer", if (eqOn) "On · ${eqPreset?.removePrefix(com.spotifry.music.player.AUTOEQ_PREFIX) ?: "Custom"}" else "Off", onClick = onEqualizer) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { Value("Open"); Icon(Icons.Chevron, null, Modifier.size(20.dp), tint = Palette.ink2) }
         }
+    }
+    if (DISCORD_APP_ID.isNotEmpty()) Section("Discord") {
+        Toggle("Show what you're playing", "Your Discord profile shows the song, artist and cover. Needs the Discord app open on this computer.", discord, lib::setDiscord)
     }
     Section("Window") {
         Toggle("Keep playing in the tray", "Closing the window hides it and the music goes on. Use Quit below to stop. Not every desktop shows the tray icon's menu.", keep, lib::setKeepInTray)

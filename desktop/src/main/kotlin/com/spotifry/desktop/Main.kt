@@ -159,6 +159,7 @@ fun productionServices(): Services {
     library.updates.checkDaily()
     // media keys and the desktop's player widget go through D-Bus, which only Linux has
     if (Platform.isLinux) services.mpris = Mpris.start(player, scope, player::setVolume, raise = { services.raise() }, quit = { services.quit() })
+    if (DISCORD_APP_ID.isNotEmpty()) scope.discordPresence(player, library.discord)
     return services
 }
 
