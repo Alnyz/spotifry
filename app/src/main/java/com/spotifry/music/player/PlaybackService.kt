@@ -289,6 +289,9 @@ class PlaybackService : MediaLibraryService() {
             song = { db.songs().get(it)?.toSong() },
             search = { c.source.search(it) },
         )
+        // the playback service is open to every app; what was played, saved and listed is not (the car, the system and the app itself only)
+        fun mayBrowse(s: MediaSession, controller: MediaSession.ControllerInfo) = controller.uid == android.os.Process.myUid() ||
+            controller.isTrusted || s.isAutoCompanionController(controller) || s.isAutomotiveController(controller)
         session = MediaLibrarySession.Builder(this, player, object : MediaLibrarySession.Callback {
                 // Android Auto and other browsers: the songs and playlists already on the phone (see CarLibrary)
                 override fun onGetLibraryRoot(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?) =
@@ -325,6 +328,8 @@ class PlaybackService : MediaLibraryService() {
                 // a song picked in a list in the car plays that whole list from the song
                 override fun onSetMediaItems(s: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>, startIndex: Int, startPositionMs: Long) =
                     later {
+                        // any other app only gets back what it asked for itself, never a list from the phone
+                        if (!mayBrowse(s, controller)) return@later MediaSession.MediaItemsWithStartPosition(mediaItems.mapNotNull { library.resolve(it) }, startIndex, startPositionMs)
                         // "Hey Google, play … on Spotifry", in the car or on the phone
                         mediaItems.singleOrNull()?.requestMetadata?.searchQuery?.let { q ->
                             val found = library.forQuery(q)
@@ -337,7 +342,7 @@ class PlaybackService : MediaLibraryService() {
 
                 override fun onConnect(s: MediaSession, controller: MediaSession.ControllerInfo) =
                     MediaSession.ConnectionResult.AcceptedResultBuilder(s).setAvailableSessionCommands(
-                        sessionCommands(),
+                        sessionCommands(mayBrowse(s, controller)),
                     ).build()
 
                 override fun onCustomCommand(s: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {
@@ -631,10 +636,11 @@ class PlaybackService : MediaLibraryService() {
     companion object {
         /**
          * What a controller may ask: the usual playback ones, the browsing ones Android Auto needs (without them its
-         * request for the library root is refused and it keeps reconnecting), and the app's own two.
+         * request for the library root is refused and it keeps reconnecting), and the app's own two. The browsing ones
+         * only when [browse] is true.
          */
-        fun sessionCommands(): SessionCommands =
-            MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+        fun sessionCommands(browse: Boolean): SessionCommands =
+            (if (browse) MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS else MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS).buildUpon()
                 .add(SessionCommand(SMART_SHUFFLE, Bundle.EMPTY)).add(SessionCommand(SET_UPCOMING, Bundle.EMPTY)).build()
 
         private const val PREFETCH_AHEAD = 3
