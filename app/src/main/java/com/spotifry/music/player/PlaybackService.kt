@@ -26,6 +26,7 @@ import androidx.media3.session.MediaLibraryService.LibraryParams
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
 import androidx.media3.exoplayer.source.ShuffleOrder
 import android.os.Bundle
@@ -322,7 +323,7 @@ class PlaybackService : MediaLibraryService() {
 
                 override fun onConnect(s: MediaSession, controller: MediaSession.ControllerInfo) =
                     MediaSession.ConnectionResult.AcceptedResultBuilder(s).setAvailableSessionCommands(
-                        MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(SessionCommand(SMART_SHUFFLE, Bundle.EMPTY)).add(SessionCommand(SET_UPCOMING, Bundle.EMPTY)).build(),
+                        sessionCommands(),
                     ).build()
 
                 override fun onCustomCommand(s: MediaSession, controller: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {
@@ -605,6 +606,14 @@ class PlaybackService : MediaLibraryService() {
     }
 
     companion object {
+        /**
+         * What a controller may ask: the usual playback ones, the browsing ones Android Auto needs (without them its
+         * request for the library root is refused and it keeps reconnecting), and the app's own two.
+         */
+        fun sessionCommands(): SessionCommands =
+            MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+                .add(SessionCommand(SMART_SHUFFLE, Bundle.EMPTY)).add(SessionCommand(SET_UPCOMING, Bundle.EMPTY)).build()
+
         private const val PREFETCH_AHEAD = 3
         /** Sent by the Now playing button to turn on Smart shuffle. */
         const val SMART_SHUFFLE = "com.spotifry.music.SMART_SHUFFLE"
