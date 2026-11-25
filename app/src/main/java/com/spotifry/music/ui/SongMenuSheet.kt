@@ -212,7 +212,7 @@ fun QueueList(
                                         if (onRemove != null) CustomAccessibilityAction("Remove from queue") { list = list - i; onRemove(i); true } else null,
                                     )
                                 },
-                            ) { Icon(Icons.DragHandle, "Drag to move ${s.title}") }
+                            ) { Icon(Icons.DragHandle, "Move ${s.title}") }
                             SongRow(s, s.id in saved, { onPick(i) }, if (s.suggested) { { onSuggestionMore(i) } } else null, Modifier.weight(1f).padding(start = 4.dp))
                         }
                     }

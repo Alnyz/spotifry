@@ -46,8 +46,8 @@ class QueueListTest {
     @Test fun onlyTheSongsComingUpCanBeMoved() {
         val queue = (0 until 3).map { Song("id$it", "Song $it", "Artist", 100, null) }
         compose.setContent { MusicTheme { QueueList(PlayerUiState(current = queue[0], queue = queue), onMove = { _, _ -> }, onRemove = {}, onPick = {}) } }
-        compose.onNodeWithContentDescription("Drag to move Song 0").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Drag to move Song 2").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Move Song 0").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Move Song 2").assertIsDisplayed()
     }
 
     /** The labels of the TalkBack actions on a node, and runs the one called [run] if given. */
@@ -64,11 +64,11 @@ class QueueListTest {
         val removed = mutableListOf<Int>()
         compose.setContent { MusicTheme { QueueList(PlayerUiState(current = queue[0], queue = queue), onMove = { a, b -> moves += a to b }, onRemove = { removed += it }, onPick = {}) } }
         // the first one up can only go down, the last only up
-        assertEquals(listOf("Move down", "Remove from queue"), actions("Drag to move Song 1"))
-        assertEquals(listOf("Move up", "Remove from queue"), actions("Drag to move Song 3"))
-        actions("Drag to move Song 1", run = "Move down")
+        assertEquals(listOf("Move down", "Remove from queue"), actions("Move Song 1"))
+        assertEquals(listOf("Move up", "Remove from queue"), actions("Move Song 3"))
+        actions("Move Song 1", run = "Move down")
         assertEquals(listOf(1 to 2), moves)
-        actions("Drag to move Song 3", run = "Remove from queue")
+        actions("Move Song 3", run = "Remove from queue")
         assertEquals(listOf(3), removed)
     }
 }
