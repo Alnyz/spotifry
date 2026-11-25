@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import com.spotifry.music.data.discord.DISCORD_APP_ID
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.window.Tray
 import androidx.compose.runtime.LaunchedEffect

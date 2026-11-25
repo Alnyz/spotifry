@@ -1,7 +1,8 @@
 package com.spotifry.desktop
 
+import com.spotifry.music.data.discord.DISCORD_APP_ID
+import com.spotifry.music.data.discord.DiscordActivity
 import com.spotifry.music.player.MusicPlayer
-import com.spotifry.music.player.PlayerUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -19,46 +20,6 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.Channels
 import java.nio.channels.SocketChannel
-import kotlin.math.abs
-
-/** The id of "Spotifry" on Discord's developer site. Public, not a secret. While empty, the setting is not shown. */
-const val DISCORD_APP_ID = "1575113956924588182"
-
-/** The app's logo, which Discord fetches itself, so it has to be a public picture. */
-private const val LOGO = "https://raw.githubusercontent.com/Alnyz/spotifry/main/desktop/packaging/spotifry.png"
-
-/** What the profile shows. [startMs] is the clock time the song would have started at, which Discord counts from. */
-data class DiscordActivity(val title: String, val artist: String, val cover: String?, val startMs: Long, val endMs: Long?) {
-    /** The same card: a few hundred ms of drift in the start is not a change, a seek is. */
-    fun sameAs(other: DiscordActivity?) = other != null && copy(startMs = 0, endMs = null) == other.copy(startMs = 0, endMs = null) &&
-        abs(startMs - other.startMs) < 3_000 && (endMs == null) == (other.endMs == null)
-
-    fun json(): JSONObject {
-        // Discord refuses texts shorter than 2 or longer than 128 characters
-        fun fit(text: String) = text.take(128).padEnd(2)
-        val o = JSONObject().put("type", 2).put("details", fit(title))
-            .put("timestamps", JSONObject().put("start", startMs).apply { endMs?.let { put("end", it) } })
-        if (artist.isNotBlank()) o.put("state", fit(artist))
-        // the logo sits on the cover's corner, or takes its place when there is no cover to show
-        val assets = JSONObject().put("large_image", cover ?: LOGO)
-        if (cover != null) assets.put("small_image", LOGO).put("small_text", "Spotifry")
-        o.put("assets", assets)
-        // Discord shows it to other people only, never on your own card
-        o.put("buttons", org.json.JSONArray().put(JSONObject().put("label", "Get Spotifry").put("url", "https://alnyz.github.io/spotifry/")))
-        return o
-    }
-
-    companion object {
-        /** Null when nothing should show: nothing playing, paused or finished. */
-        fun of(s: PlayerUiState, positionMs: Long, now: Long): DiscordActivity? {
-            val song = s.current ?: return null
-            if (!s.wantsPlay || s.ended || s.failed) return null
-            val start = now - positionMs
-            // covers kept on this computer can't be shown: Discord fetches the picture itself
-            return DiscordActivity(song.title, song.artist, song.thumbnailUrl?.takeIf { it.startsWith("https://") }, start, if (s.durationMs > 0) start + s.durationMs else null)
-        }
-    }
-}
 
 /** The local connection to the Discord app on this computer: each message is a type, a length and that much JSON. */
 class DiscordIpc private constructor(private val read: (ByteArray) -> Unit, private val write: (ByteArray) -> Unit, private val closer: Closeable) : Closeable {

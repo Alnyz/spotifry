@@ -81,12 +81,39 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp, o
                 NavRow(com.spotifry.music.ui.Icons.Storage, "Storage & backup", storage?.let { "${Formatter.formatShortFileSize(context, it.savedBytes + it.songCacheBytes + it.coverBytes + it.dbBytes)} used by Spotifry" } ?: "Counting…") { onOpen(Routes.STORAGE) }
                 NavRow(com.spotifry.music.ui.Icons.History, "History", "Searches and listening history") { onOpen(Routes.SETTINGS_HISTORY) }
             }
+            DiscordGroup()
             Group("") {
                 NavRow(com.spotifry.music.ui.Icons.Info, "About", "Version ${BuildConfig.VERSION_NAME}" + if (checked > 0) " · checked ${checkedText(checked)}" else "") { onOpen(Routes.SETTINGS_ABOUT) }
                 NavRow(com.spotifry.music.ui.Icons.Note, "Change log", "What's new in each version") { onOpen(Routes.SETTINGS_CHANGELOG) }
             }
         }
     }
+}
+
+/** Connect or disconnect the Discord profile card. Connecting says first what the user is taking on. */
+@Composable
+private fun DiscordGroup() {
+    val context = LocalContext.current
+    val discord = (context.applicationContext as com.spotifry.music.MusicApp).container.discord
+    val connected by discord.connected.collectAsStateWithLifecycle()
+    var asking by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    Group("") {
+        NavRow(com.spotifry.music.ui.Icons.Note, if (connected) "Disconnect Discord" else "Connect Discord", if (connected) "Your profile shows what you're playing" else "Show what you're playing on your profile") {
+            if (connected) discord.disconnect() else asking = true
+        }
+    }
+    if (asking) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { asking = false },
+        title = { Text("Connect Discord?") },
+        text = { Text("Your Discord profile will show the song, artist and cover while you play. Others can see it.\n\nThis is unofficial on phones: it can stop working, and Discord could act against accounts that use it. Use it at your own risk.") },
+        confirmButton = {
+            androidx.compose.material3.TextButton({
+                asking = false
+                runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, discord.signInPage())) }
+            }) { Text("Connect") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton({ asking = false }) { Text("Cancel") } },
+    )
 }
 
 /** Shown only when a newer version is out (or being fetched). */

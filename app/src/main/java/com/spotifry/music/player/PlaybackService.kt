@@ -312,6 +312,16 @@ class PlaybackService : MediaSessionService() {
                     } ?: com.google.common.util.concurrent.Futures.immediateFailedFuture(UnsupportedOperationException("nothing played yet"))
             })
             .build()
+        // the playing song on the user's Discord profile, when they have connected it
+        scope.launch {
+            c.discord.follow {
+                val item = player.currentMediaItem
+                if (item == null || !player.playWhenReady || player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) null
+                else item.toSong().let { s ->
+                    com.spotifry.music.data.discord.DiscordActivity.of(s.title, s.artist, s.thumbnailUrl, player.currentPosition, player.duration.coerceAtLeast(0), System.currentTimeMillis())
+                }
+            }
+        }
         // the home screen widget follows the song, play/pause and the chosen colours
         var coverFor: String? = null
         player.addListener(object : Player.Listener {

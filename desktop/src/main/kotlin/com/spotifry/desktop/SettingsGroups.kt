@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import com.spotifry.music.data.discord.DISCORD_APP_ID
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable

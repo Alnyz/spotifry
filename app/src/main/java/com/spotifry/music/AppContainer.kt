@@ -103,6 +103,7 @@ class AppContainer(private val context: Context) {
     val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
     val settings = Settings(prefs)
         .also { s -> com.spotifry.music.player.trimOf = { com.spotifry.music.player.trimFor(trims[it], smartTrims[it], s.smartTrim.value) } }
+    val discord = com.spotifry.music.data.discord.PhoneDiscord(client, context.noBackupFilesDir)
     val radioBrowser = com.spotifry.music.data.source.RadioBrowser(client)
     val radioFavourites = com.spotifry.music.data.RadioFavourites(prefs.asPrefs())
     val artistLogos by lazy { com.spotifry.music.data.spotifried.ArtistLogos(client, java.io.File(context.cacheDir, "artist_logos_official"), apiUserAgent, { settings.fanartKey.value }) }

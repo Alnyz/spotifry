@@ -1,5 +1,6 @@
 package com.spotifry.desktop
 
+import com.spotifry.music.data.discord.DiscordActivity
 import com.spotifry.music.data.source.Song
 import com.spotifry.music.player.PlayerUiState
 import org.json.JSONObject
