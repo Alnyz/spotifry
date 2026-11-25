@@ -121,13 +121,14 @@ class RendererFinder(
             val doc = runCatching {
                 safeXml().newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray(Charsets.UTF_8)))
             }.getOrNull() ?: return null
-            // URLBase is old (UPnP 1.0) but some TVs still send it; otherwise addresses are relative to the description
+            // URLBase is old (UPnP 1.0) but some TVs still send it; otherwise addresses are relative to the description.
+            // Either way they must stay on the machine the description came from (see resolve).
             val base = doc.getElementsByTagNameNS("*", "URLBase").item(0)?.textContent?.trim()?.takeIf { it.isNotEmpty() } ?: location
             val devices = doc.getElementsByTagNameNS("*", "device").elements()
             // the renderer can be the main device or one inside it (a TV that is also a media server, say)
             val device = devices.firstOrNull { it.child("deviceType")?.startsWith("urn:schemas-upnp-org:device:MediaRenderer:") == true } ?: return null
             val services = device.getElementsByTagNameNS("*", "service").elements()
-            fun control(type: String) = services.firstOrNull { it.child("serviceType")?.startsWith(type) == true }?.child("controlURL")?.let { resolve(base, it) }
+            fun control(type: String) = services.firstOrNull { it.child("serviceType")?.startsWith(type) == true }?.child("controlURL")?.let { resolve(base, it, location) }
             val transport = control(AV_TRANSPORT) ?: return null
             return Renderer(
                 id = device.child("UDN") ?: location,
@@ -138,10 +139,19 @@ class RendererFinder(
             )
         }
 
-        private fun resolve(base: String, path: String): String? = runCatching { URI(base).resolve(path.trim()).toString() }.getOrNull()
+        /**
+         * Only an address on the device itself: play and volume go to whatever the description says, so a device
+         * could otherwise make the phone send them to any other machine on the network.
+         */
+        private fun resolve(base: String, path: String, location: String): String? = runCatching {
+            val home = URI(location)
+            URI(base).resolve(path.trim()).takeIf {
+                (it.scheme == "http" || it.scheme == "https") && it.host.equals(home.host, ignoreCase = true)
+            }?.toString()
+        }.getOrNull()
 
         /** A parser that never fetches anything the description points to: it comes from any device on the network. */
-        private fun safeXml() = DocumentBuilderFactory.newInstance().apply {
+        internal fun safeXml() = DocumentBuilderFactory.newInstance().apply {
             isNamespaceAware = true
             isExpandEntityReferences = false
             runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
