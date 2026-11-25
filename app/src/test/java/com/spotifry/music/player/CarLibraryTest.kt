@@ -75,4 +75,16 @@ class CarLibraryTest {
         assertEquals(listOf("web1"), library.forQuery("adele").map { it.mediaId })
         assertEquals(listOf("adele"), searched)
     }
+
+    @Test fun theCarsSearchBoxListsResultsThatCanBePlayed() = runBlocking {
+        val results = library.searchResults("adele")
+        assertEquals(listOf("search|web1"), results.map { it.mediaId })
+        assertTrue(results.single().mediaMetadata.isPlayable == true)
+        assertEquals(results.map { it.mediaId }, library.children(CarLibrary.SEARCH)!!.map { it.mediaId })
+        // a song from the web search isn't on the phone, and still plays when picked
+        val (items, at) = library.wholeList(listOf(MediaItem.Builder().setMediaId("search|web1").build()))!!
+        assertEquals(listOf("web1"), items.map { it.mediaId })
+        assertEquals(0, at)
+        assertEquals("web1", library.resolve(MediaItem.Builder().setMediaId("search|web1").build())!!.mediaId)
+    }
 }

@@ -57,22 +57,38 @@ class CarLibrary(
      * What a voice request like "play Adele on Spotifry" plays. Nothing named: what was played lately. Otherwise the
      * songs on the phone whose title or artist match, and only when none do, a search like the app's own.
      */
-    suspend fun forQuery(query: String): List<MediaItem> {
+    suspend fun forQuery(query: String): List<MediaItem> = found(query).map { it.toMediaItem() }
+
+    /**
+     * The search box in the car: the same songs as a voice request, shown as a list. They're kept until the next
+     * search, so picking one plays the whole list from there, even songs that came from the web search.
+     */
+    suspend fun searchResults(query: String): List<MediaItem> {
+        val songs = found(query).also { lastSearch = it }
+        return songs.map { playable(SEARCH, it) }
+    }
+
+    private var lastSearch: List<Song> = emptyList()
+
+    private suspend fun found(query: String): List<Song> {
         val q = query.trim()
-        if (q.isEmpty()) return recent().ifEmpty { saved() }.map { it.toMediaItem() }
+        if (q.isEmpty()) return recent().ifEmpty { saved() }
         val mine = (saved() + recent() + mostPlayed()).distinctBy { it.id }
             .filter { it.title.contains(q, ignoreCase = true) || it.artist.contains(q, ignoreCase = true) }
-        return mine.ifEmpty { runCatching { search(q) }.getOrDefault(emptyList()).take(20) }.map { it.toMediaItem() }
+        return mine.ifEmpty { runCatching { search(q) }.getOrDefault(emptyList()).take(20) }
     }
 
     /** An item that can play as it is (the app's own queue) is kept; one known only by its id is looked up. */
     suspend fun resolve(item: MediaItem): MediaItem? =
-        if (item.localConfiguration != null) item else song(item.mediaId.substringAfter(SEP))?.toMediaItem()
+        if (item.localConfiguration != null) item else item.mediaId.substringAfter(SEP).let { id ->
+            (song(id) ?: lastSearch.firstOrNull { it.id == id })?.toMediaItem()
+        }
 
     private suspend fun songsOf(parentId: String): List<Song>? = when {
         parentId == RECENT -> recent()
         parentId == SAVED -> saved()
         parentId == MOST -> mostPlayed()
+        parentId == SEARCH -> lastSearch
         parentId.startsWith(PLAYLIST) -> parentId.removePrefix(PLAYLIST).toLongOrNull()?.let { playlist(it) }
         else -> null
     }
@@ -94,6 +110,7 @@ class CarLibrary(
         const val SAVED = "saved"
         const val MOST = "most"
         const val PLAYLISTS = "playlists"
+        const val SEARCH = "search"
         const val PLAYLIST = "playlist/"
         const val SEP = '|'
     }

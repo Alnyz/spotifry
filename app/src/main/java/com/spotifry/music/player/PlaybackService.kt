@@ -304,6 +304,20 @@ class PlaybackService : MediaLibraryService() {
                 override fun onGetItem(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, mediaId: String) =
                     later { library.item(mediaId)?.let { LibraryResult.ofItem(it, null) } ?: LibraryResult.ofError(SessionError.ERROR_BAD_VALUE) }
 
+                // the search box in the car: answer at once, then say how many came back so it asks for them
+                override fun onSearch(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String, params: LibraryParams?) =
+                    later {
+                        val found = library.searchResults(query)
+                        s.notifySearchResultChanged(browser, query, found.size, params)
+                        LibraryResult.ofVoid()
+                    }
+
+                override fun onGetSearchResult(s: MediaLibrarySession, browser: MediaSession.ControllerInfo, query: String, page: Int, pageSize: Int, params: LibraryParams?) =
+                    later {
+                        val all = library.children(CarLibrary.SEARCH).orEmpty()
+                        LibraryResult.ofItemList(if (pageSize > 0) all.drop(page * pageSize).take(pageSize) else all, params)
+                    }
+
                 // the app's own queue arrives ready to play; a song picked in the car arrives as an id and is looked up
                 override fun onAddMediaItems(s: MediaSession, controller: MediaSession.ControllerInfo, mediaItems: MutableList<MediaItem>) =
                     later { mediaItems.mapNotNull { library.resolve(it) }.toMutableList() }
