@@ -1,6 +1,9 @@
 package com.spotifry.music.data.source
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.Page
@@ -89,7 +92,28 @@ class NewPipeSource : MusicSource {
         // a file on the phone has no YouTube id: find the song on YouTube by name and artist, then its similar songs
         if (song.isLocal) return@withContext search("${song.title} ${song.artist}").firstOrNull()?.let { related(it) }.orEmpty()
         val mix = runCatching { PlaylistInfo.getInfo(YouTube, "${song.url}&list=RDAMVM${song.id}").relatedItems.toSongs() }.getOrNull()
-        (mix?.takeIf { it.size > 1 } ?: StreamInfo.getInfo(YouTube, song.url).relatedItems.toSongs()).filter { it.id != song.id }
+        val found = (mix?.takeIf { it.size > 1 } ?: StreamInfo.getInfo(YouTube, song.url).relatedItems.toSongs()).filter { it.id != song.id }
+        cleanSongsFor(found).filter { it.id != song.id }
+    }
+
+    /**
+     * Music video uploads ("Artist X Artist - Song (Official Music Video)") swapped for the plain song, found in YouTube
+     * Music's songs: a clean name, the song's own length and no video intro, so lyrics match too. A video with no song
+     * version, or a search that fails or takes over 4 s, stays as it was.
+     */
+    private suspend fun cleanSongsFor(songs: List<Song>): List<Song> = kotlinx.coroutines.coroutineScope {
+        val gate = kotlinx.coroutines.sync.Semaphore(4)
+        val swapped = songs.map { s ->
+            async {
+                if (!looksLikeVideo(s)) return@async s
+                gate.withPermit {
+                    kotlinx.coroutines.withTimeoutOrNull(4_000) {
+                        runCatching { songVersionOf(s, find(songQuery(s), SearchType.SONGS).toSongs()) }.getOrNull()
+                    }
+                } ?: s
+            }
+        }.awaitAll()
+        swapped.distinctBy { it.id }
     }
 
     private fun expiryOf(url: String): Long {
@@ -141,4 +165,29 @@ fun albumKind(title: String): Pair<String, String> =
 /** The first search result that is the same song as [song] under another id: same title, about the same length. */
 fun copyOf(song: Song, results: List<Song>): Song? = results.firstOrNull {
     it.id != song.id && it.title.trim().equals(song.title.trim(), ignoreCase = true) && kotlin.math.abs(it.durationSec - song.durationSec) <= 3
+}
+
+/** A music video upload rather than the song: its name carries packaging ("(Official Music Video)", "Artist - ") a song's doesn't. */
+fun looksLikeVideo(song: Song): Boolean =
+    !song.isLocal && !song.artist.endsWith(" - Topic") && (" - " in song.title || VIDEO_WORDS.containsMatchIn(song.title))
+
+private val VIDEO_WORDS = Regex("""(?i)\bofficial\b|\bvideo\b|\bm/?v\b|\blyrics?\b|\bvisuali[sz]er\b|[|｜]""")
+
+/** What to search YouTube Music's songs for: the artist and the song's own name. */
+fun songQuery(video: Song) =
+    "${com.spotifry.music.data.artistForLyrics(video.artist)} ${com.spotifry.music.data.titleForLyrics(video.title, video.artist)}"
+
+/**
+ * The song version of a music video among [results]: the same name ("Satru (feat. Happy Asmara)" for "… - SATRU
+ * (Official Music Video)", never "Satru 2"), an artist sharing a word with the video's channel or title, and no longer
+ * than the video (videos add an intro, songs don't add anything). Null when none fits.
+ */
+fun songVersionOf(video: Song, results: List<Song>): Song? {
+    val name = com.spotifry.music.data.titleForLyrics(video.title, video.artist)
+    fun words(s: String) = s.lowercase().split(Regex("""[^\p{L}\p{N}]+""")).filter { it.length >= 3 }.toSet()
+    val ours = words(video.artist) + words(video.title.substringBefore(" - ", ""))
+    return results.firstOrNull { r ->
+        r.id != video.id && com.spotifry.music.data.LyricsSource.nearlySameTitle(com.spotifry.music.data.titleForLyrics(r.title, r.artist), name) &&
+            words(r.artist).any { it in ours } && r.durationSec in (video.durationSec - 120)..(video.durationSec + 5)
+    }
 }
