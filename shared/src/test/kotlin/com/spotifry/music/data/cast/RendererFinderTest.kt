@@ -75,6 +75,19 @@ class RendererFinderTest {
         assertEquals("http://192.168.1.20:8080/upnp/control/transport", r.transport)
     }
 
+    @Test fun playAndVolumeOnlyGoToTheDeviceItself() {
+        val elsewhere = description()
+            .replace("upnp/control/transport", "http://192.168.1.99/transport")
+            .replace("/upnp/control/rendering", "file:///etc/passwd")
+        // a device can't point the phone's commands at another machine, or at something that isn't web
+        assertNull(RendererFinder.parseDescription(elsewhere, "http://192.168.1.20:9197/desc.xml"))
+        val volumeOnly = description().replace("/upnp/control/rendering", "http://192.168.1.99/rendering")
+        assertNull(RendererFinder.parseDescription(volumeOnly, "http://192.168.1.20:9197/desc.xml")!!.volume)
+        // the old URLBase can't move them either
+        val base = description(base = "<URLBase>http://192.168.1.99/</URLBase>")
+        assertNull(RendererFinder.parseDescription(base, "http://192.168.1.20:9197/desc.xml"))
+    }
+
     @Test fun aDeviceThatCantPlayIsSkipped() {
         assertNull(RendererFinder.parseDescription(description(type = "urn:schemas-upnp-org:device:MediaServer:1"), "http://192.168.1.20/d"))
         assertNull(RendererFinder.parseDescription(description().replace("AVTransport", "Other"), "http://192.168.1.20/d"))
