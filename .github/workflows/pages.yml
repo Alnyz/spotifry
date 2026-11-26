@@ -21,6 +21,8 @@ concurrency:
 
 jobs:
   deploy:
+    # the Mac beta is a pre-release: it changes nothing on the page, and its tag may not publish the site
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     environment:
       name: github-pages
