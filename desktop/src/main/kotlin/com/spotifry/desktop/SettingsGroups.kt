@@ -334,8 +334,10 @@ internal fun HistoryGroup(services: Services, onClearHistory: () -> Unit) {
 
 @Composable
 internal fun AboutGroup(services: Services) {
+    val links = androidx.compose.ui.platform.LocalUriHandler.current
     Section(null) {
         UpdateRow(services)
+        Item("Discord server", "Questions, bug reports and ideas.", onClick = { runCatching { links.openUri("https://discord.gg/HXEdru9u2y") } })
         Item("Music from YouTube", "Through NewPipe Extractor $NEWPIPE_VERSION.")
         // the photos' licences ask for the photographer and the licence to be named
         Item("Home pictures", "Photos from Wikimedia Commons: morning by Jakub Hałun (CC BY-SA 4.0), afternoon by PattayaPatrol (CC BY-SA 4.0), evening by Martin St-Amant (CC BY-SA 3.0), night by Vincent Lock (CC BY 2.0).")

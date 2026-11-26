@@ -264,6 +264,10 @@ fun AboutSettings(updates: com.spotifry.music.data.Updates, errorLog: com.spotif
             Item("Lyrics", "Each source gets the song's title, artist and length.")
             if (BUILT_IN_LOGOS) Item("Artist logos", "Official logos from fanart.tv.")
         }
+        val links = androidx.compose.ui.platform.LocalUriHandler.current
+        Group("Community") {
+            Item("Discord server", "Questions, bug reports and ideas.", onClick = { runCatching { links.openUri("https://discord.gg/HXEdru9u2y") } })
+        }
         ErrorLogGroup(errorLog)
     }
 }
