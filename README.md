@@ -6,7 +6,7 @@
 [![Android 7 or newer, Linux, Windows](https://img.shields.io/badge/Android%207%2B%20%C2%B7%20Linux%20%C2%B7%20Windows-FF8A3D?style=for-the-badge&labelColor=2B1408)](#download)
 [![GPL-3.0 license](https://img.shields.io/badge/license-GPL--3.0-FF8A3D?style=for-the-badge&labelColor=2B1408)](LICENSE)
 
-[**Website**](https://alnyz.github.io/spotifry/) · [**Download**](#download) · [**Features**](#features) · [**Disclaimer**](#disclaimer) · [**Build**](#build)
+[**Website**](https://alnyz.github.io/spotifry/) · [**Download**](#download) · [**Features**](#features) · [**Disclaimer**](#disclaimer) · [**Build**](#build) · [**Discord**](https://discord.gg/HXEdru9u2y)
 
 </div>
 
