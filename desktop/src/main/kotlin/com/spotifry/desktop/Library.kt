@@ -21,6 +21,7 @@ import java.io.File
 
 const val HOME_PICTURE_KEY = "desktop_home_picture"
 const val KEEP_IN_TRAY_KEY = "desktop_keep_in_tray"
+const val DISCORD_KEY = "desktop_discord_presence"
 const val APP_VERSION = "desktop-1.3.0"
 /** The same version as gradle/libs.versions.toml, for the About line. */
 const val NEWPIPE_VERSION = "v0.26.5"
@@ -66,6 +67,10 @@ class Library(
     /** Closing the window hides it and the music goes on, with an icon in the tray. Off by default; a desktop-only setting. */
     val keepInTray = kotlinx.coroutines.flow.MutableStateFlow(prefs.getBoolean(KEEP_IN_TRAY_KEY, false))
     fun setKeepInTray(on: Boolean) { prefs.edit().putBoolean(KEEP_IN_TRAY_KEY, on).apply(); keepInTray.value = on }
+
+    /** The playing song shows on your Discord profile. Off by default: others see it. */
+    val discord = kotlinx.coroutines.flow.MutableStateFlow(prefs.getBoolean(DISCORD_KEY, false))
+    fun setDiscord(on: Boolean) { prefs.edit().putBoolean(DISCORD_KEY, on).apply(); discord.value = on }
 
     val recorder = PlayRecorder(history, listenLog) { id -> db.plays().count(id, System.currentTimeMillis()) }
 

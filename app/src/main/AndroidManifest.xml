@@ -47,6 +47,15 @@
                 <data android:mimeType="text/plain"/>
             </intent-filter>
         </activity>
+        <!-- Discord's page sends the answer to "Connect Discord" back here -->
+        <activity android:name=".data.discord.DiscordRedirectActivity" android:exported="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="discord-1575113956924588182"/>
+            </intent-filter>
+        </activity>
         <service
             android:name=".player.PlaybackService"
             android:exported="true"
