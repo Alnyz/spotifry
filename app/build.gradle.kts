@@ -24,6 +24,8 @@ android {
         versionName = "1.4.0"
         // shown under Settings > About, so it is clear when the YouTube reader is due an update
         buildConfigField("String", "NEWPIPE_VERSION", "\"${libs.versions.newpipe.get()}\"")
+        // fanart.tv's key for this app (public on purpose: it only reads public logos); empty = listeners bring their own
+        buildConfigField("String", "FANART_PROJECT_KEY", "\"${providers.gradleProperty("fanartProjectKey").getOrElse("")}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {

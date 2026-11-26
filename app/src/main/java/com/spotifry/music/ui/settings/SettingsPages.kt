@@ -131,7 +131,11 @@ fun LookSettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp) {
             }
         }
         Group("Artist pages") {
-            Item("Artist logos", if (fanartKey.isNotEmpty()) "On" else "Add a free fanart.tv key to show official artist logos", onClick = { editKey = fanartKey }) { Chevron() }
+            Item(
+                "Artist logos",
+                when { BUILT_IN_LOGOS && fanartKey.isNotEmpty() -> "On · with your own fanart.tv key"; BUILT_IN_LOGOS || fanartKey.isNotEmpty() -> "On"; else -> "Add a free fanart.tv key to show official artist logos" },
+                onClick = { editKey = fanartKey },
+            ) { Chevron() }
         }
     }
     if (pickAccent) AccentPicker(accent, accentColor, { c, color -> s.setAccent(c, color); pickAccent = false }, { pickAccent = false })
@@ -142,7 +146,10 @@ fun LookSettings(vm: SettingsViewModel, onBack: () -> Unit, bottomInset: Dp) {
             title = { Text("Artist logos") },
             text = {
                 androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-                    Text("With your own fanart.tv key, artist pages show the artist's official logo when there is one. Leave it empty to turn this off.")
+                    Text(
+                        if (BUILT_IN_LOGOS) "Artist pages show the artist's official logo from fanart.tv when there is one. Your own fanart.tv key is optional: with it, new logos show up sooner."
+                        else "With your own fanart.tv key, artist pages show the artist's official logo when there is one. Leave it empty to turn this off.",
+                    )
                     androidx.compose.material3.OutlinedTextField(
                         text, { editKey = it.trim() }, singleLine = true, label = { Text("fanart.tv key") },
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrectEnabled = false),
@@ -255,10 +262,14 @@ fun AboutSettings(updates: com.spotifry.music.data.Updates, errorLog: com.spotif
             )
             Item("Music from YouTube", "Through NewPipe Extractor ${BuildConfig.NEWPIPE_VERSION}.")
             Item("Lyrics", "Each source gets the song's title, artist and length.")
+            if (BUILT_IN_LOGOS) Item("Artist logos", "Official logos from fanart.tv.")
         }
         ErrorLogGroup(errorLog)
     }
 }
+
+/** Spotifry carries its own fanart.tv key, so official logos need nothing from the listener. */
+private val BUILT_IN_LOGOS = BuildConfig.FANART_PROJECT_KEY.isNotEmpty()
 
 /** Copies what went wrong lately, for a bug report. Nothing leaves the phone unless the person pastes it somewhere. */
 @Composable

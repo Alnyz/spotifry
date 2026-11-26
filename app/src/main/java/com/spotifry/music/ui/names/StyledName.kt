@@ -1,5 +1,6 @@
 package com.spotifry.music.ui.names
 
+import androidx.compose.animation.togetherWith
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -66,7 +67,22 @@ fun StyledName(name: String, shown: Shown, logo: File?, ink: Color, glow: Color,
         value = if (shown is Shown.Text || logo == null) null
         else withContext(Dispatchers.IO) { runCatching { BitmapFactory.decodeFile(logo.path)?.asImageBitmap() }.getOrNull() }
     }
-    val pic = picture
+    // the official logo arrives a moment after the page opens: it fades in over the name instead of popping in
+    androidx.compose.animation.AnimatedContent(
+        picture, modifier, label = "name",
+        contentAlignment = Alignment.BottomCenter,
+        transitionSpec = {
+            (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(450, delayMillis = 90)) +
+                androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(450, delayMillis = 90), initialScale = .94f))
+                .togetherWith(androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(200)))
+                .using(androidx.compose.animation.SizeTransform(clip = false))
+        },
+    ) { pic -> NameOrLogo(name, shown, pic, tint, ink, glow, size, fallback) }
+}
+
+@Composable
+private fun NameOrLogo(name: String, shown: Shown, pic: ImageBitmap?, tint: Boolean, ink: Color, glow: Color, size: TextUnit, fallback: NameStyle) {
+    val modifier = Modifier
     if (pic != null) {
         // never drawn bigger than the picture itself: stretching makes it soft
         val (w, h) = with(LocalDensity.current) { minOf(300.dp, pic.width.toDp()) to minOf(118.dp, pic.height.toDp()) }

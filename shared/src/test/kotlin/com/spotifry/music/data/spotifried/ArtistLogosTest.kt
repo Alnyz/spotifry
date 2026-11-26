@@ -57,11 +57,13 @@ class ArtistLogosTest {
 
     @After fun stop() = runCatching { server.shutdown() }.let { }
 
+    private var project = ""
+
     private fun logos(): ArtistLogos {
         val base = server.url("/").toString().trimEnd('/')
         // a closed port: the connection fails, as on networks that can't reach MusicBrainz
         val mb = if (mbDown) "http://127.0.0.1:1" else base
-        return ArtistLogos(OkHttpClient(), dir, "Spotifry/1 (test)", { key }, mb, base, { t }, pause = {}, wikidataBase = base)
+        return ArtistLogos(OkHttpClient(), dir, "Spotifry/1 (test)", { key }, mb, base, { t }, pause = {}, wikidataBase = base, projectKey = project)
     }
 
     @Test fun picksHdLogoWithMostLikes() = runBlocking {
@@ -71,6 +73,20 @@ class ArtistLogosTest {
     @Test fun fallsBackToMusicLogo() = runBlocking {
         fanart = MockResponse().setBody("""{"musiclogo":[{"url":"URL/m","likes":"1"}]}""")
         assertArrayEquals(png(1), logos().logo("radiohead - Topic")!!.readBytes())
+    }
+
+    @Test fun projectKeyWorksWithoutTheListenersKey() = runBlocking {
+        key = ""; project = "app"
+        assertArrayEquals(png(9), logos().logo("Radiohead")!!.readBytes())
+        val asked = generateSequence { server.takeRequest(0, java.util.concurrent.TimeUnit.SECONDS) }.map { it.path!! }.first { it.startsWith("/v3/music") }
+        assertTrue(asked, "api_key=app" in asked && "client_key" !in asked)
+    }
+
+    @Test fun listenersKeyGoesAlongAsClientKey() = runBlocking {
+        key = "mine"; project = "app"
+        logos().logo("Radiohead")
+        val asked = generateSequence { server.takeRequest(0, java.util.concurrent.TimeUnit.SECONDS) }.map { it.path!! }.first { it.startsWith("/v3/music") }
+        assertTrue(asked, "api_key=app" in asked && "client_key=mine" in asked)
     }
 
     @Test fun noKeyMakesNoRequest() = runBlocking {

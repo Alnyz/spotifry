@@ -22,7 +22,9 @@ private val BUSY_WAITS_MS = listOf(1_500L, 3_000L, 5_000L)
 const val NO_LOGO_DAYS = 30
 
 /**
- * Official artist logos: the artist's MusicBrainz id, then fanart.tv's logos for it, with the listener's own [key].
+ * Official artist logos: the artist's MusicBrainz id, then fanart.tv's logos for it. fanart.tv asks for the app's own
+ * [projectKey]; the listener's own [key] is optional and goes along as their personal key (newer logos show up sooner).
+ * With no project key, the listener's key alone does the job.
  * Logos and "none found" markers are kept in [dir]. Only a clear "no match" leaves a marker; a refused key, a limit or a
  * network problem leaves nothing, so the next visit asks again.
  */
@@ -36,6 +38,7 @@ class ArtistLogos(
     private val clock: () -> Long = System::currentTimeMillis,
     private val pause: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
     private val wikidataBase: String = "https://www.wikidata.org",
+    private val projectKey: String = "",
 ) {
     private sealed interface Answer {
         data class Logo(val url: String) : Answer
@@ -46,7 +49,7 @@ class ArtistLogos(
     suspend fun logo(artist: String): File? = withContext(Dispatchers.IO) {
         val k = key().trim()
         val want = plain(artist)
-        if (k.isEmpty() || want.isEmpty()) return@withContext null
+        if ((k.isEmpty() && projectKey.isEmpty()) || want.isEmpty()) return@withContext null
         val id = sha1(want)
         val file = File(dir, "$id.png")
         val none = File(dir, "$id.none")
@@ -120,7 +123,9 @@ class ArtistLogos(
     }
 
     private suspend fun fanartLogo(mbid: String, k: String): Answer {
-        val url = fanartBase.toHttpUrl().newBuilder().addPathSegments("v3/music").addPathSegment(mbid).addQueryParameter("api_key", k).build()
+        val url = fanartBase.toHttpUrl().newBuilder().addPathSegments("v3/music").addPathSegment(mbid)
+            .addQueryParameter("api_key", projectKey.ifEmpty { k })
+            .apply { if (projectKey.isNotEmpty() && k.isNotEmpty()) addQueryParameter("client_key", k) }.build()
         return client.newCall(Request.Builder().url(url).header("User-Agent", userAgent).build()).read { r ->
             when {
                 r.code == 404 -> Answer.None

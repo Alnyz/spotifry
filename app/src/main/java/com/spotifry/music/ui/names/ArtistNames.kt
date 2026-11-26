@@ -15,7 +15,7 @@ import java.io.File
 /** Favourite artists' name looks ([Settings.artistNames], keyed by [com.spotifry.music.data.PickedArtist.key]), their own logos, and official logos. */
 class ArtistNames(private val settings: Settings, private val own: NameLogos, private val officialLogos: ArtistLogos) {
     val looks get() = settings.artistNames
-    val hasKey get() = settings.fanartKey.value.isNotEmpty()
+    val hasKey get() = com.spotifry.music.BuildConfig.FANART_PROJECT_KEY.isNotEmpty() || settings.fanartKey.value.isNotEmpty()
     val fanartKey get() = settings.fanartKey
 
     fun ownFile(look: NameLook?): File? = own.file(look?.logoFile)

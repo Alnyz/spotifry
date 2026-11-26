@@ -106,7 +106,7 @@ class AppContainer(private val context: Context) {
     val discord = com.spotifry.music.data.discord.PhoneDiscord(client, context.noBackupFilesDir)
     val radioBrowser = com.spotifry.music.data.source.RadioBrowser(client)
     val radioFavourites = com.spotifry.music.data.RadioFavourites(prefs.asPrefs())
-    val artistLogos by lazy { com.spotifry.music.data.spotifried.ArtistLogos(client, java.io.File(context.cacheDir, "artist_logos_official"), apiUserAgent, { settings.fanartKey.value }) }
+    val artistLogos by lazy { com.spotifry.music.data.spotifried.ArtistLogos(client, java.io.File(context.cacheDir, "artist_logos_official"), apiUserAgent, { settings.fanartKey.value }, projectKey = BuildConfig.FANART_PROJECT_KEY) }
     /** A different key may find logos the old one couldn't, so "none found" answers are dropped. */
     fun setFanartKey(k: String) { if (k.trim() != settings.fanartKey.value) { settings.setFanartKey(k); artistLogos.forgetNoneFound() } }
     // headphones in or out, connected or gone: with Separate sound for headphones on, the sound follows. Android calls this
