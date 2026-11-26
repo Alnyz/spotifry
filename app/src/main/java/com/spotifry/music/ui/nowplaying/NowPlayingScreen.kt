@@ -334,21 +334,25 @@ private fun RoundMore(onMore: () -> Unit) {
     }
 }
 
-/** Lyrics, output, queue. The mode buttons show a rounded square while their mode is open; a second tap goes back to the cover. */
+/**
+ * Lyrics, output, queue on one row at fixed places, with the output's name under its icon, so a long headphone name
+ * can't push the row around. The mode buttons show a rounded square while their mode is open; a second tap goes back to the cover.
+ */
 @Composable
 private fun Tools(mode: NowPlayingMode, output: OutputInfo, onMode: (NowPlayingMode) -> Unit, onOutput: () -> Unit, modifier: Modifier, live: Boolean = false) {
-    Row(modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+    Row(modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Top) {
         // a live station has no lyrics and no queue
         if (live) Spacer(Modifier.size(48.dp)) else
         ModeButton(Icons.LyricsBubble, "Lyrics", mode == NowPlayingMode.Lyrics) { onMode(if (mode == NowPlayingMode.Lyrics) NowPlayingMode.Cover else NowPlayingMode.Lyrics) }
-        Row(
-            Modifier.weight(1f, fill = false).height(48.dp).clip(RoundedCornerShape(24.dp))
+        androidx.compose.foundation.layout.Column(
+            Modifier.weight(1f).padding(horizontal = 12.dp).clip(RoundedCornerShape(14.dp))
                 .clickable(role = Role.Button, onClickLabel = "Change output", onClick = onOutput)
-                .semantics(mergeDescendants = true) { contentDescription = "Audio output: ${output.name}" }.padding(horizontal = 14.dp),
-            Arrangement.spacedBy(8.dp), Alignment.CenterVertically,
+                .semantics(mergeDescendants = true) { contentDescription = "Audio output: ${output.name}" },
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(outputIcon(output.look), null, Modifier.size(20.dp), tint = Faint)
-            Text(output.name, style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold), color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Box(Modifier.size(48.dp), Alignment.Center) { Icon(outputIcon(output.look), null, Modifier.size(22.dp), tint = Faint) }
+            Text(output.name, style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold), color = Faint, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(bottom = 4.dp))
         }
         if (live) Spacer(Modifier.size(48.dp)) else
         ModeButton(Icons.Queue, "Queue", mode == NowPlayingMode.Queue) { onMode(if (mode == NowPlayingMode.Queue) NowPlayingMode.Cover else NowPlayingMode.Queue) }
