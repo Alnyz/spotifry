@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spotifry.music.BuildConfig
 import com.spotifry.music.data.ThemeMode
@@ -192,13 +193,17 @@ internal fun Segments(options: List<String>, selected: Int, modifier: Modifier =
     Row(modifier.clip(CircleShape).background(scheme.surfaceContainerHigh).padding(3.dp)) {
         options.forEachIndexed { i, label ->
             val on = i == selected
-            Text(
+            val style = MaterialTheme.typography.labelLarge
+            // equal-width segments can be too narrow for a long word ("Headphone" next to three others, or a big
+            // font size): the word gets a little smaller instead of being cut off
+            androidx.compose.foundation.text.BasicText(
                 label,
                 // the picked one is filled with the accent, so it reads at a glance in light and dark
                 (if (fill) Modifier.weight(1f) else Modifier).clip(CircleShape).background(if (on) scheme.primary else scheme.surfaceContainerHigh)
-                    .clickable(role = Role.RadioButton, onClickLabel = label) { onPick(i) }.padding(horizontal = if (fill) 8.dp else 12.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.labelLarge, color = if (on) scheme.onPrimary else scheme.onSurfaceVariant, maxLines = 1,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    .clickable(role = Role.RadioButton, onClickLabel = label) { onPick(i) }.padding(horizontal = if (fill) 6.dp else 12.dp, vertical = 8.dp),
+                style = style.copy(color = if (on) scheme.onPrimary else scheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                autoSize = if (fill) androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = style.fontSize) else null,
             )
         }
     }
