@@ -22,7 +22,7 @@ import java.io.File
 const val HOME_PICTURE_KEY = "desktop_home_picture"
 const val KEEP_IN_TRAY_KEY = "desktop_keep_in_tray"
 const val DISCORD_KEY = "desktop_discord_presence"
-const val APP_VERSION = "desktop-1.3.0"
+const val APP_VERSION = "desktop-1.4.0"
 /** The same version as gradle/libs.versions.toml, for the About line. */
 const val NEWPIPE_VERSION = "v0.26.5"
 
