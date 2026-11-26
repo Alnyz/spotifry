@@ -46,15 +46,13 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
 .section-head--split > div.btn-row { display: flex; gap: var(--s-3); flex-wrap: nowrap; }
 @media (max-width: 1023px) { .section-head--split > div.btn-row { flex-wrap: wrap; } }
 @media (max-width: 639px) {
-  .hsun__btns, .section-head--split > div.btn-row { flex-direction: row; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+  .section-head--split > div.btn-row { flex-direction: row; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
   .btn-row > .btn[data-dl] { flex: 1 1 0; min-width: 0; width: auto; height: auto; min-height: 64px; flex-direction: column; gap: 6px; padding: 10px 4px; font-size: 14px; text-decoration: none; }
   .btn-row > .btn[data-dl] .dl__icon { width: 22px; height: 22px; }
 }
 .nav.is-glass .nav__long { display: none; }
 @media (max-width: 1399px) { .nav .nav__long { display: none; } }
 .dl__icon { width: 18px; height: 18px; flex: none; fill: currentColor; }
-.hsun__btns .btn { min-width: 150px; }
-@media (max-width: 639px) { .hsun__btns .btn { min-width: 0; } }
 </style>
 <link rel="stylesheet" href="assets/ui/base.css">
 <script src="assets/backgrounds/backgrounds.js"></script>
@@ -62,23 +60,19 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .skip { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .skip:focus { width: auto; height: auto; clip-path: none; z-index: 20; background: var(--bg); padding: 8px 12px; border-radius: 8px; }
   .nav__logo img { width: 28px; height: 28px; border-radius: 7px; }
-  #sound .panel, #playlists .panel { --p-h: 336px; }
-  #install .panel { --p-h: 360px; }
 
   /* the phone: the real app screenshots in a plain black body */
   .device { position: absolute; width: var(--dw, 320px); padding: 9px; border-radius: 46px; background: #0c0d10;
             box-shadow: 0 0 0 1px rgba(28,20,16,.5), 0 40px 80px -36px rgba(80,30,5,.55); }
   .device > img, .device > .scr { display: block; width: 100%; aspect-ratio: 540 / 1134; border-radius: 37px; object-fit: cover; }
-  .hero__art > .device { left: calc(50% - 96px); top: var(--s-8); --dw: 330px; }
   .tour__frame { height: 100%; padding: 0; background: radial-gradient(70% 60% at 50% 18%, #fbe3cc, #f2bf94 70%, #eaa877); }
   .tour__frame > .device { position: absolute; }
   .tour__frame > .device { left: calc(50% - var(--dw) / 2); top: var(--s-7); --dw: 318px; }
   .tour__frame > .device[hidden] { display: none; }
   @media (max-width: 1023px) {
-    .hero__art > .device { left: calc(50% - var(--dw) / 2); top: var(--s-6); --dw: 280px; }
     .tour__frame { height: auto; }
   }
-  @media (max-width: 639px) { .hero__art > .device { --dw: 240px; top: var(--s-4); } .tour__frame > .device { --dw: 250px; top: var(--s-5); } }
+  @media (max-width: 639px) { .tour__frame > .device { --dw: 250px; top: var(--s-5); } }
   /* phones: a section grows with what it holds (the questions ran into the closing line), and the tour's phone shows whole */
   @media (max-width: 639px) {
     main > section.section:not(.hero) { height: auto; min-height: 100lvh; }
@@ -89,14 +83,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
     #compare.pin { --pin-h: 220vh !important; }
   }
 
-  /* the hero's small card: what happens between search and sound */
-  .sp-note { position: absolute; z-index: 2; left: var(--s-6); bottom: var(--s-6); width: 300px; padding: 16px 18px; border-radius: var(--r-md);
-             background: #fffaf4; color: #1c1410; border: 1px solid rgba(28,20,16,.1); font: 400 14px/1.4 var(--font-text); display: grid; gap: 8px;
-             box-shadow: 0 18px 40px -22px rgba(80,30,5,.45); }
-  .sp-note__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .sp-note h5 { margin: 0; font: 500 14px/1.3 var(--font-display); }
-  .sp-note__line { display: flex; gap: 8px; align-items: center; color: #4a3b31; font-size: 13px; }
-  .sp-note__line i { flex: none; width: 18px; height: 18px; border-radius: 50%; background: #fde6d3; color: #c2410c; display: grid; place-items: center; font: 500 11px/1 var(--font-text); font-style: normal; }
   .sp-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 99px; font: 500 12px/1 var(--font-text); background: #fde6d3; color: #9a3412; white-space: nowrap; }
   .sp-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
@@ -107,6 +93,7 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .sp b { font-weight: 500; }
   .sp small { display: block; color: #9d968f; font-size: 12px; }
   .sp__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; font: 500 15px/1.2 var(--font-display); }
+  :is(#sound, #playlists) .sp .sp__head { font-size: 16px; }
   .sp__row { display: flex; align-items: center; gap: 12px; padding: 9px 0; }
   .sp__row + .sp__row { border-top: 1px solid rgba(255,255,255,.06); }
   .sp__row > div { flex: 1; min-width: 0; }
@@ -118,7 +105,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .sp-range { position: relative; height: 4px; border-radius: 4px; background: #34353b; margin: 12px 0 6px; }
   .sp-range > i { position: absolute; inset: 0 auto 0 0; width: var(--v, 50%); border-radius: 4px; background: #f3eee8; }
   .sp-range > i::after { content: ""; position: absolute; right: -8px; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
-  .sp-range.acc > i { background: #ff8a3d; }
   .sp-range__ends { display: flex; justify-content: space-between; color: #9d968f; font-size: 12px; }
   .sp-pill { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 99px; background: #24252b; font-size: 13px; white-space: nowrap; }
   .sp-pill.on { background: rgba(255,138,61,.16); color: #ffb27a; font-weight: 500; box-shadow: inset 0 0 0 1px rgba(255,138,61,.4); }
@@ -126,53 +112,12 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .sp-btn { display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 16px; border-radius: 99px; background: #ff8a3d; color: #1c1008; font-weight: 500; white-space: nowrap; }
   .sp-btn.ghost { background: #24252b; color: #f3eee8; }
   .sp-ic { flex: none; width: 20px; height: 20px; color: #9d968f; }
-  .sp-ic.acc { color: #ff8a3d; }
   /* album covers, cut from the real search screenshot (74px tiles at x 29) */
   .cov { flex: none; --sz: 40; width: calc(var(--sz) * 1px); height: calc(var(--sz) * 1px); border-radius: 8px;
          --x: 29; --t: 74;
          background: var(--img) center / cover no-repeat; }
 
-  .card > .panel { overflow: hidden; }
-  .stage > .sp-low { top: auto; bottom: -32px; }
-  @media (max-width: 639px) { .stage > .sp-low { top: 24px; bottom: auto; } }
-  .card h3 { font-family: var(--font-display); font-weight: 500; }
-  /* tablet and phone: the bento keeps its screens (one small card steps out under 1024) */
-  @media (min-width: 1024px) and (max-width: 1279px) {
-    #sound .grid > .card.span-6 { grid-column: auto / span 6; }
-    #sound .grid > .card.span-4, #install .grid > .card.span-4 { grid-column: auto / span 4; }
-    #sound .panel { --p-h: 250px; } #playlists .panel { --p-h: 290px; } #install .panel { --p-h: 240px; }
-  }
-  @media (max-width: 1023px) {
-    #sound .grid > .card { grid-column: auto / span 6; }
-    #sound .card--speed { display: none; }
-    #playlists .grid > .card { grid-column: auto / span 6; }
-    #sound .panel, #playlists .panel { --p-h: max(400px, calc(100svh - 580px)); }
-    #install .grid > .card { grid-column: auto / span 4; }
-    #install .panel { --p-h: max(220px, calc(100svh - 720px)); }
-  }
-  @media (max-width: 639px) {
-    #sound .grid > .card { grid-column: 1 / -1; }
-    #sound .panel, #playlists .panel { --p-h: 196px; }
-    #install { --hm: 2; }
-    #install .grid > .card { grid-column: 1 / -1; }
-    #install .panel { --p-h: 190px; }
-    #faq .faq__item:nth-child(4), #faq .faq__lede { display: none; }
-  }
-  /* equalizer: the live picture of the music */
-  .sp-viz { display: flex; align-items: flex-end; gap: 3px; height: 92px; margin: 4px 0 16px; }
-  .sp-viz > i { flex: 1; border-radius: 3px 3px 1px 1px; background: linear-gradient(#ffb27a, #ff8a3d 55%, #c2410c); height: var(--h); transform-origin: bottom;
-                animation: sp-bar var(--m-cycle, 3.2s) linear infinite; animation-delay: var(--d); }
-  @keyframes sp-bar { 0%,100% { transform: scaleY(1); } 22% { transform: scaleY(.55); } 48% { transform: scaleY(.85); } 70% { transform: scaleY(.4); } 88% { transform: scaleY(1); } }
-  @media (prefers-reduced-motion: reduce) { .sp-viz > i { animation: none; } }
-  .sp-eq { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center; color: #9d968f; font-size: 12px; }
-  .sp-eq > div { display: grid; justify-items: center; gap: 8px; }
-  .sp-eq span.track { position: relative; width: 4px; height: 96px; border-radius: 4px; background: #34353b; }
-  .sp-eq span.track::after { content: ""; position: absolute; left: -6px; top: var(--t); width: 16px; height: 16px; border-radius: 50%; background: #f3eee8; }
-  .sp-eq b { color: #f3eee8; font-weight: 500; }
-
-  /* fade between songs: two songs overlapping */
-  .sp-xf { height: 56px; margin: 6px 0 4px; }
-  .sp-xf path { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+  @media (max-width: 639px) { #install { --hm: 2; } #faq .faq__lede { display: none; } }
 
   /* trim: the song's timeline with its cut ends */
   .sp-trim { position: relative; height: 36px; border-radius: 8px; margin: 14px 0 8px; overflow: hidden;
@@ -183,63 +128,23 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
 
   /* the free ad-supported app: a plain grey player, not any real brand's look */
   .scr { position: relative; overflow: hidden; background: #2a2a2c; color: #ededed; font: 400 13px/1.35 var(--font-text); display: flex; flex-direction: column; padding: 34px 20px 20px; }
-  .scr__top { text-align: center; color: #b9b9b9; font-size: 11px; } .scr__top b { display: block; color: #ededed; font-size: 13px; font-weight: 500; }
-  .scr__ad { margin: 22px 0 18px; aspect-ratio: 1; border-radius: 10px; background: #3b3b3e; display: grid; place-content: center; text-align: center; gap: 10px; padding: 18px; }
-  .scr__ad span { justify-self: center; display: inline-flex; height: 22px; align-items: center; padding: 0 9px; border-radius: 4px; background: #f0c419; color: #1d1d1d; font-weight: 600; font-size: 11px; }
-  .scr__ad p { margin: 0; font-size: 15px; line-height: 1.3; color: #f2f2f2; }
-  .scr__title { font-size: 17px; font-weight: 600; color: #8c8c8c; } .scr__title small { display: block; font-size: 13px; font-weight: 400; }
-  .scr__bar { height: 4px; border-radius: 4px; background: #555; margin: 14px 0 6px; position: relative; }
-  .scr__bar i { position: absolute; inset: 0 auto 0 0; width: 34%; background: #f0c419; border-radius: 4px; }
-  .scr__times { display: flex; justify-content: space-between; font-size: 11px; color: #9a9a9a; }
-  .scr__ctrl { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; color: #6f6f6f; }
-  .scr__ctrl .play { width: 54px; height: 54px; border-radius: 50%; background: #6f6f6f; }
   .scr__toast { margin-top: 18px; padding: 12px 14px; border-radius: 10px; background: #f2f2f2; color: #1d1d1d; font-size: 13px; line-height: 1.35; }
   .scr__toast b { font-weight: 600; }
 
-  /* the before and after frame on the dark band */
-  .cmp__frame { height: 100%; padding: 0; background: #17181c; border-color: rgba(255,255,255,.08); }
-  .cmp__frame > .cmp__panel { position: absolute; inset: 0; }
-  .cmp__panel[hidden], .cmp__list[hidden] { display: none; }
-  .cmp__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-4); }
-  .cmp__list li { position: relative; padding-left: 26px; font-size: var(--t-lead); line-height: 1.4; color: var(--ink); }
-  .cmp__list li::before { content: ""; position: absolute; left: 0; top: .5em; width: 10px; height: 10px; border-radius: 50%; background: #ff8a3d; }
-  .cmp__list--before li::before { background: #77706a; }
-  .cmp__panel > .device { position: absolute; left: calc(50% - var(--dw) / 2); top: var(--s-7); --dw: 318px; }
-  .cmp__glow { position: absolute; inset: 0; background: radial-gradient(60% 55% at 50% 35%, rgba(255,138,61,.26), transparent 70%); pointer-events: none; }
-  .cmp__panel--before .cmp__glow { background: radial-gradient(60% 55% at 50% 35%, rgba(200,200,200,.08), transparent 70%); }
-  @media (max-width: 1023px) { .cmp__frame { height: auto; } .cmp__panel > .device { --dw: 280px; top: var(--s-6); } }
-  @media (max-width: 639px) { .cmp__panel > .device { --dw: 230px; top: var(--s-5); } .cmp__list li { font-size: 16px; } .cmp__list { gap: var(--s-2); } }
-
-  /* how it works: the diagram across the wrap */
-  .how__dg { margin-top: var(--s-7); position: relative; min-height: 300px; }
-  .how__dg > .dg { position: absolute; inset: 0; }
-
-  /* offline: the saved list and the replay store */
-  .sp-store { height: 6px; border-radius: 6px; background: #34353b; margin: 10px 0 6px; overflow: hidden; }
-  .sp-store > i { display: block; height: 100%; width: 64%; background: #ff8a3d; }
-  .dl { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #f3eee8; color: #15161a; display: grid; place-items: center; }
 
   /* the share card: a song as a picture */
   .sp-shot { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: linear-gradient(135deg, #3a1d0b, #c2410c); margin-bottom: 14px; }
   .sp-swatches { display: flex; gap: 10px; margin: 6px 0 14px; }
   .sp-swatches > i { width: 34px; height: 34px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); }
   .sp-swatches > i.on { box-shadow: 0 0 0 2px #15161a, 0 0 0 4px #f3eee8; }
-  .sp-mini { display: flex; gap: 8px; }
-  .sp-mini > div { flex: 1; height: 86px; border-radius: 12px; padding: 10px; font-size: 12px; }
-  .sp-queue .sp__row.lift { background: #24252b; border-radius: 12px; padding-inline: 10px; margin-inline: -10px; box-shadow: 0 14px 28px -12px rgba(0,0,0,.7); transform: translateY(-2px); border-top-color: transparent; }
-  .sp-queue .sp__row.lift + .sp__row { border-top-color: transparent; }
+  .sp .sp__row.lift { background: #24252b; border-radius: 12px; padding-inline: 10px; margin-inline: -10px; box-shadow: 0 14px 28px -12px rgba(0,0,0,.7); transform: translateY(-2px); border-top-color: transparent; }
+  .sp .sp__row.lift + .sp__row { border-top-color: transparent; }
   .grip { flex: none; width: 14px; height: 14px; color: #6f6b67; }
   .sp-field { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 12px; background: #24252b; color: #cfc9c3; font-size: 13px; margin-bottom: 12px; overflow: hidden; white-space: nowrap; }
   .sp-dialog { background: #f3eee8; color: #1c1410; }
   .sp-dialog small { color: #6b5d52; }
   .sp-dialog .sp__row + .sp__row { border-top-color: rgba(28,20,16,.08); }
 
-  /* questions: the split with the answers open */
-  #faq .faq__item h3 { font-size: var(--t-card); font-family: var(--font-display); font-weight: 500; }
-  .built { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
-  .built li { display: flex; align-items: center; gap: var(--s-3); height: 56px; padding: 0 var(--s-4); border-radius: var(--r-md); background: var(--surface); font-weight: 500; }
-  .built img { width: 28px; height: 28px; object-fit: contain; }
-  @media (max-width: 639px) { .built { display: none; } }
 
   /* the closing name across the wrap */
   .close--word .close__word { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.06em; color: #d9541a; }
@@ -251,31 +156,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .how { color: #f7f1e8; --ink: #f7f1e8; --muted: #d8cfc6; background: #0c0d10; }
   .how > .layer { object-fit: cover; object-position: 50% 70%; }
   .how__veil { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(12,13,16,.92) 0%, rgba(12,13,16,.7) 45%, rgba(12,13,16,.55) 100%); }
-  .how__dg { margin-top: var(--s-7); position: relative; min-height: 360px; --ink: #1c1410; --muted: #6b5d52; color: #1c1410; }
-  .how__dg > .dg { position: absolute; inset: 0; }
-  @media (min-width: 1024px) { .how__dg > .dg { zoom: 1.45; } }
-  .sound__eq .panel { --p-h: 400px; }
-  #sound .grid > .card.span-4 .panel { --p-h: 400px; }
-  .sound__eq .at-corner { width: min(760px, calc(100% - 80px)) !important; }
-  .sound__eq .sp-viz { height: 120px; }
-  .off__frame { min-height: 0; }
-  .off__card { left: auto !important; right: var(--s-6); top: auto !important; bottom: -32px; width: min(360px, calc(100% - 48px)); }
-  .faq__photo { aspect-ratio: 16 / 9; margin: 0; padding: 0; }
-  .card.card--open > .panel { overflow: clip; }
-  .cmp__list li { padding-left: 0; } .cmp__list li::before { left: -24px; }
-  @media (max-width: 1023px) {
-    #sound .grid > .card.span-4 { grid-column: auto / span 4; }
-    #sound .grid > .card.sound__eq { grid-column: 1 / -1; }
-    .faq__photo { display: none; }
-  }
-  @media (max-width: 639px) {
-    #sound .grid > .card, #sound .grid > .card.span-4 { grid-column: 1 / -1; }
-    .sound__eq .panel, #sound .grid > .card.span-4 .panel { --p-h: 200px; }
-    #playlists .card--look { display: none; }
-    .off__card { right: var(--s-4); }
-    .how__dg { min-height: 380px; }
-    .cmp__list li::before { left: -16px; } .cmp__list li { margin-left: 16px; }
-  }
 
   /* scroll moments (Ali's tasteskill.dev recording): plain CSS, driven by one small script */
   .pin { position: relative; height: var(--pin-h, 300vh); padding: 0; }
@@ -283,7 +163,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .pin__stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; padding: var(--padt) 0 var(--padb); }
   .pin__wrap { height: 100%; }
   /* hero: the phone rises as the page moves */
-  .hero__art { transform: translateY(calc((1 - var(--hp, 1)) * 30%)) scale(calc(.94 + .06 * var(--hp, 1))); transform-origin: 50% 0; will-change: transform; }
   /* drum */
   .drum { display: grid; grid-template-rows: auto 1fr auto; }
   .drum__h { font-size: var(--t-h3); color: var(--muted); }
@@ -293,7 +172,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .drum__list li.is-on { color: #e2611f; }
   .drum__foot { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--t-small); color: var(--muted); }
   .drum__count b, .drum__label { color: var(--ink); font-weight: 500; }
-  .drum__end { display: flex; align-items: center; justify-content: space-between; gap: var(--s-6); padding-block: 0 var(--s-9); }
   /* before / after */
   .ba { height: 100%; }
   .ba__steps { list-style: none; margin: var(--s-7) 0 0; padding: 0; display: grid; gap: var(--s-3); counter-reset: s; }
@@ -311,20 +189,12 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .scr__sheet { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 18px 26px; border-radius: 18px 18px 0 0; background: #f2f2f2; color: #1d1d1d; display: grid; gap: 10px; font-size: 14px; }
   .scr__field { height: 34px; border-radius: 8px; background: #dcdcdc; }
   .scr__go { height: 38px; border-radius: 99px; background: #6f6f6f; color: #fff; display: grid; place-items: center; font-weight: 600; }
-  .ba__pill { position: absolute; left: var(--s-5); bottom: var(--s-5); padding: 6px 14px; border-radius: 99px; background: #ff8a3d; color: #1c1008; font: 500 14px/1.4 var(--font-text); }
-  /* closing line */
-  .closer { --c: var(--cp, 0); }
-  .closer .pin__stage { background: color-mix(in oklab, #0c0d10 calc(clamp(0, (var(--c) - .6) * 10, 1) * 100%), #f7f1e8); }
-  .closer__wrap { display: flex; align-items: center; }
-  .closer__h { font-size: clamp(44px, 7.4vw, 112px); line-height: 1; letter-spacing: -0.045em; color: color-mix(in oklab, #f7f1e8 calc(clamp(0, (var(--c) - .6) * 10, 1) * 100%), #1c1410); }
-  .closer__h span { display: block; }
-  .closer__l2 { color: #e2611f; opacity: clamp(0, var(--c) * 2.2, 1); filter: blur(calc((1 - clamp(0, var(--c) * 2.2, 1)) * 14px)); transform: translateY(calc((1 - clamp(0, var(--c) * 2.2, 1)) * 60px)); }
-  .closer__glow { position: absolute; left: -10%; right: -10%; bottom: 0; height: calc(var(--c) * 90%); background: radial-gradient(50% 100% at 50% 100%, rgba(255,138,61,.75), rgba(226,97,31,.25) 55%, transparent 75%); pointer-events: none; }
+  .ba__pill { position: absolute; z-index: 7; left: var(--s-5); bottom: var(--s-5); padding: 6px 14px; border-radius: 99px; background: #ff8a3d; color: #1c1008; font: 500 14px/1.4 var(--font-text); }
   .foot-glow { background: radial-gradient(70% 55% at 50% 100%, rgba(255,138,61,.45), transparent 70%), var(--bg); }
   .foot-glow .close__word { color: transparent; background: linear-gradient(180deg, #fff1e6 0%, #ff8a3d 55%, #c2410c 100%); -webkit-background-clip: text; background-clip: text; }
   /* panels fill in row by row when they reach the screen */
-  html.js-fill .sp .sp__row, html.js-fill .sp .sp-viz > i { opacity: 0; transform: translateY(10px); transition: opacity .45s var(--ease), transform .45s var(--ease); transition-delay: calc(var(--i, 0) * 90ms); }
-  html.js-fill .sp.is-in .sp__row, html.js-fill .sp.is-in .sp-viz > i { opacity: 1; transform: none; }
+  html.js-fill .sp .sp__row { opacity: 0; transform: translateY(10px); transition: opacity .45s var(--ease), transform .45s var(--ease); transition-delay: calc(var(--i, 0) * 90ms); }
+  html.js-fill .sp.is-in .sp__row { opacity: 1; transform: none; }
   @media (max-width: 1023px) {
     .ba__text { margin-bottom: var(--s-5); } .ba { display: flex; flex-direction: column; }
     .ba__steps { margin-top: var(--s-5); } .ba__steps li { padding-block: var(--s-2); }
@@ -333,21 +203,11 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   @media (max-width: 639px) {
     .ba__steps li:not(.is-on) { display: none; }
     .ba__phone { --dw: 220px; }
-    .drum__end { flex-direction: column; align-items: stretch; }
   }
   @media (prefers-reduced-motion: reduce) {
     .pin, main > section.pin.pin { height: auto; } .pin__stage { position: relative; height: auto; min-height: 100svh; }
-    .hero__art { transform: none; }
-    .closer .pin__stage { background: #0c0d10; } .closer__h { color: #f7f1e8; } .closer__l2 { opacity: 1; filter: none; transform: none; }
     .ba__after { clip-path: none; }
   }
-  /* round 3: the app pieces fill their boxes in sound and playlists */
-  :is(#sound, #playlists) .card:not(.sound__eq) .stage > .sp-low { top: 28px; bottom: -24px; left: 28px; right: 28px; width: auto; max-width: none; }
-  :is(#sound, #playlists) .card:not(.sound__eq) .stage > .sp-low > .sp { height: 100%; font-size: 14px; padding: 20px; }
-  .sound__eq .stage > .sp-low { top: 28px; bottom: -24px; }
-  .sound__eq .stage > .sp-low > .sp { height: 100%; }
-  :is(#sound, #playlists) .sp .sp__head { font-size: 16px; }
-  @media (max-width: 639px) { #playlists .grid > .card { grid-column: 1 / -1; } :is(#sound, #playlists) .card:not(.sound__eq) .stage > .sp-low { top: 20px; left: 16px; right: 16px; } .sound__eq .stage > .sp-low { top: 20px; left: 16px !important; } }
 
   /* glass nav (Ali: tasteskill.dev pill + notchy): see-through at the top, frosted glass once scrolled,
      tinted to the section under it, hides while scrolling down and returns on the way up */
@@ -399,7 +259,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .band-ember .drum__count b, .band-ember .drum__label { color: #1c1008; }
   .band-peach .ba__steps li { border-color: rgba(28,20,16,.16); }
   .band-peach .ba__steps li.is-on { border-color: #c2410c; }
-  .band-peach .card > .panel, .band-peach .built li { box-shadow: 0 0 0 1px rgba(28,20,16,.08), 0 18px 40px rgba(120,50,10,.12); }
   @media (max-width: 639px) {
     footer.closing, footer.closing > .wrap { height: auto !important; min-height: 0 !important; }
     footer.closing > .wrap { display: block; } footer.closing .close__word { margin: var(--s-6) 0 var(--s-7); padding-bottom: .08em; }
@@ -408,40 +267,18 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   @media (min-width: 640px) { .foot-glow .close__word { font-size: calc(min(100vw - 2 * var(--gut), var(--container)) * .312); line-height: .9; margin-bottom: var(--s-7); padding-bottom: .06em; } footer.closing, footer.closing > .wrap { height: auto !important; min-height: 100svh; } }
 
   /* round 5: every app stage is a dark ember stage (no peach boxes, no muddy vignette) */
-  .panel:not(.panel--device), :root .panel:not([data-fx], .panel--device), .frame--lit.tour__frame {
+  .frame--lit.tour__frame {
     background-color: #120e0b !important;
     background-image:
       radial-gradient(80% 62% at 50% 118%, rgba(255,138,61,.95) 0%, rgba(226,97,31,.45) 38%, rgba(194,65,12,0) 72%),
       radial-gradient(55% 45% at 12% -5%, rgba(255,214,186,.10), transparent 70%),
       linear-gradient(180deg, #1e1713 0%, #110d0a 100%) !important;
   }
-  .panel::before { display: none; }
-  .panel::after { box-shadow: inset 0 0 0 1px rgba(255,236,222,.09), inset 0 1px 0 rgba(255,236,222,.08); }
   .tour__frame { border: 1px solid rgba(255,236,222,.09); }
   .tour__frame::before, .tour__frame::after { display: none !important; }
   /* the app pieces float on the stage: a lit edge and a deep shadow */
-  .panel .sp { box-shadow: 0 0 0 1px rgba(255,236,222,.10), 0 24px 60px rgba(0,0,0,.55), 0 2px 0 rgba(255,236,222,.06) inset; }
   .tour__frame > .device { filter: drop-shadow(0 30px 50px rgba(0,0,0,.55)); }
-  /* install: the dialogs sit near the top of their stage, not at the bottom */
-  #install .stage > .sp-low { top: 32px; bottom: -24px; left: 28px; right: 28px; width: auto !important; max-width: none; }
-  #install .stage > .sp-low > .sp { height: 100%; }
-  /* equalizer fills its stage edge to edge */
-  .sound__eq .at-corner { width: auto !important; left: 28px !important; right: 28px; max-width: none !important; }
-  .sound__eq .sp-viz { height: 150px; }
-  @media (max-width: 639px) { #install .stage > .sp-low { top: 20px; left: 16px; right: 16px; } .sound__eq .at-corner { left: 16px !important; right: 16px; } }
-
-  /* app pieces keep their own height, centred on the stage, the glow shows below them */
-  :is(#sound, #playlists, #install) .card:not(.sound__eq) .stage > .sp-low { top: 36px !important; bottom: auto !important; left: 50% !important; right: auto !important;
-     width: min(340px, calc(100% - 48px)) !important; transform: translateX(-50%); }
-  :is(#sound, #playlists, #install) .card:not(.sound__eq) .stage > .sp-low > .sp { height: auto !important; }
-  .sound__eq .stage > .sp-low { bottom: auto !important; } .sound__eq .stage > .sp-low > .sp { height: auto !important; }
-  .panel .stage--fade-b { -webkit-mask: none; mask: none; }
-
-  @media (min-width: 1024px) {
-    #sound .grid > .card.span-4 .panel, #playlists .panel { --p-h: 290px !important; min-height: 290px; }
-    #install .panel { --p-h: 230px !important; min-height: 230px; }
-  }
-  .panel:not(.panel--device), :root .panel:not([data-fx], .panel--device), .frame--lit.tour__frame {
+  .frame--lit.tour__frame {
     background-image:
       radial-gradient(70% 48% at 50% 108%, rgba(255,170,110,1) 0%, rgba(255,120,40,.75) 30%, rgba(194,65,12,0) 70%),
       radial-gradient(120% 70% at 50% 120%, rgba(226,97,31,.35), transparent 70%),
@@ -449,89 +286,9 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
       linear-gradient(180deg, #1e1713 0%, #110d0a 100%) !important;
   }
 
-  /* no seam into the footer: the glow peaks above the edge and fades to the shared dark */
-  .closer__glow { bottom: 0; background: radial-gradient(48% 70% at 50% 78%, rgba(255,138,61,.72), rgba(226,97,31,.22) 55%, transparent 78%) !important;
-                  -webkit-mask: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%); mask: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%); }
-  .closer .pin__stage::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 18%; pointer-events: none;
-                  background: linear-gradient(to bottom, rgba(12,13,16,0), #0c0d10); opacity: clamp(0, (var(--c) - .55) * 3, 1); }
-
-  /* round 6: the closing sunrise (Ali's second tasteskill.dev recording).
-     cream -> an orange sun rises until the screen is orange -> dark arrives, line one leaves,
-     the sun sinks back to an arc that carries on into the footer */
-  .closer, footer.closing { --dark: #1a110b; }
-  .closer { --rise: clamp(0, calc(var(--c) / .42), 1); --sink: clamp(0, calc((var(--c) - .52) / .3), 1); --night: clamp(0, calc((var(--c) - .47) * 1000), 1); --set: clamp(0, calc((var(--c) - .86) / .14), 1); }
-  .closer .pin__stage { background: color-mix(in srgb, var(--dark) calc(var(--night) * 100%), #f7f1e8) !important; }
-  .closer .pin__stage::after { display: none !important; }
-  .closer__glow { position: absolute; left: 50% !important; right: auto !important; bottom: auto !important; width: 260vmax; height: 260vmax !important; border-radius: 50%;
-    top: 100svh; transform: translate(-50%, calc(-50% + (135 - var(--rise) * 175 + var(--sink) * 148 + var(--set) * 30) * 1vmax));
-    background: radial-gradient(closest-side, #f0601a 0%, #f2661e 70%, rgba(242,102,30,.55) 84%, rgba(242,102,30,0) 100%) !important;
-    -webkit-mask: none !important; mask: none !important; will-change: transform; z-index: 0; }
-  .closer__wrap { justify-content: center; position: relative; z-index: 1; }
-  .closer__h { text-align: center; font-size: clamp(46px, 7.6vw, 124px) !important; color: #1c1410 !important; }
-  .closer__l1 { opacity: calc(1 - clamp(0, calc((var(--c) - .55) / .12), 1)); }
-  .closer__l2 { color: #fff8f2 !important; opacity: calc(.5 + .5 * clamp(0, calc(var(--c) / .34), 1)) !important;
-    filter: blur(calc((1 - clamp(0, calc(var(--c) / .34), 1)) * 16px)) !important; transform: none !important; }
+  footer.closing { --dark: #1a110b; }
   footer.closing.foot-glow { background: radial-gradient(70% 55% at 50% 100%, rgba(242,102,30,.75), rgba(242,102,30,.18) 55%, transparent 75%), var(--dark) !important; --bg: var(--dark); }
-  @media (prefers-reduced-motion: reduce) {
-    .closer .pin__stage { background: var(--dark) !important; } .closer__glow { transform: translate(-50%, calc(-50% + 108vmax)); }
-    .closer__h { color: #fff8f2 !important; } .closer__l1 { opacity: 1; } .closer__l2 { opacity: 1 !important; filter: none !important; }
-  }
-  @media (min-width: 640px) and (max-width: 1023px) {
-    #sound .grid > .card.span-4 { grid-column: span 6 !important; }
-    #sound .grid > .card.span-4:last-child { grid-column: 1 / -1 !important; }
-  }
 
-  /* round 7: the opening sunrise, a bookend to the closing one */
-  .hero.hero--sun { --dark: #1a110b; background: var(--dark); color: #f8ebdf; position: relative; overflow: hidden; height: auto !important; min-height: 100svh; padding: 0 !important; display: block; }
-  .hsun__glow { position: absolute; left: 50%; bottom: -78vmax; width: 150vmax; height: 110vmax; transform: translateX(-50%); border-radius: 50%; pointer-events: none;
-    background: radial-gradient(closest-side, rgba(255,120,40,.95), rgba(242,102,30,.55) 45%, rgba(194,65,12,.18) 70%, transparent 100%); }
-  .hsun__wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: calc(var(--nav) + 12px + clamp(40px, 7vh, 88px)); height: auto !important; }
-  .hsun__kicker { font-size: 14px; letter-spacing: .02em; color: #d9bfab; border: 1px solid rgba(255,235,220,.16); padding: 6px 14px; border-radius: 99px; margin: 0 0 var(--s-6); }
-  .hsun__h { font-size: clamp(46px, 7.4vw, 116px) !important; line-height: .98 !important; letter-spacing: -0.045em; color: #fff4ea; margin: 0; max-width: none; }
-  .hsun__h span { color: transparent; background: linear-gradient(180deg, #ffd2b0 0%, #ff8a3d 70%, #e2611f 100%); -webkit-background-clip: text; background-clip: text; }
-  .hsun__lead { max-width: 640px; margin: var(--s-6) auto 0; font-size: clamp(17px, 1.35vw, 20px); line-height: 1.5; color: #e7d3c3; }
-  .hsun__btns { justify-content: center; margin-top: var(--s-7); }
-  .hero--sun .btn--secondary { background: rgba(255,240,228,.10); color: #fff4ea; border-color: rgba(255,240,228,.18); }
-  .hsun__proof { margin-top: var(--s-4); font-size: 14px; color: #b89c88; }
-  .hsun__stage { position: relative; width: 100%; height: clamp(360px, 48vh, 560px); margin-top: clamp(32px, 6vh, 72px); }
-  .hsun__phone { position: absolute; left: 50%; top: 0; width: clamp(250px, 24vw, 340px); transform: translateX(-50%); border-radius: clamp(36px, 3.4vw, 48px); padding: 9px;
-    background: linear-gradient(160deg, #3a2a20, #0d0a08 40%); box-shadow: 0 0 0 1px rgba(255,235,220,.14), 0 40px 90px rgba(0,0,0,.6), 0 0 120px rgba(255,120,40,.25); }
-  .hsun__phone img { display: block; width: 100%; height: auto; border-radius: calc(clamp(36px, 3.4vw, 48px) - 9px); }
-  .hsun__card { position: absolute; width: 300px; text-align: left; padding: 16px 18px; border-radius: 18px; color: #f8ebdf; font-size: 14px;
-    background: rgba(40,28,20,.62); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
-    box-shadow: 0 0 0 1px rgba(255,235,220,.12), 0 24px 60px rgba(0,0,0,.45); }
-  .hsun__card--l { right: calc(50% + clamp(150px, 13vw, 200px)); top: 18%; }
-  .hsun__card--r { left: calc(50% + clamp(150px, 13vw, 200px)); top: 40%; }
-  .hsun__row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-  .hsun__chip { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: rgba(255,138,61,.18); color: #ffb27a; }
-  .hsun__card ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: n; color: #e7d3c3; }
-  .hsun__card ol li { counter-increment: n; display: flex; gap: 10px; align-items: center; }
-  .hsun__card ol li::before { content: counter(n); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: rgba(255,138,61,.2); color: #ffb27a; flex: none; }
-  .hsun__card small { display: block; color: #b89c88; font-size: 12px; margin-bottom: 8px; }
-  .hsun__lyric { margin: 0; font: 600 22px/1.3 var(--font-display); letter-spacing: -0.01em; }
-  .hsun__lyric span { color: rgba(248,235,223,.32); transition: color .25s; }
-  .hsun__lyric span.on { color: #fff4ea; text-shadow: 0 0 18px rgba(255,138,61,.55); }
-  .hero__art.hsun__stage { transform: none !important; }
-  .hsun__phone { transition: none; transform: translateX(-50%) translateY(calc((1 - var(--hp, 1)) * 18%)); }
-  @media (max-width: 1023px) { .hsun__card { display: none; } }
-  @media (max-width: 639px) { .hsun__h { font-size: clamp(40px, 11.5vw, 56px) !important; } .hsun__btns .btn { width: 100%; } .hsun__stage { height: 380px; } }
-  @media (prefers-reduced-motion: reduce) { .hsun__phone { transform: translateX(-50%); } }
-
-  .hero--sun .hsun__wrap > * { margin-block: 0 !important; }
-  .hero--sun .hsun__kicker { margin-bottom: 22px !important; }
-  .hero--sun .hsun__lead { margin-top: 22px !important; }
-  .hero--sun .hsun__btns { margin-top: 30px !important; }
-  .hero--sun .hsun__proof { margin-top: 14px !important; }
-  .hero--sun .hsun__stage { margin-top: clamp(28px, 5vh, 56px) !important; }
-  .hero--sun .hsun__wrap { padding-top: calc(var(--nav) + 12px + clamp(24px, 5vh, 64px)); }
-  .hero--sun .hero__art { background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; overflow: visible !important; aspect-ratio: auto !important; }
-  .hero--sun .hero__art::before, .hero--sun .hero__art::after { display: none !important; }
-  .hero--sun .btn--secondary { background: rgba(255,240,228,.10) !important; color: #fff4ea !important; border: 1px solid rgba(255,240,228,.2) !important; }
-  .hero--sun .btn--secondary:hover { background: rgba(255,240,228,.18) !important; }
-  @media (min-width: 1024px) { .hero--sun .hsun__h { font-size: clamp(46px, 6.4vw, 104px) !important; } }
-
-  .hero.hero--sun > .wrap.hsun__wrap { display: flex !important; flex-direction: column; gap: 0 !important; row-gap: 0 !important; grid-template-rows: none !important; }
-  .hero--sun .hsun__glow { bottom: -66vmax; }
 
   /* round 7: the lyrics moment. Words light up as the page scrolls, like the app's word-by-word lyrics */
   .lyr .pin__stage { background: radial-gradient(90% 70% at 80% 10%, #5a1d10 0%, transparent 60%), radial-gradient(80% 70% at 10% 100%, #3d1209 0%, transparent 60%), #160806; color: #fff4ea; }
@@ -612,11 +369,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .flow__line i:nth-child(2) { animation-delay: .8s; } .flow__line i:nth-child(3) { animation-delay: 1.6s; }
   .flow__line + .flow__node + .flow__line i { animation-delay: 1.2s; } .flow__line + .flow__node + .flow__line i:nth-child(2) { animation-delay: 2s; } .flow__line + .flow__node + .flow__line i:nth-child(3) { animation-delay: 2.8s; }
   @keyframes flowp { 0% { left: 0; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
-  .flow__srv { display: inline-flex; align-items: center; gap: 12px; padding: 10px 18px 10px 10px; border-radius: 16px; color: rgba(255,244,234,.55);
-    border: 1.5px dashed rgba(255,235,220,.3); background: rgba(24,16,11,.35); }
-  .flow__srv b { display: block; font-weight: 500; text-decoration: line-through; text-decoration-color: #ff8a3d; text-decoration-thickness: 2px; }
-  .flow__srv small { display: block; font-size: 12.5px; color: #ffb27a; }
-  .flow__ic--sm { width: 40px; height: 40px; border-radius: 12px; margin: 0; background: rgba(255,255,255,.12); box-shadow: none; } .flow__ic--sm img { width: 22px; filter: invert(1); opacity: .6; }
   @media (max-width: 767px) {
     .flow__row { grid-template-columns: 1fr; justify-items: center; }
     .flow__node { width: min(320px, 100%); padding: 16px; grid-template-columns: 56px 1fr; justify-items: start; text-align: left; column-gap: 14px; }
@@ -660,15 +412,14 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .mixsec.section { height: auto !important; min-height: 100svh; }
   .mix { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 5vw, 80px); align-items: center; min-height: calc(100svh - var(--padt) - var(--padb)); }
   .mix__list { list-style: none; margin: var(--s-7) 0 0; padding: 0; display: grid; }
-  .mix__list li { display: grid; grid-template-columns: 44px 1fr; gap: 8px; padding: 18px 0; border-top: 1px solid rgba(255,235,220,.1); }
+  .mix__list li { padding: 18px 0; border-top: 1px solid rgba(255,235,220,.1); }
   .mix__list li:last-child { border-bottom: 1px solid rgba(255,235,220,.1); }
-  .mix__n { font: 500 13px/1.6 var(--font-mono, monospace); color: #ff8a3d; }
   .mix__list h3 { font: 500 var(--t-card)/1.3 var(--font-display); margin: 0 0 4px; color: #fff4ea; } .mix__list p { margin: 0; color: #c9b6a7; font-size: 15px; }
   .mix__stage { position: relative; height: clamp(520px, 74vh, 700px); border-radius: 32px; overflow: hidden;
     background: radial-gradient(70% 55% at 50% 110%, rgba(255,150,80,.9), rgba(242,102,30,.45) 35%, transparent 70%), radial-gradient(60% 50% at 0% 0%, rgba(255,214,186,.08), transparent 70%), linear-gradient(180deg, #1e1713, #0f0b09);
     box-shadow: inset 0 0 0 1px rgba(255,236,222,.08); }
   .mix__p { position: absolute; } .mix__p > .sp { box-shadow: 0 0 0 1px rgba(255,236,222,.12), 0 30px 70px rgba(0,0,0,.6) !important; height: auto !important; }
-  .mix__p--eq { left: 6%; right: 6%; top: 6%; } .mix__p--eq .sp-viz { height: 110px !important; }
+  .mix__p--eq { left: 6%; right: 6%; top: 6%; }
   .mix__p--fade { left: 4%; width: 46%; top: 50%; } .mix__p--loud { right: 4%; width: 44%; top: 47%; } .mix__p--trim { left: 27%; width: 46%; top: 72%; }
   .mix__p > .sp { font-size: 14px; }
   @media (max-width: 1023px) { .mix { grid-template-columns: 1fr; } .mix__stage { height: auto; padding: 20px; display: grid; gap: 16px; } .mix__p { position: static; width: auto !important; } }
@@ -677,7 +428,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .zz { display: grid; gap: clamp(40px, 7vh, 88px); margin-top: clamp(40px, 7vh, 80px); }
   .zz__row { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(32px, 6vw, 96px); align-items: center; }
   .zz__row--flip .zz__text { order: 2; }
-  .zz__n { display: inline-block; font: 600 clamp(56px, 6vw, 88px)/1 var(--font-display); letter-spacing: -0.05em; color: transparent; -webkit-text-stroke: 1.5px rgba(194,65,12,.55); margin-bottom: 10px; }
   .zz__text h3 { font: 500 clamp(26px, 2.4vw, 36px)/1.15 var(--font-display); letter-spacing: -0.02em; margin: 0 0 10px; }
   .zz__text p { margin: 0; font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 440px; }
   .zz__ui { position: relative; display: grid; justify-items: center; }
@@ -703,7 +453,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
     .mix__p--loud { right: 5%; width: 43%; top: 47%; left: auto; }
     .mix__p--trim { left: 28.5%; width: 43%; top: 73%; }
     .mix__p > .sp { font-size: 13px; padding: 14px 16px !important; }
-    .mix__p--eq .sp-viz { height: 80px !important; }
   }
 
   @media (min-width: 1024px) {
@@ -734,7 +483,7 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .offsec.section { position: relative; overflow: hidden; height: auto !important; min-height: 100svh; }
   .off__sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
   .off__wrap { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(32px, 6vw, 96px); align-items: center; min-height: calc(100svh - var(--padt) - var(--padb)); }
-  .off__text h2 { font-size: clamp(40px, 4.6vw, 72px); line-height: 1.02; letter-spacing: -0.035em; margin: 0 0 18px; }
+  .off__text h2 { margin: 0 0 18px; }
   .off__text .t-lead { color: #e7d0bf; max-width: 520px; }
   .off__facts { list-style: none; margin: var(--s-7) 0 0; padding: 0; display: grid; gap: 0; max-width: 560px; }
   .off__facts li { display: grid; grid-template-columns: 170px 1fr; gap: 16px; padding: 18px 0; border-top: 1px solid rgba(255,235,220,.12); }
@@ -743,7 +492,7 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .off__phone { position: relative; justify-self: center; width: clamp(240px, 22vw, 320px); }
   .off__dev { border-radius: 44px; padding: 9px; background: linear-gradient(160deg, #4a3020, #120b07 40%); box-shadow: 0 0 0 1px rgba(255,235,220,.14), 0 50px 100px rgba(0,0,0,.55), 0 0 120px rgba(255,120,40,.22); }
   .off__dev img { display: block; width: 100%; height: auto; border-radius: 36px; }
-  .off__pill { position: absolute; z-index: 2; top: 13%; left: -18%; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 99px; font-weight: 500; font-size: 15px; color: #1c1008;
+  .off__pill { position: absolute; z-index: 2; top: 0; transform: translateY(-40%); left: -18%; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 99px; font-weight: 500; font-size: 15px; color: #1c1008;
     background: #ffb27a; box-shadow: 0 16px 40px rgba(0,0,0,.4); }
   .off__pill svg { width: 18px; height: 18px; fill: #1c1008; transform: rotate(45deg); }
   @media (max-width: 1023px) { .off__wrap { grid-template-columns: 1fr; } .off__pill { left: -8%; } }
@@ -766,14 +515,13 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
     .mix__p--eq { grid-column: 1 !important; grid-row: 1 / span 3; align-self: stretch; }
     .mix__p--eq > .sp { height: 100% !important; display: flex; flex-direction: column; justify-content: space-between; }
     .mix__p--fade, .mix__p--loud, .mix__p--trim { grid-column: 2 !important; }
-    .mix__p--eq .sp-viz { height: 120px !important; }
   }
 
   #drum .drum__list li.is-on { color: #fff8f2 !important; }
   .offsec > .wrap.off__wrap { display: grid !important; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr) !important; grid-template-rows: none !important; row-gap: 0 !important; height: auto !important; }
   @media (max-width: 1023px) { .offsec > .wrap.off__wrap { grid-template-columns: 1fr !important; row-gap: 48px !important; } }
   .off__sky path { stroke: rgba(255,190,140,.18); }
-  @media (min-width: 1024px) { .mix__p--eq > .sp { justify-content: flex-start !important; gap: 18px; } .mix__p--eq .sp-viz { height: 210px !important; } }
+  @media (min-width: 1024px) { .mix__p--eq > .sp { justify-content: flex-start !important; gap: 18px; } }
   @media (max-width: 767px) { .off__sky { height: 140px; } .off__plane > g { transform: rotate(90deg) scale(3) translate(-12px, -12px); } }
 
   /* round 11: once scrolled, the bar tightens into a centred pill */
@@ -786,13 +534,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
     .nav.is-glass .nav__links { justify-content: center; }
   }
 
-  @media (max-width: 1023px) {
-    .drum__phone { display: block !important; width: 92px; top: 12px; right: 0; transform: rotate(5deg); border-radius: 18px; padding: 4px; }
-    .drum__phone img { inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); border-radius: 14px; }
-    .drum__h { padding-right: 108px; }
-  }
-  @media (max-width: 1023px) { .drum__phone { width: 66px !important; top: 6px !important; border-radius: 14px !important; padding: 3px !important; } .drum__phone img { inset: 3px !important; width: calc(100% - 6px) !important; height: calc(100% - 6px) !important; border-radius: 11px !important; }
-    .drum__h { padding-right: 84px !important; min-height: 140px; } }
 
   /* sound: fluid equalizer + fade */
   .eqx { position: relative; flex: 1; min-height: 190px; margin: 2px -4px 10px; }
@@ -820,7 +561,7 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
 /* new: your rotation */
 .rot.section { position: relative; overflow: hidden; }
 .rot__wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(32px, 6vw, 96px); align-items: center; min-height: calc(100svh - var(--padt) - var(--padb)); }
-.rot__text h2 { font-size: clamp(40px, 4.6vw, 72px); line-height: 1.02; letter-spacing: -0.035em; margin: 0 0 18px; }
+.rot__text h2 { margin: 0 0 18px; }
 .rot__text .t-lead { color: #e7d0bf; max-width: 520px; }
 .rot__facts { list-style: none; margin: var(--s-7) 0 0; padding: 0; max-width: 560px; }
 .rot__facts li { display: grid; grid-template-columns: 150px 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid rgba(255,235,220,.12); }
@@ -831,22 +572,18 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
 .rot__dev img { display: block; width: 100%; height: auto; border-radius: 36px; }
 .rot__dev--a { left: 0; top: 0; z-index: 2; box-shadow: 0 0 0 1px rgba(255,235,220,.14), 0 50px 100px rgba(0,0,0,.55), 0 0 120px rgba(255,120,40,.25); }
 .rot__dev--b { right: 0; bottom: 0; }
-.rot__note { position: absolute; z-index: 3; left: 38%; bottom: 6%; padding: 10px 16px; border-radius: 99px; background: #ff8a3d; color: #1c1008; font-weight: 500; font-size: 15px; }
 @media (max-width: 1023px) { .rot__wrap { grid-template-columns: 1fr; } .rot__phones { height: clamp(440px, 96vw, 640px); } }
 @media (max-width: 639px) { .rot__facts li { grid-template-columns: 1fr; gap: 4px; } .rot__dev { border-radius: 32px; padding: 6px; } .rot__dev img { border-radius: 27px; } }
 /* new: backup */
 .bak__wrap { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: clamp(28px, 5vw, 80px); align-items: center; }
-.bak__text h2 { font-size: clamp(32px, 3.6vw, 52px); line-height: 1.05; letter-spacing: -0.03em; margin: 0 0 14px; }
+.bak__text h2 { margin: 0 0 18px; }
 .bak__img { border-radius: 28px; overflow: hidden; box-shadow: 0 0 0 1px rgba(28,20,16,.12), 0 30px 70px rgba(60,30,10,.28); }
 .bak__img img { display: block; width: 100%; height: auto; }
 @media (max-width: 1023px) { .bak__wrap { grid-template-columns: 1fr; } }
 /* new: desktop */
 .dsk__head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: var(--s-7); }
-.dsk__head h2 { font-size: clamp(36px, 4.2vw, 64px); line-height: 1.03; letter-spacing: -0.035em; margin: 0; max-width: 16ch; }
-.dsk__head p { max-width: 460px; color: var(--muted); margin: 0; }
+.dsk__head h2 { margin: 0; }
 .dsk__win { border-radius: 14px; overflow: hidden; background: #111; box-shadow: 0 0 0 1px rgba(255,235,220,.14), 0 50px 120px rgba(0,0,0,.6), 0 0 140px rgba(255,120,40,.18); }
-.dsk__bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: #1b2330; color: #cfd6e0; font-size: 13px; }
-.dsk__bar i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #5b6676; margin-left: 8px; }
 .dsk__win img { display: block; width: 100%; height: auto; }
 .dsk__row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; margin-top: var(--s-7); }
 .dsk__row h3 { font: 500 18px/1.35 var(--font-display); color: #ffb27a; margin: 0 0 6px; } .dsk__row p { margin: 0; color: var(--muted); }
@@ -861,7 +598,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
 .dsksec > .wrap { height: auto !important; }
 @media (max-width: 1023px) { .rot > .wrap.rot__wrap, .baksec > .wrap.bak__wrap { grid-template-columns: 1fr !important; row-gap: 40px !important; } }
 /* new: two downloads */
-.dl2 { display: flex; flex-wrap: wrap; gap: 10px; }
 </style>
 <style>
 /* round 2: small screens */
@@ -885,15 +621,6 @@ html[data-ground="sand"] { --ground-bg: #f4c7a0; --ground-surface: #f9dcc1; --gr
   .nav.is-open .nav__actions { animation: navItem .55s cubic-bezier(.2,.7,.2,1) .3s both; }
 }
 @media (prefers-reduced-motion: reduce) { .nav.is-open :is(.nav__links, .nav__item, .nav__actions) { animation: none; } }
-/* phone hero: the name, one line, the button */
-@media (max-width: 639px) {
-  .hero--sun .hsun__kicker, .hero--sun .hsun__proof { display: none !important; }
-}
-/* no tiny phone beside the "first song to last" list */
-@media (max-width: 1023px) {
-  .drum__phone { display: none !important; }
-  .drum__h { padding-right: 0 !important; min-height: 0 !important; }
-}
 /* before and after: the box, then the step under it */
 @media (max-width: 1023px) {
   #compare .ba__text { display: contents; }
@@ -929,8 +656,6 @@ main > .hero.hero--vinyl > :is(.hv__wrap, .hv__stripwrap) { width: min(100% - 2 
 main > .hero.hero--vinyl > .hv__wrap { flex: 1 0 auto; display: grid; align-content: center; padding-bottom: 60px; }
 .hv__wrap { position: relative; display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr); align-items: center; gap: 24px; padding-top: calc(var(--nav) + 40px); flex: 1; }
 .hv__copy { max-width: 640px; }
-.hv__kicker { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: #e7d3c3; border: 1px solid rgba(255,235,220,.16); background: rgba(255,240,228,.04); padding: 8px 16px; border-radius: 99px; margin: 0 0 28px; }
-.hv__kicker span { opacity: .5; } .hv__kicker em { font-style: normal; }
 .hv__h { font-size: clamp(48px, 6.1vw, 100px); line-height: .98; letter-spacing: -0.04em; font-weight: 600; margin: 0; color: #fff6ee; }
 .hv__h span { display: block; color: #ff6b2c; background: none; -webkit-text-fill-color: #ff6b2c; }
 .hv__lead { margin: 28px 0 0; max-width: 540px; font-size: clamp(16px, 1.3vw, 19px); line-height: 1.55; color: #cdb8a8; }
@@ -939,18 +664,12 @@ main > .hero.hero--vinyl > .hv__wrap { flex: 1 0 auto; display: grid; align-cont
 .hv__btns .btn .dl__icon { width: 24px; height: 24px; }
 .hv__chev { width: 12px; height: 12px; margin-left: 4px; flex: none; transition: transform .2s ease; }
 .hv__btns .btn:hover .hv__chev { transform: translateX(3px); }
-.hv__proof { margin: 18px 0 0; font-size: 13.5px; color: #8f7a6b; }
+.hv__proof { margin: 16px 0 0; font-size: 13.5px; color: #c9b6a7; }
+.hv__proof a { color: #fff4ea; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,244,234,.45); }
+.hv__proof a:hover { text-decoration-color: currentColor; }
 
-/* the four facts */
-.hv__stripwrap { position: relative; padding-bottom: 20px; }
-.hv__strip { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid rgba(255,235,220,.12); background: rgba(24,17,14,.62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-radius: 22px; }
-.hv__f { display: flex; align-items: center; gap: 16px; padding: 22px 28px; }
-.hv__f + .hv__f { border-left: 1px solid rgba(255,235,220,.10); }
-.hv__f svg { width: 34px; height: 34px; flex: none; }
-.hv__f b { display: block; font-weight: 500; font-size: 16px; color: #fff4ea; }
-.hv__f small { display: block; margin-top: 3px; font-size: 14px; color: #9c8676; }
 
-.nav.is-glass .nav__link.is-current, .nav.is-glass .hv__out { display: none; }
+.nav.is-glass .hv__out { display: none; }
 @media (min-width: 1024px) and (max-width: 1180px) { .nav .nav__link { padding-inline: 9px; font-size: 14.5px; } .nav .nav__links { gap: 0; } .nav .nav__actions .btn { padding-inline: 12px; } .nav .nav__actions .btn > span { display: none; } }
 .hv__out { width: 12px; height: 12px; flex: none; }
 
@@ -960,24 +679,14 @@ main > .hero.hero--vinyl > .hv__wrap { flex: 1 0 auto; display: grid; align-cont
 }
 @media (max-width: 639px) {
   .hv__h { font-size: clamp(40px, 12vw, 54px); }
-  .hv__kicker { font-size: 12.5px; padding: 7px 12px; gap: 7px; flex-wrap: wrap; border-radius: 16px; }
   .hv__lead { margin-top: 20px; }
   .hv__btns { gap: 8px; margin-top: 26px; flex-direction: row; flex-wrap: nowrap; }
   .hv__btns .btn { height: auto; min-height: 64px; flex: 1 1 0; min-width: 0; flex-direction: column; gap: 6px; padding: 10px 4px; font-size: 14px; border-radius: 22px; }
   .hv__btns .btn .dl__icon { width: 22px; height: 22px; }
   .hv__chev { display: none; }
-  .hv__strip { grid-template-columns: 1fr 1fr; }
-  .hv__f { padding: 16px; gap: 12px; } .hv__f svg { width: 26px; height: 26px; } .hv__f b { font-size: 14.5px; } .hv__f small { font-size: 12.5px; }
-  .hv__f:nth-child(3) { border-left: 0; } .hv__f:nth-child(n+3) { border-top: 1px solid rgba(255,235,220,.10); }
   }
 @media (min-width: 1280px) and (max-width: 1439px) {
-  .hv__kicker { font-size: 13px; padding: 7px 12px; gap: 8px; }
   .hv__btns { gap: 10px; } .hv__btns .btn { height: 52px; padding: 0 16px 0 14px; font-size: 15px; gap: 9px; } .hv__btns .btn .dl__icon { width: 22px; height: 22px; } .hv__chev { display: none; }
-  .hv__f { padding: 18px 16px; gap: 12px; } .hv__f svg { width: 28px; height: 28px; } .hv__f small { font-size: 13px; }
-}
-.hv__kicker > * { white-space: nowrap; }
-@media (max-width: 639px) {
-  .hv__kicker { font-size: 11.5px; padding: 7px 10px; gap: 5px; flex-wrap: nowrap; border-radius: 99px; }
 }
 </style>
 <style>
@@ -987,7 +696,7 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
 .hv__media { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
 .hv__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% 50%; }
 .hv__media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, #0f0a09 0%, rgba(15,10,9,.95) 30%, rgba(15,10,9,.72) 45%, rgba(15,10,9,.25) 62%, rgba(15,10,9,0) 76%), linear-gradient(0deg, #0f0a09 0%, rgba(15,10,9,0) 24%); }
-.hv__pause { position: absolute; z-index: 3; right: max(24px, calc((100% - var(--container)) / 2 + 19px)); bottom: 128px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,235,220,.25); background: rgba(24,17,14,.6); color: #f3e4d6; display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease; }
+.hv__pause { position: absolute; z-index: 3; right: max(24px, calc((100% - var(--container)) / 2 + 19px)); bottom: 32px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,235,220,.25); background: rgba(24,17,14,.6); color: #f3e4d6; display: grid; place-items: center; cursor: pointer; transition: background-color .2s ease; }
 .hv__pause:hover { background: rgba(255,240,228,.14); } .hv__pause svg { width: 16px; height: 16px; } .hv__pause .i-play, .hv__pause[aria-pressed="true"] .i-pause { display: none; } .hv__pause[aria-pressed="true"] .i-play { display: block; }
 @media (prefers-reduced-motion: reduce) { .hv__video, .hv__pause { display: none; } .hv__media { background: url(media/hero-poster.jpg) 70% 50% / cover no-repeat; } }
 @media (max-width: 1279px) {
@@ -997,17 +706,104 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   .hv__media::after { background: linear-gradient(180deg, #0f0a09 0%, rgba(15,10,9,0) 18%), linear-gradient(0deg, #0f0a09 0%, rgba(15,10,9,0) 24%); }
   .hv__video { object-position: 66% 50%; }
   .hv__stripwrap { order: 3; }
-  .hv__pause { bottom: auto; top: 14px; right: 16px; }
 }
 @media (max-width: 1279px) {
   .hv__media { position: absolute; inset: 0; height: auto; order: 0; }
   .hv__video { object-position: 60% 50%; filter: blur(3px) brightness(.6); transform: scale(1.08); }
   .hv__media::after { background: linear-gradient(180deg, rgba(15,10,9,.62) 0%, rgba(15,10,9,.5) 40%, rgba(15,10,9,.78) 100%); }
   .hv__wrap { flex: 1 0 auto !important; align-content: center; padding-bottom: 40px; }
-  .hv__pause { top: calc(var(--nav) + 12px); }
   .hv__copy { max-width: 640px; }
 }
 @media (max-width: 1279px) and (prefers-reduced-motion: reduce) { .hv__media { background-position: 60% 50%; } }
+
+/* Discord: a round icon beside GitHub, quieter than it (no fill, a thin ring) */
+.nav.nav .nav__actions .btn.nav__dc { width: 40px; height: 40px; padding: 0; border-radius: 50%; gap: 0; background: transparent; color: inherit; border-color: rgba(28,20,16,.16); }
+.nav.nav .nav__actions .btn.nav__dc:hover { background: rgba(28,20,16,.06); }
+.nav.is-dark:not(.is-open) .nav__actions .btn.nav__dc { border-color: rgba(255,240,228,.2); color: #fff4ea; }
+.nav.is-dark:not(.is-open) .nav__actions .btn.nav__dc:hover { background: rgba(255,240,228,.08); }
+.nav__dc svg { width: 19px; height: 19px; flex: none; }
+.nav__dc-label { display: none; }
+@media (max-width: 1023px) {
+  .nav.nav.is-open .nav__actions .btn.nav__dc { order: 1; width: 100%; height: 48px; border-radius: var(--r-btn); gap: var(--s-2); border-color: rgba(255,235,220,.24); }
+  .nav.is-open .nav__dc-label { display: inline; }
+}
+/* the section on screen: the same 2px bar as the current page */
+.nav__link[aria-current="location"]::after { content: ""; position: absolute; left: var(--s-3); right: var(--s-3); bottom: -2px; height: 2px; border-radius: 2px; background: currentColor; }
+@media (min-width: 1024px) and (max-width: 1279px) { .nav__link[aria-current="location"]::after { left: var(--s-2); right: var(--s-2); } }
+@media (max-width: 1023px) { .nav.is-open .nav__link[aria-current="location"]::after { left: 0; right: auto; width: 24px; bottom: 10px; } }
+
+/* the closing line, folded into the last screen with the download buttons */
+  /* closing line */
+  .closer { --c: var(--cp, 0); }
+  .closer .pin__stage { background: color-mix(in oklab, #0c0d10 calc(clamp(0, (var(--c) - .6) * 10, 1) * 100%), #f7f1e8); }
+  .closer__wrap { display: flex; align-items: center; }
+  .closer__h { font-size: clamp(44px, 7.4vw, 112px); line-height: 1; letter-spacing: -0.045em; color: color-mix(in oklab, #f7f1e8 calc(clamp(0, (var(--c) - .6) * 10, 1) * 100%), #1c1410); }
+  .closer__h span { display: block; }
+  .closer__l2 { color: #e2611f; opacity: clamp(0, var(--c) * 2.2, 1); filter: blur(calc((1 - clamp(0, var(--c) * 2.2, 1)) * 14px)); transform: translateY(calc((1 - clamp(0, var(--c) * 2.2, 1)) * 60px)); }
+  .closer__glow { position: absolute; left: -10%; right: -10%; bottom: 0; height: calc(var(--c) * 90%); background: radial-gradient(50% 100% at 50% 100%, rgba(255,138,61,.75), rgba(226,97,31,.25) 55%, transparent 75%); pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .closer .pin__stage { background: #0c0d10; } .closer__h { color: #f7f1e8; } .closer__l2 { opacity: 1; filter: none; transform: none; }
+  }
+  /* no seam into the footer: the glow peaks above the edge and fades to the shared dark */
+  .closer__glow { bottom: 0; background: radial-gradient(48% 70% at 50% 78%, rgba(255,138,61,.72), rgba(226,97,31,.22) 55%, transparent 78%) !important;
+                  -webkit-mask: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%); mask: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%); }
+  .closer .pin__stage::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 18%; pointer-events: none;
+                  background: linear-gradient(to bottom, rgba(12,13,16,0), #0c0d10); opacity: clamp(0, (var(--c) - .55) * 3, 1); }
+
+  /* round 6: the closing sunrise (Ali's second tasteskill.dev recording).
+     cream -> an orange sun rises until the screen is orange -> dark arrives, line one leaves,
+     the sun sinks back to an arc that carries on into the footer */
+  .closer { --dark: #1a110b; }
+  .closer { --rise: clamp(0, calc(var(--c) / .42), 1); --sink: clamp(0, calc((var(--c) - .52) / .3), 1); --night: clamp(0, calc((var(--c) - .47) * 1000), 1); --set: clamp(0, calc((var(--c) - .86) / .14), 1); }
+  .closer .pin__stage { background: color-mix(in srgb, var(--dark) calc(var(--night) * 100%), #f7f1e8) !important; }
+  .closer .pin__stage::after { display: none !important; }
+  .closer__glow { position: absolute; left: 50% !important; right: auto !important; bottom: auto !important; width: 260vmax; height: 260vmax !important; border-radius: 50%;
+    top: 100svh; transform: translate(-50%, calc(-50% + (135 - var(--rise) * 175 + var(--sink) * 148 + var(--set) * 30) * 1vmax));
+    background: radial-gradient(closest-side, #f0601a 0%, #f2661e 70%, rgba(242,102,30,.55) 84%, rgba(242,102,30,0) 100%) !important;
+    -webkit-mask: none !important; mask: none !important; will-change: transform; z-index: 0; }
+  .closer__wrap { justify-content: center; position: relative; z-index: 1; }
+  .closer__h { text-align: center; font-size: clamp(46px, 7.6vw, 124px) !important; color: #1c1410 !important; }
+  .closer__l1 { opacity: calc(1 - clamp(0, calc((var(--c) - .55) / .12), 1)); }
+  .closer__l2 { color: #fff8f2 !important; opacity: calc(.5 + .5 * clamp(0, calc(var(--c) / .34), 1)) !important;
+    filter: blur(calc((1 - clamp(0, calc(var(--c) / .34), 1)) * 16px)) !important; transform: none !important; }
+  @media (prefers-reduced-motion: reduce) {
+    .closer .pin__stage { background: var(--dark) !important; } .closer__glow { transform: translate(-50%, calc(-50% + 108vmax)); }
+    .closer__h { color: #fff8f2 !important; } .closer__l1 { opacity: 1; } .closer__l2 { opacity: 1 !important; filter: none !important; }
+  }
+/* footer small text: light enough to read on the orange glow at the bottom (4.5:1 or more) */
+footer.closing .footer__legal, footer.closing .footer__legal .credits { color: #fffaf5; }
+footer.closing .footer__col h4 { color: #d9c9bb; }
+footer.closing .footer__legal a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.tl__safe { margin: var(--s-7) 0 0; color: var(--muted); }
+.tl__safe a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* polish pass */
+/* the backup band picks up the colour the playlists band ends on, so there is no seam between them */
+.baksec.band-peach { background: linear-gradient(180deg, #f4bf95 0%, #f9d9bd 100%); }
+/* split-column headings: the grey second sentence starts its own line, so neither sentence breaks mid-thought */
+:is(#tour-h, #rotation-h) .muted { display: block; }
+/* touch: footer links, tabs and the disclaimer link at least 44px tall */
+@media (max-width: 1023px) {
+  footer.closing .footer__col ul { gap: 0; }
+  footer.closing .footer__col ul a { display: inline-flex; align-items: center; min-height: 44px; }
+  footer.closing .footer__col h4 { margin-bottom: 4px; }
+}
+/* below 1280 the video is a blurred ground: its pause button sits in the hero's bottom corner, away from the menu button */
+@media (max-width: 1279px) { .hv__pause { right: calc(var(--gut) + 19px); bottom: 20px; } }
+@media (max-width: 639px) {
+  #tour .tab { min-height: 44px; }
+  #faq .link { min-height: 44px; }
+  .hv__pause { width: 44px; height: 44px; }
+}
+/* reduced motion: the rolling list rests as a plain list, the before/after frame keeps its height */
+@media (prefers-reduced-motion: reduce) {
+  #drum .drum__list { margin-block: var(--s-5); }
+  #drum .drum__list li { color: #1c0c04; }
+  #drum .drum__cap { display: none; }
+  #drum .drum__foot { grid-template-columns: auto; justify-content: start; }
+  #compare .ba__frame { flex: none; min-height: 660px; }
+}
+@media (prefers-reduced-motion: reduce) and (max-width: 639px) { #compare .ba__frame { min-height: 540px; } }
 </style>
 </head>
 <body class="bg-topglow">
@@ -1017,15 +813,14 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
     <a class="skip" href="#tour">Skip to the tour</a>
     <a class="nav__logo" href="#top"><img src="img/logo.svg" alt="" width="28" height="28">Spotifry</a>
     <nav class="nav__links" aria-label="Main">
-      <div class="nav__item"><a class="nav__link is-current" href="#top" aria-current="page">Home</a></div>
       <div class="nav__item"><a class="nav__link" href="#tour">Tour</a></div>
-      <div class="nav__item"><a class="nav__link" href="#rotation">Your rotation</a></div>
-      <div class="nav__item"><a class="nav__link" href="#sound">Features</a></div>
-      <div class="nav__item"><a class="nav__link" href="#desktop">Computer</a></div>
+      <div class="nav__item"><a class="nav__link" href="#desktop">Desktop</a></div>
+      <div class="nav__item"><a class="nav__link" href="#drum">Features</a></div>
       <div class="nav__item"><a class="nav__link" href="#install">Install</a></div>
       <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
     </nav>
     <div class="nav__actions">
+      <a class="btn nav__dc" href="https://discord.gg/HXEdru9u2y" aria-label="Discord" title="Join the Spotifry Discord"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.865-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.74 19.74 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .078-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg><span class="nav__dc-label">Discord</span></a>
       <a class="btn btn--secondary" href="https://github.com/Alnyz/spotifry/" aria-label="View on GitHub"><svg class="dl__icon" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg><span><span class="nav__long">View on </span>GitHub</span><svg class="hv__out" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5h5v5M9.5 2.5 3 9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </div>
     <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
@@ -1048,12 +843,14 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
         <h1 id="hero-h" class="hv__h">Ads are for<br>someone else.<br><span>Music for your ears.</span></h1>
         <p class="hv__lead">An ad-free music player. Search any song on YouTube and play it, with no account.</p>
         <div class="btn-row hv__btns">
-          <a class="btn btn--primary" data-dl="apk" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/spotifry-1.2.0.apk" aria-label="Download Spotifry for Android"><svg class="dl__icon" viewBox="-0.48 4.403 24.96 15.067" aria-hidden="true" fill="currentColor"><path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>Android<svg class="hv__chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-          <a class="btn btn--primary" data-dl="AppImage" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/Spotifry-1.2.0-x86_64.AppImage" aria-label="Download Spotifry for Linux"><svg class="dl__icon" viewBox="1.68 -0.551 20.817 24.95" aria-hidden="true" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.334-.17.838-.319 1.35-1.5 1.072-3.58 1.538-5.348.334a2.645 2.645 0 00-.402-.533 1.45 1.45 0 00-.275-.333c.182 0 .338-.03.465-.067a.615.615 0 00.314-.334c.108-.267 0-.697-.345-1.163-.345-.467-.931-.995-1.788-1.521-.63-.4-.986-.87-1.15-1.396-.165-.534-.143-1.085-.015-1.645.245-1.07.873-2.11 1.274-2.763.107-.065.037.135-.408.974-.396.751-1.14 2.497-.122 3.854a8.123 8.123 0 01.647-2.876c.564-1.278 1.743-3.504 1.836-5.268.048.036.217.135.289.202.218.133.38.333.59.465.21.201.477.335.876.335.039.003.075.006.11.006.412 0 .73-.134.997-.268.29-.134.52-.334.74-.4h.005c.467-.135.835-.402 1.044-.7zm2.185 8.958c.037.6.343 1.245.882 1.377.588.134 1.434-.333 1.791-.765l.211-.01c.315-.007.577.01.847.268l.003.003c.208.199.305.53.391.876.085.4.154.78.409 1.066.486.527.645.906.636 1.14l.003-.007v.018l-.003-.012c-.015.262-.185.396-.498.595-.63.401-1.746.712-2.457 1.57-.618.737-1.37 1.14-2.036 1.191-.664.053-1.237-.2-1.574-.898l-.005-.003c-.21-.4-.12-1.025.056-1.69.176-.668.428-1.344.463-1.897.037-.714.076-1.335.195-1.814.12-.465.308-.797.641-.984l.045-.022zm-10.814.049h.01c.053 0 .105.005.157.014.376.055.706.333 1.023.752l.91 1.664.003.003c.243.533.754 1.064 1.189 1.637.434.598.77 1.131.729 1.57v.006c-.057.744-.48 1.148-1.125 1.294-.645.135-1.52.002-2.395-.464-.968-.536-2.118-.469-2.857-.602-.369-.066-.61-.2-.723-.4-.11-.2-.113-.602.123-1.23v-.004l.002-.003c.117-.334.03-.752-.027-1.118-.055-.401-.083-.71.043-.94.16-.334.396-.4.69-.533.294-.135.64-.202.915-.47h.002v-.002c.256-.268.445-.601.668-.838.19-.201.38-.336.663-.336zm7.159-9.074c-.435.201-.945.535-1.488.535-.542 0-.97-.267-1.28-.466-.154-.134-.28-.268-.373-.335-.164-.134-.144-.333-.074-.333.109.016.129.134.199.2.096.066.215.2.36.333.292.2.68.467 1.167.467.485 0 1.053-.267 1.398-.466.195-.135.445-.334.648-.467.156-.136.149-.267.279-.267.128.016.034.134-.147.332a8.097 8.097 0 01-.69.468zm-1.082-1.583V5.64c-.006-.02.013-.042.029-.05.074-.043.18-.027.26.004.063 0 .16.067.15.135-.006.049-.085.066-.135.066-.055 0-.092-.043-.141-.068-.052-.018-.146-.008-.163-.065zm-.551 0c-.02.058-.113.049-.166.066-.047.025-.086.068-.14.068-.05 0-.13-.02-.136-.068-.01-.066.088-.133.15-.133.08-.031.184-.047.259-.005.019.009.036.03.03.05v.02h.003z"/></svg>Linux<svg class="hv__chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-          <a class="btn btn--primary" data-dl="msi" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/Spotifry-1.2.0-windows-x64.msi" aria-label="Download Spotifry for Windows"><svg class="dl__icon" viewBox="0 0 256 256" aria-hidden="true" fill="currentColor"><g> <path d="M0,2.84217094e-14 L121.32899,2.84217094e-14 L121.32899,121.32899 L0,121.32899 L0,2.84217094e-14 Z M134.67101,2.84217094e-14 L256,2.84217094e-14 L256,121.32899 L134.67101,121.32899 L134.67101,2.84217094e-14 Z M0,134.67101 L121.32899,134.67101 L121.32899,256 L0,256 L0,134.67101 Z M134.67101,134.67101 L256,134.67101 L256,256 L134.67101,256 L134.67101,134.67101 Z"></path> </g></svg>Windows<svg class="hv__chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          <a class="btn btn--primary" data-dl="apk" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/spotifry-1.3.0.apk" aria-label="Download Spotifry for Android"><svg class="dl__icon" viewBox="-0.48 4.403 24.96 15.067" aria-hidden="true" fill="currentColor"><path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>Android<svg class="hv__chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          <a class="btn btn--primary" data-dl="AppImage" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/Spotifry-1.3.0-x86_64.AppImage" aria-label="Download Spotifry for Linux"><svg class="dl__icon" viewBox="1.68 -0.551 20.817 24.95" aria-hidden="true" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.334-.17.838-.319 1.35-1.5 1.072-3.58 1.538-5.348.334a2.645 2.645 0 00-.402-.533 1.45 1.45 0 00-.275-.333c.182 0 .338-.03.465-.067a.615.615 0 00.314-.334c.108-.267 0-.697-.345-1.163-.345-.467-.931-.995-1.788-1.521-.63-.4-.986-.87-1.15-1.396-.165-.534-.143-1.085-.015-1.645.245-1.07.873-2.11 1.274-2.763.107-.065.037.135-.408.974-.396.751-1.14 2.497-.122 3.854a8.123 8.123 0 01.647-2.876c.564-1.278 1.743-3.504 1.836-5.268.048.036.217.135.289.202.218.133.38.333.59.465.21.201.477.335.876.335.039.003.075.006.11.006.412 0 .73-.134.997-.268.29-.134.52-.334.74-.4h.005c.467-.135.835-.402 1.044-.7zm2.185 8.958c.037.6.343 1.245.882 1.377.588.134 1.434-.333 1.791-.765l.211-.01c.315-.007.577.01.847.268l.003.003c.208.199.305.53.391.876.085.4.154.78.409 1.066.486.527.645.906.636 1.14l.003-.007v.018l-.003-.012c-.015.262-.185.396-.498.595-.63.401-1.746.712-2.457 1.57-.618.737-1.37 1.14-2.036 1.191-.664.053-1.237-.2-1.574-.898l-.005-.003c-.21-.4-.12-1.025.056-1.69.176-.668.428-1.344.463-1.897.037-.714.076-1.335.195-1.814.12-.465.308-.797.641-.984l.045-.022zm-10.814.049h.01c.053 0 .105.005.157.014.376.055.706.333 1.023.752l.91 1.664.003.003c.243.533.754 1.064 1.189 1.637.434.598.77 1.131.729 1.57v.006c-.057.744-.48 1.148-1.125 1.294-.645.135-1.52.002-2.395-.464-.968-.536-2.118-.469-2.857-.602-.369-.066-.61-.2-.723-.4-.11-.2-.113-.602.123-1.23v-.004l.002-.003c.117-.334.03-.752-.027-1.118-.055-.401-.083-.71.043-.94.16-.334.396-.4.69-.533.294-.135.64-.202.915-.47h.002v-.002c.256-.268.445-.601.668-.838.19-.201.38-.336.663-.336zm7.159-9.074c-.435.201-.945.535-1.488.535-.542 0-.97-.267-1.28-.466-.154-.134-.28-.268-.373-.335-.164-.134-.144-.333-.074-.333.109.016.129.134.199.2.096.066.215.2.36.333.292.2.68.467 1.167.467.485 0 1.053-.267 1.398-.466.195-.135.445-.334.648-.467.156-.136.149-.267.279-.267.128.016.034.134-.147.332a8.097 8.097 0 01-.69.468zm-1.082-1.583V5.64c-.006-.02.013-.042.029-.05.074-.043.18-.027.26.004.063 0 .16.067.15.135-.006.049-.085.066-.135.066-.055 0-.092-.043-.141-.068-.052-.018-.146-.008-.163-.065zm-.551 0c-.02.058-.113.049-.166.066-.047.025-.086.068-.14.068-.05 0-.13-.02-.136-.068-.01-.066.088-.133.15-.133.08-.031.184-.047.259-.005.019.009.036.03.03.05v.02h.003z"/></svg>Linux<svg class="hv__chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          <a class="btn btn--primary" data-dl="msi" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/Spotifry-1.3.0-windows-x64.msi" aria-label="Download Spotifry for Windows"><svg class="dl__icon" viewBox="0 0 256 256" aria-hidden="true" fill="currentColor"><g> <path d="M0,2.84217094e-14 L121.32899,2.84217094e-14 L121.32899,121.32899 L0,121.32899 L0,2.84217094e-14 Z M134.67101,2.84217094e-14 L256,2.84217094e-14 L256,121.32899 L134.67101,121.32899 L134.67101,2.84217094e-14 Z M0,134.67101 L121.32899,134.67101 L121.32899,256 L0,256 L0,134.67101 Z M134.67101,134.67101 L256,134.67101 L256,256 L134.67101,256 L134.67101,134.67101 Z"></path> </g></svg>Windows<svg class="hv__chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
         </div>
+        <p class="hv__proof">From GitHub · Android 7 and newer · free, no account · <a href="#install">How to install</a></p>
       </div>
     </div>
+    <button class="hv__pause" type="button" aria-pressed="false" aria-label="Pause the background video"><svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3h3v10H4zM9 3h3v10H9z" fill="currentColor"/></svg><svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2.5v11l9-5.5z" fill="currentColor"/></svg></button>
   </section>
 
   <section class="section ground-inverse" id="tour" aria-labelledby="tour-h">
@@ -1089,13 +886,35 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
     </div>
   </section>
 
-  <section class="pin band-ember" id="drum" aria-labelledby="drum-h" data-pin="drum" style="--pin-h: 300vh">
+  <section class="section band-brown dsksec" id="desktop" aria-labelledby="desktop-h">
+    <div class="wrap">
+      <div class="dsk__head">
+        <h2 id="desktop-h">On your computer too.</h2>
+      </div>
+      <div class="dsk__win" role="img" aria-label="Spotifry on a computer: the home page with your rotation, the lyrics and the queue side by side">
+        <img src="img/desktop.webp" alt="" loading="lazy" width="1600" height="870">
+      </div>
+      <div class="dsk__row">
+        <div><h3>Lyrics beside the song</h3><p>Lines light up as they’re sung, next to the queue.</p></div>
+        <div><h3>Same look, same data</h3><p>Your rotation and Spotifried work the same as on the phone. Nothing leaves your computer.</p></div>
+        <div><h3>Keyboard and media keys</h3><p>Ctrl K to jump to anything. Play, pause and skip from your keyboard.</p></div>
+        <div><h3>No account</h3><p>Open it and search. It updates itself.</p></div>
+      </div>
+      <div class="dsk__dl">
+        <a class="btn btn--primary" data-dl="AppImage" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/Spotifry-1.3.0-x86_64.AppImage">Download for Linux</a>
+        <a class="btn btn--primary" data-dl="msi" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/Spotifry-1.3.0-windows-x64.msi">Download for Windows</a>
+        <small>Version <span data-ver-desktop>1.3.0</span>. Linux comes as one AppImage file, Windows as an installer.</small>
+      </div>
+    </div>
+  </section>
+
+  <section class="pin band-ember" id="drum" aria-labelledby="drum-h" data-pin="drum" style="--pin-h: 200vh">
     <div class="pin__stage">
       <div class="wrap pin__wrap drum">
         <h2 id="drum-h" class="drum__h">From the first song to the last one at night</h2>
-        <ol class="drum__list"><li data-screen="home" data-label="No sign-up, no account, nothing to fill in.">Open it, press play</li><li data-screen="search" data-label="The top results get ready while you look.">Tap, and it’s playing</li><li data-screen="nowplaying" data-label="Every song plays to its last second.">No ad breaks in</li><li data-screen="queue" data-label="Ten skips in a row is fine.">Skip all you want</li><li data-screen="settings" data-label="Quiet songs come up, loud ones come down.">No volume jumps</li><li data-screen="settings" data-label="A fade of 2 to 12 seconds, your pick.">Songs melt together</li><li data-screen="nowplaying" data-label="Smart trim skips the chat in music videos.">The talking gets cut</li><li data-screen="settings" data-label="Long quiet intros and endings go.">Silences get skipped</li><li data-screen="lyrics" data-label="Lyrics light up as they’re sung.">Sing along, word by word</li><li data-screen="equalizer" data-label="Ready-made sounds or your own mix.">More bass, if you like</li><li data-screen="nowplaying" data-label="Speed and pitch, each on its own.">Slower, faster, higher</li><li data-screen="saved" data-label="Music already on your phone plays here.">Your own files too</li><li data-screen="playlists" data-label="Paste a public playlist link.">Bring your Spotify lists</li><li data-screen="queue" data-label="Smart shuffle mixes in similar songs.">The queue never runs dry</li><li data-screen="nowplaying" data-label="Lock screen controls and a home screen widget.">Screen off, still playing</li><li data-screen="saved" data-label="Saved songs play without internet.">Works on a plane</li><li data-screen="settings" data-label="The last 1 GB you played stays on the phone.">Replays cost no data</li><li data-screen="settings" data-label="Light, dark, pure black and any accent.">Your colours</li><li data-screen="home" data-label="New versions install from inside the app.">It updates itself</li><li data-screen="sleep" data-label="The music fades out, then stops.">It sleeps when you do</li></ol>
-        <div class="drum__phone" aria-hidden="true"><img src="img/nowplaying.webp" alt="" loading="lazy" data-screen="nowplaying" class="on"><img src="img/queue.webp" alt="" loading="lazy" data-screen="queue"><img src="img/home.webp" alt="" loading="lazy" data-screen="home"><img src="img/search.webp" alt="" loading="lazy" data-screen="search"><img src="img/lyrics.webp" alt="" loading="lazy" data-screen="lyrics"><img src="img/saved.webp" alt="" loading="lazy" data-screen="saved"><img src="img/settings.webp" alt="" loading="lazy" data-screen="settings"><img src="img/equalizer.webp" alt="" loading="lazy" data-screen="equalizer"><img src="img/sleep.webp" alt="" loading="lazy" data-screen="sleep"><img src="img/playlists.webp" alt="" loading="lazy" data-screen="playlists"></div>
-        <div class="drum__foot"><p class="drum__cap"><span class="drum__count"><b>1</b> of 20</span><span class="drum__label">No sign-up, no account, nothing to fill in.</span></p><a class="btn btn--secondary" href="#install">See the 3 install steps</a></div>
+        <ol class="drum__list"><li data-screen="home" data-label="No sign-up, no account, nothing to fill in.">Open it, press play</li><li data-screen="nowplaying" data-label="Every song plays to its last second.">No ad breaks in</li><li data-screen="queue" data-label="Ten skips in a row is fine.">Skip all you want</li><li data-screen="nowplaying" data-label="Smart trim skips the chat in music videos.">The talking gets cut</li><li data-screen="lyrics" data-label="Lyrics light up as they’re sung.">Sing along, word by word</li><li data-screen="playlists" data-label="Paste a public playlist link.">Bring your Spotify lists</li><li data-screen="nowplaying" data-label="Lock screen controls and a home screen widget.">Screen off, still playing</li><li data-screen="saved" data-label="Saved songs play without internet.">Works on a plane</li></ol>
+        <div class="drum__phone" aria-hidden="true"><img src="img/nowplaying.webp" alt="" loading="lazy" data-screen="nowplaying" class="on"><img src="img/queue.webp" alt="" loading="lazy" data-screen="queue"><img src="img/home.webp" alt="" loading="lazy" data-screen="home"><img src="img/lyrics.webp" alt="" loading="lazy" data-screen="lyrics"><img src="img/saved.webp" alt="" loading="lazy" data-screen="saved"><img src="img/playlists.webp" alt="" loading="lazy" data-screen="playlists"></div>
+        <div class="drum__foot"><p class="drum__cap"><span class="drum__count"><b>1</b> of 8</span><span class="drum__label">No sign-up, no account, nothing to fill in.</span></p><a class="btn btn--secondary" href="#install">How to install</a></div>
       </div>
     </div>
 
@@ -1210,7 +1029,7 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
       <div class="mix">
         <div class="mix__text">
           <h2 id="sound-h">Tune how the music sounds. <span class="muted">Set it once and it holds for every song.</span></h2>
-          <ol class="mix__list"><li><span class="mix__n">01</span><div><h3>Shows the music while you tune it</h3><p>Ready-made sounds or your own curve, with a live picture of the song as you drag.</p></div></li><li><span class="mix__n">02</span><div><h3>Fades one song into the next</h3><p>The end of a song fades to quiet, then the next one fades in, over 2 to 12 seconds.</p></div></li><li><span class="mix__n">03</span><div><h3>Plays every song as loud</h3><p>Quiet songs come up, loud ones come down, long silences get skipped.</p></div></li><li><span class="mix__n">04</span><div><h3>Cuts the talking from videos</h3><p>Trim a song yourself, or let smart trim drop the talk in music videos.</p></div></li></ol>
+          <ol class="mix__list"><li><div><h3>Shows the music while you tune it</h3><p>Ready-made sounds or your own curve, with a live picture of the song as you drag.</p></div></li><li><div><h3>Fades one song into the next</h3><p>The end of a song fades to quiet, then the next one fades in, over 2 to 12 seconds.</p></div></li><li><div><h3>Plays every song as loud</h3><p>Quiet songs come up, loud ones come down, long silences get skipped.</p></div></li><li><div><h3>Cuts the talking from videos</h3><p>Trim a song yourself, or let smart trim drop the talk in music videos.</p></div></li></ol>
         </div>
         <div class="mix__stage" aria-hidden="true">
           <div class="mix__p mix__p--eq"><div class="ui sp">
@@ -1260,7 +1079,7 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
         <p class="t-lead">Airplane mode on, music still playing. Save the songs you love, and the ones you played lately replay for free.</p>
         <ul class="off__facts">
           <li><b>Saved songs</b><span>Stay on your phone and play anywhere, no internet needed.</span></li>
-          <li><b>1&nbsp;GB of replays</b><span>Songs you played lately start at once and use no data.</span></li>
+          <li><b>Free replays</b><span>Songs you played lately start at once and use no data. Pick how much space they get, or no limit.</span></li>
           <li><b>Data saver</b><span>Lower quality on mobile data, full quality on Wi-Fi.</span></li>
         </ul>
       </div>
@@ -1274,23 +1093,23 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   <section class="section band-peach zzsec" id="playlists" aria-labelledby="playlists-h">
     <div class="wrap">
       <h2 id="playlists-h">Playlists and the queue. <span class="muted">The parts you touch every day.</span></h2>
-      <div class="zz"><div class="zz__row"><div class="zz__text"><span class="zz__n">01</span><h3>Brings in a Spotify playlist</h3><p>Paste the link of a public Spotify playlist and its songs arrive as a new playlist in the app.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
+      <div class="zz"><div class="zz__row"><div class="zz__text"><h3>Brings in a Spotify playlist</h3><p>Paste the link of a public Spotify playlist and its songs arrive as a new playlist in the app.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
                   <div class="sp__head"><span>Import from Spotify</span></div>
                   <div class="sp-field"><svg class="sp-ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5l-1 1M11.5 8.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1-1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>open.spotify.com/playlist/…</div>
                   <div class="sp__row"><div><b>chill</b><small>Finding each song on YouTube</small></div><span class="sp-btn">Import</span></div>
                   <div class="sp__row"><span class="cov" style="--img:url(img/covers/espresso.webp);"></span><div><b>Espresso</b><small>Sabrina Carpenter · found</small></div></div>
                   <div class="sp__row"><span class="cov" style="--img:url(img/covers/sunflower.webp);"></span><div><b>Sunflower</b><small>Post Malone · found</small></div></div>
-                </div></div></div><div class="zz__row zz__row--flip"><div class="zz__text"><span class="zz__n">02</span><h3>Reorders the queue by drag</h3><p>Drag a song to move it, swipe it away to remove it. Smart shuffle mixes in songs like the ones you have.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
+                </div></div></div><div class="zz__row zz__row--flip"><div class="zz__text"><h3>Reorders the queue by drag</h3><p>Drag a song to move it, swipe it away to remove it. Smart shuffle mixes in songs like the ones you have.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
                   <div class="sp__head"><span>Up next</span><span class="sp-pill on">Smart shuffle</span></div>
                   <div class="sp__row"><span class="cov" style="--img:url(img/covers/locked.webp);"></span><div><b>Locked out of Heaven</b><small>Bruno Mars</small></div><svg class="grip" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   <div class="sp__row lift"><span class="cov" style="--img:url(img/covers/apt.webp);"></span><div><b>APT.</b><small>ROSÉ · moving</small></div><svg class="grip" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   <div class="sp__row"><span class="cov" style="--img:url(img/covers/goldenhour.webp);"></span><div><b>golden hour</b><small>JVKE</small></div><svg class="grip" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   <div class="sp__row"><span class="cov" style="--img:url(img/covers/heatwaves.webp);"></span><div><b>Heat Waves</b><small>Glass Animals</small></div><svg class="grip" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
-                </div></div></div><div class="zz__row"><div class="zz__text"><span class="zz__n">03</span><h3>Shares a song as a picture</h3><p>Send a song or a whole playlist to a friend as a link, a plain list or a picture.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
-                <div class="sp-shot"><span class="cov" style="--img:url(img/covers/levitating.webp);--sz:56"></span><div><b style="font-size:15px">Levitating</b><small style="color:#ffd9bf">Dua Lipa · on Spotifry</small></div></div>
+                </div></div></div><div class="zz__row"><div class="zz__text"><h3>Shares a song as a picture</h3><p>Send a song or a whole playlist to a friend as a link, a plain list or a picture.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
+                <div class="sp-shot"><span class="cov" style="--img:url(img/covers/levitating.webp);--sz:56"></span><div><b style="font-size:15px">Levitating</b><small style="color:#fff8f2">Dua Lipa · on Spotifry</small></div></div>
                 <div class="sp-pills"><span class="sp-pill">Link</span><span class="sp-pill">List</span><span class="sp-pill on">Picture</span></div>
                 <div class="sp__row" style="margin-top:8px"><div><b>Send to</b><small>Pick an app on your phone</small></div><span class="sp-btn">Share</span></div>
-              </div></div></div><div class="zz__row zz__row--flip"><div class="zz__text"><span class="zz__n">04</span><h3>Takes your wallpaper’s colour</h3><p>Light, dark or the phone’s setting, pure black, and any accent colour, your wallpaper’s included. Playlist and artist names can take one of 8 lettering styles or a logo.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
+              </div></div></div><div class="zz__row zz__row--flip"><div class="zz__text"><h3>Takes your wallpaper’s colour</h3><p>Light, dark or the phone’s setting, pure black, and any accent colour, your wallpaper’s included. Playlist and artist names can take one of 8 lettering styles or a logo.</p></div><div class="zz__ui" aria-hidden="true"><div class="ui sp">
                 <div class="sp__head"><span>Look</span></div>
                 <div class="sp-pills"><span class="sp-pill">Light</span><span class="sp-pill on">Dark</span><span class="sp-pill">Follow phone</span></div>
                 <div class="sp-swatches" aria-hidden="true"><i class="on" style="--c:#ff8a3d"></i><i style="--c:#5b8def"></i><i style="--c:#e05d8c"></i><i style="--c:#45b07c"></i><i style="--c:#e8c547"></i></div>
@@ -1304,40 +1123,18 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
     <div class="wrap bak__wrap">
       <div class="bak__text">
         <h2 id="backup-h">New phone or new computer? Take it all with you.</h2>
-        <p class="t-lead">Save your playlists, saved songs list, history, listening, settings and trims in one file. Restore it on a new phone, after a reinstall, or on your computer. A backup from the phone restores on the computer, and the other way round. The audio files are not in it; saved songs download again.</p>
+        <p class="t-lead">Your playlists, saved songs, history and settings go into one file. Restore it on a new phone, after a reinstall, or on your computer. The song files aren't in it; saved songs download again.</p>
       </div>
       <div class="bak__img"><img src="img/backup-crop.webp" alt="Spotifry's Backup settings with Save backup and Restore backup" loading="lazy" width="900" height="441"></div>
     </div>
   </section>
 
-  <section class="section ground-inverse dsksec" id="desktop" aria-labelledby="desktop-h">
-    <div class="wrap">
-      <div class="dsk__head">
-        <h2 id="desktop-h">On your computer too.</h2>
-      </div>
-      <div class="dsk__win" role="img" aria-label="Spotifry on a computer: the home page with your rotation, the lyrics and the queue side by side">
-        <img src="img/desktop.webp" alt="" loading="lazy" width="1600" height="870">
-      </div>
-      <div class="dsk__row">
-        <div><h3>Lyrics beside the song</h3><p>Lines light up as they’re sung, next to the queue.</p></div>
-        <div><h3>Same look, same data</h3><p>Your rotation and Spotifried work the same as on the phone. Nothing leaves your computer.</p></div>
-        <div><h3>Keyboard and media keys</h3><p>Ctrl K to jump to anything. Play, pause and skip from your keyboard.</p></div>
-        <div><h3>No account</h3><p>Open it and search. It updates itself.</p></div>
-      </div>
-      <div class="dsk__dl">
-        <a class="btn btn--primary" data-dl="AppImage" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/Spotifry-1.2.0-x86_64.AppImage">Download for Linux<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
-        <a class="btn btn--primary" data-dl="msi" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/Spotifry-1.2.0-windows-x64.msi">Download for Windows</a>
-        <small>Version <span data-ver-desktop>1.0.0</span>. Linux comes as one AppImage file, Windows as an installer.</small>
-      </div>
-    </div>
-  </section>
-
   <section class="section ground-inverse tlsec" id="install" aria-labelledby="install-h">
     <div class="wrap">
-      <div class="tl__head"><h2 id="install-h">Install it on your phone in 3 steps. <span class="muted">No Play Store, no account.</span></h2><a class="btn btn--primary" data-dl="apk" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/spotifry-1.2.0.apk" aria-label="Download Spotifry for Android"><svg class="dl__icon" viewBox="-0.48 4.403 24.96 15.067" aria-hidden="true" fill="currentColor"><path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>Download for Android</a></div>
+      <div class="tl__head"><h2 id="install-h">Install it on your phone in 3 steps. <span class="muted">No Play Store, no account.</span></h2><a class="btn btn--primary" data-dl="apk" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/spotifry-1.3.0.apk" aria-label="Download Spotifry for Android"><svg class="dl__icon" viewBox="-0.48 4.403 24.96 15.067" aria-hidden="true" fill="currentColor"><path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>Download for Android</a></div>
       <ol class="tl"><li class="tl__step"><span class="tl__dot">1</span><h3>Get the newest file</h3><p>On your phone, open GitHub Releases and download the newest Spotifry APK.</p><div class="tl__ui" aria-hidden="true"><div class="ui sp sp-dialog">
                 <div class="sp__head"><span>Releases</span><span class="sp-chip">Latest</span></div>
-                <div class="sp__row"><img src="img/logo.svg" alt="" width="36" height="36" loading="lazy" style="border-radius:9px"><div><b>spotifry-<span data-ver>1.0.0</span>.apk</b><small>Android 7 or newer</small></div></div>
+                <div class="sp__row"><img src="img/logo.svg" alt="" width="36" height="36" loading="lazy" style="border-radius:9px"><div><b>spotifry-<span data-ver>1.3.0</span>.apk</b><small>Android 7 or newer</small></div></div>
                 <div class="sp__row"><div><b>Source code</b><small>GPL-3.0</small></div></div>
               </div></div></li><li class="tl__step"><span class="tl__dot">2</span><h3>Allow the install once</h3><p>Open the file. Android asks whether your browser may install apps. Say yes once.</p><div class="tl__ui" aria-hidden="true"><div class="ui sp sp-dialog">
                 <div class="sp__head"><span>Install unknown apps</span></div>
@@ -1347,6 +1144,7 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
                 <div class="sp__row" style="padding-top:0"><img src="img/logo.svg" alt="" width="36" height="36" loading="lazy" style="border-radius:9px"><div><b>A new version is out</b><small>Your songs and playlists stay</small></div></div>
                 <div class="sp__row" style="justify-content:flex-end;gap:8px"><span class="sp-btn ghost">Later</span><span class="sp-btn">Update</span></div>
               </div></div></li></ol>
+      <p class="tl__safe">Is it safe to install a file from GitHub? <a href="#faq-safe">How every release is signed</a></p>
     </div>
   </section>
 
@@ -1366,7 +1164,7 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
         </div>
         <div class="qas span-6 start-7">
           <details class="qa" open><summary>Does Spotifry cost anything?<span class="qa__pm" aria-hidden="true"></span></summary><p>No. No ads, no paid features, no subscription, no account, and it collects no personal data.</p></details>
-          <details class="qa"><summary>Is it safe to install an APK from GitHub?<span class="qa__pm" aria-hidden="true"></span></summary><p>Every release is signed with the same key, and Android only installs an update when the key matches. The source code is public, so anyone can read what the app does.</p></details>
+          <details class="qa" id="faq-safe"><summary>Is it safe to install an APK from GitHub?<span class="qa__pm" aria-hidden="true"></span></summary><p>Every release is signed with the same key, and Android only installs an update when the key matches. The source code is public, so anyone can read what the app does.</p></details>
           <details class="qa"><summary>Will it work on my phone?<span class="qa__pm" aria-hidden="true"></span></summary><p>Spotifry needs Android 7 or newer. It isn’t on the Play Store; you install the file from GitHub Releases once, and the app updates itself after that.</p></details>
           <details class="qa"><summary>Does Spotifry host any music?<span class="qa__pm" aria-hidden="true"></span></summary><p>No. Songs stream from YouTube and belong to their owners. Saved songs stay on your phone.</p></details>
           <details class="qa"><summary>Is Spotifry made by YouTube or Spotify?<span class="qa__pm" aria-hidden="true"></span></summary><p>No. It isn’t affiliated with or endorsed by YouTube, Google or Spotify.</p></details>
@@ -1390,11 +1188,11 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   <div class="wrap">
     <div class="closing__cta close--word">
       <div class="section-head--split">
-        <div><h2 id="close-h">Put Spotifry on your phone or computer</h2><p class="t-lead">Free. Android 7 and newer, version <span data-ver>1.0.0</span>. Linux and Windows, version <span data-ver-desktop>1.0.0</span>.</p></div>
+        <div><h2 id="close-h">Put Spotifry on your phone or computer</h2><p class="t-lead">Free. Android 7 and newer, version <span data-ver>1.3.0</span>. Linux and Windows, version <span data-ver-desktop>1.3.0</span>.</p></div>
         <div class="btn-row">
-        <a class="btn btn--primary" data-dl="apk" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/spotifry-1.2.0.apk" aria-label="Download Spotifry for Android"><svg class="dl__icon" viewBox="-0.48 4.403 24.96 15.067" aria-hidden="true" fill="currentColor"><path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>Android</a>
-        <a class="btn btn--primary" data-dl="AppImage" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/Spotifry-1.2.0-x86_64.AppImage" aria-label="Download Spotifry for Linux"><svg class="dl__icon" viewBox="1.68 -0.551 20.817 24.95" aria-hidden="true" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.334-.17.838-.319 1.35-1.5 1.072-3.58 1.538-5.348.334a2.645 2.645 0 00-.402-.533 1.45 1.45 0 00-.275-.333c.182 0 .338-.03.465-.067a.615.615 0 00.314-.334c.108-.267 0-.697-.345-1.163-.345-.467-.931-.995-1.788-1.521-.63-.4-.986-.87-1.15-1.396-.165-.534-.143-1.085-.015-1.645.245-1.07.873-2.11 1.274-2.763.107-.065.037.135-.408.974-.396.751-1.14 2.497-.122 3.854a8.123 8.123 0 01.647-2.876c.564-1.278 1.743-3.504 1.836-5.268.048.036.217.135.289.202.218.133.38.333.59.465.21.201.477.335.876.335.039.003.075.006.11.006.412 0 .73-.134.997-.268.29-.134.52-.334.74-.4h.005c.467-.135.835-.402 1.044-.7zm2.185 8.958c.037.6.343 1.245.882 1.377.588.134 1.434-.333 1.791-.765l.211-.01c.315-.007.577.01.847.268l.003.003c.208.199.305.53.391.876.085.4.154.78.409 1.066.486.527.645.906.636 1.14l.003-.007v.018l-.003-.012c-.015.262-.185.396-.498.595-.63.401-1.746.712-2.457 1.57-.618.737-1.37 1.14-2.036 1.191-.664.053-1.237-.2-1.574-.898l-.005-.003c-.21-.4-.12-1.025.056-1.69.176-.668.428-1.344.463-1.897.037-.714.076-1.335.195-1.814.12-.465.308-.797.641-.984l.045-.022zm-10.814.049h.01c.053 0 .105.005.157.014.376.055.706.333 1.023.752l.91 1.664.003.003c.243.533.754 1.064 1.189 1.637.434.598.77 1.131.729 1.57v.006c-.057.744-.48 1.148-1.125 1.294-.645.135-1.52.002-2.395-.464-.968-.536-2.118-.469-2.857-.602-.369-.066-.61-.2-.723-.4-.11-.2-.113-.602.123-1.23v-.004l.002-.003c.117-.334.03-.752-.027-1.118-.055-.401-.083-.71.043-.94.16-.334.396-.4.69-.533.294-.135.64-.202.915-.47h.002v-.002c.256-.268.445-.601.668-.838.19-.201.38-.336.663-.336zm7.159-9.074c-.435.201-.945.535-1.488.535-.542 0-.97-.267-1.28-.466-.154-.134-.28-.268-.373-.335-.164-.134-.144-.333-.074-.333.109.016.129.134.199.2.096.066.215.2.36.333.292.2.68.467 1.167.467.485 0 1.053-.267 1.398-.466.195-.135.445-.334.648-.467.156-.136.149-.267.279-.267.128.016.034.134-.147.332a8.097 8.097 0 01-.69.468zm-1.082-1.583V5.64c-.006-.02.013-.042.029-.05.074-.043.18-.027.26.004.063 0 .16.067.15.135-.006.049-.085.066-.135.066-.055 0-.092-.043-.141-.068-.052-.018-.146-.008-.163-.065zm-.551 0c-.02.058-.113.049-.166.066-.047.025-.086.068-.14.068-.05 0-.13-.02-.136-.068-.01-.066.088-.133.15-.133.08-.031.184-.047.259-.005.019.009.036.03.03.05v.02h.003z"/></svg>Linux</a>
-        <a class="btn btn--primary" data-dl="msi" href="https://github.com/Alnyz/spotifry/releases/download/v1.2.0/Spotifry-1.2.0-windows-x64.msi" aria-label="Download Spotifry for Windows"><svg class="dl__icon" viewBox="0 0 256 256" aria-hidden="true" fill="currentColor"><g> <path d="M0,2.84217094e-14 L121.32899,2.84217094e-14 L121.32899,121.32899 L0,121.32899 L0,2.84217094e-14 Z M134.67101,2.84217094e-14 L256,2.84217094e-14 L256,121.32899 L134.67101,121.32899 L134.67101,2.84217094e-14 Z M0,134.67101 L121.32899,134.67101 L121.32899,256 L0,256 L0,134.67101 Z M134.67101,134.67101 L256,134.67101 L256,256 L134.67101,256 L134.67101,134.67101 Z"></path> </g></svg>Windows</a>
+        <a class="btn btn--primary" data-dl="apk" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/spotifry-1.3.0.apk" aria-label="Download Spotifry for Android"><svg class="dl__icon" viewBox="-0.48 4.403 24.96 15.067" aria-hidden="true" fill="currentColor"><path d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>Android</a>
+        <a class="btn btn--primary" data-dl="AppImage" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/Spotifry-1.3.0-x86_64.AppImage" aria-label="Download Spotifry for Linux"><svg class="dl__icon" viewBox="1.68 -0.551 20.817 24.95" aria-hidden="true" fill="currentColor"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.334-.17.838-.319 1.35-1.5 1.072-3.58 1.538-5.348.334a2.645 2.645 0 00-.402-.533 1.45 1.45 0 00-.275-.333c.182 0 .338-.03.465-.067a.615.615 0 00.314-.334c.108-.267 0-.697-.345-1.163-.345-.467-.931-.995-1.788-1.521-.63-.4-.986-.87-1.15-1.396-.165-.534-.143-1.085-.015-1.645.245-1.07.873-2.11 1.274-2.763.107-.065.037.135-.408.974-.396.751-1.14 2.497-.122 3.854a8.123 8.123 0 01.647-2.876c.564-1.278 1.743-3.504 1.836-5.268.048.036.217.135.289.202.218.133.38.333.59.465.21.201.477.335.876.335.039.003.075.006.11.006.412 0 .73-.134.997-.268.29-.134.52-.334.74-.4h.005c.467-.135.835-.402 1.044-.7zm2.185 8.958c.037.6.343 1.245.882 1.377.588.134 1.434-.333 1.791-.765l.211-.01c.315-.007.577.01.847.268l.003.003c.208.199.305.53.391.876.085.4.154.78.409 1.066.486.527.645.906.636 1.14l.003-.007v.018l-.003-.012c-.015.262-.185.396-.498.595-.63.401-1.746.712-2.457 1.57-.618.737-1.37 1.14-2.036 1.191-.664.053-1.237-.2-1.574-.898l-.005-.003c-.21-.4-.12-1.025.056-1.69.176-.668.428-1.344.463-1.897.037-.714.076-1.335.195-1.814.12-.465.308-.797.641-.984l.045-.022zm-10.814.049h.01c.053 0 .105.005.157.014.376.055.706.333 1.023.752l.91 1.664.003.003c.243.533.754 1.064 1.189 1.637.434.598.77 1.131.729 1.57v.006c-.057.744-.48 1.148-1.125 1.294-.645.135-1.52.002-2.395-.464-.968-.536-2.118-.469-2.857-.602-.369-.066-.61-.2-.723-.4-.11-.2-.113-.602.123-1.23v-.004l.002-.003c.117-.334.03-.752-.027-1.118-.055-.401-.083-.71.043-.94.16-.334.396-.4.69-.533.294-.135.64-.202.915-.47h.002v-.002c.256-.268.445-.601.668-.838.19-.201.38-.336.663-.336zm7.159-9.074c-.435.201-.945.535-1.488.535-.542 0-.97-.267-1.28-.466-.154-.134-.28-.268-.373-.335-.164-.134-.144-.333-.074-.333.109.016.129.134.199.2.096.066.215.2.36.333.292.2.68.467 1.167.467.485 0 1.053-.267 1.398-.466.195-.135.445-.334.648-.467.156-.136.149-.267.279-.267.128.016.034.134-.147.332a8.097 8.097 0 01-.69.468zm-1.082-1.583V5.64c-.006-.02.013-.042.029-.05.074-.043.18-.027.26.004.063 0 .16.067.15.135-.006.049-.085.066-.135.066-.055 0-.092-.043-.141-.068-.052-.018-.146-.008-.163-.065zm-.551 0c-.02.058-.113.049-.166.066-.047.025-.086.068-.14.068-.05 0-.13-.02-.136-.068-.01-.066.088-.133.15-.133.08-.031.184-.047.259-.005.019.009.036.03.03.05v.02h.003z"/></svg>Linux</a>
+        <a class="btn btn--primary" data-dl="msi" href="https://github.com/Alnyz/spotifry/releases/download/v1.3.0/Spotifry-1.3.0-windows-x64.msi" aria-label="Download Spotifry for Windows"><svg class="dl__icon" viewBox="0 0 256 256" aria-hidden="true" fill="currentColor"><g> <path d="M0,2.84217094e-14 L121.32899,2.84217094e-14 L121.32899,121.32899 L0,121.32899 L0,2.84217094e-14 Z M134.67101,2.84217094e-14 L256,2.84217094e-14 L256,121.32899 L134.67101,121.32899 L134.67101,2.84217094e-14 Z M0,134.67101 L121.32899,134.67101 L121.32899,256 L0,256 L0,134.67101 Z M134.67101,134.67101 L256,134.67101 L256,256 L134.67101,256 L134.67101,134.67101 Z"></path> </g></svg>Windows</a>
         </div>
       </div>
       <p class="close__word" aria-hidden="true">Spotifry</p>
@@ -1405,8 +1203,8 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
           <a class="nav__logo" href="#top"><img src="img/logo.svg" alt="" width="28" height="28" loading="lazy">Spotifry</a>
           <p class="footer__lede">Music for your ears.</p>
         </div>
-        <div class="span-2 footer__col"><h4>Tour</h4><ul><li><a href="#tour">Screens</a></li><li><a href="#compare">Before and after</a></li></ul></div>
-        <div class="span-2 footer__col"><h4>Features</h4><ul><li><a href="#rotation">Your rotation</a></li><li><a href="#sound">Sound</a></li><li><a href="#backup">Backup</a></li><li><a href="#desktop">On a computer</a></li><li><a href="#offline">Offline</a></li><li><a href="#playlists">Playlists</a></li></ul></div>
+        <div class="span-2 footer__col"><h4>Tour</h4><ul><li><a href="#tour">Screens</a></li><li><a href="#desktop">On a computer</a></li><li><a href="#compare">Before and after</a></li></ul></div>
+        <div class="span-2 footer__col"><h4>Features</h4><ul><li><a href="#rotation">Your rotation</a></li><li><a href="#lyrics">Lyrics</a></li><li><a href="#sound">Sound</a></li><li><a href="#offline">Offline</a></li><li><a href="#playlists">Playlists</a></li><li><a href="#backup">Backup</a></li></ul></div>
         <div class="span-2 footer__col"><h4>Install</h4><ul><li><a href="#install">Steps</a></li><li><a href="https://github.com/Alnyz/spotifry/releases">All releases</a></li></ul></div>
         <div class="span-2 footer__col"><h4>Questions</h4><ul><li><a href="#faq">Fine print</a></li><li><a href="https://github.com/Alnyz/spotifry">Source code</a></li><li><a href="https://discord.gg/HXEdru9u2y">Discord server</a></li></ul></div>
       </div>
@@ -1427,7 +1225,6 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   const root = document.documentElement;
   if (!still) root.classList.add('js-fill');
   const prog = el => { const r = el.getBoundingClientRect(), h = r.height - innerHeight; return h > 0 ? Math.min(1, Math.max(0, -r.top / h)) : 0; };
-  const art = document.querySelector('.hero__art');
   const drum = document.querySelector('[data-pin="drum"]');
   const items = drum ? [...drum.querySelectorAll('.drum__list li')] : [];
   const count = drum && drum.querySelector('.drum__count b'), label = drum && drum.querySelector('.drum__label');
@@ -1436,7 +1233,6 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   const closer = document.querySelector('[data-pin="closer"]');
   let last = -1;
   function frame() {
-    if (art) art.style.setProperty('--hp', Math.min(1, scrollY / (innerHeight * .35)).toFixed(3));
     if (drum && items.length) {
       const p = prog(drum), pos = p * (items.length - 1), R = Math.min(260, innerHeight * .3), on = Math.round(pos);
       items.forEach((li, i) => {
@@ -1461,7 +1257,7 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   /* panels fill in when they reach the screen */
   if (!still && 'IntersectionObserver' in window) {
     const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }), { threshold: .25 });
-    document.querySelectorAll('.sp').forEach(sp => { sp.querySelectorAll('.sp__row, .sp-viz > i').forEach((r, i) => r.style.setProperty('--i', i)); io.observe(sp); });
+    document.querySelectorAll('.sp').forEach(sp => { sp.querySelectorAll('.sp__row').forEach((r, i) => r.style.setProperty('--i', i)); io.observe(sp); });
   }
 })();
 </script>
@@ -1494,11 +1290,6 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   addEventListener('resize', run); run();
   nav.addEventListener('focusin', () => nav.classList.remove('is-hidden'));
 })();
-/* hero lyric: words light up one by one, then start again */
-(() => {
-  const w = [...document.querySelectorAll('.hsun__lyric span')]; if (!w.length || matchMedia('(prefers-reduced-motion: reduce)').matches) { w.forEach(x => x.classList.add('on')); return; }
-  let i = 0; setInterval(() => { if (i === 0) w.forEach(x => x.classList.remove('on')); if (i < w.length) w[i].classList.add('on'); i = (i + 1) % (w.length + 3); }, 380);
-})();
 /* the before phone's ad counts down, then starts again */
 (() => {
   const secs = document.querySelector('.scr2__secs'), el = document.querySelector('.scr2__el'), fill = document.querySelector('.scr2__fill'); if (!secs) return;
@@ -1519,26 +1310,52 @@ main > .hero.hero--vinyl > .hv__wrap { display: block; }
   };
   addEventListener('scroll', () => { if (!t) t = requestAnimationFrame(run); }, { passive: true }); run();
 })();
+/* the hero video's pause button */
+(() => {
+  const b = document.querySelector('.hv__pause'), v = document.querySelector('.hv__video'); if (!b || !v) return;
+  b.addEventListener('click', () => { const off = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', off); off ? v.pause() : v.play(); });
+})();
 /* questions: one answer open at a time */
 document.querySelectorAll('details.qa').forEach(d => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('details.qa[open]').forEach(o => { if (o !== d) o.open = false; }); }));
 </script>
 <script>
+/* Android buttons: a direct download only on an Android phone; elsewhere they lead to the install steps */
+(() => {
+  const android = /android/i.test((navigator.userAgentData || {}).platform || '') || /android/i.test(navigator.userAgent);
+  if (android) return;
+  document.querySelectorAll('[data-dl="apk"]').forEach(a => {
+    a.dataset.steps = '';
+    if (a.closest('#install')) { a.href = 'https://github.com/Alnyz/spotifry/releases'; a.setAttribute('aria-label', 'Open Spotifry on GitHub Releases'); a.lastChild.textContent = 'Open GitHub Releases'; }
+    else { a.href = '#install'; a.setAttribute('aria-label', 'Spotifry for Android: how to install'); }
+  });
+})();
 /* the newest version from GitHub, so the page never shows an old number */
 fetch('https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30').then(r => r.ok ? r.json() : null).then(list => {
+  list = (list || []).filter(r => !r.draft && !r.prerelease);
   /* the newest release with the phone's APK in it; GitHub's own "latest" can be a desktop-only release */
-  const j = (list || []).find(r => !r.draft && !r.prerelease && (r.assets || []).some(x => x.name.endsWith('.apk')));
-  const v = j && String(j.tag_name || '').replace(/^android-/, '').replace(/^v/, ''); if (!/^\d+(\.\d+)*$/.test(v || '')) return;
-  document.querySelectorAll('[data-ver]').forEach(e => { e.textContent = v; });
-  const f = (j.assets || []).find(x => x.name.endsWith('.apk')); if (f) document.querySelectorAll('[data-dl="apk"]').forEach(a => { a.href = f.browser_download_url; });
-}).catch(() => {});
-fetch('https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30').then(r => r.ok ? r.json() : null).then(j => {
+  const j = list.find(r => (r.assets || []).some(x => x.name.endsWith('.apk')));
+  const v = j && String(j.tag_name || '').replace(/^android-/, '').replace(/^v/, '');
+  if (/^\d+(\.\d+)*$/.test(v || '')) {
+    document.querySelectorAll('[data-ver]').forEach(e => { e.textContent = v; });
+    const f = j.assets.find(x => x.name.endsWith('.apk')); if (f) document.querySelectorAll('[data-dl="apk"]:not([data-steps])').forEach(a => { a.href = f.browser_download_url; });
+  }
   /* the newest release with the desktop files in it (one release carries the phone and desktop files, or a desktop-only one) */
-  const t = (j || []).find(r => !r.prerelease && (r.assets || []).some(x => /\.AppImage$/.test(x.name))); if (!t) return;
+  const t = list.find(r => (r.assets || []).some(x => /\.AppImage$/.test(x.name))); if (!t) return;
   const dv = (t.assets.find(x => /\.AppImage$/.test(x.name)).name.match(/^Spotifry-(.+)-x86_64\.AppImage$/) || [])[1];
   if (dv) document.querySelectorAll('[data-ver-desktop]').forEach(e => { e.textContent = dv; });
-  /* the download buttons point straight at the file of the newest desktop release */
-  document.querySelectorAll('[data-dl]:not([data-dl="apk"])').forEach(a => { const f = (t.assets || []).find(x => x.name.endsWith('.' + a.dataset.dl)); if (f) a.href = f.browser_download_url; });
+  document.querySelectorAll('[data-dl]:not([data-dl="apk"])').forEach(a => { const f = t.assets.find(x => x.name.endsWith('.' + a.dataset.dl)); if (f) a.href = f.browser_download_url; });
 }).catch(() => {});
+/* the bar marks the part of the page on screen: each section belongs to the last link at or above it */
+(() => {
+  const links = [...document.querySelectorAll('.nav__links .nav__link[href^="#"]')]; if (!links.length || !('IntersectionObserver' in window)) return;
+  const secs = [...document.querySelectorAll('main > section')], owner = new Map(); let cur = null;
+  secs.forEach(sec => { const l = links.find(a => a.getAttribute('href') === '#' + sec.id); if (l) cur = l; owner.set(sec, cur); });
+  const mark = on => links.forEach(a => { a.classList.toggle('is-current', a === on); if (a === on) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); });
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) mark(owner.get(e.target)); }), { rootMargin: '-45% 0px -54% 0px' });
+  secs.forEach(sec => io.observe(sec));
+})();
+/* a link to one question opens its answer */
+document.querySelectorAll('a[href="#faq-safe"]').forEach(a => a.addEventListener('click', () => { document.getElementById('faq-safe').open = true; }));
 </script>
 <script>
 /* the plane: moved every frame along its path (smooth on any screen), only while the section is on screen */
@@ -1669,8 +1486,6 @@ fetch('https://api.github.com/repos/Alnyz/spotifry/releases?per_page=30').then(r
     e.preventDefault(); history.pushState(null, '', '#' + id); glide(el.getBoundingClientRect().top + scrollY);
   });
 })();
-</script>
-<script>
 </script>
 </body>
 </html>
