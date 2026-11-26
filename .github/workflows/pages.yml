@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     paths: ["site/**", ".github/workflows/pages.yml"]
+  # A new release puts its version and download links into the page. The Mac beta also triggers this, but
+  # "latest" skips pre-releases, so the page keeps the main release.
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -23,6 +27,16 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Put the newest release version into the page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          new=$(gh api repos/${{ github.repository }}/releases/latest --jq .tag_name | sed 's/^v//')
+          old=$(grep -oP 'data-ver>\K[0-9.]+' site/index.html | head -1)
+          echo "page has $old, newest release is $new"
+          if [ -n "$new" ] && [ -n "$old" ]; then sed -i "s/${old//./\\.}/$new/g" site/index.html; fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
