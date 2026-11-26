@@ -301,7 +301,7 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         val url = BASE.toHttpUrl().newBuilder().addPathSegments("api/search")
             .addQueryParameter("track_name", song.title).addQueryParameter("artist_name", song.artist).build()
         val body = call(url.toString()) ?: return null
-        return pickClosest(JSONArray(body), song.durationSec)
+        return pickClosest(JSONArray(body), song.durationSec, song.title)
     }
 
     private fun call(url: String): String? =
@@ -474,9 +474,13 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         private fun artistsOf(a: String) = a.split(Regex("""\s*(?:,|&|;|/|\s+and\s+|\s+x\s+|\s+with\s+|\s+feat\.?\s+|\s+ft\.?\s+)\s*""", RegexOption.IGNORE_CASE))
             .map(::plain).filter { it.isNotEmpty() }.toSet()
 
-        fun pickClosest(results: JSONArray, durationSec: Long): Lyrics? =
+        /**
+         * The search hit nearest in length (within 5 s) whose title is ours, spelled a little differently at most: "Satru"
+         * must not take "Satru 2" just because the music video is as long as that one.
+         */
+        fun pickClosest(results: JSONArray, durationSec: Long, title: String): Lyrics? =
             (0 until results.length()).map { results.getJSONObject(it) }
-                .filter { abs(it.optDouble("duration", 0.0) - durationSec) <= 5 }
+                .filter { abs(it.optDouble("duration", 0.0) - durationSec) <= 5 && nearlySameTitle(titleForLyrics(it.optString("trackName")), title) }
                 .sortedByDescending { !it.isNull("syncedLyrics") }
                 .firstNotNullOfOrNull { fromEntry(it)?.takeUnless(::isJunk) }
 
@@ -536,6 +540,23 @@ class LyricsSource(private val client: OkHttpClient, private val off: () -> Set<
         }
 
         private val BRACKETS = Regex("""[(（].*?[)）]""")
+
+        /** Same title after cleaning, allowing two typos, but the numbers must match ("Satru" is not "Satru 2"). */
+        internal fun nearlySameTitle(a: String, b: String): Boolean {
+            fun plain(x: String) = x.lowercase().filter { it.isLetterOrDigit() }
+            val x = plain(a); val y = plain(b)
+            if (x.filter { it.isDigit() } != y.filter { it.isDigit() }) return false
+            if (x == y) return true
+            if (abs(x.length - y.length) > 2 || x.length < 4) return false
+            // ponytail: plain edit distance, fine for song titles
+            var row = IntArray(y.length + 1) { it }
+            for (i in 1..x.length) {
+                val next = IntArray(y.length + 1); next[0] = i
+                for (j in 1..y.length) next[j] = minOf(row[j] + 1, next[j - 1] + 1, row[j - 1] + if (x[i - 1] == y[j - 1]) 0 else 1)
+                row = next
+            }
+            return row[y.length] <= 2
+        }
 
         private fun same(a: String, b: String) = a.lowercase().filter { it.isLetterOrDigit() } == b.lowercase().filter { it.isLetterOrDigit() }
 
