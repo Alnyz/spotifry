@@ -1,0 +1,40 @@
+name: discord
+
+# Posts each new release to the Discord server's change-logs channel, with its notes, as the channel's own webhook
+# (its name and picture). Mac betas are pre-releases and are skipped. "Run workflow" posts a release again by its tag.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to post, e.g. v1.4.0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    if: github.event_name != 'release' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post the release to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_RELEASES_WEBHOOK }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          gh api "repos/${{ github.repository }}/releases/tags/$TAG" > release.json
+          # Discord takes at most 4096 characters in an embed's text
+          jq '{
+            content: ("**" + .name + "** is out"),
+            embeds: [{
+              title: .name,
+              url: .html_url,
+              description: (if (.body | length) > 3900 then .body[0:3900] + "…" else .body end),
+              color: 16747069,
+              footer: { text: "Download it from the release page" }
+            }]
+          }' release.json > message.json
+          curl -sS --fail-with-body -H "Content-Type: application/json" -d @message.json "$WEBHOOK"
