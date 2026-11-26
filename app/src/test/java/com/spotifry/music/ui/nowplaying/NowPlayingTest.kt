@@ -48,6 +48,8 @@ class NowPlayingTest {
         compose.onNodeWithContentDescription("Save failed. Retry").performClick()
         assertEquals(1, taps)
     }
+    // a phone-sized screen: Robolectric's default is too short to show a queue row under the controls
+    @Config(qualifiers = "w411dp-h891dp")
     @Test fun theQueueOpensInPlaceWithoutANowPlayingRow() {
         showWithModes()
         compose.onNodeWithContentDescription("Queue").performClick()

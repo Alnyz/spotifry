@@ -29,10 +29,10 @@ class LyricsTest {
 
     @Test fun prefersTimedWithinFiveSecondsOfTheSong() {
         val results = JSONArray()
-            .put(JSONObject().put("duration", 262.0).put("syncedLyrics", "[00:01.00]music video cut").put("plainLyrics", "x"))
-            .put(JSONObject().put("duration", 248.0).put("syncedLyrics", JSONObject.NULL).put("plainLyrics", "plain one"))
-            .put(JSONObject().put("duration", 246.0).put("syncedLyrics", "[00:02.00]album cut").put("plainLyrics", "y"))
-        val l = LyricsSource.pickClosest(results, 248) as Lyrics.Timed
+            .put(JSONObject().put("trackName", "Song").put("duration", 262.0).put("syncedLyrics", "[00:01.00]music video cut").put("plainLyrics", "x"))
+            .put(JSONObject().put("trackName", "Song").put("duration", 248.0).put("syncedLyrics", JSONObject.NULL).put("plainLyrics", "plain one"))
+            .put(JSONObject().put("trackName", "Song").put("duration", 246.0).put("syncedLyrics", "[00:02.00]album cut").put("plainLyrics", "y"))
+        val l = LyricsSource.pickClosest(results, 248, "Song") as Lyrics.Timed
         assertEquals("album cut", l.lines.single().text)
     }
 
@@ -43,7 +43,7 @@ class LyricsTest {
     }
 
     private val song = Song("id", "GLORY", "Ogryzek", 149, null)
-    private fun plain(vararg lines: String) = JSONObject().put("duration", 149.0).put("syncedLyrics", JSONObject.NULL).put("plainLyrics", lines.joinToString("\n"))
+    private fun plain(vararg lines: String) = JSONObject().put("trackName", "GLORY").put("duration", 149.0).put("syncedLyrics", JSONObject.NULL).put("plainLyrics", lines.joinToString("\n"))
 
     /** LRCLIB stand-in: [get] answers /api/get (null = 404), [search] answers /api/search; every request path is logged. */
     private fun lrclib(get: JSONObject?, search: JSONArray, asked: MutableList<String>) = LyricsSource(OkHttpClient.Builder().addInterceptor { c ->
@@ -69,15 +69,15 @@ class LyricsTest {
     private val junk = Array(16) { "1nst pinar.tncc" }
 
     @Test fun searchSkipsRepeatedLineJunkAndTakesTheNextOne() {
-        val l = LyricsSource.pickClosest(JSONArray().put(plain(*junk)).put(plain("real", "words")), 149) as Lyrics.Plain
+        val l = LyricsSource.pickClosest(JSONArray().put(plain(*junk)).put(plain("real", "words")), 149, "GLORY") as Lyrics.Plain
         assertEquals(listOf("real", "words"), l.lines)
-        assertNull(LyricsSource.pickClosest(JSONArray().put(plain(*junk)), 149))
+        assertNull(LyricsSource.pickClosest(JSONArray().put(plain(*junk)), 149, "GLORY"))
     }
 
     @Test fun searchKeepsSyncedEvenIfRepeatedAndShortRepeatsPlain() {
-        val synced = JSONObject().put("duration", 149.0).put("plainLyrics", JSONObject.NULL).put("syncedLyrics", (1..20).joinToString("\n") { "[00:%02d.00]la".format(it) })
-        assertTrue(LyricsSource.pickClosest(JSONArray().put(synced), 149) is Lyrics.Timed)
-        assertTrue(LyricsSource.pickClosest(JSONArray().put(plain("la", "la", "la", "la", "la")), 149) is Lyrics.Plain)
+        val synced = JSONObject().put("trackName", "GLORY").put("duration", 149.0).put("plainLyrics", JSONObject.NULL).put("syncedLyrics", (1..20).joinToString("\n") { "[00:%02d.00]la".format(it) })
+        assertTrue(LyricsSource.pickClosest(JSONArray().put(synced), 149, "GLORY") is Lyrics.Timed)
+        assertTrue(LyricsSource.pickClosest(JSONArray().put(plain("la", "la", "la", "la", "la")), 149, "GLORY") is Lyrics.Plain)
     }
 
     @Test fun exactMatchWithRepeatedLinesIsAccepted() = runBlocking {
