@@ -20,8 +20,8 @@ android {
         applicationId = "com.spotifry.music"
         minSdk = 24
         targetSdk = 36
-        versionCode = 32
-        versionName = "1.4.0"
+        versionCode = 33
+        versionName = "1.4.1"
         // shown under Settings > About, so it is clear when the YouTube reader is due an update
         buildConfigField("String", "NEWPIPE_VERSION", "\"${libs.versions.newpipe.get()}\"")
         // fanart.tv's key for this app (public on purpose: it only reads public logos); empty = listeners bring their own
