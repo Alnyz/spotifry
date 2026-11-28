@@ -3,7 +3,6 @@ package com.spotifry.desktop.bot
 import com.spotifry.desktop.Mpv
 import com.spotifry.desktop.Platform
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeFalse
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
@@ -24,7 +23,6 @@ class MpvPcmTest {
 
     @Test fun realMpvKeepsPace() {
         assumeTrue("mpv not installed", runCatching { ProcessBuilder(Platform.tool("mpv"), "--version").start().waitFor() == 0 }.getOrDefault(false))
-        assumeFalse("Windows: Task 3", Platform.isWindows)
         val mpv = Mpv(pcmPath = "/dev/stdout") { _, _ -> }
         mpv.use {
             val stream = PcmStream(it.pcm!!)

@@ -41,8 +41,11 @@ class Mpv(
     /** Set by [close]: the socket then breaks on purpose, and the event reader ends without a word. */
     @Volatile private var closing = false
 
-    /** The raw sound when [pcmPath] is mpv's own output ("/dev/stdout"): 48 kHz, 16-bit, stereo, little-endian. */
-    val pcm: java.io.InputStream? get() = if (pcmPath == STDOUT) process.inputStream else null
+    /** Windows has no /dev/stdout: mpv writes the raw sound into a pipe Spotifry opens instead. */
+    private val windowsPipe = if (pcmPath == STDOUT && Platform.isWindows) com.spotifry.desktop.bot.WindowsPipe() else null
+
+    /** The raw sound when [pcmPath] is [STDOUT]: 48 kHz, 16-bit, stereo, little-endian. */
+    val pcm: java.io.InputStream? get() = windowsPipe?.input ?: if (pcmPath == STDOUT) process.inputStream else null
 
     init {
         process = launch(binary, extraArgs)
@@ -89,7 +92,7 @@ class Mpv(
             "--cache=yes", "--demuxer-max-bytes=200MiB", "--demuxer-readahead-secs=3600") + extraArgs + pcmArgs(),
     ).let { pb ->
         // with raw sound on mpv's output, its messages keep going to the log through the error stream alone
-        if (pcmPath == STDOUT) pb.redirectError(log.toFile()) else pb.redirectErrorStream(true).redirectOutput(log.toFile())
+        if (pcmPath == STDOUT && windowsPipe == null) pb.redirectError(log.toFile()) else pb.redirectErrorStream(true).redirectOutput(log.toFile())
     }.start() } catch (e: java.io.IOException) { throw MpvMissing(e) }
 
     /** mpv stopped before it opened its socket: once more a second later (an antivirus checking a new mpv.exe can stop it the first time), then the reason. */
@@ -116,7 +119,7 @@ class Mpv(
     }
 
     private fun pcmArgs(): List<String> = if (pcmPath == null) emptyList() else listOf(
-        "--ao=pcm", "--ao-pcm-file=$pcmPath", "--ao-pcm-waveheader=no", "--audio-samplerate=48000", "--audio-channels=stereo", "--audio-format=s16",
+        "--ao=pcm", "--ao-pcm-file=${windowsPipe?.path ?: pcmPath}", "--ao-pcm-waveheader=no", "--audio-samplerate=48000", "--audio-channels=stereo", "--audio-format=s16",
     )
 
     fun observe(id: Int, property: String) = command("observe_property", id, property)
@@ -127,6 +130,7 @@ class Mpv(
         runCatching { command("quit") }
         process.destroy()
         runCatching { pipe?.close() }
+        runCatching { windowsPipe?.close() }
         runCatching { process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS); Files.deleteIfExists(log) }
         runCatching { Files.deleteIfExists(socket); Files.deleteIfExists(dir) }
     }

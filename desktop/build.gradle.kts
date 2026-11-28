@@ -24,6 +24,8 @@ dependencies {
     // media keys and the desktop's player widget: MPRIS over D-Bus
     implementation("com.github.hypfvieh:dbus-java-core:5.2.2")
     implementation("com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.2.2")
+    // the Discord bot on Windows: a named pipe for mpv's raw sound (JDA brings an older JNA; this one wins)
+    implementation("net.java.dev.jna:jna:5.19.1")
     runtimeOnly("org.slf4j:slf4j-nop:2.0.16")
 
     testImplementation(libs.junit)
