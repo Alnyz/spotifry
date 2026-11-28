@@ -20,7 +20,13 @@ class MpvMissing(cause: Throwable) : Exception("Spotifry plays music through mpv
  * One mpv process with no window, driven over its JSON socket. [onEvent] gets every event mpv sends (property changes
  * we asked for, start-file, end-file, playback-restart) on a background thread.
  */
-class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool("mpv"), private val onEvent: (name: String, event: JSONObject) -> Unit) : AutoCloseable {
+class Mpv(
+    extraArgs: List<String> = emptyList(),
+    binary: String = Platform.tool("mpv"),
+    /** Set for the Discord bot: mpv writes its sound, raw, to this path instead of playing it. */
+    private val pcmPath: String? = null,
+    private val onEvent: (name: String, event: JSONObject) -> Unit,
+) : AutoCloseable {
     private val dir = Files.createTempDirectory("spotifry-mpv")
     private val socket = dir.resolve("mpv.sock")
     /** mpv's control address: a socket file on Linux, a named pipe on Windows. */
@@ -34,6 +40,9 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
     private val reader: java.io.BufferedReader
     /** Set by [close]: the socket then breaks on purpose, and the event reader ends without a word. */
     @Volatile private var closing = false
+
+    /** The raw sound when [pcmPath] is mpv's own output ("/dev/stdout"): 48 kHz, 16-bit, stereo, little-endian. */
+    val pcm: java.io.InputStream? get() = if (pcmPath == STDOUT) process.inputStream else null
 
     init {
         process = launch(binary, extraArgs)
@@ -77,8 +86,11 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
             "--audio-display=no", "--ytdl=no", "--audio-client-name=Spotifry", "--input-ipc-server=$endpoint",
             // the whole song is fetched ahead: a lossless file's server takes seconds per request, and a jump into a
             // part not yet fetched could need several (mpv has to search the file for the spot)
-            "--cache=yes", "--demuxer-max-bytes=200MiB", "--demuxer-readahead-secs=3600") + extraArgs,
-    ).redirectErrorStream(true).redirectOutput(log.toFile()).start() } catch (e: java.io.IOException) { throw MpvMissing(e) }
+            "--cache=yes", "--demuxer-max-bytes=200MiB", "--demuxer-readahead-secs=3600") + extraArgs + pcmArgs(),
+    ).let { pb ->
+        // with raw sound on mpv's output, its messages keep going to the log through the error stream alone
+        if (pcmPath == STDOUT) pb.redirectError(log.toFile()) else pb.redirectErrorStream(true).redirectOutput(log.toFile())
+    }.start() } catch (e: java.io.IOException) { throw MpvMissing(e) }
 
     /** mpv stopped before it opened its socket: once more a second later (an antivirus checking a new mpv.exe can stop it the first time), then the reason. */
     private fun startAgain(binary: String, extraArgs: List<String>) {
@@ -102,6 +114,10 @@ class Mpv(extraArgs: List<String> = emptyList(), binary: String = Platform.tool(
         val line = JSONObject().put("command", JSONArray(args.toList())).toString() + "\n"
         synchronized(out) { out.write(line.toByteArray()); out.flush() }
     }
+
+    private fun pcmArgs(): List<String> = if (pcmPath == null) emptyList() else listOf(
+        "--ao=pcm", "--ao-pcm-file=$pcmPath", "--ao-pcm-waveheader=no", "--audio-samplerate=48000", "--audio-channels=stereo", "--audio-format=s16",
+    )
 
     fun observe(id: Int, property: String) = command("observe_property", id, property)
     fun set(property: String, value: Any) = command("set_property", property, value)
@@ -128,3 +144,6 @@ internal fun mpvStopped(binary: String, code: Int, said: List<String>, windows: 
     if (windows) append("\nAn antivirus may be blocking mpv.exe, or this Windows or PC is too old for it. mpv tried: $binary")
     if (said.isNotEmpty()) append("\n\nmpv said:\n").append(said.joinToString("\n"))
 }
+
+/** mpv's own output, as a path its sound can be written to (Linux and macOS). */
+const val STDOUT = "/dev/stdout"
