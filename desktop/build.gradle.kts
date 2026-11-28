@@ -30,12 +30,22 @@ dependencies {
     testImplementation(libs.coroutines.test)
 }
 
+// Gradle and Kotlin stay on the computer's JDK; the app itself, its tests and the bundled runtime are Java 25, which the
+// Discord bot's voice encryption (JDAVE) needs
+val java25 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25); vendor = JvmVendorSpec.AZUL }
+tasks.withType<Test>().configureEach { javaLauncher = java25 }
+
 compose.desktop {
     application {
         mainClass = "com.spotifry.desktop.MainKt"
+        javaHome = java25.get().metadata.installationPath.asFile.path
+        // JDAVE calls native code through Java's foreign function API
+        jvmArgs += "--enable-native-access=ALL-UNNAMED"
         // the release build drops library code the app never uses (about 20 MB less); to turn it off: isEnabled.set(false)
         buildTypes.release.proguard {
             configurationFiles.from(project.file("proguard-rules.pro"))
+            // 7.7 (Compose's default) can't read Java 25's own classes
+            version.set("7.10.0")
             obfuscate.set(false)
         }
         nativeDistributions {
