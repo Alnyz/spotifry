@@ -15,14 +15,14 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
   deploy:
     # the Mac beta is a pre-release: it changes nothing on the page, and its tag may not publish the site
     if: github.event_name != 'release' || !github.event.release.prerelease
+    # on the job, not the workflow: a skipped Mac beta run then never joins the group, so it can't cancel the main release's run
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     environment:
       name: github-pages
